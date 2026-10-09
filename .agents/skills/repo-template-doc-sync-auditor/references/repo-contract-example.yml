@@ -1,0 +1,39 @@
+contract_version: 1
+repository:
+  purpose: reusable-software-project-template
+  application_directory: app/
+  database_directory: database/
+  documentation_directory: docs/
+canonical_docs:
+  overview: README.md
+  requirements:
+    - docs/requirements/PRD.md
+    - docs/requirements/SRS.md
+  contribution: CONTRIBUTING.md
+  changelog: CHANGELOG.md
+agent_assets:
+  policy: .agents/POLICY.md
+  skills: .agents/skills/
+  workflows: .agents/workflows/
+  scripts: .agents/scripts/
+local_only:
+  - .agents/outputs/
+protected_paths:
+  paths:
+    - docs/diagrams/
+  rule: Exclude before input selection and traversal; never inspect linked targets.
+validation_inputs:
+  directories:
+    - app/
+    - database/
+    - .agents/skills/
+    - .agents/workflows/
+    - .agents/scripts/
+    - .github/ISSUE_TEMPLATE/
+    - .github/workflows/
+    - docs/requirements/
+    - docs/reports/
+rules:
+  skill_folder_must_match_frontmatter_name: true
+  use_relative_document_links: true
+  no_framework_or_dbms_default: true
