@@ -2,12 +2,18 @@
 > **File:** `database/README.md`\
 > **Version:** v1.0.0\
 > **Created:** 2026-06-14\
-> **Last Updated:** 2026-10-09\
-> **Status:** Template\
+> **Last Updated:** 2026-10-13\
+> **Status:** Draft\
 
 # Hướng Dẫn Thư Mục Database
 
-Thư mục này có thể chứa các script cơ sở dữ liệu được dự án lựa chọn. Các file SQL hiện tại chỉ là khung trống, không mặc định sản phẩm cơ sở dữ liệu hoặc cách quản lý migration.
+## Lựa Chọn Đã Chốt Cho HSF302
+
+- Hệ quản trị cơ sở dữ liệu: Microsoft SQL Server.
+- `schema.sql` hiện là file rỗng (0 byte), vì vậy chưa mô tả schema và không xác minh được thuộc tính, PK/FK, nullability, cardinality hoặc constraint.
+- Chưa có quyết định về công cụ migration trong baseline này. Không tự tạo hoặc sửa schema/migration trong phạm vi đồng bộ tài liệu.
+
+Thư mục này có thể chứa các script cơ sở dữ liệu của dự án. Các file SQL khung không mặc định sản phẩm cơ sở dữ liệu hoặc cách quản lý migration; lựa chọn DBMS đã chốt riêng cho HSF302 như trên.
 
 ## Các File Gợi Ý
 

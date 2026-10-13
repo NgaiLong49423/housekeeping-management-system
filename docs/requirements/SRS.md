@@ -2,7 +2,7 @@
 > **File:** `docs/requirements/SRS.md`\
 > **Version:** v1.0.0\
 > **Created:** 2026-06-14\
-> **Last Updated:** 2026-10-10\
+> **Last Updated:** 2026-10-13\
 > **Status:** Draft
 
 # Đặc Tả Yêu Cầu Phần Mềm (SRS)
@@ -46,9 +46,17 @@ BR-01 về một công ty và Staff part-time là **business context/constraint*
 
 ### 2.2 Xác thực và phân quyền
 
-Sử dụng session-based authentication phù hợp với ứng dụng Spring Boot MVC/N-layer. Ba role là Customer, Staff và Admin. Backend phải xác minh role, quyền sở hữu Booking và Staff được giao cho mọi thao tác tương ứng. Không sử dụng JWT và không mặc định thêm bảng Users, Accounts hoặc Roles.
+Sử dụng Spring Security với HTTP Session. Customer, Staff và Admin dùng chung trang `/login`; sau xác thực, hệ thống nhận diện role và điều hướng theo role. Backend phải xác minh role, quyền sở hữu Booking và Staff được giao cho mọi thao tác tương ứng. Không sử dụng JWT và không mặc định thêm bảng Users, Accounts hoặc Roles. Trường định danh, password hash và cách ánh xạ principal vào cấu trúc dữ liệu hiện có vẫn `UNVERIFIED`.
 
-### 2.3 Business Context/Constraints
+### 2.3 Nền tảng và kiến trúc kỹ thuật đã chốt
+
+- Giao diện dùng Spring Boot MVC, Thymeleaf và Bootstrap, render HTML phía server; không tạo frontend React tách riêng.
+- Ứng dụng theo MVC/N-layer: Controller nhận request và điều hướng; Service xử lý nghiệp vụ; Repository truy cập dữ liệu; Entity ánh xạ dữ liệu; Thymeleaf là View. Không đặt quy tắc nghiệp vụ trong Controller/View.
+- Java 21; Spring Boot 3.5.x (chưa chốt patch); Maven; Microsoft SQL Server.
+- Persistence dùng Spring Data JPA, Hibernate và JDBC Driver cho SQL Server. Hibernate không được tự thay đổi schema đã duyệt.
+- Tính tương thích của patch Spring Boot, driver, dependency resolution và kết nối môi trường thực tế cần được kiểm tra khi khởi tạo; các lựa chọn công nghệ ở trên đã được phê duyệt và không mang trạng thái `UNVERIFIED`.
+
+### 2.4 Business Context/Constraints
 
 | Mã | Constraint đã phê duyệt |
 |---|---|
@@ -66,7 +74,7 @@ Mỗi requirement dưới đây có acceptance criteria mang mã duy nhất. Tr�
 - **Alternative/error:** Thông tin không hợp lệ không tạo session; request được bảo vệ từ người chưa đăng nhập không thực hiện thao tác.
 - **Postcondition:** Session nhận diện người dùng và role hiện hành; không dùng JWT.
 - **Acceptance criteria:**
-  - **AC-01.1:** Thông tin đăng nhập hợp lệ tạo session gắn với đúng người dùng và một trong ba role Customer, Staff hoặc Admin.
+  - **AC-01.1:** Đăng nhập hợp lệ qua trang `/login` chung tạo HTTP Session gắn với đúng principal và đúng một role Customer, Staff hoặc Admin; sau xác thực hệ thống điều hướng theo role.
   - **AC-01.2:** Đăng nhập thất bại không tạo session đã xác thực.
   - **AC-01.3:** Request chưa đăng nhập không thực hiện được thao tác yêu cầu xác thực.
 
@@ -160,13 +168,13 @@ Mỗi requirement dưới đây có acceptance criteria mang mã duy nhất. Tr�
 - **Actor:** Staff được giao cho Booking.
 - **Precondition:** Staff đã đăng nhập và được giao Booking/Booking_Detail đích.
 - **Main flow:** Staff upload ảnh bằng Spring Boot `MultipartFile`; hệ thống lưu file trên filesystem local và ghi đường dẫn vào database, gắn Evidence với đúng Booking_Detail và Staff upload.
-- **Alternative/error:** Từ chối upload gắn với Booking_Detail ngoài Booking được giao hoặc do Staff không phụ trách gửi. Quy tắc MIME type/kích thước cụ thể chưa được baseline xác định và không tự đặt trong SRS.
+- **Alternative/error:** Từ chối upload gắn với Booking_Detail ngoài Booking được giao hoặc do Staff không phụ trách gửi; từ chối file rỗng, hỏng, không thực sự là JPEG/PNG, vượt 5 MB hoặc vượt quá 5 Evidence hợp lệ trên cùng Booking_Detail.
 - **Postcondition:** Evidence liên kết đúng detail và người gửi; có thể dùng để xét điều kiện hoàn thành.
 - **Acceptance criteria:**
-  - **AC-09.1:** Mỗi Booking_Detail có ít nhất một ảnh Evidence hợp lệ trước khi Booking hoàn thành.
-  - **AC-09.2:** Evidence gắn sai Booking_Detail hoặc upload bởi Staff không phụ trách Booking bị từ chối.
+  - **AC-09.1:** Mỗi Booking_Detail có từ 1 đến tối đa 5 ảnh Evidence hợp lệ trước khi Booking hoàn thành.
+  - **AC-09.2:** Evidence gắn sai Booking_Detail, upload bởi Staff không phụ trách Booking, file rỗng/hỏng hoặc nội dung file không hợp lệ bị từ chối.
   - **AC-09.3:** File được lưu trên filesystem local; đường dẫn tương ứng được lưu trong database.
-  - **AC-09.4:** Luồng upload nhận file qua `MultipartFile`; không dùng cloud storage.
+  - **AC-09.4:** Luồng upload nhận `MultipartFile`, chỉ chấp nhận tệp `.jpg`, `.jpeg` hoặc `.png` có nội dung thực tương ứng JPEG/PNG (không tin MIME do client gửi), giới hạn mỗi ảnh ở 5 MB và không dùng cloud storage.
 
 ### FR-10: Tạo Payment và chọn phương thức
 
@@ -255,11 +263,11 @@ Mỗi requirement dưới đây có acceptance criteria mang mã duy nhất. Tr�
 
 - **Actor:** Admin.
 - **Precondition:** Admin đã đăng nhập.
-- **Main flow:** Admin thực hiện CRUD cơ bản Staff và Services theo cấu trúc schema được duyệt.
-- **Alternative/error:** Từ chối người không phải Admin; không mở rộng schema hoặc nghiệp vụ CRUD vượt mô hình được duyệt.
+- **Main flow:** Admin tạo, xem, cập nhật Staff và Services theo cấu trúc schema được duyệt; chỉ hard-delete bản ghi không có dữ liệu phụ thuộc.
+- **Alternative/error:** Từ chối người không phải Admin; từ chối hard delete nếu có bất kỳ dữ liệu phụ thuộc nào; không cascade xóa lịch sử, không soft-delete và không mở rộng schema/CRUD vượt mô hình được duyệt.
 - **Postcondition:** Danh sách Staff/Services được duy trì theo dữ liệu dự án.
 - **Acceptance criteria:**
-  - **AC-17.1:** Admin được phép thực hiện CRUD cơ bản Staff và Services trong phạm vi schema được duyệt.
+  - **AC-17.1:** Admin tạo, xem và cập nhật Staff/Services theo schema được duyệt; chỉ hard-delete khi không có dữ liệu phụ thuộc. Nếu có bất kỳ dữ liệu phụ thuộc nào thì xóa bị từ chối, dữ liệu lịch sử được giữ và không cascade; không dùng soft-delete hoặc trạng thái xóa mới.
   - **AC-17.2:** Customer và Staff không thực hiện được thao tác quản trị CRUD này.
 
 ### FR-18: Admin xem Booking, trạng thái công việc và Payment
@@ -276,9 +284,12 @@ Mỗi requirement dưới đây có acceptance criteria mang mã duy nhất. Tr�
 ## 4. Giao Diện Bên Ngoài
 
 - **Xác thực:** session-based authentication; không JWT.
-- **Upload:** nhận ảnh Evidence qua Spring Boot `MultipartFile`; lưu trên filesystem local và lưu đường dẫn trong database.
+- **Đăng nhập:** một trang `/login` chung cho Customer, Staff và Admin; xác thực server-side bằng Spring Security và HTTP Session.
+- **Giao diện:** Spring Boot MVC + Thymeleaf + Bootstrap, render HTML phía server.
+- **Upload:** nhận JPEG/PNG qua Spring Boot `MultipartFile`; kiểm tra nội dung thực, tối đa 5 MB/ảnh và 1–5 ảnh hợp lệ/Booking_Detail; lưu trên filesystem local và lưu đường dẫn trong database.
 - **Thanh toán:** thao tác thủ công; `BANK_TRANSFER` không tích hợp gateway, webhook hay tự động đối soát.
-- Chi tiết UI, route, giao thức HTTP, MIME allowlist và giới hạn dung lượng chưa được baseline chốt; không được coi là yêu cầu cụ thể cho tới khi được xác nhận.
+- Các quyết định công nghệ: Java 21, Spring Boot 3.5.x, Maven, Microsoft SQL Server, Spring Data JPA/Hibernate và JDBC Driver cho SQL Server. Patch Spring Boot và khả năng tương thích môi trường cần kiểm tra.
+- `/login` là route đã chốt; các route nghiệp vụ khác và giao thức chi tiết chưa được chốt trong baseline.
 
 ## 5. Yêu Cầu Dữ Liệu
 
@@ -293,7 +304,7 @@ Giữ nguyên 11 thực thể baseline: Customer, Staff, Admin, Services, Bookin
 | Staff–Work_Schedule–Admin | Work_Schedule biểu diễn các khoảng sẵn sàng linh hoạt của Staff do Admin quản lý. |
 | Booking–Work_Schedule | Booking phải nằm trong khoảng sẵn sàng và không giao với lịch cùng Staff đang bị Booking khác chiếm. |
 | Booking_Detail–Services | Mỗi detail gắn với dịch vụ tương ứng. |
-| Booking_Detail–Evidences–Staff | Mỗi detail cần ít nhất một Evidence hợp lệ; Evidence gắn đúng detail và do Staff phụ trách upload. |
+| Booking_Detail–Evidences–Staff | Mỗi detail cần từ 1 đến tối đa 5 Evidence ảnh hợp lệ (JPEG/PNG, tối đa 5 MB/ảnh); Evidence gắn đúng detail và do Staff phụ trách upload. |
 | Booking–Payment | Tối đa một Payment cho mỗi Booking; được tạo `UNPAID` khi Booking `COMPLETED`. |
 | Customer–Booking–Feedback | Tối đa một Feedback/Booking; chỉ Customer sở hữu Booking `COMPLETED` gửi được. |
 | Customer–Favorite_Staff–Staff | Không có quan hệ trùng cho cùng cặp Customer–Staff. |
@@ -303,7 +314,7 @@ Giữ nguyên 11 thực thể baseline: Customer, Staff, Admin, Services, Bookin
 - Booking chỉ dùng `CONFIRMED`, `CANCELLED`, `COMPLETED`; transition được quy định tại FR-06…FR-08.
 - Payment chỉ dùng `UNPAID`, `PAID`; transition được quy định tại FR-10 và FR-11.
 - Các giới hạn tối đa một Payment/Booking, một Feedback/Booking và duy nhất cặp Favorite_Staff là yêu cầu nghiệp vụ đã chốt. Constraint database tương ứng chưa được xác minh.
-- Việc Customer chọn phương thức sau khi Payment đã được tạo có thể cần cho phép phương thức chưa chọn trong bản ghi Payment. Khả năng biểu diễn đó trong schema hiện tại là `UNVERIFIED`; không thêm trạng thái Payment mới hoặc tự sửa schema.
+- Payment được tạo `UNPAID` trước khi Customer chọn phương thức theo baseline đã chốt. Khả năng biểu diễn phương thức chưa chọn trong schema hiện tại là `UNVERIFIED`; không thêm trạng thái Payment mới hoặc tự sửa schema.
 - Thông tin đăng nhập/session có thể ánh xạ vào ba thực thể hiện có hay không là `UNVERIFIED`; không giả định thêm bảng/cột.
 
 ## 6. Yêu Cầu Chất Lượng
@@ -312,14 +323,14 @@ Giữ nguyên 11 thực thể baseline: Customer, Staff, Admin, Services, Bookin
 |---|---|---|
 | NFR-01 | Backend phải kiểm tra role và ownership cho thao tác nghiệp vụ. | AC-02.1…AC-02.3. |
 | NFR-02 | Kiểm tra đặt lịch phải ngăn hai request đồng thời cùng chiếm slot Staff. | AC-05.3; chỉ quy định kết quả, không chọn cơ chế transaction/locking. |
-| NFR-03 | Evidence lưu local; không gửi lên cloud. | AC-09.3 và AC-09.4. |
+| NFR-03 | Evidence phải là JPEG/PNG được kiểm tra nội dung thực, tối đa 5 MB/ảnh, từ 1 đến tối đa 5 ảnh hợp lệ/Booking_Detail và lưu local; không gửi lên cloud. | AC-09.1, AC-09.3 và AC-09.4. |
 
 ## 7. Ràng Buộc Và Phụ Thuộc
 
 - Phạm vi chỉ dùng 11 thực thể đã liệt kê; không thêm/xóa entity trong yêu cầu.
 - Không tự thêm bảng, cột, quan hệ, trạng thái hoặc quy tắc nghiệp vụ.
 - Không dùng JWT, payment gateway, cloud storage, AI, hoàn tiền hoặc các tính năng ngoài phạm vi trong PRD.
-- DBMS, phiên bản Java/Spring Boot, build tool, thông tin xác thực trong schema, thuộc tính/PK/FK và constraint vật lý chưa được xác minh.
+- Patch Spring Boot 3.5.x, driver/dependency resolution, kết nối môi trường, thông tin xác thực trong schema, thuộc tính/PK/FK/cardinality/nullability và constraint vật lý chưa được xác minh. Các lựa chọn nền tảng đã phê duyệt tại mục 2.3 không phải là unknown nghiệp vụ.
 - Các unknown trên là unknown về thiết kế/bằng chứng; không làm thay đổi trạng thái đã phê duyệt của BR/FR.
 
 ## 8. Truy Vết BR → FR → AC
@@ -336,8 +347,8 @@ Mỗi AC có mã duy nhất theo requirement cha. `AC-BC-01.1` là tiêu chí ki
 | BR-06 | Functional | FR-07 | **AC-07.1:** Hủy đúng mốc 2 giờ được phép. **AC-07.2:** Hủy sau mốc bị từ chối. |
 | BR-07 | Functional | FR-07 | **AC-07.3:** Chỉ `CONFIRMED → CANCELLED`, không hủy `COMPLETED`. **AC-07.4:** Dữ liệu được giữ, lịch được giải phóng. |
 | BR-08 | Functional | FR-08 | **AC-08.1:** Staff đúng người hoàn thành Booking đúng trạng thái, không trước giờ bắt đầu, mọi detail đủ Evidence. **AC-08.2:** Staff khác bị từ chối. **AC-08.3:** Sai thời điểm/trạng thái bị từ chối. **AC-08.4:** Một detail thiếu ảnh làm cả Booking không hoàn thành. |
-| BR-09 | Functional | FR-09 | **AC-09.1:** Mỗi detail có ít nhất một ảnh hợp lệ trước hoàn thành. **AC-09.2:** Sai detail hoặc Staff upload bị từ chối. |
-| BR-10 | Functional | FR-09 | **AC-09.3:** File lưu local, đường dẫn lưu DB. **AC-09.4:** Dùng `MultipartFile`, không cloud. |
+| BR-09 | Functional | FR-09 | **AC-09.1:** Mỗi detail có từ 1–5 ảnh hợp lệ trước hoàn thành, vượt giới hạn bị từ chối. **AC-09.2:** Sai detail/Staff, file rỗng/hỏng hoặc nội dung không hợp lệ bị từ chối. |
+| BR-10 | Functional | FR-09 | **AC-09.3:** File lưu local, đường dẫn lưu DB. **AC-09.4:** Dùng `MultipartFile`, chỉ phần mở rộng `.jpg`/`.jpeg`/`.png` và nội dung thực JPEG/PNG, tối đa 5 MB/ảnh, không tin MIME client, không cloud. |
 | BR-11 | Functional | FR-10 | **AC-10.3:** Chỉ chọn `CASH` hoặc `BANK_TRANSFER` sau `COMPLETED`. |
 | BR-12 | Functional | FR-10, FR-11 | **AC-10.1:** Tạo đúng một Payment `UNPAID` khi Booking hoàn thành. **AC-10.2:** Payment thứ hai cùng Booking bị từ chối. **AC-10.4:** Phương thức chưa chọn không tạo trạng thái Payment mới. **AC-11.1:** Chỉ Admin đã xác minh nhận tiền và có phương thức hợp lệ mới chuyển `PAID`. **AC-11.2:** Thiếu phương thức/xác minh thì không `PAID`. **AC-11.3:** Không gateway/webhook tự xác nhận. |
 | BR-13 | Functional | FR-12 | **AC-12.1:** Customer sở hữu Booking `COMPLETED` gửi rating 1–5 và nhận xét. **AC-12.2:** Sai owner/trạng thái/rating bị từ chối. **AC-12.3:** Feedback thứ hai bị từ chối. **AC-12.4:** Không thêm sửa/xóa/kiểm duyệt. |
@@ -357,27 +368,30 @@ Các chức năng vai trò đã có trong Business Baseline V1.0 nhưng không m
 | Customer xem Services, Staff và thời gian có thể đặt | FR-14 | AC-14.1, AC-14.2 |
 | Customer xem Booking của mình và trạng thái Payment | FR-15 | AC-15.1, AC-15.2 |
 | Staff xem công việc được giao cho mình | FR-16 | AC-16.1, AC-16.2 |
-| Admin CRUD cơ bản Staff/Services theo schema được duyệt | FR-17 | AC-17.1, AC-17.2 |
+| Admin CRUD cơ bản Staff/Services theo schema được duyệt, hard delete có điều kiện | FR-17 | AC-17.1, AC-17.2 |
 | Admin xem Booking, trạng thái công việc và thông tin Payment | FR-18 | AC-18.1, AC-18.2 |
 
 ## Phụ Lục A — ERD Verification (bằng chứng thiết kế)
 
-Phụ lục này không thay đổi hay gắn `UNVERIFIED` lên các BR/FR đã phê duyệt. Kết quả dựa trên báo cáo đối chiếu ERD đã cung cấp trước đó; không truy cập thư mục `docs/diagrams/`.
+Phụ lục này không thay đổi hay gắn `UNVERIFIED` lên các BR/FR đã phê duyệt. Bằng chứng sơ đồ là ảnh ERD người dùng đã gửi trong hội thoại trước; trong lần đồng bộ này không mở hay truy cập đường dẫn trong `docs/diagrams/`. `database/schema.sql` được kiểm tra metadata và có kích thước 0 byte, nên không cung cấp bằng chứng về cấu trúc vật lý. `VERIFIED` dưới đây chỉ áp dụng cho nội dung trực tiếp thể hiện trong ảnh/baseline; không suy rộng sang constraint SQL.
 
 | Hạng mục | Kết quả xác minh thiết kế | Diễn giải |
 |---|---|---|
-| 11 tên thực thể | `MATCH` | Báo cáo ERD trước ghi nhận đủ Customer, Staff, Admin, Services, Booking, Booking_Detail, Work_Schedule, Payment, Feedback, Favorite_Staff và Evidences. |
-| Thuộc tính, PK, FK | `UNVERIFIED` | Báo cáo trước không cung cấp bằng chứng đủ chi tiết để xác định thuộc tính hay khóa. Không suy luận chúng vắng mặt. |
-| Booking–Booking_Detail–Staff–Work_Schedule | `UNVERIFIED` | Có quan hệ gián tiếp Booking_Detail–Work_Schedule–Staff; chưa xác minh rằng tất cả detail trong cùng Booking được bảo đảm thuộc một Staff được Customer chọn. |
-| Khoảng Booking chung và thời lượng/tuần tự detail | `UNVERIFIED` | Baseline quy định hành vi; bằng chứng ERD trước chưa xác minh thuộc tính thời gian hoặc ràng buộc tuần tự. |
-| Booking_Detail–Evidences–Staff | `MATCH` về liên kết; constraint `UNVERIFIED` | Quan hệ Evidence với detail và Staff được báo cáo; chưa xác minh khóa, ownership và điều kiện hợp lệ. |
-| Tối đa một Payment/Booking | `UNVERIFIED` | BR-12 đã chốt; chưa xác minh constraint vật lý. |
-| Tối đa một Feedback/Booking | `UNVERIFIED` về constraint | Báo cáo trước nói cardinality sơ đồ có vẻ gợi ý tối đa một; constraint database chưa xác minh. |
-| Thông tin xác thực ba role | `UNVERIFIED` | Chưa xác minh trường đăng nhập/session trong các thực thể hiện có. Không thêm Users/Accounts/Roles. |
-| Trạng thái Booking/Payment | `UNVERIFIED` về biểu diễn dữ liệu | Các trạng thái nghiệp vụ đã chốt; thuộc tính hoặc constraint vật lý chưa xác minh. |
-| Khả năng để Payment chưa có method sau khi tạo | `UNVERIFIED` | Yêu cầu nghiệp vụ là tạo Payment `UNPAID` lúc hoàn thành rồi Customer chọn method sau. Chưa xác minh schema hiện tại biểu diễn được thời điểm chưa chọn; không thêm trạng thái Payment. |
+| Danh sách 11 tên thực thể | `VERIFIED` (baseline); ERD vật lý `UNVERIFIED` | DEC baseline liệt kê cùng 11 tên và ảnh ERD đã gửi thể hiện các hộp thực thể tương ứng. Điều này không xác minh thuộc tính hay database đã triển khai. |
+| Các quan hệ được vẽ giữa thực thể | `VERIFIED` ở mức sơ đồ | Ảnh ERD đã gửi thể hiện các liên kết Customer–Booking, Booking–Booking_Detail, Booking_Detail–Work_Schedule/Services/Evidences, Staff–Work_Schedule/Evidences, Booking–Payment/Feedback và Customer–Favorite_Staff. Không suy ra thêm constraint ngoài ký hiệu thể hiện. |
+| Thuộc tính, PK, FK, nullability và constraint SQL | `UNVERIFIED` | Ảnh ERD trước không cung cấp danh sách thuộc tính/khóa đủ để xác định các nội dung này; `database/schema.sql` hiện có 0 byte. Không suy luận chúng vắng mặt trong mọi nguồn khác. |
+| Booking–Booking_Detail–Staff–Work_Schedule | `UNVERIFIED` | Sơ đồ thể hiện Booking có Booking_Detail và đường liên kết Detail–Work_Schedule–Staff; chưa có bằng chứng invariant rằng mọi detail trong một Booking dùng cùng Staff Customer đã chọn. |
+| Khoảng Booking chung và thời lượng/tuần tự detail | `UNVERIFIED` | BR-04 đã chốt hành vi; ảnh ERD không xác minh thuộc tính thời gian, nguồn thời lượng hay constraint tuần tự. |
+| Booking_Detail–Evidences–Staff | `VERIFIED` về liên kết sơ đồ; ownership/constraint `UNVERIFIED` | Ảnh ERD thể hiện Booking_Detail có Evidence và Staff gửi Evidence; chưa xác minh FK/ownership để bảo đảm người gửi là Staff được chọn cho Booking. |
+| Tối đa một Payment/Booking | `UNVERIFIED` về constraint vật lý | BR-12 đã chốt; sơ đồ/bằng chứng schema hiện có không xác nhận unique/FK thực tế. |
+| Tối đa một Feedback/Booking | `UNVERIFIED` về constraint vật lý | BR-13 đã chốt; không có schema SQL để xác nhận unique constraint. |
+| Định danh và password cho ba role | `UNVERIFIED` | Chưa có bằng chứng trường đăng nhập/password trong schema; không thêm Users/Accounts/Roles. |
+| Trạng thái Booking/Payment | `UNVERIFIED` về biểu diễn vật lý | Các trạng thái nghiệp vụ đã chốt; `schema.sql` rỗng nên kiểu/cột/constraint không xác minh được. |
+| Payment chưa chọn method sau khi tạo | `UNVERIFIED` | Nghiệp vụ tạo Payment `UNPAID` trước, Customer chọn method sau; `schema.sql` rỗng nên không xác nhận được nullability/enum hay cấu trúc hiện hữu. Không thêm trạng thái Payment. |
+| Hard delete Staff/Services và dữ liệu phụ thuộc | `UNVERIFIED` về thiết kế vật lý | DEC-16 chốt hành vi hard delete có điều kiện; chưa có bằng chứng đầy đủ các FK/đường phụ thuộc hoặc ON DELETE trong `schema.sql` (0 byte). Không cascade lịch sử theo quyết định. |
+| Đường dẫn/metadata Evidence và upload đồng thời | `UNVERIFIED` | DEC-15 chốt lưu filesystem local và database giữ đường dẫn; `schema.sql` rỗng nên chưa xác minh được trường Evidence. Cách phục vụ file và xử lý upload cạnh tranh cần xác minh/thiết kế mà không thêm cấu trúc dữ liệu ngoài phê duyệt. |
 
-Không có `CONFLICT` thiết kế nào được xác nhận từ bằng chứng báo cáo trước. Nếu một kiểm tra hợp lệ sau này phát hiện mâu thuẫn, ghi nhận riêng kèm tác động và yêu cầu quyết định; không tự sửa ERD/schema.
+Không xác nhận `CONFLICT` vật lý nào trong lần đồng bộ này vì không có schema SQL để đối chiếu; các mục vật lý cần thiết cho Payment, Booking và hard delete còn `UNVERIFIED`. Nếu kiểm tra hợp lệ sau này phát hiện mâu thuẫn, ghi nhận riêng kèm tác động và yêu cầu quyết định; không tự sửa ERD/schema.
 
 ## 9. Nghiệm Thu Và Lịch Sử Thay Đổi
 

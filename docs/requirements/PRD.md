@@ -2,7 +2,7 @@
 > **File:** `docs/requirements/PRD.md`\
 > **Version:** v1.0.0\
 > **Created:** 2026-06-14\
-> **Last Updated:** 2026-10-10\
+> **Last Updated:** 2026-10-13\
 > **Status:** Draft
 
 # Yêu Cầu Sản Phẩm
@@ -13,6 +13,15 @@
 - **Mục đích:** Hỗ trợ một công ty giúp việc quản lý Staff part-time, lịch sẵn sàng, Booking, công việc, bằng chứng hoàn thành và các nghiệp vụ sau dịch vụ.
 - **Đối tượng sử dụng:** Customer, Staff và Admin.
 - **Bối cảnh:** Dự án học phần HSF302; ưu tiên thực hành Spring Boot MVC và kiến trúc N-layer.
+
+### 1.1 Nền tảng kỹ thuật đã chốt
+
+- Giao diện: Spring Boot MVC, Thymeleaf và Bootstrap; render HTML phía server, không tạo frontend React riêng.
+- Kiến trúc ứng dụng: MVC/N-layer gồm Controller, Service, Repository, Entity và View; quy tắc nghiệp vụ nằm ở Service, không đặt trong Controller/View.
+- Nền tảng: Java 21, Spring Boot 3.5.x (patch sẽ chọn tương thích khi khởi tạo), Maven, Microsoft SQL Server.
+- Persistence: Spring Data JPA, Hibernate và JDBC Driver cho SQL Server. Hibernate không được tự thay đổi schema đã duyệt.
+- Xác thực: Spring Security với HTTP Session; một trang đăng nhập chung `/login` cho Customer, Staff và Admin; phân quyền và điều hướng theo role sau xác thực; không dùng JWT.
+- Các quyết định trên là lựa chọn kỹ thuật đã được phê duyệt. Khả năng tương thích patch/dependency, cấu hình môi trường và khả năng ánh xạ xác thực vào dữ liệu hiện có vẫn cần xác minh riêng.
 
 ## 2. Business Context, Mục Tiêu Và Ràng Buộc
 
@@ -45,6 +54,8 @@
 - Khi Booking hoàn thành, hệ thống tạo một Payment `UNPAID`; Customer chọn `CASH` hoặc `BANK_TRANSFER` sau đó; Admin xác minh nhận tiền trước khi cập nhật `PAID`.
 - Customer gửi tối đa một Feedback cho Booking `COMPLETED` và thêm/bỏ Staff yêu thích.
 - Session-based authentication cho Customer, Staff và Admin; kiểm tra role và ownership tại backend.
+- Evidence chỉ nhận JPEG (`.jpg`, `.jpeg`) và PNG (`.png`), kiểm tra nội dung file thực, tối đa 5 MB/ảnh và từ 1 đến tối đa 5 ảnh hợp lệ trên mỗi Booking_Detail; lưu local qua `MultipartFile`.
+- Xóa Staff/Services theo hard delete có điều kiện: chỉ xóa khi không có dữ liệu phụ thuộc; nếu có phụ thuộc thì từ chối và giữ nguyên lịch sử, không cascade.
 
 ### Ngoài phạm vi
 
@@ -84,14 +95,14 @@ Các yêu cầu chi tiết, luồng thay thế, tiêu chí nghiệm thu và truy
 - Quyền truy cập và ownership phải được kiểm tra tại backend.
 - Việc kiểm tra lịch phải đảm bảo kết quả đúng khi có yêu cầu đồng thời; cách triển khai Service/transaction sẽ được quyết định trong thiết kế kỹ thuật.
 - Hệ thống không được lưu Evidence lên cloud.
-- Giới hạn định dạng, kích thước và nội dung ảnh chưa được baseline quy định; SRS ghi là nội dung cần xác minh, không tự đặt giá trị.
+- Java 21, Spring Boot 3.5.x, Maven, SQL Server, Spring Data JPA/Hibernate, Spring Security, Thymeleaf và Bootstrap là nền tảng kỹ thuật đã chốt. Patch Spring Boot, driver, dependency resolution và kết nối môi trường thực tế cần được xác minh khi triển khai.
+- Evidence phải là JPEG/PNG hợp lệ theo nội dung file, tối đa 5 MB mỗi ảnh và tối đa 5 ảnh trên mỗi Booking_Detail; các giới hạn này đã được quyết định và được đặc tả tại SRS.
+- Hard delete Staff/Services phải từ chối khi tồn tại dữ liệu phụ thuộc và không cascade xóa lịch sử; các FK/phụ thuộc vật lý cần xác minh trước khi triển khai.
 
 ## 7. Giả Định Và Phụ Thuộc Chưa Xác Minh
 
-- Các tên thuộc tính, PK/FK, cardinality và constraint vật lý của ERD chưa được xác minh bằng báo cáo ERD hiện có; xem phụ lục ERD Verification trong SRS.
 - Khả năng lưu Payment khi Customer chưa chọn phương thức sau thời điểm Booking hoàn thành chưa được xác minh từ schema. Nghiệp vụ không tạo trạng thái Payment mới để mô tả tình huống này.
-- Cấu trúc dữ liệu đăng nhập/session chưa được xác minh; không giả định thêm bảng hoặc cột.
-- DBMS, phiên bản Java/Spring Boot và build tool không được PRD này mặc định.
+- Cấu trúc dữ liệu đăng nhập/session, thuộc tính/PK/FK/cardinality/constraint vật lý và khả năng hỗ trợ các quy tắc nghiệp vụ trong schema hiện có chưa được xác minh. Tên DBMS, Java/Spring Boot và build tool đã được chốt ở mục 1.1; việc kiểm tra tương thích thực tế vẫn còn mở.
 
 ## 8. Nghiệm Thu Và Phê Duyệt
 
