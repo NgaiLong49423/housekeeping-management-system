@@ -18,10 +18,10 @@
 
 - Giao diện: Spring Boot MVC, Thymeleaf và Bootstrap; render HTML phía server, không tạo frontend React riêng.
 - Kiến trúc ứng dụng: MVC/N-layer gồm Controller, Service, Repository, Entity và View; quy tắc nghiệp vụ nằm ở Service, không đặt trong Controller/View.
-- Nền tảng: Java 21, Spring Boot 3.5.x (patch sẽ chọn tương thích khi khởi tạo), Maven, Microsoft SQL Server.
-- Persistence: Spring Data JPA, Hibernate và JDBC Driver cho SQL Server. Hibernate không được tự thay đổi schema đã duyệt.
+- Nền tảng: Java 21, Spring Boot 4.1.1, Maven, Microsoft SQL Server. Spring Boot 4.1.1 là framework đã được giảng viên chốt chính thức; tài liệu này được đồng bộ theo quyết định đó.
+- Persistence/database change management: Spring Data JPA, Hibernate và JDBC Driver cho SQL Server; dùng Flyway để quản lý các database migration có phiên bản. Hibernate không được tự thay đổi schema đã duyệt; thay đổi schema đi qua migration được phê duyệt.
 - Xác thực: Spring Security với HTTP Session; một trang đăng nhập chung `/login` cho Customer, Staff và Admin; phân quyền và điều hướng theo role sau xác thực; không dùng JWT.
-- Các quyết định trên là lựa chọn kỹ thuật đã được phê duyệt. Khả năng tương thích patch/dependency, cấu hình môi trường và khả năng ánh xạ xác thực vào dữ liệu hiện có vẫn cần xác minh riêng.
+- Các quyết định trên là lựa chọn kỹ thuật đã được phê duyệt. Với Spring Boot 4.1.1, dependency Flyway/SQL Server/JPA/Testcontainers đã resolve và biên dịch thành công trong Maven package; khả năng khởi động Flyway và hành vi trên SQL Server cần xác minh runtime. Khả năng ánh xạ xác thực vào dữ liệu hiện có vẫn cần xác minh riêng.
 
 ## 2. Business Context, Mục Tiêu Và Ràng Buộc
 
@@ -95,7 +95,7 @@ Các yêu cầu chi tiết, luồng thay thế, tiêu chí nghiệm thu và truy
 - Quyền truy cập và ownership phải được kiểm tra tại backend.
 - Việc kiểm tra lịch phải đảm bảo kết quả đúng khi có yêu cầu đồng thời; cách triển khai Service/transaction sẽ được quyết định trong thiết kế kỹ thuật.
 - Hệ thống không được lưu Evidence lên cloud.
-- Java 21, Spring Boot 3.5.x, Maven, SQL Server, Spring Data JPA/Hibernate, Spring Security, Thymeleaf và Bootstrap là nền tảng kỹ thuật đã chốt. Patch Spring Boot, driver, dependency resolution và kết nối môi trường thực tế cần được xác minh khi triển khai.
+- Java 21, Spring Boot 4.1.1, Maven, SQL Server, Spring Data JPA/Hibernate, Flyway, Spring Security, Thymeleaf và Bootstrap là nền tảng kỹ thuật đã chốt. Spring Boot 4.1.1 được ghi nhận theo quyết định chính thức của giảng viên; Flyway runtime, Hibernate validation, DATETIMEOFFSET round-trip và concurrency cần được xác minh trên SQL Server/Testcontainers.
 - Evidence phải là JPEG/PNG hợp lệ theo nội dung file, tối đa 5 MB mỗi ảnh và tối đa 5 ảnh trên mỗi Booking_Detail; các giới hạn này đã được quyết định và được đặc tả tại SRS.
 - Hard delete Staff/Services phải từ chối khi tồn tại dữ liệu phụ thuộc và không cascade xóa lịch sử; các FK/phụ thuộc vật lý cần xác minh trước khi triển khai.
 

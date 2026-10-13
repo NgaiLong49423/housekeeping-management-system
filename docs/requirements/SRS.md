@@ -52,9 +52,9 @@ Sử dụng Spring Security với HTTP Session. Customer, Staff và Admin dùng 
 
 - Giao diện dùng Spring Boot MVC, Thymeleaf và Bootstrap, render HTML phía server; không tạo frontend React tách riêng.
 - Ứng dụng theo MVC/N-layer: Controller nhận request và điều hướng; Service xử lý nghiệp vụ; Repository truy cập dữ liệu; Entity ánh xạ dữ liệu; Thymeleaf là View. Không đặt quy tắc nghiệp vụ trong Controller/View.
-- Java 21; Spring Boot 3.5.x (chưa chốt patch); Maven; Microsoft SQL Server.
-- Persistence dùng Spring Data JPA, Hibernate và JDBC Driver cho SQL Server. Hibernate không được tự thay đổi schema đã duyệt.
-- Tính tương thích của patch Spring Boot, driver, dependency resolution và kết nối môi trường thực tế cần được kiểm tra khi khởi tạo; các lựa chọn công nghệ ở trên đã được phê duyệt và không mang trạng thái `UNVERIFIED`.
+- Java 21; Spring Boot 4.1.1; Maven; Microsoft SQL Server. Spring Boot 4.1.1 là framework đã được giảng viên chốt chính thức; nội dung SRS được đồng bộ theo quyết định đó.
+- Persistence dùng Spring Data JPA, Hibernate và JDBC Driver cho SQL Server; Flyway quản lý các database migration có phiên bản. Hibernate không được tự thay đổi schema đã duyệt; thay đổi schema đi qua migration được phê duyệt.
+- Lựa chọn dùng Flyway đã được phê duyệt. Flyway SQL Server module, SQL Server JDBC Driver, Spring Data JPA/Hibernate và Testcontainers SQL Server đã resolve/biên dịch với Spring Boot 4.1.1 trong Maven package. Migration được đặt tại `classpath:db/migration` và Hibernate chỉ validate; Flyway runtime, Hibernate validation, DATETIMEOFFSET round-trip và concurrency trên SQL Server vẫn `UNVERIFIED` đến khi acceptance tests chạy thành công trên SQL Server/Testcontainers. Các lựa chọn công nghệ đã được chốt không mang trạng thái `UNVERIFIED`; chỉ các chi tiết triển khai chưa kiểm chứng mới mang nhãn đó.
 
 ### 2.4 Business Context/Constraints
 
@@ -288,7 +288,7 @@ Mỗi requirement dưới đây có acceptance criteria mang mã duy nhất. Tr�
 - **Giao diện:** Spring Boot MVC + Thymeleaf + Bootstrap, render HTML phía server.
 - **Upload:** nhận JPEG/PNG qua Spring Boot `MultipartFile`; kiểm tra nội dung thực, tối đa 5 MB/ảnh và 1–5 ảnh hợp lệ/Booking_Detail; lưu trên filesystem local và lưu đường dẫn trong database.
 - **Thanh toán:** thao tác thủ công; `BANK_TRANSFER` không tích hợp gateway, webhook hay tự động đối soát.
-- Các quyết định công nghệ: Java 21, Spring Boot 3.5.x, Maven, Microsoft SQL Server, Spring Data JPA/Hibernate và JDBC Driver cho SQL Server. Patch Spring Boot và khả năng tương thích môi trường cần kiểm tra.
+- Các quyết định công nghệ: Java 21, Spring Boot 4.1.1, Maven, Microsoft SQL Server, Spring Data JPA/Hibernate, Flyway và JDBC Driver cho SQL Server. Spring Boot 4.1.1 đã được giảng viên chốt; dependency đã resolve/biên dịch, còn hành vi runtime cần kiểm chứng trên SQL Server/Testcontainers.
 - `/login` là route đã chốt; các route nghiệp vụ khác và giao thức chi tiết chưa được chốt trong baseline.
 
 ## 5. Yêu Cầu Dữ Liệu
@@ -330,7 +330,7 @@ Giữ nguyên 11 thực thể baseline: Customer, Staff, Admin, Services, Bookin
 - Phạm vi chỉ dùng 11 thực thể đã liệt kê; không thêm/xóa entity trong yêu cầu.
 - Không tự thêm bảng, cột, quan hệ, trạng thái hoặc quy tắc nghiệp vụ.
 - Không dùng JWT, payment gateway, cloud storage, AI, hoàn tiền hoặc các tính năng ngoài phạm vi trong PRD.
-- Patch Spring Boot 3.5.x, driver/dependency resolution, kết nối môi trường, thông tin xác thực trong schema, thuộc tính/PK/FK/cardinality/nullability và constraint vật lý chưa được xác minh. Các lựa chọn nền tảng đã phê duyệt tại mục 2.3 không phải là unknown nghiệp vụ.
+- Flyway migration runtime, kết nối môi trường, thông tin xác thực trong schema, thuộc tính/PK/FK/cardinality/nullability và constraint vật lý trên SQL Server chưa được xác minh. Dependency resolution/biên dịch đã kiểm tra; Spring Boot 4.1.1 và các lựa chọn nền tảng khác đã phê duyệt tại mục 2.3 không phải là unknown nghiệp vụ.
 - Các unknown trên là unknown về thiết kế/bằng chứng; không làm thay đổi trạng thái đã phê duyệt của BR/FR.
 
 ## 8. Truy Vết BR → FR → AC
@@ -373,25 +373,22 @@ Các chức năng vai trò đã có trong Business Baseline V1.0 nhưng không m
 
 ## Phụ Lục A — ERD Verification (bằng chứng thiết kế)
 
-Phụ lục này không thay đổi hay gắn `UNVERIFIED` lên các BR/FR đã phê duyệt. Bằng chứng sơ đồ là ảnh ERD người dùng đã gửi trong hội thoại trước; trong lần đồng bộ này không mở hay truy cập đường dẫn trong `docs/diagrams/`. `database/schema.sql` được kiểm tra metadata và có kích thước 0 byte, nên không cung cấp bằng chứng về cấu trúc vật lý. `VERIFIED` dưới đây chỉ áp dụng cho nội dung trực tiếp thể hiện trong ảnh/baseline; không suy rộng sang constraint SQL.
+Phụ lục này không thay đổi hay gắn `UNVERIFIED` lên các BR/FR đã phê duyệt. Bằng chứng ERD trong lần đồng bộ này không được mở hay truy cập từ `docs/diagrams/`. Kết quả xác minh bên dưới phân biệt thiết kế SQL trong source với hành vi đã chạy trên SQL Server: migration và `database/schema.sql` hiện cung cấp bằng chứng về DDL; môi trường hiện tại chưa có Docker/SQL Server khả dụng để chạy các kiểm tra tích hợp. `VERIFIED` chỉ áp dụng cho nội dung được xác nhận trực tiếp trong source hoặc runtime tương ứng.
 
 | Hạng mục | Kết quả xác minh thiết kế | Diễn giải |
 |---|---|---|
-| Danh sách 11 tên thực thể | `VERIFIED` (baseline); ERD vật lý `UNVERIFIED` | DEC baseline liệt kê cùng 11 tên và ảnh ERD đã gửi thể hiện các hộp thực thể tương ứng. Điều này không xác minh thuộc tính hay database đã triển khai. |
-| Các quan hệ được vẽ giữa thực thể | `VERIFIED` ở mức sơ đồ | Ảnh ERD đã gửi thể hiện các liên kết Customer–Booking, Booking–Booking_Detail, Booking_Detail–Work_Schedule/Services/Evidences, Staff–Work_Schedule/Evidences, Booking–Payment/Feedback và Customer–Favorite_Staff. Không suy ra thêm constraint ngoài ký hiệu thể hiện. |
-| Thuộc tính, PK, FK, nullability và constraint SQL | `UNVERIFIED` | Ảnh ERD trước không cung cấp danh sách thuộc tính/khóa đủ để xác định các nội dung này; `database/schema.sql` hiện có 0 byte. Không suy luận chúng vắng mặt trong mọi nguồn khác. |
-| Booking–Booking_Detail–Staff–Work_Schedule | `UNVERIFIED` | Sơ đồ thể hiện Booking có Booking_Detail và đường liên kết Detail–Work_Schedule–Staff; chưa có bằng chứng invariant rằng mọi detail trong một Booking dùng cùng Staff Customer đã chọn. |
-| Khoảng Booking chung và thời lượng/tuần tự detail | `UNVERIFIED` | BR-04 đã chốt hành vi; ảnh ERD không xác minh thuộc tính thời gian, nguồn thời lượng hay constraint tuần tự. |
-| Booking_Detail–Evidences–Staff | `VERIFIED` về liên kết sơ đồ; ownership/constraint `UNVERIFIED` | Ảnh ERD thể hiện Booking_Detail có Evidence và Staff gửi Evidence; chưa xác minh FK/ownership để bảo đảm người gửi là Staff được chọn cho Booking. |
-| Tối đa một Payment/Booking | `UNVERIFIED` về constraint vật lý | BR-12 đã chốt; sơ đồ/bằng chứng schema hiện có không xác nhận unique/FK thực tế. |
-| Tối đa một Feedback/Booking | `UNVERIFIED` về constraint vật lý | BR-13 đã chốt; không có schema SQL để xác nhận unique constraint. |
-| Định danh và password cho ba role | `UNVERIFIED` | Chưa có bằng chứng trường đăng nhập/password trong schema; không thêm Users/Accounts/Roles. |
-| Trạng thái Booking/Payment | `UNVERIFIED` về biểu diễn vật lý | Các trạng thái nghiệp vụ đã chốt; `schema.sql` rỗng nên kiểu/cột/constraint không xác minh được. |
-| Payment chưa chọn method sau khi tạo | `UNVERIFIED` | Nghiệp vụ tạo Payment `UNPAID` trước, Customer chọn method sau; `schema.sql` rỗng nên không xác nhận được nullability/enum hay cấu trúc hiện hữu. Không thêm trạng thái Payment. |
-| Hard delete Staff/Services và dữ liệu phụ thuộc | `UNVERIFIED` về thiết kế vật lý | DEC-16 chốt hành vi hard delete có điều kiện; chưa có bằng chứng đầy đủ các FK/đường phụ thuộc hoặc ON DELETE trong `schema.sql` (0 byte). Không cascade lịch sử theo quyết định. |
-| Đường dẫn/metadata Evidence và upload đồng thời | `UNVERIFIED` | DEC-15 chốt lưu filesystem local và database giữ đường dẫn; `schema.sql` rỗng nên chưa xác minh được trường Evidence. Cách phục vụ file và xử lý upload cạnh tranh cần xác minh/thiết kế mà không thêm cấu trúc dữ liệu ngoài phê duyệt. |
+| Danh sách 11 tên thực thể | `VERIFIED` trong baseline và DDL source | Migration V1 và snapshot định nghĩa đúng 11 bảng theo Physical Data Dictionary Baseline; chưa xác nhận schema đã migrate trên SQL Server. |
+| Quan hệ, PK/FK, nullability, kiểu và constraint | `VERIFIED` trong DDL source; runtime `UNVERIFIED` | Có thể đối chiếu trong migration V1 và snapshot. Tính hợp lệ thực tế trên SQL Server và Hibernate validation chưa chạy do thiếu Docker/SQL Server. |
+| Booking–Booking_Detail–Staff–Work_Schedule | `VERIFIED` về cột FK trong DDL; invariant `UNVERIFIED` runtime | DDL nối Detail với Booking và Work_Schedule. Service kiểm tra cùng Staff, thời lượng tuần tự, không overlap/khoảng trống và nằm trong lịch; kiểm thử concurrency chưa chạy trên SQL Server. |
+| Booking–Payment và trạng thái Payment | `VERIFIED` trong DDL source; runtime `UNVERIFIED` | DDL có FK/UNIQUE cho tối đa một Payment mỗi Booking, trạng thái `UNPAID`/`PAID`, phương thức nullable và CHECK yêu cầu method cùng verified_at khi `PAID`, đồng thời `verified_at` rỗng khi `UNPAID`. Flyway/runtime chưa được chạy. |
+| Booking–Feedback | `VERIFIED` trong DDL source; runtime `UNVERIFIED` | DDL có FK và UNIQUE giới hạn một Feedback mỗi Booking; chưa được kiểm chứng bằng SQL Server runtime. |
+| Booking_Detail–Evidence–Staff | `VERIFIED` về FK source; ownership/cardinality `UNVERIFIED` runtime | DDL thể hiện các FK đã duyệt. Service kiểm tra Staff được phân công và giới hạn 1–5 Evidence hợp lệ trước `COMPLETED`; kiểm thử đồng thời chưa chạy. |
+| Định danh email ba role | `VERIFIED` về UNIQUE riêng và collation trong DDL; uniqueness toàn cục `UNVERIFIED` runtime | DDL có UNIQUE riêng và collation không phân biệt hoa/thường. Service canonical hóa trim/lowercase và transaction SERIALIZABLE khóa các dải index theo thứ tự cố định; test cạnh tranh ba role đã viết nhưng chưa chạy được. |
+| Hard delete Staff/Services và dữ liệu phụ thuộc | `VERIFIED` trong DDL source; runtime `UNVERIFIED` | Các FK khai báo `ON DELETE NO ACTION`; kết quả thực thi và Hibernate validate cần chạy trên SQL Server. |
+| DATETIMEOFFSET và migration Flyway | Mapping/source `VERIFIED`; SQL Server runtime `UNVERIFIED` | Migration dùng `DATETIMEOFFSET(0)` và JPA map `OffsetDateTime`; bài kiểm tra round-trip `+07:00` cùng Flyway tạo schema rỗng đã có nhưng không chạy do Docker không khả dụng. |
+| Evidence file storage và reconciliation | `VERIFIED` trong source; runtime `UNVERIFIED` | Service lưu metadata, giới hạn upload, bù trừ lỗi ghi file và reconciler xử lý file mồ côi; chưa chạy kiểm thử tích hợp trong môi trường này. |
 
-Không xác nhận `CONFLICT` vật lý nào trong lần đồng bộ này vì không có schema SQL để đối chiếu; các mục vật lý cần thiết cho Payment, Booking và hard delete còn `UNVERIFIED`. Nếu kiểm tra hợp lệ sau này phát hiện mâu thuẫn, ghi nhận riêng kèm tác động và yêu cầu quyết định; không tự sửa ERD/schema.
+Chưa phát hiện `CONFLICT` giữa migration/snapshot với baseline vật lý đã duyệt trong phạm vi kiểm tra source. Đây chưa phải nghiệm thu database: Flyway tạo schema rỗng, Hibernate validate, DATETIMEOFFSET round-trip và các test concurrency trên SQL Server/Testcontainers đều còn `UNVERIFIED` vì Docker/SQL Server không khả dụng. Nếu runtime phát hiện mâu thuẫn, dừng phần liên quan và xin quyết định trước khi đổi thiết kế.
 
 ## 9. Nghiệm Thu Và Lịch Sử Thay Đổi
 
