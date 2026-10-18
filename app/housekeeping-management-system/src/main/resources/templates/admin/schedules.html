@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+  <head th:replace="~{fragments/layout :: head('Quản lý lịch sẵn sàng')}">
+  </head>
+  <body>
+    <header th:replace="~{fragments/layout :: header('schedules')}">
+    </header>
+    <main id="main" class="container py-4 py-md-5">
+      <!-- Page Heading -->
+      <div class="page-heading">
+        <span class="eyebrow">
+          Linh hoạt theo từng nhân viên
+        </span>
+        <h1>
+          Quản lý lịch sẵn sàng
+        </h1>
+        <p class="lead">
+          Phân công các khoảng thời gian làm việc tùy chọn cho từng nhân viên, không ép buộc ca cố định. Giờ Việt Nam (UTC+7).
+        </p>
+      </div>
+
+      <div th:replace="~{fragments/layout :: alerts}">
+      </div>
+
+      <div class="row g-4 align-items-start">
+        <!-- Add Schedule Form -->
+        <section class="col-lg-4">
+          <div class="surface p-4">
+            <h2 class="h5 mb-1">
+              Thêm khoảng sẵn sàng
+            </h2>
+            <p class="small text-secondary mb-3">
+              Khai báo khung giờ làm việc cho nhân viên.
+            </p>
+            <form method="post" th:action="@{/admin/schedules}" class="vstack gap-3">
+              <div>
+                <label class="form-label" for="add-sched-staff">
+                  Nhân viên phụ trách
+                </label>
+                <select id="add-sched-staff" class="form-select" name="staffId" required>
+                  <option value="">Chọn nhân viên</option>
+                  <option th:each="person : ${staff}" th:value="${person.id}" th:text="${person.name}">Nhân viên</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label" for="add-sched-start">
+                  Bắt đầu từ
+                </label>
+                <input id="add-sched-start" class="form-control" name="startAt" type="datetime-local" step="60" required>
+              </div>
+              <div>
+                <label class="form-label" for="add-sched-end">
+                  Kết thúc lúc
+                </label>
+                <input id="add-sched-end" class="form-control" name="endAt" type="datetime-local" step="60" required>
+              </div>
+              <button class="btn btn-primary w-100 mt-2" type="submit" th:disabled="${#lists.isEmpty(staff)}">
+                + Thêm khoảng sẵn sàng
+              </button>
+              <p th:if="${#lists.isEmpty(staff)}" class="small text-warning mt-2 mb-0">
+                ⚠ Cần tạo nhân viên trước khi có thể phân bổ lịch sẵn sàng.
+              </p>
+            </form>
+          </div>
+        </section>
+
+        <!-- Existing Schedules List -->
+        <section class="col-lg-8 vstack gap-3">
+          <div th:if="${#lists.isEmpty(schedules)}" class="surface p-4 empty-state">
+            <span class="empty-icon" aria-hidden="true">⏱</span>
+            <h3>Chưa có khoảng sẵn sàng</h3>
+            <p>
+              Chọn nhân viên và nhập khoảng thời gian ở biểu mẫu bên cạnh để khách hàng có thể bắt đầu đặt lịch.
+            </p>
+          </div>
+
+          <article class="surface p-4" th:each="slot : ${schedules}">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 pb-3 border-bottom">
+              <div>
+                <h2 class="h5 mb-1 text-dark" th:text="${slot.staffName}">Tên nhân viên</h2>
+                <div class="d-flex flex-wrap gap-2 align-items-center mt-2">
+                  <span class="badge bg-light text-dark border font-monospace" th:text="'Từ: ' + ${slot.startLabel}">Từ</span>
+                  <span class="text-secondary small">→</span>
+                  <span class="badge bg-light text-dark border font-monospace" th:text="'Đến: ' + ${slot.endLabel}">Đến</span>
+                </div>
+              </div>
+              <div>
+                <span class="badge rounded-pill bg-light text-secondary border small">
+                  ✓ Khoảng khả dụng
+                </span>
+              </div>
+            </div>
+
+            <!-- Edit Details Accordion -->
+            <details class="mt-3">
+              <summary class="small">
+                Điều chỉnh thời gian khoảng sẵn sàng
+              </summary>
+              <div class="p-3 bg-light rounded mt-3">
+                <p class="small text-secondary mb-3">
+                  ℹ Lưu ý: Khoảng thời gian mới phải tiếp tục bao trọn thời gian của các lịch hẹn đã đặt. Không thể thay đổi nhân viên phụ trách tại đây.
+                </p>
+                <form method="post" th:action="@{/admin/schedules/{id}(id=${slot.id})}" class="vstack gap-3">
+                  <input type="hidden" name="staffId" th:value="${slot.staffId}">
+                  <div class="row g-3">
+                    <div class="col-sm-6">
+                      <label class="form-label small">Bắt đầu từ</label>
+                      <input name="startAt" type="datetime-local" step="60" class="form-control" th:value="${slot.startInput}" required>
+                    </div>
+                    <div class="col-sm-6">
+                      <label class="form-label small">Kết thúc lúc</label>
+                      <input name="endAt" type="datetime-local" step="60" class="form-control" th:value="${slot.endInput}" required>
+                    </div>
+                  </div>
+                  <div class="d-flex justify-content-end">
+                    <button class="btn btn-primary btn-sm" type="submit">
+                      Lưu thay đổi
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </details>
+          </article>
+        </section>
+      </div>
+    </main>
+    <footer th:replace="~{fragments/layout :: footer}">
+    </footer>
+  </body>
+</html>

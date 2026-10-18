@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+  <body>
+    <div th:fragment="cards" class="row g-4">
+      <div th:if="${#lists.isEmpty(services)}" class="col-12">
+        <div class="surface empty-state p-5">
+          <span class="empty-icon" aria-hidden="true">⌂</span>
+          <h3>Dịch vụ đang được cập nhật</h3>
+          <p>
+            Hiện chưa có dịch vụ nào khả dụng. Hãy quay lại sau khi công ty công bố danh mục dịch vụ.
+          </p>
+        </div>
+      </div>
+      <div th:each="service, loop : ${services}" class="col-md-6 col-lg-4">
+        <article class="service-card h-100">
+          <div class="service-cover-wrap">
+            <img class="service-cover" th:src="@{/images/{file}(file=${#strings.arraySplit('b501c.png,a4ca0.png,19db6.png,2b96d.png,858ff.png,a7642.png', ',')[loop.index % 6]})}" alt="Minh họa dịch vụ vệ sinh" loading="lazy" width="512" height="286">
+          </div>
+          <div class="p-4 d-flex flex-column flex-grow-1">
+            <span class="eyebrow mb-2">
+              Dịch vụ tại nhà
+            </span>
+            <h3 th:text="${service.name}">Dịch vụ</h3>
+            <p class="flex-grow-1" th:text="${service.description}">Mô tả</p>
+            <div class="d-flex justify-content-between align-items-center border-top pt-3 mt-auto">
+              <span class="small text-secondary d-flex align-items-center gap-1">
+                <span aria-hidden="true">⏱</span>
+                <span th:text="${service.duration} + ' phút'"></span>
+              </span>
+              <strong class="price" th:text="${#numbers.formatDecimal(service.price, 0, 'POINT', 0, 'COMMA')} + ' ₫'">0 ₫</strong>
+            </div>
+            <a class="btn btn-outline-primary mt-3 w-100" th:href="@{/customer/bookings/new(serviceId=${service.id})}">
+              Chọn dịch vụ
+              <span aria-hidden="true">→</span>
+            </a>
+          </div>
+        </article>
+      </div>
+    </div>
+  </body>
+</html>

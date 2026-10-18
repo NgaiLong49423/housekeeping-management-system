@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+  <head th:replace="~{fragments/layout :: head('Quản lý dịch vụ')}">
+  </head>
+  <body>
+    <header th:replace="~{fragments/layout :: header('services')}">
+    </header>
+    <main id="main" class="container py-4 py-md-5">
+      <!-- Page Heading -->
+      <div class="page-heading">
+        <span class="eyebrow">
+          Quản lý vận hành · Gọn Nhà
+        </span>
+        <h1>
+          Danh mục dịch vụ
+        </h1>
+        <p class="lead">
+          Quản lý các gói dịch vụ, thời lượng thực hiện và bảng giá niêm yết. Mức giá của lịch hẹn đã tạo sẽ được giữ nguyên theo thời điểm đặt.
+        </p>
+      </div>
+
+      <div th:replace="~{fragments/layout :: alerts}">
+      </div>
+
+      <div class="row g-4 align-items-start">
+        <!-- Add Service Form -->
+        <section class="col-lg-4">
+          <div class="surface p-4">
+            <h2 class="h5 mb-1">
+              Thêm dịch vụ mới
+            </h2>
+            <p class="small text-secondary mb-3">
+              Khai báo gói dịch vụ vào danh mục hệ thống.
+            </p>
+            <form method="post" th:action="@{/admin/services}" class="vstack gap-3">
+              <div>
+                <label class="form-label" for="add-service-name">
+                  Tên dịch vụ
+                </label>
+                <input id="add-service-name" class="form-control" name="name" maxlength="150" required placeholder="Ví dụ: Vệ sinh máy lạnh">
+              </div>
+              <div>
+                <label class="form-label" for="add-service-desc">
+                  Mô tả chi tiết
+                </label>
+                <textarea id="add-service-desc" class="form-control" name="description" maxlength="1000" rows="3" placeholder="Mô tả công việc và phạm vi thực hiện..."></textarea>
+              </div>
+              <div>
+                <label class="form-label" for="add-service-duration">
+                  Thời lượng thực hiện (phút)
+                </label>
+                <input id="add-service-duration" class="form-control" name="duration" type="number" min="1" step="1" required placeholder="120">
+              </div>
+              <div>
+                <label class="form-label" for="add-service-price">
+                  Giá dịch vụ (₫)
+                </label>
+                <input id="add-service-price" class="form-control" name="price" type="number" min="0" step="1" required placeholder="150000">
+              </div>
+              <button class="btn btn-primary w-100 mt-2" type="submit">
+                + Thêm dịch vụ
+              </button>
+            </form>
+          </div>
+        </section>
+
+        <!-- Existing Services List -->
+        <section class="col-lg-8 vstack gap-3">
+          <div th:if="${#lists.isEmpty(services)}" class="surface p-4 empty-state">
+            <span class="empty-icon" aria-hidden="true">🏷</span>
+            <h3>Chưa có dịch vụ nào</h3>
+            <p>
+              Hãy tạo dịch vụ đầu tiên bằng biểu mẫu bên cạnh để hiển thị trên trang chủ và danh mục.
+            </p>
+          </div>
+
+          <article class="surface p-4" th:each="service : ${services}">
+            <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 pb-3 border-bottom">
+              <div>
+                <h2 class="h5 mb-1 text-dark" th:text="${service.name}">Tên dịch vụ</h2>
+                <div class="d-flex flex-wrap gap-2 align-items-center mt-2">
+                  <span class="badge bg-light text-secondary border small">
+                    ⏱ <span th:text="${service.duration} + ' phút'">0 phút</span>
+                  </span>
+                  <span class="badge bg-success-subtle text-success border border-success-subtle fw-bold">
+                    <span th:text="${#numbers.formatDecimal(service.price,0,'POINT',0,'COMMA')} + ' ₫'">0 ₫</span>
+                  </span>
+                </div>
+                <p class="small text-secondary mt-2 mb-0" th:text="${service.description}">
+                  Mô tả dịch vụ
+                </p>
+              </div>
+              <div>
+                <form method="post" th:action="@{/admin/services/{id}/delete(id=${service.id})}" data-confirm="Xác nhận xóa dịch vụ này? Chỉ xóa được khi chưa có lịch hẹn nào sử dụng dịch vụ này.">
+                  <button class="btn btn-outline-danger btn-sm" type="submit">
+                    Xóa dịch vụ
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            <!-- Edit Details Accordion -->
+            <details class="mt-3">
+              <summary class="small">
+                Chỉnh sửa thông tin dịch vụ
+              </summary>
+              <form class="vstack gap-3 mt-3 p-3 bg-light rounded" method="post" th:action="@{/admin/services/{id}(id=${service.id})}">
+                <div>
+                  <label class="form-label small">Tên dịch vụ</label>
+                  <input name="name" class="form-control" th:value="${service.name}" maxlength="150" required>
+                </div>
+                <div>
+                  <label class="form-label small">Mô tả</label>
+                  <textarea name="description" class="form-control" th:text="${service.description}" maxlength="1000" rows="2"></textarea>
+                </div>
+                <div class="row g-3">
+                  <div class="col-sm-6">
+                    <label class="form-label small">Thời lượng (phút)</label>
+                    <input name="duration" class="form-control" type="number" min="1" step="1" th:value="${service.duration}" required>
+                  </div>
+                  <div class="col-sm-6">
+                    <label class="form-label small">Giá (₫)</label>
+                    <input name="price" class="form-control" type="number" min="0" step="1" th:value="${service.price}" required>
+                  </div>
+                </div>
+                <div class="d-flex justify-content-end">
+                  <button class="btn btn-primary btn-sm" type="submit">
+                    Lưu thay đổi
+                  </button>
+                </div>
+              </form>
+            </details>
+          </article>
+        </section>
+      </div>
+    </main>
+    <footer th:replace="~{fragments/layout :: footer}">
+    </footer>
+  </body>
+</html>

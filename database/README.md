@@ -1,27 +1,50 @@
 > **Document:** Database Starter Guide\
 > **File:** `database/README.md`\
-> **Version:** v1.0.0\
+> **Version:** v1.3.0\
 > **Created:** 2026-06-14\
-> **Last Updated:** 2026-10-13\
-> **Status:** Draft\
+> **Last Updated:** 2026-10-17\
+> **Status:** Draft
 
-# Hướng Dẫn Thư Mục Database
+# Hướng dẫn database
 
-## Lựa Chọn Đã Chốt Cho HSF302
+## Người mới clone: chạy SQL rồi Run trong IntelliJ
 
-- Hệ quản trị cơ sở dữ liệu: Microsoft SQL Server.
-- Công cụ quản lý thay đổi schema: Flyway, dùng để quản lý các database migration có phiên bản.
-- `schema.sql` là schema snapshot/reference artifact, không được dùng để runtime bootstrap hoặc làm nguồn migration thứ hai.
-- Flyway migrations là authoritative source duy nhất để tạo và thay đổi schema. Runtime migrations nằm tại `app/housekeeping-management-system/src/main/resources/db/migration/`; migration đầu tiên dùng tên `V1__create_initial_schema.sql`.
+1. Chuẩn bị SQL Server bật Mixed Mode và TCP/IP cổng 1433.
+2. Trong SSMS, kết nối đúng instance bằng tài khoản quản trị, mở [setup-demo.sql](setup-demo.sql) rồi Execute toàn bộ file.
+3. Mở `app/housekeeping-management-system/pom.xml` trong IntelliJ, chọn Java 21, Run **Housekeeping Demo**.
+4. Flyway tự tạo bảng; ứng dụng tự tạo ba tài khoản website. Xem [tài khoản và hướng dẫn đầy đủ](../docs/demo-setup.md).
 
-Thư mục này có thể chứa các script cơ sở dữ liệu của dự án. Các file SQL khung không mặc định sản phẩm cơ sở dữ liệu; SQL Server và Flyway đã được chọn riêng cho HSF302 như trên.
+Không cần tạo `.env` hoặc nhập thông tin SQL khi dùng kết nối mặc định:
 
-## Các File Gợi Ý
+| Thông tin SQL mẫu công khai | Giá trị |
+|---|---|
+| Server | `localhost:1433` |
+| Database | `housekeeping_demo` |
+| SQL login | `housekeeping_demo_app` |
+| SQL password | `HousekeepingDemo@2026` |
 
-- `schema.sql`: snapshot/reference của schema sau migration; không dùng làm cơ chế runtime bootstrap.
-- `sample-data.sql`: dữ liệu mẫu tổng hợp nếu cần; không dùng dữ liệu cá nhân hoặc dữ liệu production.
-- `queries.sql`: các truy vấn tùy chọn phục vụ phát triển hoặc xác minh.
+Đây là thông tin kết nối database dành cho demo local. Tài khoản website Admin/Customer/Staff nằm trong [hướng dẫn demo](../docs/demo-setup.md), có mật khẩu khác SQL login.
 
-Chỉ Flyway quản lý vòng đời thay đổi schema. Giữ `schema.sql` đồng bộ với trạng thái schema đã migrate để tham khảo; không duy trì một luồng khởi tạo hoặc lịch sử thay đổi schema độc lập.
+Script có thể chạy lại, không xóa dữ liệu, không đổi mật khẩu login đã có. Nếu login có cùng tên nhưng mật khẩu/trạng thái khác mặc định, script dừng để người dùng xử lý cấu hình riêng. Script chỉ tạo database/login/user và cấp quyền đọc, ghi, DDL trong database demo, không cấp sysadmin cho ứng dụng. Chạy ứng dụng lần đầu mới tạo các bảng và tài khoản website; không cần chèn user bằng SQL.
 
-Không đưa thông tin xác thực hoặc dữ liệu riêng tư có thật vào script. Cập nhật tài liệu dự án liên quan khi schema hoặc quy trình cơ sở dữ liệu thay đổi.
+Nếu tạo database thành công nhưng bước cấp login/quyền lỗi, database có thể vẫn tồn tại. Sửa lỗi rồi chạy lại toàn bộ script. Mixed Mode hoặc TCP/IP cần cấu hình trong SQL Server/Configuration Manager và khởi động lại dịch vụ; script không tự thay cấu hình dịch vụ. Xem [cách xử lý lỗi kết nối](../docs/demo-setup.md#nếu-sql-server-chưa-bật-đăng-nhập-sql-hoặc-tcp).
+
+## Schema và migration
+
+- SQL Server là hệ quản trị đã chọn.
+- [Flyway V1](../app/housekeeping-management-system/src/main/resources/db/migration/V1__create_initial_schema.sql) và các migration tiếp theo là nguồn chính thức duy nhất quản lý schema.
+- [schema.sql](schema.sql) là snapshot tham khảo, không chạy để bootstrap database demo.
+- [sample-data.sql](sample-data.sql) và [queries.sql](queries.sql) là file tham khảo; không bắt buộc cho quy trình demo.
+- `setup-demo.sql` không sao chép DDL của V1, không tạo/chèn `flyway_schema_history`, không bật baseline. Vì thế chỉ cần chạy script rồi bật ứng dụng để Flyway quản lý từ đầu.
+
+Database demo riêng `housekeeping_demo` không thay đổi dữ liệu trong `hsf302` hoặc kết nối private của cấu hình **Housekeeping Full Stack**. Nếu dùng database khác, sao chép [`.env.example`](../app/housekeeping-management-system/.env.example) thành `.env` trong module rồi nhập đủ ba biến `DB_*`. Mỗi người giữ thông tin kết nối riêng ngoài Git.
+
+## Database cũ đã tạo bảng thủ công
+
+Chỉ dành cho database đã có bảng khớp hoàn toàn V1 nhưng chưa có lịch sử Flyway; không áp dụng cho database demo rỗng. Trỏ đúng `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` tới database đó. Trong lần khởi động tiếp nhận schema duy nhất, thêm Program arguments:
+
+```text
+--spring.flyway.baseline-on-migrate=true --spring.flyway.baseline-version=1
+```
+
+Sau khi thành công, bỏ hai tham số baseline. Không tự chèn lịch sử Flyway hoặc chạy lại schema. Nếu schema không khớp V1, cần kiểm tra và xử lý sai khác trước khi baseline; baseline không xác minh cấu trúc thay cho Hibernate validate. Máy local hiện tại đã có schema history cho `hsf302`, không cần baseline lại.

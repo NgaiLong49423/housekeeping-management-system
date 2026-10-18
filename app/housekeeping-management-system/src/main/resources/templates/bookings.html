@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+  <head th:replace="~{fragments/layout :: head('Lịch hẹn & công việc')}">
+  </head>
+  <body>
+    <header th:replace="~{fragments/layout :: header('bookings')}">
+    </header>
+    <main id="main" class="container py-4 py-md-5">
+      <!-- Section Header -->
+      <div class="section-heading">
+        <div>
+          <span class="eyebrow" th:text="${currentUser.role == 'ADMIN' ? 'Quản lý vận hành hệ thống' : (currentUser.role == 'STAFF' ? 'Không gian làm việc · Nhân viên' : 'Gọn Nhà · Góc khách hàng')}">
+          </span>
+          <h1 th:text="${currentUser.role == 'CUSTOMER' ? 'Lịch của tôi' : (currentUser.role == 'STAFF' ? 'Công việc của tôi' : 'Tổng quan lịch hẹn')}">
+          </h1>
+          <p th:text="'Xin chào ' + ${currentUser.displayName} + ', chúc bạn một ngày làm việc và sinh hoạt thật nhẹ nhàng.'">
+          </p>
+        </div>
+        <a th:if="${currentUser.role == 'CUSTOMER'}" class="btn btn-primary" th:href="@{/customer/bookings/new}">
+          + Đặt lịch mới
+        </a>
+      </div>
+
+      <div th:replace="~{fragments/layout :: alerts}">
+      </div>
+
+      <!-- Stat Cards -->
+      <div class="row g-3 mb-4">
+        <div class="col-6 col-lg-3">
+          <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-center">
+              <span>Tất cả lịch hẹn</span>
+              <span class="small" aria-hidden="true">📅</span>
+            </div>
+            <strong th:text="${#lists.size(bookings)}">0</strong>
+          </div>
+        </div>
+        <div class="col-6 col-lg-3">
+          <div class="stat-card mint">
+            <div class="d-flex justify-content-between align-items-center">
+              <span>Đã xác nhận</span>
+              <span class="small" aria-hidden="true">⏱</span>
+            </div>
+            <strong th:text="${confirmedCount}">0</strong>
+          </div>
+        </div>
+        <div class="col-6 col-lg-3">
+          <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-center">
+              <span>Đã hoàn thành</span>
+              <span class="small" aria-hidden="true">✓</span>
+            </div>
+            <strong th:text="${completedCount}">0</strong>
+          </div>
+        </div>
+        <div class="col-6 col-lg-3">
+          <div class="stat-card warm">
+            <div class="d-flex justify-content-between align-items-center">
+              <span>Chưa thanh toán</span>
+              <span class="small" aria-hidden="true">💳</span>
+            </div>
+            <strong th:text="${unpaidCount}">0</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bookings List Section -->
+      <section class="surface p-3 p-lg-4">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3 pb-2 border-bottom">
+          <h2 class="h5 mb-0 d-flex align-items-center gap-2">
+            <span>Danh sách lịch hẹn</span>
+            <span class="badge rounded-pill bg-light text-secondary border small" th:text="${#lists.size(bookings)} + ' bản ghi'"></span>
+          </h2>
+          <label class="filter-label mb-0">
+            <span>Lọc trạng thái:</span>
+            <select class="form-select form-select-sm" data-booking-filter>
+              <option value="">Tất cả</option>
+              <option value="CONFIRMED">Đã xác nhận</option>
+              <option value="COMPLETED">Đã hoàn thành</option>
+              <option value="CANCELLED">Đã hủy</option>
+            </select>
+          </label>
+        </div>
+
+        <!-- Empty State -->
+        <div class="empty-state py-5" th:if="${#lists.isEmpty(bookings)}">
+          <span class="empty-icon" aria-hidden="true">📅</span>
+          <h3>Chưa có lịch hẹn nào</h3>
+          <p>
+            Các lịch hẹn mới sẽ xuất hiện tại đây ngay khi có dữ liệu.
+          </p>
+          <a th:if="${currentUser.role == 'CUSTOMER'}" class="btn btn-primary" th:href="@{/customer/bookings/new}">
+            Đặt dịch vụ đầu tiên
+          </a>
+        </div>
+
+        <!-- Bookings Table -->
+        <div class="table-responsive" th:unless="${#lists.isEmpty(bookings)}">
+          <table class="table align-middle">
+            <thead>
+              <tr>
+                <th scope="col">Mã lịch hẹn</th>
+                <th scope="col">Khách hàng / Nhân viên</th>
+                <th scope="col">Thời gian bắt đầu</th>
+                <th scope="col">Trạng thái</th>
+                <th scope="col">Thanh toán</th>
+                <th scope="col" class="text-end">Chi tiết</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr th:each="booking : ${bookings}" th:data-status="${booking.status}" data-booking-row>
+                <td>
+                  <strong class="d-block text-dark" th:text="'#GN-' + ${booking.id}">#GN-0</strong>
+                  <small class="text-muted" th:text="${#numbers.formatDecimal(booking.amount,0,'POINT',0,'COMMA')} + ' ₫'">0 ₫</small>
+                </td>
+                <td>
+                  <strong class="d-block text-dark" th:text="${booking.customerName}">Khách hàng</strong>
+                  <small class="text-muted" th:text="'NV: ' + ${booking.staffName}">Nhân viên</small>
+                </td>
+                <td>
+                  <span class="text-body" th:text="${booking.startLabel}">Thời gian</span>
+                </td>
+                <td>
+                  <span class="status-pill" th:classappend="${booking.statusClass}" th:text="${booking.statusLabel}">Trạng thái</span>
+                </td>
+                <td>
+                  <span class="small font-monospace" th:classappend="${booking.paymentStatus == 'PAID' ? 'text-success font-weight-bold' : (booking.paymentStatus == 'UNPAID' ? 'text-warning' : 'text-muted')}" th:text="${booking.paymentStatus == null ? 'Chưa phát sinh' : (booking.paymentStatus == 'PAID' ? '✓ Đã thanh toán' : '⏳ Chưa thanh toán')}">
+                  </span>
+                </td>
+                <td class="text-end">
+                  <a class="btn btn-light btn-sm" th:href="@{/{role}/bookings/{id}(role=${#strings.toLowerCase(currentUser.role)},id=${booking.id})}">
+                    Xem chi tiết →
+                  </a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="text-center text-secondary py-4 mb-0" data-filter-empty hidden>
+            Không có lịch hẹn phù hợp với bộ lọc đã chọn.
+          </p>
+        </div>
+      </section>
+    </main>
+    <footer th:replace="~{fragments/layout :: footer}">
+    </footer>
+  </body>
+</html>

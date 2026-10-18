@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+  <head th:replace="~{fragments/layout :: head('Chăm nhà, thêm an tâm')}">
+  </head>
+  <body>
+    <header th:replace="~{fragments/layout :: header('home')}">
+    </header>
+    <main id="main">
+      <!-- Hero & Connected Booking Process Section -->
+      <section class="hero">
+        <div class="container">
+          <div class="hero-showcase surface mx-auto">
+            <div class="hero-card text-center">
+              <h1 class="hero-title">
+                Nhà gọn gàng.
+                <span>Thảnh thơi tận hưởng.</span>
+              </h1>
+              <div class="d-flex flex-wrap justify-content-center gap-3 mt-4">
+                <a class="btn btn-primary btn-lg" th:href="@{/customer/bookings/new}">
+                  Đặt lịch dọn nhà
+                  <span aria-hidden="true">↗</span>
+                </a>
+                <a class="btn btn-outline-primary btn-lg" th:href="@{/services}">
+                  Khám phá dịch vụ
+                </a>
+              </div>
+              <div class="hero-assurances justify-content-center">
+                <span>✓ Tự chọn nhân viên</span>
+                <span>✓ Giá dịch vụ rõ ràng</span>
+                <span>✓ Thanh toán sau hoàn thành</span>
+              </div>
+            </div>
+
+            <!-- Docked Booking Process Board (01 -> 02 -> 03) -->
+            <div class="trust-strip">
+              <div class="process-board">
+                <div class="process-cell">
+                  <div class="process-track">
+                    <span class="trust-step-num">01</span>
+                    <span class="process-line" aria-hidden="true"></span>
+                  </div>
+                  <div class="process-content">
+                    <strong>Chọn dịch vụ phù hợp</strong>
+                    <small>Dọn dẹp theo giờ, tổng vệ sinh hay sofa</small>
+                  </div>
+                </div>
+                <div class="process-cell">
+                  <div class="process-track">
+                    <span class="trust-step-num">02</span>
+                    <span class="process-line" aria-hidden="true"></span>
+                  </div>
+                  <div class="process-content">
+                    <strong>Chọn nhân viên &amp; giờ rảnh</strong>
+                    <small>Xem lịch sẵn sàng thực tế và người bạn tin</small>
+                  </div>
+                </div>
+                <div class="process-cell">
+                  <div class="process-track">
+                    <span class="trust-step-num">03</span>
+                    <span class="process-line process-line-end" aria-hidden="true"></span>
+                  </div>
+                  <div class="process-content">
+                    <strong>Xác nhận &amp; an tâm tận hưởng</strong>
+                    <small>Kiểm tra kết quả trước khi thanh toán</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Services Catalog Section -->
+      <section class="container section-space">
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">
+              Chúng tôi có thể giúp gì cho bạn?
+            </span>
+            <h2>
+              Chăm sóc nhà cửa, theo cách của bạn
+            </h2>
+            <p>
+              Chọn dịch vụ và thời lượng phù hợp với không gian sống của bạn.
+            </p>
+          </div>
+          <a class="text-link" th:href="@{/services}">
+            Tất cả dịch vụ →
+          </a>
+        </div>
+        <div th:replace="~{fragments/services :: cards}">
+        </div>
+      </section>
+
+      <!-- Trust & Safety Section -->
+      <section class="container pb-5">
+        <div class="care-banner row align-items-center g-0">
+          <div class="col-md-5">
+            <img th:src="@{/images/d856e.png}" alt="Nhân viên cùng dụng cụ vệ sinh tại nhà" loading="lazy" width="512" height="279">
+          </div>
+          <div class="col-md-7 p-4 p-lg-5">
+            <span class="eyebrow">
+              An tâm từ lựa chọn đầu tiên
+            </span>
+            <h2>
+              Người bạn chọn.
+              <br>
+              Ngôi nhà bạn yêu.
+            </h2>
+            <p>
+              Bạn chủ động chọn nhân viên part-time của công ty và khoảng thời gian phù hợp. Lịch hợp lệ được xác nhận ngay sau khi kiểm tra, không cần chờ đợi.
+            </p>
+            <div class="d-flex flex-wrap gap-3">
+              <a class="btn btn-primary" th:href="@{/customer/staff}">
+                Tìm nhân viên phù hợp →
+              </a>
+              <a class="btn btn-white" th:href="@{/customer/bookings/new}">
+                Đặt lịch nhanh
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+    <footer th:replace="~{fragments/layout :: footer}">
+    </footer>
+  </body>
+</html>

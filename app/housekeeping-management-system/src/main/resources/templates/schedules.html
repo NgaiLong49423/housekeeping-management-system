@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+  <head th:replace="~{fragments/layout :: head('Lịch sẵn sàng')}">
+  </head>
+  <body>
+    <header th:replace="~{fragments/layout :: header('schedules')}">
+    </header>
+    <main id="main" class="container py-4 py-md-5">
+      <div class="page-heading">
+        <span class="eyebrow" th:text="${currentUser.role == 'STAFF' ? 'Lịch làm việc cá nhân' : 'Chủ động thời gian của bạn'}">
+          Lịch sẵn sàng
+        </span>
+        <h1>
+          Khoảng sẵn sàng
+        </h1>
+        <p class="lead">
+          Các khoảng thời gian do quản trị viên quản lý và phân bổ theo giờ Việt Nam (UTC+7).
+        </p>
+      </div>
+
+      <div th:replace="~{fragments/layout :: alerts}">
+      </div>
+
+      <section class="surface p-4">
+        <div class="empty-state py-5" th:if="${#lists.isEmpty(schedules)}">
+          <span class="empty-icon" aria-hidden="true">⏱</span>
+          <h3>Chưa có khoảng sẵn sàng</h3>
+          <p>
+            Công ty sẽ cập nhật lịch làm việc khi có phân công ca mới.
+          </p>
+        </div>
+
+        <div class="table-responsive" th:unless="${#lists.isEmpty(schedules)}">
+          <table class="table align-middle">
+            <thead>
+              <tr>
+                <th scope="col">Nhân viên</th>
+                <th scope="col">Bắt đầu từ</th>
+                <th scope="col">Kết thúc lúc</th>
+                <th scope="col" class="text-end">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr th:each="slot : ${schedules}">
+                <td>
+                  <strong class="d-block text-dark" th:text="${slot.staffName}">Tên nhân viên</strong>
+                  <small class="text-muted">Nhân viên part-time</small>
+                </td>
+                <td>
+                  <span class="badge bg-light text-dark border font-monospace py-2 px-2" th:text="${slot.startLabel}">Bắt đầu</span>
+                </td>
+                <td>
+                  <span class="badge bg-light text-dark border font-monospace py-2 px-2" th:text="${slot.endLabel}">Kết thúc</span>
+                </td>
+                <td class="text-end">
+                  <a th:if="${currentUser.role == 'CUSTOMER'}" class="btn btn-primary btn-sm" th:href="@{/customer/bookings/new(staffId=${slot.staffId})}">
+                    Chọn thời gian →
+                  </a>
+                  <span th:unless="${currentUser.role == 'CUSTOMER'}" class="badge rounded-pill bg-light text-secondary border small">
+                    🔒 Do công ty quản trị
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="mt-3 pt-3 border-top">
+          <p class="small text-secondary mb-0">
+            ℹ Lưu ý: Khoảng sẵn sàng có thể đã có lịch hẹn của khách hàng khác. Hệ thống sẽ tự động kiểm tra trùng giờ khi đặt lịch.
+          </p>
+        </div>
+      </section>
+    </main>
+    <footer th:replace="~{fragments/layout :: footer}">
+    </footer>
+  </body>
+</html>

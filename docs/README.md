@@ -2,7 +2,7 @@
 > **File:** `docs/README.md`\
 > **Version:** v1.0.0\
 > **Created:** 2026-06-14\
-> **Last Updated:** 2026-10-09\
+> **Last Updated:** 2026-10-16\
 > **Status:** Template\
 
 # Tài Liệu Dự Án
@@ -10,6 +10,8 @@
 Lưu tài liệu dự án được duy trì tại đây và liên kết tới nguồn chính thức cho từng chủ đề. Không sao chép yêu cầu hoặc quyết định giữa nhiều tài liệu.
 
 ## Cấu Trúc Gợi Ý
+
+- [Hướng dẫn kết nối frontend–backend](frontend-integration.md): giao diện Thymeleaf, route/form, cấu hình chạy và nghiệm thu với SQL Server.
 
 - `requirements/`: vấn đề, phạm vi, yêu cầu chức năng và yêu cầu chất lượng của dự án.
 - `reports/`: các báo cáo dự án dự định duy trì trong repository.

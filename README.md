@@ -1,62 +1,90 @@
-> **Document:** Project README Template\
+> **Document:** Housekeeping Management System\
 > **File:** `README.md`\
-> **Version:** v1.0.0\
+> **Version:** v1.3.0\
 > **Created:** 2026-06-14\
-> **Last Updated:** 2026-10-09\
-> **Status:** Template\
+> **Last Updated:** 2026-10-17\
+> **Status:** Draft
 
-# [Tên Dự Án]
+# Housekeeping Management System
 
-> Thay nội dung trong ngoặc bằng thông tin đã được xác nhận của dự án. Xóa các mục không áp dụng.
+Ứng dụng HSF302 cho một công ty giúp việc: Customer tự chọn Staff part-time và đặt dịch vụ; Staff lưu bằng chứng, hoàn thành công việc; Admin quản lý danh mục, khoảng sẵn sàng và xác minh thanh toán thủ công.
 
-## Giới Thiệu
+**Mới clone project từ GitHub?** Bắt đầu tại [hướng dẫn setup và tài khoản demo](docs/demo-setup.md): có email/mật khẩu cho cả ba vai trò, cách kết nối SQL Server và cách chạy full stack trong IntelliJ. Xem [vị trí các file cấu hình](docs/demo-setup.md#thông-tin-nằm-ở-đâu) khi cần chỉnh lại.
 
-[Mô tả vấn đề, mục tiêu, đối tượng sử dụng và bối cảnh của dự án.]
-
-## Mục Tiêu Và Chức Năng
-
-- [Mục tiêu hoặc kết quả hướng tới người dùng]
-- [Chức năng chính]
-
-## Công Nghệ
-
-Chỉ ghi các lựa chọn đã được xác nhận cho dự án.
-
-| Hạng mục | Lựa chọn |
+| Hạng mục | Công nghệ đã chốt |
 |---|---|
-| Ngôn ngữ và phiên bản | [Điền theo dự án] |
-| Framework web hoặc mô hình máy chủ | [Điền theo dự án] |
-| Cơ sở dữ liệu | [Điền theo dự án hoặc không áp dụng] |
-| Công cụ build và kiểm thử | [Điền theo dự án] |
-| Môi trường chạy và triển khai | [Điền theo dự án] |
+| Nền tảng | Java 21, Spring Boot 4.1.1, Maven |
+| Giao diện | Spring MVC, Thymeleaf, Bootstrap 5.3.8 |
+| Dữ liệu | SQL Server, Spring Data JPA/Hibernate, Flyway |
+| Xác thực | Spring Security, HTTP Session, BCrypt |
 
-## Cấu Trúc Repository
+## Chạy ứng dụng
+
+**Người mới clone — chạy demo nhanh:**
+
+1. Chuẩn bị JDK 21 và SQL Server bật Mixed Mode, TCP cổng **1433**.
+2. Trong SSMS, dùng tài khoản quản trị chạy toàn bộ [database/setup-demo.sql](database/setup-demo.sql). Script tạo database `housekeeping_demo` và SQL login dùng sẵn.
+3. Mở [pom.xml](app/housekeeping-management-system/pom.xml) trong IntelliJ, chọn SDK 21 rồi Run **Housekeeping Demo**.
+4. Mở [trang đăng nhập](http://localhost:8080/login) và dùng tài khoản ở bảng bên dưới. Flyway tự tạo bảng, ứng dụng tự tạo ba tài khoản.
+
+Không cần tạo `.env` với cách chạy này. Nếu SQL dùng cổng khác hoặc chưa bật Mixed Mode/TCP, xem [hướng dẫn chi tiết và xử lý lỗi](docs/demo-setup.md). Cấu hình **Housekeeping Full Stack** bên dưới dành cho máy local đã setup riêng.
+
+**Máy đã được setup:** xem [hướng dẫn chạy local](docs/local-setup.md). Mở [ứng dụng](http://localhost:8080/) hoặc chạy `run-local.cmd` để dùng JDK 21 và database riêng đã cấu hình.
+
+1. Dùng JDK 21 và Maven; kiểm tra `java -version` và `mvn -version`. Máy mặc định trỏ JDK 17 cần đổi `JAVA_HOME` trước khi chạy.
+2. Chuẩn bị SQL Server và database rỗng hoặc database đã áp dụng migration tương ứng. Flyway quản lý migration; `ddl-auto=validate` không tự thay đổi schema.
+3. Thiết lập biến môi trường `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` theo môi trường của bạn; không ghi mật khẩu thật vào mã nguồn.
+4. Mở thư mục `app/housekeeping-management-system/`, chạy `mvn spring-boot:run`.
+5. Truy cập [trang chủ](http://localhost:8080/). Tài khoản Customer/Staff/Admin dùng chung [trang đăng nhập](http://localhost:8080/login).
+
+Giao diện sử dụng dữ liệu thật từ database. Không nhập dữ liệu mock, lịch định kỳ, tự phân công nhân viên hoặc thanh toán tự động từ thiết kế tham khảo. Không cần npm/Vite hay cấu hình CORS cho frontend riêng.
+
+## Tài khoản demo cho người clone từ GitHub
+
+Chạy [setup-demo.sql](database/setup-demo.sql), chọn JDK 21 rồi Run **Housekeeping Demo** theo [hướng dẫn demo](docs/demo-setup.md). Kết nối SQL mẫu đã có sẵn trong profile `demo`; `.env` chỉ cần khi muốn đổi kết nối. Ứng dụng tự tạo các tài khoản dưới đây nếu còn thiếu, lưu mật khẩu BCrypt và giữ nguyên tài khoản đã tồn tại.
+
+| Vai trò | Email | Mật khẩu demo |
+|---|---|---|
+| Admin | `admin@demo.gonnha.local` | `Demo@123456` |
+| Customer | `customer@demo.gonnha.local` | `Demo@123456` |
+| Staff | `staff@demo.gonnha.local` | `Demo@123456` |
+
+Đây là tài khoản ứng dụng mẫu công khai, chỉ bật cho môi trường demo. SQL login mẫu là `housekeeping_demo_app` / `HousekeepingDemo@2026`, database `housekeeping_demo`; đây là tài khoản kết nối database, khác ba tài khoản website. Người clone vẫn cần SQL Server trên máy của họ; không chia sẻ `.env` hoặc `.runtime/` chứa thông tin kết nối riêng.
+
+## Cấu trúc
 
 ```text
-.
-├── app/           # Mã nguồn ứng dụng, tổ chức theo dự án
-├── database/      # Script và hướng dẫn cơ sở dữ liệu nếu cần
-├── docs/          # Yêu cầu và tài liệu được duy trì
-├── .agents/       # Policy, skills, workflow và script dùng chung cho Agent
-└── .github/       # Mẫu Issue/PR và tự động hóa repository
+app/housekeeping-management-system/
+  src/main/java/com/housekeeping/management/
+    domain/       # Entity và trạng thái đã có
+    repository/   # Repository đã có
+    service/      # Nghiệp vụ đã có
+    web/          # MVC, session, view model và lớp nối giao diện
+  src/main/resources/
+    templates/    # Giao diện Thymeleaf
+    static/       # CSS, JavaScript, ảnh và Bootstrap cục bộ
+    db/migration/ # Migration hiện có
 ```
 
-## Cài Đặt Và Sử Dụng
+## Kiểm tra
 
-1. [Điều kiện tiên quyết và phiên bản]
-2. [Các bước cấu hình; không commit secret]
-3. [Lệnh build hoặc chạy được chọn cho dự án]
-4. [Cách truy cập hoặc sử dụng ứng dụng]
+Từ thư mục chứa `pom.xml`:
 
-## Tài Liệu
+```powershell
+# Render, form, session và phân quyền; không cần SQL Server
+mvn "-DexcludedGroups=sqlserver" verify
 
-- Yêu cầu: [`docs/requirements/`](docs/requirements/)
-- Quy trình đóng góp: [`CONTRIBUTING.md`](CONTRIBUTING.md)
-- Lịch sử thay đổi: [`CHANGELOG.md`](CHANGELOG.md)
-- Hướng dẫn bảo trì template: [`docs/template-maintenance.md`](docs/template-maintenance.md) (xóa khi tạo repository dự án mới)
+# Toàn bộ, bao gồm Testcontainers SQL Server; cần Docker
+mvn verify
+```
 
-## Nhóm Thực Hiện
+Test web dùng fixture trong test, không thay thế nghiệm thu với SQL Server thật. Xem [hướng dẫn tích hợp](docs/frontend-integration.md) để cấu hình tài khoản và kiểm tra luồng đầy đủ.
 
-| Tên | Vai trò | Liên hệ hoặc hồ sơ |
-|---|---|---|
-| [Tên] | [Vai trò] | [Liên kết] |
+## Tài liệu
+
+- [Clone và đăng nhập bằng ba tài khoản demo](docs/demo-setup.md)
+- [Môi trường local đã setup và tài khoản demo](docs/local-setup.md)
+- [Kết nối frontend–backend và nghiệm thu](docs/frontend-integration.md)
+- [PRD](docs/requirements/PRD.md) và [SRS](docs/requirements/SRS.md)
+- [Ứng dụng](app/README.md) và [database](database/README.md)
+- [Quy trình đóng góp](CONTRIBUTING.md) và [changelog](CHANGELOG.md)

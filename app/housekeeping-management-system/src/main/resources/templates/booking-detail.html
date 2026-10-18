@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+  <head th:replace="~{fragments/layout :: head('Chi tiết lịch hẹn')}">
+  </head>
+  <body>
+    <header th:replace="~{fragments/layout :: header('bookings')}">
+    </header>
+    <main id="main" class="container py-4 py-md-5">
+      <!-- Back Navigation -->
+      <div class="mb-3">
+        <a class="text-link" th:href="@{/{role}/bookings(role=${#strings.toLowerCase(currentUser.role)})}">
+          ← Quay lại danh sách lịch hẹn
+        </a>
+      </div>
+
+      <!-- Detail Header -->
+      <div class="section-heading mt-2">
+        <div>
+          <span class="eyebrow">
+            Thông tin chi tiết
+          </span>
+          <h1 class="h2 mb-1" th:text="'Lịch hẹn #GN-' + ${booking.id}">
+            Lịch hẹn #GN-0
+          </h1>
+          <p class="text-secondary small mb-0" th:text="${booking.startLabel} + ' → ' + ${booking.endLabel}">
+            Thời gian
+          </p>
+        </div>
+        <div>
+          <span class="status-pill fs-6 py-2 px-3" th:classappend="${booking.statusClass}" th:text="${booking.statusLabel}">
+            Trạng thái
+          </span>
+        </div>
+      </div>
+
+      <div th:replace="~{fragments/layout :: alerts}">
+      </div>
+
+      <div class="row g-4 align-items-start">
+        <!-- Main Content -->
+        <div class="col-lg-8 vstack gap-4">
+          <!-- Overview Card -->
+          <section class="surface p-4">
+            <h2 class="h5 mb-3 border-bottom pb-2">
+              Thông tin lịch hẹn
+            </h2>
+            <dl class="info-grid mt-3 mb-0">
+              <div>
+                <dt>Khách hàng</dt>
+                <dd th:text="${booking.customerName}">Khách hàng</dd>
+              </div>
+              <div>
+                <dt>Nhân viên phụ trách</dt>
+                <dd th:text="${booking.staffName}">Nhân viên</dd>
+              </div>
+              <div>
+                <dt>Bắt đầu dự kiến</dt>
+                <dd th:text="${booking.startLabel}">Bắt đầu</dd>
+              </div>
+              <div>
+                <dt>Kết thúc dự kiến</dt>
+                <dd th:text="${booking.endLabel}">Kết thúc</dd>
+              </div>
+            </dl>
+          </section>
+
+          <!-- Services and Evidence Card -->
+          <section class="surface p-4">
+            <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
+              <h2 class="h5 mb-0">
+                Dịch vụ &amp; Bằng chứng hoàn thành
+              </h2>
+              <span class="small text-secondary">
+                1–5 ảnh JPEG/PNG hợp lệ (tối đa 5 MB/ảnh)
+              </span>
+            </div>
+
+            <article class="detail-service pt-3" th:each="detail : ${details}">
+              <div class="d-flex gap-3 align-items-start">
+                <span class="step-number" th:text="${detail.sequence}">1</span>
+                <div class="flex-grow-1">
+                  <h3 class="h6 mb-1" th:text="${detail.name}">Tên dịch vụ</h3>
+                  <p class="small text-secondary mb-0" th:text="${detail.duration} + ' phút · ' + ${#numbers.formatDecimal(detail.price,0,'POINT',0,'COMMA')} + ' ₫'">
+                    0 phút · 0 ₫
+                  </p>
+                </div>
+                <span class="badge rounded-pill bg-light text-secondary border small" th:text="${#lists.size(detail.evidence)} + '/5 ảnh bằng chứng'">
+                  0/5 ảnh
+                </span>
+              </div>
+
+              <!-- Evidence Gallery -->
+              <div class="evidence-grid mt-3" th:unless="${#lists.isEmpty(detail.evidence)}">
+                <a th:each="photo : ${detail.evidence}" th:href="@{/evidence/{id}(id=${photo.id})}" target="_blank" rel="noopener" title="Nhấp để xem ảnh kích thước gốc">
+                  <img th:src="@{/evidence/{id}(id=${photo.id})}" th:alt="'Bằng chứng dịch vụ ' + ${detail.name}" width="160" height="120" loading="lazy">
+                  <small th:text="${photo.uploadedAt}">Thời gian</small>
+                </a>
+              </div>
+              <p class="small text-secondary mt-3 mb-0" th:if="${#lists.isEmpty(detail.evidence)}">
+                Chưa có ảnh bằng chứng nghiệm thu nào.
+              </p>
+
+              <!-- Evidence Upload Form (Staff only) -->
+              <form th:if="${currentUser.role == 'STAFF' and booking.status == 'CONFIRMED' and #lists.size(detail.evidence) lt 5}" class="upload-box mt-3" method="post" enctype="multipart/form-data" th:action="@{/staff/details/{id}/evidence(id=${detail.id})}" data-upload-form>
+                <label class="form-label small fw-bold" th:for="'image-' + ${detail.id}">
+                  Tải ảnh bằng chứng nghiệm thu dịch vụ
+                </label>
+                <div class="d-flex flex-wrap gap-2">
+                  <input type="file" name="image" th:id="'image-' + ${detail.id}" class="form-control" accept=".jpg,.jpeg,.png,image/jpeg,image/png" required>
+                  <button class="btn btn-outline-primary" type="submit">
+                    Tải ảnh lên ↗
+                  </button>
+                </div>
+                <p class="small text-secondary mt-2 mb-0" data-file-status role="status">
+                  Chọn một ảnh JPEG hoặc PNG mỗi lần tải.
+                </p>
+              </form>
+            </article>
+          </section>
+
+          <!-- Customer Feedback Section -->
+          <section th:if="${booking.status == 'COMPLETED' and currentUser.role == 'CUSTOMER'}" class="surface p-4">
+            <h2 class="h5 mb-3 border-bottom pb-2">
+              Đánh giá trải nghiệm dịch vụ
+            </h2>
+            <div th:if="${booking.rating != null}">
+              <div class="d-flex align-items-center gap-2">
+                <span class="rating-stars" th:text="${booking.rating} + '/5 ★'">5/5 ★</span>
+                <span class="badge bg-success-subtle text-success border border-success-subtle">Đã ghi nhận</span>
+              </div>
+              <p class="mb-0 mt-2 text-secondary">
+                Bạn đã gửi đánh giá cho lịch hẹn này. Sự hài lòng của bạn là động lực lớn nhất của Gọn Nhà!
+              </p>
+            </div>
+            <form th:if="${booking.rating == null}" method="post" th:action="@{/customer/bookings/{id}/feedback(id=${booking.id})}">
+              <div>
+                <label class="form-label" for="rating">
+                  Mức độ hài lòng của bạn
+                </label>
+                <select id="rating" name="rating" class="form-select" required>
+                  <option value="">Chọn số sao đánh giá</option>
+                  <option value="5">★★★★★ · Rất hài lòng</option>
+                  <option value="4">★★★★ · Hài lòng</option>
+                  <option value="3">★★★ · Bình thường</option>
+                  <option value="2">★★ · Chưa hài lòng</option>
+                  <option value="1">★ · Không hài lòng</option>
+                </select>
+              </div>
+              <div class="mt-3">
+                <label class="form-label" for="comment">
+                  Nhận xét &amp; Góp ý
+                </label>
+                <textarea id="comment" name="comment" class="form-control" rows="3" maxlength="2000" placeholder="Chia sẻ cảm nhận về thái độ phục vụ và độ sạch của ngôi nhà..." required></textarea>
+              </div>
+              <button type="submit" class="btn btn-primary mt-3">
+                Gửi đánh giá dịch vụ
+              </button>
+              <p class="small text-secondary mt-2 mb-0">
+                Mỗi lịch hẹn được gửi đánh giá một lần duy nhất.
+              </p>
+            </form>
+          </section>
+        </div>
+
+        <!-- Action / Payment Aside -->
+        <aside class="col-lg-4 vstack gap-4">
+          <!-- Cost and Payment Info -->
+          <section class="surface p-4">
+            <span class="eyebrow mb-2">
+              Thanh toán sau dịch vụ
+            </span>
+            <h2 class="h5 mb-1">
+              Chi phí lịch hẹn
+            </h2>
+            <strong class="display-price" th:text="${#numbers.formatDecimal(booking.amount,0,'POINT',0,'COMMA')} + ' ₫'">
+              0 ₫
+            </strong>
+
+            <div th:if="${booking.paymentStatus == null}" class="mt-3">
+              <span class="badge bg-light text-secondary border">Chưa phát sinh hóa đơn</span>
+              <p class="small text-secondary mt-2 mb-0">
+                Hóa đơn thanh toán sẽ được hệ thống tạo ngay khi nhân viên hoàn tất công việc.
+              </p>
+            </div>
+
+            <div th:if="${booking.paymentStatus != null}" class="mt-3">
+              <span class="status-pill" th:classappend="${booking.paymentStatus == 'PAID' ? 'completed' : 'unpaid'}" th:text="${booking.paymentStatus == 'PAID' ? 'Đã thanh toán' : 'Chưa thanh toán'}">
+                Trạng thái thanh toán
+              </span>
+            </div>
+
+            <p class="small text-secondary mt-3 mb-0" th:if="${booking.method != null}" th:text="'Phương thức: ' + ${booking.method == 'CASH' ? 'Tiền mặt' : 'Chuyển khoản ngân hàng'}">
+            </p>
+
+            <!-- Customer Payment Method Selection -->
+            <form th:if="${currentUser.role == 'CUSTOMER' and booking.status == 'COMPLETED' and booking.paymentStatus == 'UNPAID'}" method="post" th:action="@{/customer/bookings/{id}/payment(id=${booking.id})}" class="mt-3 pt-3 border-top">
+              <label class="form-label" for="method">
+                Chọn phương thức thanh toán
+              </label>
+              <select class="form-select" id="method" name="method" required>
+                <option value="">Chọn phương thức</option>
+                <option value="CASH" th:selected="${booking.method == 'CASH'}">Tiền mặt (trực tiếp)</option>
+                <option value="BANK_TRANSFER" th:selected="${booking.method == 'BANK_TRANSFER'}">Chuyển khoản ngân hàng</option>
+              </select>
+              <button class="btn btn-primary w-100 mt-3" type="submit">
+                Lưu phương thức thanh toán
+              </button>
+              <p class="small text-secondary mt-2 mb-0">
+                Trạng thái chỉ đổi sang Đã thanh toán sau khi quản trị viên kiểm tra và xác minh nhận tiền.
+              </p>
+            </form>
+
+            <!-- Admin Receipt Verification -->
+            <form th:if="${currentUser.role == 'ADMIN' and booking.paymentStatus == 'UNPAID'}" method="post" th:action="@{/admin/bookings/{id}/paid(id=${booking.id})}" data-confirm="Xác nhận đã thực tế nhận đủ tiền cho lịch hẹn này?" class="mt-3 pt-3 border-top">
+              <label class="d-flex gap-2 small align-items-center">
+                <input type="checkbox" name="receiptVerified" value="true" required th:disabled="${booking.method == null}">
+                <span class="fw-semibold">Tôi đã kiểm tra và xác minh thực tế nhận đủ tiền.</span>
+              </label>
+              <button class="btn btn-primary w-100 mt-3" type="submit" th:disabled="${booking.method == null}">
+                Xác minh đã thanh toán
+              </button>
+              <p th:if="${booking.method == null}" class="small text-warning mt-2 mb-0">
+                ⏳ Khách hàng chưa chọn phương thức thanh toán.
+              </p>
+            </form>
+          </section>
+
+          <!-- Customer Cancel Option -->
+          <section th:if="${currentUser.role == 'CUSTOMER' and booking.status == 'CONFIRMED'}" class="surface p-4">
+            <h2 class="h6 mb-2">
+              Thay đổi kế hoạch?
+            </h2>
+            <p class="small text-secondary mb-3">
+              Bạn có thể hủy trước giờ bắt đầu ít nhất 2 giờ hoàn toàn miễn phí.
+            </p>
+            <form method="post" th:action="@{/customer/bookings/{id}/cancel(id=${booking.id})}" data-confirm="Bạn muốn hủy lịch hẹn này?">
+              <button class="btn btn-outline-danger w-100" type="submit" th:disabled="${!booking.cancellable}">
+                Hủy lịch hẹn
+              </button>
+            </form>
+            <p class="small text-danger mt-2 mb-0" th:unless="${booking.cancellable}">
+              Đã qua thời hạn cho phép hủy lịch (trong vòng 2 giờ trước khi bắt đầu).
+            </p>
+          </section>
+
+          <!-- Staff Complete Option -->
+          <section th:if="${currentUser.role == 'STAFF' and booking.status == 'CONFIRMED'}" class="surface p-4">
+            <h2 class="h6 mb-2">
+              Hoàn thành công việc
+            </h2>
+            <p class="small text-secondary mb-3">
+              Kiểm tra tất cả dịch vụ đã có đủ ảnh bằng chứng trước khi bấm xác nhận.
+            </p>
+            <form method="post" th:action="@{/staff/bookings/{id}/complete(id=${booking.id})}" data-confirm="Xác nhận đã hoàn thành toàn bộ dịch vụ?">
+              <button class="btn btn-primary w-100" type="submit" th:disabled="${!allEvidenceReady or !booking.started}">
+                Xác nhận hoàn thành
+              </button>
+            </form>
+            <p class="small text-warning mt-2 mb-0" th:unless="${allEvidenceReady}">
+              ⚠ Mỗi dịch vụ cần ít nhất một ảnh bằng chứng nghiệm thu.
+            </p>
+            <p class="small text-secondary mt-2 mb-0" th:unless="${booking.started}">
+              ⏱ Chưa đến giờ bắt đầu công việc.
+            </p>
+          </section>
+        </aside>
+      </div>
+    </main>
+    <footer th:replace="~{fragments/layout :: footer}">
+    </footer>
+  </body>
+</html>

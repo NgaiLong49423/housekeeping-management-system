@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+  <head th:replace="~{fragments/layout :: head('Dịch vụ')}">
+  </head>
+  <body>
+    <header th:replace="~{fragments/layout :: header('services')}">
+    </header>
+    <main id="main">
+      <!-- Page Header -->
+      <section class="container pt-4 pt-md-5 pb-3">
+        <div class="page-heading">
+          <span class="eyebrow">
+            Một chút chăm sóc, thêm nhiều thảnh thơi
+          </span>
+          <h1>
+            Dịch vụ cho tổ ấm của bạn
+          </h1>
+          <p class="lead">
+            Giá được tính theo từng dịch vụ cụ thể. Thanh toán an tâm sau khi công việc được nghiệm thu hoàn thành.
+          </p>
+        </div>
+      </section>
+
+      <!-- Services Catalog -->
+      <section class="container pb-5">
+        <div th:replace="~{fragments/services :: cards}">
+        </div>
+      </section>
+
+      <!-- Quality Commitments -->
+      <section class="container pb-5">
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">Tiêu chuẩn Gọn Nhà</span>
+            <h2>Quy chuẩn dịch vụ chất lượng</h2>
+            <p>Mỗi trải nghiệm đặt lịch đều được đảm bảo bằng quy trình rõ ràng và minh bạch.</p>
+          </div>
+        </div>
+        <div class="row g-4">
+          <div class="col-md-4">
+            <div class="value-card h-100">
+              <div class="value-card-icon" aria-hidden="true">🏷</div>
+              <h4>Giá công khai &amp; Minh bạch</h4>
+              <p class="small text-secondary mb-0">
+                Giá niêm yết theo từng gói thời lượng, giữ nguyên mức giá tại thời điểm bạn đặt lịch mà không phát sinh phụ phí ẩn.
+              </p>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="value-card h-100">
+              <div class="value-card-icon" aria-hidden="true">★</div>
+              <h4>Nhân viên tin cậy</h4>
+              <p class="small text-secondary mb-0">
+                Đội ngũ nhân viên part-time thuộc công ty, có lý lịch và kỹ năng được đào tạo bài bản, lịch sự và chu đáo.
+              </p>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="value-card h-100">
+              <div class="value-card-icon" aria-hidden="true">✓</div>
+              <h4>Nghiệm thu trước khi trả tiền</h4>
+              <p class="small text-secondary mb-0">
+                Chỉ thanh toán bằng tiền mặt hoặc chuyển khoản sau khi dịch vụ hoàn thành và nhân viên tải ảnh bằng chứng xác nhận.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Bottom Booking CTA (Luxury Geometric Brand Pattern Banner) -->
+      <section class="container pb-5">
+        <div class="brand-pattern-banner p-4 p-md-5 text-center">
+          <span class="eyebrow mx-auto justify-content-center" style="background: rgba(255, 255, 255, 0.16); color: #ffffff; border-color: rgba(255, 255, 255, 0.32);">
+            Bắt đầu ngay hôm nay
+          </span>
+          <h2 class="h3 mt-2 mb-3 text-white">
+            Sẵn sàng để ngôi nhà luôn gọn gàng và thơm mát?
+          </h2>
+          <p class="mx-auto mb-4" style="max-width: 540px; color: rgba(255, 255, 255, 0.88);">
+            Chỉ mất chưa đầy 2 phút để chọn dịch vụ, người chăm sóc yêu thích và khung giờ phù hợp.
+          </p>
+          <a class="btn btn-white btn-lg" th:href="@{/customer/bookings/new}">
+            Đặt lịch dọn nhà ngay
+            <span aria-hidden="true">↗</span>
+          </a>
+        </div>
+      </section>
+    </main>
+    <footer th:replace="~{fragments/layout :: footer}">
+    </footer>
+  </body>
+</html>

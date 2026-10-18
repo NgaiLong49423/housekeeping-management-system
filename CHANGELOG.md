@@ -2,7 +2,7 @@
 > **File:** `CHANGELOG.md`\
 > **Version:** v1.0.0\
 > **Created:** 2026-06-14\
-> **Last Updated:** 2026-10-09\
+> **Last Updated:** 2026-10-17\
 > **Status:** Template\
 
 # Changelog
@@ -12,6 +12,16 @@ Ghi các thay đổi đáng chú ý theo thứ tự mới nhất trước. File 
 ## [Unreleased]
 
 ### Added
+- `database/setup-demo.sql` tạo database/login demo riêng, chạy lại không xóa dữ liệu; profile `demo` có sẵn kết nối tương ứng để người clone chỉ cần chạy SQL rồi Run `Housekeeping Demo`, không bắt buộc tạo `.env`.
+- Profile `demo` tạo ba tài khoản ứng dụng mẫu công khai bằng BCrypt, không tạo trùng/ghi đè tài khoản hiện có; cấu hình Run `Housekeeping Demo`, `.env.example` và hướng dẫn cho người clone từ GitHub.
+- Tự mở trang chủ trong trình duyệt mặc định khi Run `Housekeeping Full Stack` trong IntelliJ; đã kiểm tra Chrome mở frontend sau lượt dừng/chạy lại server.
+- File SQL tạo database `hsf302` và đủ 11 bảng từ schema V1, kèm kiểm tra database rỗng, transaction và hướng dẫn Flyway tiếp nhận schema đã tạo thủ công.
+- Cấu hình `Housekeeping Full Stack` và hướng dẫn mở đúng Maven project, chọn JDK 21, chạy giao diện/backend trong IntelliJ.
+- Launcher chạy/dừng local bằng JDK 21, cấu hình ngoài JAR, seeder demo tường minh và script kiểm tra luồng HTTP–SQL Server; hướng dẫn chạy trên máy đã setup.
+- Giao diện Gọn Nhà bằng Thymeleaf/Bootstrap, chuyển từ thiết kế ZIP và điều chỉnh theo PRD/SRS cho Customer, Staff, Admin.
+- Lớp MVC và đăng nhập session theo xác nhận của người dùng; phân quyền, CSRF, ownership và form gọi Service đặt lịch, Evidence, hoàn thành, thanh toán hiện có.
+- Thao tác portal cho hủy lịch, Feedback, Favorite và quản lý danh mục/khoảng sẵn sàng; không thay schema hoặc Service nghiệp vụ cũ.
+- Kiểm thử render/binding/session/quyền truy cập và hướng dẫn kết nối frontend–backend; ảnh và Bootstrap được phục vụ cục bộ.
 - Bổ sung policy, skills, hướng dẫn khởi tạo và workflow review dùng chung cho Agent.
 - Bổ sung kiểm tra repository trung lập với framework bằng GitHub Actions.
 
@@ -20,4 +30,8 @@ Ghi các thay đổi đáng chú ý theo thứ tự mới nhất trước. File 
 - Tổng quát hóa tài liệu và hướng dẫn repository để tái sử dụng cho các dự án Java web.
 
 ### Fixed
+- Đồng bộ các bản Run Configuration dùng SDK `ms-21` và thư mục làm việc theo module Maven, sửa lỗi không tìm thấy `file:./.runtime/` khi chạy từ thư mục project khác.
+- Sửa lỗi IntelliJ không tìm thấy main class: import đúng module Maven, chọn classpath `housekeeping-management-system`, đặt SDK 21 và bật annotation processing Lombok. Đã chạy trực tiếp trong IDE và kiểm tra đăng nhập ba vai trò cùng trang dịch vụ qua SQL Server.
+- Sửa cấu hình local trỏ tới database `hsf302` hiện có, map SQL login riêng vào database, baseline schema thủ công V1 và xác minh đăng nhập đủ ba vai trò qua SQL Server thật.
+- Cấu hình Hibernate giữ tên bảng tường minh để validate đúng schema SQL Server được Flyway tạo.
 - Sửa các đường dẫn repository cũ và liên kết chỉ dùng được trên máy local.

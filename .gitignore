@@ -5,6 +5,7 @@
 target/
 build/
 out/
+.runtime/
 
 # IDE files
 .idea/
@@ -19,11 +20,18 @@ Thumbs.db
 # Logs
 *.log
 
+# Evidence images stored locally at runtime
+app/housekeeping-management-system/var/
+
 # Environment files
 .env
 .env.*
 !.env.example
 application-local.properties
+
+# Machine-specific IntelliJ launchers; keep the portable Housekeeping Demo launcher tracked.
+.run/Housekeeping Full Stack.run.xml
+app/housekeeping-management-system/.run/Housekeeping Full Stack.run.xml
 
 # Local Agent reports, drafts, and logs
 .agents/outputs/

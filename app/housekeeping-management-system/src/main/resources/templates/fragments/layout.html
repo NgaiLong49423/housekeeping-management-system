@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+  <head th:fragment="head(title)">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${title} + ' · Gọn Nhà'">Gọn Nhà</title>
+    <link rel="icon" th:href="@{/images/5e7a8.png}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/vendor/bootstrap/bootstrap.min.css}">
+    <link rel="stylesheet" th:href="@{/css/portal.css}">
+    <script defer th:src="@{/vendor/bootstrap/bootstrap.bundle.min.js}"></script>
+    <script defer th:src="@{/js/portal.js}"></script>
+  </head>
+  <body>
+    <header class="site-header" th:fragment="header(active)">
+      <a class="skip-link" href="#main">Đến nội dung chính</a>
+      <nav class="navbar navbar-expand-lg container py-3" aria-label="Điều hướng chính">
+        <a class="brand" th:href="@{/}">
+          <img th:src="@{/images/5e7a8.png}" alt="Logo Gọn Nhà" width="40" height="40">
+          <span>
+            Gọn Nhà
+            <small>Chăm nhà, thêm an tâm</small>
+          </span>
+        </a>
+        <button class="navbar-toggler border-0 shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#navigation" aria-controls="navigation" aria-expanded="false" aria-label="Mở menu">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navigation">
+          <div class="navbar-nav mx-auto gap-lg-1" th:if="${currentUser == null or currentUser.role == 'CUSTOMER'}">
+            <a class="nav-link" th:classappend="${active == 'home'} ? 'active'" th:href="@{/}">Trang chủ</a>
+            <a class="nav-link" th:classappend="${active == 'services'} ? 'active'" th:href="@{/services}">Dịch vụ</a>
+            <a class="nav-link" th:if="${currentUser != null}" th:classappend="${active == 'staff'} ? 'active'" th:href="@{/customer/staff}">Nhân viên</a>
+            <a class="nav-link" th:if="${currentUser != null}" th:classappend="${active == 'bookings'} ? 'active'" th:href="@{/customer/bookings}">Lịch của tôi</a>
+          </div>
+          <div class="navbar-nav mx-auto gap-lg-1" th:if="${currentUser != null and currentUser.role == 'STAFF'}">
+            <a class="nav-link" th:classappend="${active == 'bookings'} ? 'active'" th:href="@{/staff/bookings}">Công việc của tôi</a>
+            <a class="nav-link" th:classappend="${active == 'schedules'} ? 'active'" th:href="@{/staff/schedules}">Lịch sẵn sàng</a>
+          </div>
+          <div class="navbar-nav mx-auto gap-lg-1" th:if="${currentUser != null and currentUser.role == 'ADMIN'}">
+            <a class="nav-link" th:classappend="${active == 'bookings'} ? 'active'" th:href="@{/admin/bookings}">Tổng quan</a>
+            <a class="nav-link" th:classappend="${active == 'staff'} ? 'active'" th:href="@{/admin/staff}">Nhân viên</a>
+            <a class="nav-link" th:classappend="${active == 'services'} ? 'active'" th:href="@{/admin/services}">Dịch vụ</a>
+            <a class="nav-link" th:classappend="${active == 'schedules'} ? 'active'" th:href="@{/admin/schedules}">Lịch sẵn sàng</a>
+          </div>
+          <div class="header-actions">
+            <a th:if="${currentUser == null}" class="btn btn-outline-primary" th:href="@{/login}">
+              Đăng nhập
+            </a>
+            <a th:if="${currentUser == null or currentUser.role == 'CUSTOMER'}" class="btn btn-primary" th:href="@{/customer/bookings/new}">
+              Đặt lịch ngay
+              <span aria-hidden="true">↗</span>
+            </a>
+            <details class="account-menu" th:if="${currentUser != null}">
+              <summary th:text="${currentUser.displayName}">Tài khoản</summary>
+              <div class="account-popover">
+                <span class="eyebrow w-100 justify-content-center" th:text="${currentUser.role}"></span>
+                <form method="post" th:action="@{/logout}">
+                  <button class="btn btn-light w-100" type="submit">
+                    Đăng xuất
+                  </button>
+                </form>
+              </div>
+            </details>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <th:block th:fragment="alerts">
+      <div th:if="${success != null}" class="alert alert-success d-flex align-items-center gap-2 mb-4 border-0 shadow-sm" role="status" style="background-color: var(--status-confirmed-bg); color: var(--status-confirmed-text); border-left: 4px solid var(--brand) !important;">
+        <span aria-hidden="true">✓</span>
+        <span th:text="${success}"></span>
+      </div>
+      <div th:if="${error != null}" class="alert alert-danger d-flex align-items-center gap-2 mb-4 border-0 shadow-sm" role="alert" style="background-color: var(--status-cancelled-bg); color: var(--status-cancelled-text); border-left: 4px solid #ef4444 !important;">
+        <span aria-hidden="true">⚠</span>
+        <span th:text="${error}"></span>
+      </div>
+    </th:block>
+
+    <footer class="site-footer" th:fragment="footer">
+      <div class="container">
+        <div class="row g-4 justify-content-between align-items-start pb-4">
+          <div class="col-lg-4 footer-brand">
+            <a class="brand" th:href="@{/}">
+              <img th:src="@{/images/5e7a8.png}" alt="Logo Gọn Nhà" width="36" height="36">
+              <span>
+                Gọn Nhà
+                <small>Dịch vụ giúp việc của một công ty</small>
+              </span>
+            </a>
+            <p>
+              Hệ thống đặt lịch dịch vụ dọn dẹp theo giờ, giúp việc gia đình uy tín và minh bạch. Nhân viên tận tâm, lý lịch rõ ràng.
+            </p>
+          </div>
+          <div class="col-sm-6 col-lg-3">
+            <div class="footer-heading">Liên kết nhanh</div>
+            <ul class="footer-links">
+              <li><a th:href="@{/}">Trang chủ</a></li>
+              <li><a th:href="@{/services}">Danh mục dịch vụ</a></li>
+              <li><a th:href="@{/customer/bookings/new}">Đặt lịch dịch vụ</a></li>
+              <li><a th:href="@{/login}">Đăng nhập cổng thông tin</a></li>
+            </ul>
+          </div>
+          <div class="col-sm-6 col-lg-4">
+            <div class="footer-heading">Cam kết chất lượng</div>
+            <ul class="footer-links">
+              <li class="d-flex align-items-center gap-2">
+                <span style="color: #5eead4;">✓</span> 100% minh bạch về giá và thời lượng
+              </li>
+              <li class="d-flex align-items-center gap-2">
+                <span style="color: #5eead4;">✓</span> Thanh toán an tâm sau khi hoàn thành
+              </li>
+              <li class="d-flex align-items-center gap-2">
+                <span style="color: #5eead4;">✓</span> Chăm sóc khách hàng: 8:00 – 20:00 hàng ngày
+              </li>
+            </ul>
+          </div>
+        </div>
+        <div class="footer-bottom d-flex flex-wrap align-items-center justify-content-between gap-3">
+          <p class="mb-0 small">
+            Chọn người bạn tin. Dành thời gian cho điều bạn yêu.
+          </p>
+          <a class="text-link" th:href="@{/services}">
+            Khám phá dịch vụ →
+          </a>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

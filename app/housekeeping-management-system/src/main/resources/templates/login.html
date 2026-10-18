@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+  <head th:replace="~{fragments/layout :: head('Đăng nhập')}">
+  </head>
+  <body>
+    <header th:replace="~{fragments/layout :: header('login')}">
+    </header>
+    <main id="main" class="container d-flex align-items-center justify-content-center py-5">
+      <div class="login-grid surface overflow-hidden mx-auto w-100">
+        <div class="login-photo">
+          <img th:src="@{/images/d856e.png}" alt="Không gian nhà bếp sạch sẽ" width="512" height="279">
+          <div class="p-4 p-lg-5">
+            <span class="eyebrow">
+              Gọn Nhà
+            </span>
+            <h2>
+              Nhà sạch hơn.
+              <br>
+              Ngày nhẹ hơn.
+            </h2>
+            <p class="mb-0">
+              Chăm sóc ngôi nhà bắt đầu từ sự an tâm và minh bạch.
+            </p>
+          </div>
+        </div>
+        <div class="p-4 p-lg-5 d-flex flex-column justify-content-center">
+          <div>
+            <span class="eyebrow">
+              Chào mừng bạn trở lại
+            </span>
+            <h1 class="h2 mb-2">
+              Đăng nhập
+            </h1>
+            <p class="text-secondary small mb-4">
+              Truy cập lịch hẹn và không gian làm việc của bạn.
+            </p>
+            <div th:if="${param.error}" class="alert alert-danger d-flex align-items-center gap-2 mb-3 border-0" role="alert" style="background-color: var(--status-cancelled-bg); color: var(--status-cancelled-text); border-left: 4px solid #ef4444 !important;">
+              <span aria-hidden="true">⚠</span>
+              <span>Email hoặc mật khẩu không đúng.</span>
+            </div>
+            <div th:if="${param.logout}" class="alert alert-success d-flex align-items-center gap-2 mb-3 border-0" role="status" style="background-color: var(--status-confirmed-bg); color: var(--status-confirmed-text); border-left: 4px solid var(--brand) !important;">
+              <span aria-hidden="true">✓</span>
+              <span>Bạn đã đăng xuất an toàn khỏi hệ thống.</span>
+            </div>
+            <form th:action="@{/login}" method="post" class="vstack gap-3">
+              <div>
+                <label class="form-label" for="email">
+                  Email tài khoản
+                </label>
+                <input id="email" name="email" type="email" class="form-control" autocomplete="username" maxlength="254" required autofocus placeholder="name@example.com">
+              </div>
+              <div>
+                <label class="form-label" for="password">
+                  Mật khẩu
+                </label>
+                <input id="password" name="password" type="password" class="form-control" autocomplete="current-password" required placeholder="••••••••">
+              </div>
+              <button type="submit" class="btn btn-primary w-100 mt-2">
+                Đăng nhập hệ thống
+                <span aria-hidden="true">→</span>
+              </button>
+            </form>
+            <div class="mt-4 pt-3 border-top">
+              <p class="small text-secondary mb-0">
+                ℹ Sử dụng tài khoản được cấp. Hệ thống sẽ tự động điều hướng đúng trang quản trị theo vai trò của bạn (Khách hàng, Nhân viên, Quản trị viên).
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+    <footer th:replace="~{fragments/layout :: footer}">
+    </footer>
+  </body>
+</html>

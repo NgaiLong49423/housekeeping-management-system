@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+  <head th:replace="~{fragments/layout :: head('Quản lý nhân viên')}">
+  </head>
+  <body>
+    <header th:replace="~{fragments/layout :: header('staff')}">
+    </header>
+    <main id="main" class="container py-4 py-md-5">
+      <!-- Page Heading -->
+      <div class="page-heading">
+        <span class="eyebrow">
+          Quản trị nhân sự · Gọn Nhà
+        </span>
+        <h1>
+          Quản lý nhân viên
+        </h1>
+        <p class="lead">
+          Danh sách đội ngũ nhân viên part-time của công ty. Thao tác xóa an toàn chỉ được chấp thuận khi không còn lịch hẹn liên quan.
+        </p>
+      </div>
+
+      <div th:replace="~{fragments/layout :: alerts}">
+      </div>
+
+      <div class="row g-4 align-items-start">
+        <!-- Add Staff Form -->
+        <section class="col-lg-4">
+          <div class="surface p-4">
+            <h2 class="h5 mb-1">
+              Thêm nhân viên mới
+            </h2>
+            <p class="small text-secondary mb-3">
+              Cấp tài khoản đăng nhập cho nhân viên mới.
+            </p>
+            <form method="post" th:action="@{/admin/staff}" class="vstack gap-3">
+              <div>
+                <label class="form-label" for="add-staff-name">
+                  Họ và tên
+                </label>
+                <input id="add-staff-name" name="name" class="form-control" maxlength="150" required autocomplete="off" placeholder="Nguyễn Văn A">
+              </div>
+              <div>
+                <label class="form-label" for="add-staff-email">
+                  Email đăng nhập
+                </label>
+                <input id="add-staff-email" name="email" type="email" class="form-control" maxlength="254" required autocomplete="off" placeholder="nhanvien@gonnha.local">
+              </div>
+              <div>
+                <label class="form-label" for="add-staff-pwd">
+                  Mật khẩu ban đầu
+                </label>
+                <input id="add-staff-pwd" name="password" type="password" class="form-control" minlength="8" maxlength="72" required autocomplete="new-password" placeholder="Tối thiểu 8 ký tự">
+                <small class="text-secondary d-block mt-1">Mật khẩu được mã hóa an toàn bằng BCrypt.</small>
+              </div>
+              <div>
+                <label class="form-label" for="add-staff-phone">
+                  Số điện thoại
+                </label>
+                <input id="add-staff-phone" name="phone" type="tel" class="form-control" maxlength="20" placeholder="0912 345 678">
+              </div>
+              <button class="btn btn-primary w-100 mt-2" type="submit">
+                + Thêm nhân viên
+              </button>
+            </form>
+          </div>
+        </section>
+
+        <!-- Existing Staff List -->
+        <section class="col-lg-8 vstack gap-3">
+          <div class="surface p-4 empty-state" th:if="${#lists.isEmpty(staff)}">
+            <span class="empty-icon" aria-hidden="true">👥</span>
+            <h3>Chưa có nhân viên nào</h3>
+            <p>
+              Hãy tạo nhân viên đầu tiên bằng biểu mẫu bên cạnh để bắt đầu phân công lịch sẵn sàng.
+            </p>
+          </div>
+
+          <article class="surface p-4" th:each="person : ${staff}">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 pb-3 border-bottom">
+              <div class="d-flex align-items-center gap-3">
+                <span class="avatar" th:text="${#strings.substring(person.name,0,1)}">N</span>
+                <div>
+                  <h2 class="h5 mb-1 text-dark" th:text="${person.name}">Họ và tên</h2>
+                  <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <span class="badge bg-light text-secondary border small" th:text="${person.phone != null and !person.phone.isEmpty() ? '📞 ' + person.phone : 'Chưa có SĐT'}">
+                      SĐT
+                    </span>
+                    <span class="badge rounded-pill bg-light text-secondary border small">Nhân viên part-time</span>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <form method="post" th:action="@{/admin/staff/{id}/delete(id=${person.id})}" data-confirm="Xác nhận xóa nhân viên này? Nếu nhân viên đã có lịch hoặc dữ liệu liên quan, hệ thống sẽ từ chối để bảo vệ toàn vẹn dữ liệu.">
+                  <button class="btn btn-outline-danger btn-sm" type="submit">
+                    Xóa nhân viên
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            <!-- Edit Details Accordion -->
+            <details class="mt-3">
+              <summary class="small">
+                Chỉnh sửa thông tin liên hệ
+              </summary>
+              <form class="vstack gap-3 mt-3 p-3 bg-light rounded" method="post" th:action="@{/admin/staff/{id}(id=${person.id})}">
+                <div>
+                  <label class="form-label small">Họ và tên</label>
+                  <input class="form-control" name="name" th:value="${person.name}" maxlength="150" required>
+                </div>
+                <div>
+                  <label class="form-label small">Số điện thoại</label>
+                  <input class="form-control" name="phone" type="tel" th:value="${person.phone}" maxlength="20">
+                </div>
+                <div class="d-flex justify-content-end">
+                  <button class="btn btn-primary btn-sm" type="submit">
+                    Lưu thay đổi
+                  </button>
+                </div>
+              </form>
+            </details>
+          </article>
+        </section>
+      </div>
+    </main>
+    <footer th:replace="~{fragments/layout :: footer}">
+    </footer>
+  </body>
+</html>
