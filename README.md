@@ -24,8 +24,11 @@
 
 1. Chuẩn bị JDK 21 và SQL Server bật Mixed Mode, TCP cổng **1433**.
 2. Trong SSMS, dùng tài khoản quản trị chạy toàn bộ [database/setup-demo.sql](database/setup-demo.sql). Script tạo database `housekeeping_demo` và SQL login dùng sẵn.
-3. Mở [pom.xml](app/housekeeping-management-system/pom.xml) trong IntelliJ, chọn SDK 21 rồi Run **Housekeeping Demo**.
-4. Mở [trang đăng nhập](http://localhost:8080/login) và dùng tài khoản ở bảng bên dưới. Flyway tự tạo bảng, ứng dụng tự tạo ba tài khoản.
+3. Mở root repository trong IntelliJ, chọn SDK 21 và bảo đảm Maven module từ [pom.xml](app/housekeeping-management-system/pom.xml) đã được import.
+4. Chọn **Housekeeping Demo - Reset DB** trên thanh Run rồi bấm Run. Cấu hình này bật profile `demo`, nạp `.env` trong module, reset schema và dữ liệu mỗi lần chạy, rồi tự mở trang chủ sau khi build.
+5. Mở [trang đăng nhập](http://localhost:8080/login) và dùng tài khoản ở bảng bên dưới. Flyway tự tạo bảng và nạp dữ liệu demo; migration seed chỉ hoạt động trong profile `demo`.
+
+Mặc định ứng dụng giữ dữ liệu giữa các lần chạy. Cấu hình IntelliJ **Housekeeping Demo - Reset DB** bật reset riêng cho lần chạy đó. Khi chạy bằng cấu hình khác, đặt `DB_RESET_ON_STARTUP=true` trong `.env` của module nếu muốn reset. Tính năng này xóa toàn bộ dữ liệu trong schema đã cấu hình; chỉ dùng với database local dành riêng cho demo.
 
 Không cần tạo `.env` với cách chạy này. Nếu SQL dùng cổng khác hoặc chưa bật Mixed Mode/TCP, xem [hướng dẫn chi tiết và xử lý lỗi](docs/demo-setup.md). Cấu hình **Housekeeping Full Stack** bên dưới dành cho máy local đã setup riêng.
 

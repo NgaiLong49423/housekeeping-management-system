@@ -27,8 +27,9 @@ Các đường dẫn dưới đây tính từ thư mục gốc repository. Khi m
 | SQL tạo database và SQL login demo dùng sẵn | [database/setup-demo.sql](../database/setup-demo.sql) |
 | Tài khoản ba vai trò và các bước chạy | [docs/demo-setup.md](demo-setup.md) — tài liệu này |
 | Mẫu kết nối SQL Server để sao chép thành `.env` | [app/housekeeping-management-system/.env.example](../app/housekeeping-management-system/.env.example) |
-| Cấu hình Run demo trong IntelliJ | [Housekeeping Demo.run.xml](<../app/housekeeping-management-system/.run/Housekeeping Demo.run.xml>) |
+| Cấu hình Run demo trong IntelliJ | [Housekeeping Demo - Reset DB.run.xml](<../.run/Housekeeping Demo - Reset DB.run.xml>) |
 | Cấu hình profile `demo` và đọc `.env` | [application-demo.properties](../app/housekeeping-management-system/src/main/resources/application-demo.properties) |
+| Migration nạp tài khoản, dịch vụ và booking mẫu | [R__demo_data.sql](../app/housekeeping-management-system/src/main/resources/db/migration/R__demo_data.sql) |
 | Mã tự tạo ba tài khoản demo | [DemoAccountSeeder.java](../app/housekeeping-management-system/src/main/java/com/housekeeping/management/demo/DemoAccountSeeder.java) |
 | Hướng dẫn schema, migration và baseline database | [database/README.md](../database/README.md) |
 
@@ -39,7 +40,7 @@ File `.env` chỉ cần khi dùng kết nối khác mặc định; đặt tại 
 1. Chuẩn bị **JDK 21**, SQL Server và SSMS. SQL Server phải bật **SQL Server and Windows Authentication mode** (Mixed Mode) và **TCP/IP cổng 1433**. Với SQL Express, cũng phải bật TCP/IP cho đúng instance `SQLEXPRESS`; xem phần xử lý lỗi bên dưới.
 2. Trong SSMS, kết nối đúng instance bằng tài khoản quản trị (ví dụ Windows Authentication), mở [database/setup-demo.sql](../database/setup-demo.sql) và **Execute / F5 toàn bộ file**. Script tạo database riêng `housekeeping_demo`, SQL login `housekeeping_demo_app` và quyền cần để chạy Flyway. Có thể chạy lại; không xóa dữ liệu hoặc đặt lại password đã có.
 3. Mở `app/housekeeping-management-system/pom.xml` bằng IntelliJ dưới dạng Maven project, chọn Project SDK **Java 21** và chờ Maven tải dependencies/import hoàn tất.
-4. Chọn cấu hình **Housekeeping Demo** rồi bấm **Run**. Không cần tạo `.env` cho cách chạy mặc định. Profile `demo` có sẵn kết nối khớp script SQL; Flyway tạo bảng, sau đó seeder tạo ba tài khoản ở trên. Không chạy `schema.sql` hoặc script tạo bảng thủ công trước bước này.
+4. Mở root repository trong IntelliJ và chọn cấu hình **Housekeeping Demo - Reset DB**. Cấu hình này dùng working directory của module để nạp `.env`, bật profile `demo`, đặt `DB_RESET_ON_STARTUP=true` và mở trang chủ sau khi build. Mỗi lần chạy, ứng dụng tạo database nếu chưa tồn tại rồi xóa schema cấu hình để Flyway tạo lại bảng và dữ liệu demo. Profile `demo` có kết nối mặc định khớp script SQL nếu `.env` không ghi đè. Flyway nạp dịch vụ, tài khoản và booking mẫu từ `R__demo_data.sql`; không chạy `schema.sql` hoặc script tạo bảng thủ công trước bước này.
 5. Khi log báo ứng dụng đã khởi động, mở [đăng nhập](http://localhost:8080/login). Admin tới `/admin/bookings`, Customer tới `/customer/bookings`, Staff tới `/staff/bookings`. IntelliJ có bước tự mở trình duyệt; nếu trình duyệt mở trước khi server sẵn sàng, tải lại trang.
 
 ### Kết nối mặc định đã chuẩn bị sẵn
@@ -79,11 +80,11 @@ Nếu database đã có bảng tạo thủ công từ đúng schema V1 nhưng ch
 
 ## Cách tạo và giữ tài khoản
 
-- `DemoAccountSeeder` chỉ được đăng ký khi bật profile `demo`; chạy profile thông thường không tạo tài khoản mẫu.
+- `R__demo_data.sql` chỉ nạp tài khoản và dữ liệu mẫu khi bật profile `demo`; profile thông thường không nhận dữ liệu demo. `DemoAccountSeeder` tiếp tục kiểm tra và bổ sung tài khoản nếu thiếu.
 - Chỉ tạo tài khoản còn thiếu, mã hóa mật khẩu bằng PasswordEncoder BCrypt của ứng dụng và tái sử dụng khóa kiểm tra email duy nhất giữa ba bảng.
-- Chạy lại không tạo trùng và không đổi mật khẩu hoặc thông tin của tài khoản đã có. Nếu ai đó đã đổi mật khẩu tài khoản demo trong database riêng, mật khẩu đó được giữ nguyên.
+- Khi không bật reset, chạy lại không tạo trùng và không đổi mật khẩu hoặc thông tin của tài khoản đã có. Nếu bật `DB_RESET_ON_STARTUP=true`, schema và dữ liệu bị xóa trước, rồi seeder tạo lại ba tài khoản mẫu với mật khẩu công khai.
 - Nếu email demo đã thuộc vai trò khác hoặc trùng giữa nhiều bảng, ứng dụng báo lỗi thay vì tự cấp/chuyển vai trò.
-- Không thay Entity, schema hay migration V1; không xóa dữ liệu, không tạo SQL login, không seed lịch đặt/thanh toán. Admin có thể thêm dịch vụ và khoảng sẵn sàng qua giao diện hiện có.
+- Không thay Entity, schema hay migration V1; seeder không tạo SQL login hoặc seed lịch đặt/thanh toán. Admin có thể thêm dịch vụ và khoảng sẵn sàng qua giao diện hiện có. Tùy chọn `DB_RESET_ON_STARTUP=true` xóa dữ liệu trong schema trước khi khởi động.
 
 Chỉ bật profile này cho môi trường demo của nhóm. Mật khẩu website và SQL mẫu ở trên là dữ liệu công khai, không dùng cho môi trường triển khai thật. Thông tin SQL Server riêng, `.env`, `.runtime/`, log và file build riêng không đưa lên GitHub. Những file cần chia sẻ gồm `database/setup-demo.sql`, source seeder, `application.properties`, `application-demo.properties`, `.env.example`, cấu hình `.run/Housekeeping Demo.run.xml` và tài liệu này.
 

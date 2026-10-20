@@ -27,6 +27,8 @@ mvn spring-boot:run
 
 Mở [trang chủ](http://localhost:8080/) hoặc [đăng nhập](http://localhost:8080/login). Chạy thông thường cần tài khoản đã tồn tại trong database. Người mới clone muốn có sẵn ba vai trò: dùng SSMS chạy [setup-demo.sql](../database/setup-demo.sql), rồi Run **Housekeeping Demo** với JDK 21 hoặc thêm `-Dspring-boot.run.profiles=demo` vào lệnh Maven. Kết nối demo tới `localhost:1433/housekeeping_demo` đã cấu hình sẵn; không cần `.env` trừ khi đổi kết nối. Xem [tài khoản mẫu và cách clone](../docs/demo-setup.md).
 
+**Làm mới database mỗi lần chạy (tùy chọn local):** đặt `DB_RESET_ON_STARTUP=true` trong `.env`. Ứng dụng sẽ tạo database từ `DB_URL` nếu chưa có, rồi Flyway xóa các object trong schema cấu hình và chạy lại migration. Toàn bộ dữ liệu trong schema sẽ mất mỗi lần chạy. Chỉ bật với database local dành riêng cho phát triển; tài khoản SQL cần quyền `CREATE DATABASE` nếu database chưa tồn tại. Mặc định tính năng này tắt.
+
 Kiểm tra giao diện, đăng nhập và phân quyền không cần database:
 
 ```powershell

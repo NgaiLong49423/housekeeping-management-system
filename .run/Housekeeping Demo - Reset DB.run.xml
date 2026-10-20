@@ -1,0 +1,16 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Housekeeping Demo - Reset DB" type="Application" factoryName="Application">
+    <option name="MAIN_CLASS_NAME" value="com.housekeeping.management.HousekeepingManagementSystemApplication" />
+    <module name="housekeeping-management-system" />
+    <option name="PROGRAM_PARAMETERS" value="--spring.profiles.active=demo" />
+    <envs>
+      <env name="DB_RESET_ON_STARTUP" value="true" />
+    </envs>
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/app/housekeeping-management-system" />
+    <option name="SHORTEN_COMMAND_LINE" value="ARGS_FILE" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+      <option name="LaunchBrowser.Before.Run" url="http://localhost:8080/" />
+    </method>
+  </configuration>
+</component>

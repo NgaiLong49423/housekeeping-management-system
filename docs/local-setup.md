@@ -33,6 +33,8 @@ Frontend Thymeleaf được Spring Boot phục vụ cùng backend tại port 808
 
 Run Configuration nạp kết nối SQL từ `.runtime/application-local.properties`; không điền mật khẩu vào cấu hình Run. SQL snapshot được cung cấp trùng với Flyway V1; database `hsf302` đã được Flyway baseline tại V1 và Hibernate validate thành công. Không chạy lại lệnh tạo bảng hoặc bật lại baseline trong các lần chạy bình thường.
 
+`DB_RESET_ON_STARTUP` mặc định tắt. Không bật tùy chọn này cho cấu hình **Housekeeping Full Stack** vì kết nối local trỏ tới database `hsf302` có dữ liệu cần giữ.
+
 Tham khảo cách tổ chức Run Configuration trong [Backend Guide](https://github.com/NgaiLong49423/vegetarian-support-system/blob/develop/app/mamxanh-backend/README.md) và [Frontend Guide](https://github.com/NgaiLong49423/vegetarian-support-system/blob/develop/app/mamxanh-frontend/README.md) của Vegetarian Support System. Project tham khảo dùng React/Vite riêng; Housekeeping tiếp tục dùng Spring MVC/Thymeleaf theo baseline hiện có.
 
 **Trạng thái xác minh ngày 2026-10-17:** đã build và khởi động bằng nút Run trong IntelliJ. Tiến trình Java 21 có parent `idea64.exe`, có `idea_rt.jar` và classpath qua argument file. Console báo ứng dụng đã khởi động, Hibernate kết nối `hsf302/dbo`; đăng nhập thật Admin/Customer/Staff đều chuyển đúng trang với HTTP 200, trang dịch vụ render dữ liệu SQL Server.
