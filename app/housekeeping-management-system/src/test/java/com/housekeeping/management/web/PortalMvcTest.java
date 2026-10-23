@@ -40,7 +40,7 @@ class PortalMvcTest {
     @MockitoBean BookingReservationService reservations;
     @MockitoBean BookingCompletionService completion;
     @MockitoBean PaymentLifecycleService payments;
-    @MockitoBean MomoPaymentService momoPayments;
+    @MockitoBean PayosPaymentService payosPayments;
     @MockitoBean EvidenceStorageService storage;
 
     private final PortalUser customer = account(1L, "CUSTOMER", "Khách hàng kiểm thử");
@@ -99,17 +99,17 @@ class PortalMvcTest {
     }
 
     @Test
-    void momoPendingCheckoutIsReopenableByCustomerAndNotAdminVerified() throws Exception {
-        BookingCard momo = new BookingCard(42L, 1L, 2L, "Khách hàng kiểm thử", "Nhân viên kiểm thử", start,
-                start.plusHours(2), "COMPLETED", new BigDecimal("140000"), "UNPAID", "MOMO", "PENDING",
-                "https://test-payment.momo.vn/checkout", null);
-        when(query.booking(eq(42L), any())).thenReturn(momo);
+    void payosPendingCheckoutIsReopenableByCustomerAndNotAdminVerified() throws Exception {
+        BookingCard payos = new BookingCard(42L, 1L, 2L, "Khách hàng kiểm thử", "Nhân viên kiểm thử", start,
+                start.plusHours(2), "COMPLETED", new BigDecimal("140000"), "UNPAID", "PAYOS", "PENDING",
+                "https://pay.payos.vn/web/payment-link", null);
+        when(query.booking(eq(42L), any())).thenReturn(payos);
         when(query.details(eq(42L), any())).thenReturn(List.of());
 
         mvc.perform(get("/customer/bookings/42").with(user(customer)))
                 .andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Mở lại trang thanh toán MoMo")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("https://test-payment.momo.vn/checkout")));
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Mở lại trang thanh toán PayOS")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("https://pay.payos.vn/web/payment-link")));
         mvc.perform(get("/admin/bookings/42").with(user(admin)))
                 .andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("receiptVerified"))));
@@ -203,23 +203,23 @@ class PortalMvcTest {
     }
 
     @Test
-    void customerMomoChoiceRedirectsToProviderCheckout() throws Exception {
+    void customerPayosChoiceRedirectsToProviderCheckout() throws Exception {
         when(query.booking(eq(42L), any())).thenReturn(card("COMPLETED", "UNPAID", null));
-        when(momoPayments.checkout(42L, customer.getAccountId())).thenReturn("https://test-payment.momo.vn/checkout");
+        when(payosPayments.checkout(42L, customer.getAccountId())).thenReturn("https://pay.payos.vn/web/payment-link");
 
-        mvc.perform(post("/customer/bookings/42/payment").with(user(customer)).with(csrf()).param("method", "MOMO"))
+        mvc.perform(post("/customer/bookings/42/payment").with(user(customer)).with(csrf()).param("method", "PAYOS"))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("https://test-payment.momo.vn/checkout"));
-        verify(momoPayments).checkout(42L, customer.getAccountId());
+                .andExpect(redirectedUrl("https://pay.payos.vn/web/payment-link"));
+        verify(payosPayments).checkout(42L, customer.getAccountId());
         verifyNoInteractions(payments);
     }
 
     @Test
-    void momoIpnIsPublicAndExemptFromCsrfOnlyForProviderCallback() throws Exception {
-        mvc.perform(post("/payments/momo/ipn").contentType(org.springframework.http.MediaType.APPLICATION_JSON)
-                        .content("{\"partnerCode\":\"TEST\",\"requestId\":\"r1\",\"orderId\":\"GN1\",\"amount\":140000,\"resultCode\":0,\"signature\":\"test\"}"))
+    void payosWebhookIsPublicAndExemptFromCsrfOnlyForProviderCallback() throws Exception {
+        mvc.perform(post("/payments/payos/webhook").contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"code\":\"00\",\"desc\":\"success\",\"success\":true,\"data\":{\"orderCode\":123,\"amount\":140000,\"currency\":\"VND\",\"code\":\"00\",\"paymentLinkId\":\"link-123\"},\"signature\":\"test\"}"))
                 .andExpect(status().isNoContent());
-        verify(momoPayments).receiveIpn(any(MomoIpnRequest.class));
+        verify(payosPayments).receiveWebhook(any(PayosWebhookRequest.class));
         mvc.perform(post("/customer/bookings/42/cancel").with(user(customer))).andExpect(status().isForbidden());
     }
 

@@ -37,7 +37,7 @@
 - Cho phép Customer chọn Staff và đặt dịch vụ trong khoảng Staff sẵn sàng.
 - Giúp Admin quản lý lịch sẵn sàng; hệ thống xác minh lịch trước khi xác nhận Booking.
 - Hỗ trợ Staff gửi Evidence cho từng Booking_Detail và chỉ hoàn thành Booking khi đủ điều kiện.
-- Hỗ trợ Payment tiền mặt/chuyển khoản thủ công và checkout MoMo Test, Feedback sau hoàn thành và danh sách Favorite_Staff.
+- Hỗ trợ Payment tiền mặt/chuyển khoản thủ công và checkout PayOS, Feedback sau hoàn thành và danh sách Favorite_Staff.
 
 ## 3. Phạm Vi
 
@@ -51,7 +51,7 @@
 - Xác minh khoảng thời gian Booking nằm trong lịch rảnh và không giao với Booking khác đang chiếm lịch của cùng Staff; xử lý an toàn các yêu cầu đặt đồng thời.
 - Booking hợp lệ tự chuyển `CONFIRMED`; Customer hủy theo điều kiện 2 giờ; Staff phụ trách hoàn thành theo điều kiện trạng thái, thời gian và Evidence.
 - Staff upload Evidence ảnh qua Spring Boot; lưu file trên filesystem local và đường dẫn trong database.
-- Khi Booking hoàn thành, hệ thống tạo một Payment `UNPAID`; Customer có thể chọn `CASH`/`BANK_TRANSFER` để Admin xác minh thủ công hoặc thanh toán trực tuyến bằng MoMo, chỉ cập nhật `PAID` sau IPN hợp lệ.
+- Khi Booking hoàn thành, hệ thống tạo một Payment `UNPAID`; Customer có thể chọn `CASH`/`BANK_TRANSFER` để Admin xác minh thủ công hoặc thanh toán trực tuyến bằng PayOS, chỉ cập nhật `PAID` sau webhook có chữ ký hợp lệ.
 - Customer gửi tối đa một Feedback cho Booking `COMPLETED` và thêm/bỏ Staff yêu thích.
 - Customer có thể tự đăng ký tài khoản; Staff và Admin được quản trị viên cấp tài khoản. Session-based authentication cho cả ba role; kiểm tra role và ownership tại backend.
 - Evidence chỉ nhận JPEG (`.jpg`, `.jpeg`) và PNG (`.png`), kiểm tra nội dung file thực, tối đa 5 MB/ảnh và từ 1 đến tối đa 5 ảnh hợp lệ trên mỗi Booking_Detail; lưu local qua `MultipartFile`.
@@ -60,7 +60,7 @@
 ### Ngoài phạm vi
 
 - Freelancer marketplace, AI đề xuất Staff, tự động phân công Staff hoặc Admin duyệt Booking.
-- Payment gateway ngoài MoMo, thanh toán nhiều lần/phần, chia phương thức hoặc hoàn tiền.
+- Payment gateway ngoài PayOS, thanh toán nhiều lần/phần, chia phương thức hoặc hoàn tiền.
 - Cloud storage, AI xử lý ảnh, Admin kiểm duyệt ảnh, realtime hoặc thông báo tự động.
 - Chấm công/tính lương, hợp đồng định kỳ và microservices.
 - Trạng thái Booking ngoài `CONFIRMED`, `CANCELLED`, `COMPLETED`; trạng thái Payment ngoài `UNPAID`, `PAID`.
@@ -87,7 +87,7 @@ Các yêu cầu chi tiết, luồng thay thế, tiêu chí nghiệm thu và truy
 | Booking và lịch | Khách chọn Staff; lịch được kiểm tra trước khi Booking tự xác nhận; không cho đặt giao lịch đang chiếm. |
 | Hủy và hoàn thành | Hủy giữ dữ liệu và giải phóng lịch; Staff phụ trách có thể hoàn thành Booking đang xác nhận bất cứ lúc nào khi đủ Evidence từng chi tiết, không cần chờ giờ bắt đầu dự kiến. |
 | Evidence | Upload ảnh qua Spring Boot, lưu local và lưu đường dẫn trong database. |
-| Payment | Một Payment `UNPAID` sau hoàn thành; Customer chọn tiền mặt/chuyển khoản để Admin xác minh hoặc dùng MoMo Test; IPN MoMo hợp lệ xác nhận `PAID`. |
+| Payment | Một Payment `UNPAID` sau hoàn thành; Customer chọn tiền mặt/chuyển khoản để Admin xác minh hoặc dùng PayOS; webhook PayOS hợp lệ xác nhận `PAID`. |
 | Feedback và Favorite | Feedback sau hoàn thành, tối đa một/Booking; Favorite_Staff không trùng cặp Customer–Staff. |
 
 ## 6. Yêu Cầu Chất Lượng Và Ràng Buộc

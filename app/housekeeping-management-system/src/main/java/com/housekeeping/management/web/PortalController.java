@@ -3,8 +3,8 @@ package com.housekeeping.management.web;
 import static com.housekeeping.management.web.PortalForms.*;
 import static com.housekeeping.management.web.PortalViews.*;
 import com.housekeeping.management.domain.PaymentMethod;
-import com.housekeeping.management.service.MomoPaymentService;
-import com.housekeeping.management.service.MomoIpnRequest;
+import com.housekeeping.management.service.PayosPaymentService;
+import com.housekeeping.management.service.PayosWebhookRequest;
 import com.housekeeping.management.service.*;
 import jakarta.validation.Valid;
 import java.nio.charset.StandardCharsets;
@@ -35,15 +35,15 @@ public class PortalController {
     private final BookingReservationService reservations;
     private final BookingCompletionService completion;
     private final PaymentLifecycleService payments;
-    private final MomoPaymentService momoPayments;
+    private final PayosPaymentService payosPayments;
     private final EvidenceStorageService storage;
     private final Path evidenceRoot;
 
     public PortalController(PortalQueryService query, PortalActionsService actions, BookingReservationService reservations,
-            BookingCompletionService completion, PaymentLifecycleService payments, MomoPaymentService momoPayments, EvidenceStorageService storage,
+            BookingCompletionService completion, PaymentLifecycleService payments, PayosPaymentService payosPayments, EvidenceStorageService storage,
             @Value("${app.evidence.storage-root:./var/evidence}") String evidenceRoot) {
         this.query = query; this.actions = actions; this.reservations = reservations; this.completion = completion;
-        this.payments = payments; this.momoPayments = momoPayments; this.storage = storage; this.evidenceRoot = Path.of(evidenceRoot).toAbsolutePath().normalize();
+        this.payments = payments; this.payosPayments = payosPayments; this.storage = storage; this.evidenceRoot = Path.of(evidenceRoot).toAbsolutePath().normalize();
     }
 
     @GetMapping("/")
@@ -151,22 +151,22 @@ public class PortalController {
     @PostMapping("/customer/bookings/{id}/payment")
     String method(@PathVariable Long id, @RequestParam PaymentMethod method, @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
         query.booking(id, user);
-        if (method == PaymentMethod.MOMO) {
-            return "redirect:" + momoPayments.checkout(id, user.getAccountId());
+        if (method == PaymentMethod.PAYOS) {
+            return "redirect:" + payosPayments.checkout(id, user.getAccountId());
         }
         payments.chooseMethod(id, method);
         flash.addFlashAttribute("success", "Đã lưu phương thức. Thanh toán chờ quản trị viên xác minh nhận tiền."); return "redirect:/customer/bookings/" + id;
     }
 
-    @GetMapping("/payments/momo/return")
-    String momoReturn(RedirectAttributes flash) {
-        flash.addFlashAttribute("success", "Đã quay lại từ MoMo. Trạng thái chỉ cập nhật sau khi hệ thống xác minh thông báo giao dịch.");
+    @GetMapping({"/payments/payos/return", "/payments/payos/cancel"})
+    String payosReturn(RedirectAttributes flash) {
+        flash.addFlashAttribute("success", "Đã quay lại từ PayOS. Trạng thái thanh toán chỉ cập nhật sau khi hệ thống xác minh webhook.");
         return "redirect:/customer/bookings";
     }
 
-    @PostMapping("/payments/momo/ipn")
-    ResponseEntity<Void> momoIpn(@RequestBody MomoIpnRequest ipn) {
-        momoPayments.receiveIpn(ipn);
+    @PostMapping("/payments/payos/webhook")
+    ResponseEntity<Void> payosWebhook(@RequestBody PayosWebhookRequest webhook) {
+        payosPayments.receiveWebhook(webhook);
         return ResponseEntity.noContent().build();
     }
 

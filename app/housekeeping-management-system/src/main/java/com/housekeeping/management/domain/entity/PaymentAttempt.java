@@ -45,7 +45,10 @@ public class PaymentAttempt {
     private String requestId;
 
     @Column(name = "provider_transaction_id")
-    private Long providerTransactionId;
+    private String providerTransactionId;
+
+    @Column(name = "provider_payment_link_id", length = 100)
+    private String providerPaymentLinkId;
 
     @Column(name = "amount", precision = 18, scale = 0, nullable = false)
     private BigDecimal amount;

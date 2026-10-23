@@ -27,13 +27,13 @@ class PaymentLifecycleServiceTest {
     }
 
     @Test
-    void adminCannotManuallyMarkMomoPaymentPaid() {
-        Payment payment = unpaid(PaymentMethod.MOMO);
+    void adminCannotManuallyMarkProviderPaymentPaid() {
+        Payment payment = unpaid(PaymentMethod.PAYOS);
         when(payments.findByBookingIdForUpdate(42L)).thenReturn(Optional.of(payment));
 
         assertThatThrownBy(() -> service.confirmReceivedByAdmin(42L, true, OffsetDateTime.now()))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessage("MoMo payments are confirmed automatically after a verified provider notification");
+                .hasMessage("Online payments are confirmed automatically after a verified PayOS webhook");
         assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.UNPAID);
         verify(payments, never()).saveAndFlush(any());
     }
@@ -52,10 +52,10 @@ class PaymentLifecycleServiceTest {
     }
 
     @Test
-    void momoMustUseGatewayCheckoutRatherThanManualMethodSelection() {
-        assertThatThrownBy(() -> service.chooseMethod(42L, PaymentMethod.MOMO))
+    void payosMustUseGatewayCheckoutRatherThanManualMethodSelection() {
+        assertThatThrownBy(() -> service.chooseMethod(42L, PaymentMethod.PAYOS))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Use the MoMo checkout flow for online payments");
+                .hasMessage("Use the PayOS checkout flow for online payments");
         verifyNoInteractions(payments, attempts);
     }
 

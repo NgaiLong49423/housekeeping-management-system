@@ -11,6 +11,7 @@ import com.housekeeping.management.repository.PaymentRepository;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -36,74 +37,91 @@ public class PaymentAttemptService {
         }
         if (payment.getBooking().getBookingStatus() != BookingStatus.COMPLETED
                 || payment.getPaymentStatus() != PaymentStatus.UNPAID) {
-            throw new IllegalStateException("MoMo is only available for an unpaid completed booking");
+            throw new IllegalStateException("PayOS is only available for an unpaid completed booking");
         }
-        if (payment.getAmount().compareTo(BigDecimal.valueOf(1000)) < 0) {
-            throw new IllegalStateException("MoMo requires a payment of at least 1,000 VND");
+        if (payment.getAmount().signum() <= 0) {
+            throw new IllegalStateException("PayOS requires a positive payment amount");
         }
-        payment.setPaymentMethod(PaymentMethod.MOMO);
+        payment.setPaymentMethod(PaymentMethod.PAYOS);
 
         PaymentAttempt latest = attempts.findTopByPayment_PaymentIdOrderByCreatedAtDescAttemptIdDesc(payment.getPaymentId()).orElse(null);
         if (latest != null) {
             if (latest.getStatus() == PaymentAttemptStatus.INITIATING) {
-                return new AttemptCheckout(latest.getAttemptId(), latest.getRequestId(), latest.getProviderOrderId(), latest.getAmount().longValueExact(), null);
+                return new AttemptCheckout(latest.getAttemptId(), latest.getRequestId(),
+                        Long.parseLong(latest.getProviderOrderId()), latest.getAmount().longValueExact(), null, true);
             }
             if (latest.getStatus() == PaymentAttemptStatus.PENDING) {
-                if (latest.getCheckoutUrl() == null) throw new IllegalStateException("MoMo checkout is still pending. Please retry shortly.");
-                return new AttemptCheckout(latest.getAttemptId(), latest.getRequestId(), latest.getProviderOrderId(), latest.getAmount().longValueExact(), latest.getCheckoutUrl());
+                if (latest.getCheckoutUrl() == null) throw new IllegalStateException("PayOS checkout is still pending. Please retry shortly.");
+                return new AttemptCheckout(latest.getAttemptId(), latest.getRequestId(),
+                        Long.parseLong(latest.getProviderOrderId()), latest.getAmount().longValueExact(), latest.getCheckoutUrl(), false);
             }
         }
 
-        String orderId = "GN" + UUID.randomUUID().toString().replace("-", "");
+        Long orderCode = attempts.nextPayosOrderCode();
+        if (orderCode == null || orderCode < 1 || orderCode > Integer.MAX_VALUE) {
+            throw new IllegalStateException("Could not allocate a PayOS order code");
+        }
         String requestId = UUID.randomUUID().toString();
         OffsetDateTime now = OffsetDateTime.now(BUSINESS_OFFSET).withNano(0);
         PaymentAttempt attempt = new PaymentAttempt();
         attempt.setPayment(payment);
-        attempt.setProviderOrderId(orderId);
+        attempt.setProviderOrderId(orderCode.toString());
         attempt.setRequestId(requestId);
         attempt.setAmount(payment.getAmount());
         attempt.setStatus(PaymentAttemptStatus.INITIATING);
         attempt.setCreatedAt(now);
         attempt.setUpdatedAt(now);
         attempts.saveAndFlush(attempt);
-        return new AttemptCheckout(attempt.getAttemptId(), requestId, orderId, payment.getAmount().longValueExact(), null);
+        return new AttemptCheckout(attempt.getAttemptId(), requestId, orderCode, payment.getAmount().longValueExact(), null, false);
     }
 
     @Transactional
-    public void storeCheckoutUrl(Long attemptId, String checkoutUrl) {
+    public void storeCheckout(Long attemptId, String checkoutUrl, String paymentLinkId) {
         PaymentAttempt attempt = attempts.findById(attemptId).orElseThrow();
         if (attempt.getStatus() != PaymentAttemptStatus.INITIATING) return;
         attempt.setCheckoutUrl(checkoutUrl);
+        attempt.setProviderPaymentLinkId(paymentLinkId);
         attempt.setStatus(PaymentAttemptStatus.PENDING);
         attempt.setUpdatedAt(OffsetDateTime.now(BUSINESS_OFFSET).withNano(0));
     }
 
     @Transactional
-    public void processIpn(MomoIpnRequest ipn, boolean signatureValid, String partnerCode) {
-        if (!signatureValid) throw new IllegalArgumentException("MoMo IPN signature is invalid");
-        if (ipn.orderId() == null || ipn.amount() == null || ipn.resultCode() == null
-                || !partnerCode.equals(ipn.partnerCode())) {
-            throw new IllegalArgumentException("MoMo IPN is missing required transaction data");
+    public void processWebhook(PayosWebhookRequest webhook, boolean signatureValid) {
+        if (!signatureValid) throw new IllegalArgumentException("PayOS webhook signature is invalid");
+        if (webhook == null || !Boolean.TRUE.equals(webhook.success()) || !"00".equals(webhook.code())
+                || webhook.data() == null || !(webhook.data().get("orderCode") instanceof Number)
+                || !(webhook.data().get("amount") instanceof Number)) {
+            throw new IllegalArgumentException("PayOS webhook is missing required transaction data");
         }
-        PaymentAttempt attempt = attempts.findByProviderOrderIdForUpdate(ipn.orderId())
-                .orElseThrow(() -> new IllegalArgumentException("MoMo payment attempt does not exist"));
-        if (!attempt.getRequestId().equals(ipn.requestId())
-                || attempt.getAmount().compareTo(BigDecimal.valueOf(ipn.amount())) != 0) {
-            throw new IllegalArgumentException("MoMo IPN does not match the stored payment request");
+        Map<String, Object> data = webhook.data();
+        long orderCode = ((Number) data.get("orderCode")).longValue();
+        long amount = ((Number) data.get("amount")).longValue();
+        if (!"VND".equals(data.get("currency"))) {
+            throw new IllegalArgumentException("PayOS webhook currency is invalid");
+        }
+        PaymentAttempt attempt = attempts.findByProviderOrderIdForUpdate(Long.toString(orderCode))
+                .orElseThrow(() -> new IllegalArgumentException("PayOS payment attempt does not exist"));
+        if (attempt.getAmount().compareTo(BigDecimal.valueOf(amount)) != 0) {
+            throw new IllegalArgumentException("PayOS webhook does not match the stored payment request");
+        }
+        String paymentLinkId = value(data.get("paymentLinkId"));
+        if (attempt.getProviderPaymentLinkId() != null && !attempt.getProviderPaymentLinkId().equals(paymentLinkId)) {
+            throw new IllegalArgumentException("PayOS webhook payment-link ID does not match the stored request");
         }
         if (attempt.getStatus() == PaymentAttemptStatus.SUCCEEDED) return;
 
         Payment payment = payments.findByBookingIdForUpdate(attempt.getPayment().getBooking().getBookingId()).orElseThrow();
-        if (payment.getPaymentMethod() != PaymentMethod.MOMO) {
-            throw new IllegalStateException("MoMo callback does not belong to a MoMo payment");
+        if (payment.getPaymentMethod() != PaymentMethod.PAYOS) {
+            throw new IllegalStateException("PayOS webhook does not belong to a PayOS payment");
         }
-        if (ipn.resultCode() == 0) {
+        if ("00".equals(data.get("code"))) {
             if (payment.getPaymentStatus() == PaymentStatus.PAID) {
                 if (attempt.getStatus() == PaymentAttemptStatus.FAILED) return;
                 throw new IllegalStateException("Payment was already completed through another transaction");
             }
             attempt.setStatus(PaymentAttemptStatus.SUCCEEDED);
-            attempt.setProviderTransactionId(ipn.transId());
+            attempt.setProviderTransactionId(value(data.get("reference")));
+            attempt.setProviderPaymentLinkId(paymentLinkId);
             payment.setPaymentStatus(PaymentStatus.PAID);
             payment.setVerifiedAt(OffsetDateTime.now(BUSINESS_OFFSET).withNano(0));
         } else {
@@ -113,11 +131,14 @@ public class PaymentAttemptService {
     }
 
     @Transactional(readOnly = true)
-    public Long bookingIdForOrder(String orderId) {
-        return attempts.findByProviderOrderId(orderId)
+    public Long bookingIdForOrder(long orderCode) {
+        return attempts.findByProviderOrderId(Long.toString(orderCode))
                 .map(attempt -> attempt.getPayment().getBooking().getBookingId())
-                .orElseThrow(() -> new IllegalArgumentException("MoMo payment attempt does not exist"));
+                .orElseThrow(() -> new IllegalArgumentException("PayOS payment attempt does not exist"));
     }
 
-    public record AttemptCheckout(Long attemptId, String requestId, String orderId, long amount, String checkoutUrl) { }
+    private static String value(Object value) { return value == null ? null : String.valueOf(value); }
+
+    public record AttemptCheckout(Long attemptId, String requestId, long orderCode, long amount,
+            String checkoutUrl, boolean needsRecovery) { }
 }

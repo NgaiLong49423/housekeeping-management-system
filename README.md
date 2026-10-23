@@ -7,7 +7,7 @@
 
 # Housekeeping Management System
 
-Ứng dụng HSF302 cho một công ty giúp việc: Customer tự chọn Staff part-time và đặt dịch vụ; Staff lưu bằng chứng, hoàn thành công việc; Admin quản lý danh mục, khoảng sẵn sàng và xác minh thanh toán thủ công.
+Ứng dụng HSF302 cho một công ty giúp việc: Customer tự chọn Staff part-time và đặt dịch vụ; Staff lưu bằng chứng, hoàn thành công việc; Admin quản lý danh mục/khoảng sẵn sàng và xác minh thanh toán thủ công. Khách hàng cũng có thể thanh toán trực tuyến qua PayOS.
 
 **Mới clone project từ GitHub?** Bắt đầu tại [hướng dẫn setup và tài khoản demo](docs/demo-setup.md): có email/mật khẩu cho cả ba vai trò, cách kết nối SQL Server và cách chạy full stack trong IntelliJ. Xem [vị trí các file cấu hình](docs/demo-setup.md#thông-tin-nằm-ở-đâu) khi cần chỉnh lại.
 

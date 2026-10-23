@@ -15,7 +15,7 @@ import com.housekeeping.management.domain.entity.PaymentAttempt;
 import com.housekeeping.management.repository.PaymentAttemptRepository;
 import com.housekeeping.management.repository.PaymentRepository;
 import java.math.BigDecimal;
-import java.time.OffsetDateTime;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,74 +42,89 @@ class PaymentAttemptServiceTest {
         payment.setPaymentId(11L);
         payment.setBooking(booking);
         payment.setPaymentStatus(PaymentStatus.UNPAID);
-        payment.setPaymentMethod(PaymentMethod.MOMO);
+        payment.setPaymentMethod(PaymentMethod.PAYOS);
         payment.setAmount(new BigDecimal("150000"));
         attempt = new PaymentAttempt();
         attempt.setAttemptId(19L);
         attempt.setPayment(payment);
-        attempt.setProviderOrderId("GN-order-1");
-        attempt.setRequestId("request-1");
+        attempt.setProviderOrderId("100000001");
+        attempt.setRequestId("attempt-request-1");
+        attempt.setProviderPaymentLinkId("payment-link-1");
         attempt.setAmount(new BigDecimal("150000"));
         attempt.setStatus(PaymentAttemptStatus.PENDING);
     }
 
     @Test
-    void verifiedSuccessfulIpnMarksPaymentPaidAndStoresProviderTransaction() {
-        when(attempts.findByProviderOrderIdForUpdate("GN-order-1")).thenReturn(Optional.of(attempt));
+    void verifiedSuccessfulWebhookMarksPaymentPaidAndStoresProviderReference() {
+        when(attempts.findByProviderOrderIdForUpdate("100000001")).thenReturn(Optional.of(attempt));
         when(payments.findByBookingIdForUpdate(42L)).thenReturn(Optional.of(payment));
 
-        service.processIpn(ipn(150000L, 0, 123456789L), true, "PARTNER");
+        service.processWebhook(webhook(150000L, "00", "transaction-123"), true);
 
-        assertThat(payment.getPaymentMethod()).isEqualTo(PaymentMethod.MOMO);
+        assertThat(payment.getPaymentMethod()).isEqualTo(PaymentMethod.PAYOS);
         assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.PAID);
         assertThat(payment.getVerifiedAt()).isNotNull();
         assertThat(attempt.getStatus()).isEqualTo(PaymentAttemptStatus.SUCCEEDED);
-        assertThat(attempt.getProviderTransactionId()).isEqualTo(123456789L);
+        assertThat(attempt.getProviderTransactionId()).isEqualTo("transaction-123");
     }
 
     @Test
     void invalidSignatureDoesNotReadOrChangePayment() {
-        assertThatThrownBy(() -> service.processIpn(ipn(150000L, 0, 123456789L), false, "PARTNER"))
-                .isInstanceOf(IllegalArgumentException.class).hasMessage("MoMo IPN signature is invalid");
+        assertThatThrownBy(() -> service.processWebhook(webhook(150000L, "00", "transaction-123"), false))
+                .isInstanceOf(IllegalArgumentException.class).hasMessage("PayOS webhook signature is invalid");
         verifyNoInteractions(attempts, payments);
     }
 
     @Test
     void mismatchedAmountIsRejectedWithoutChangingPayment() {
-        when(attempts.findByProviderOrderIdForUpdate("GN-order-1")).thenReturn(Optional.of(attempt));
+        when(attempts.findByProviderOrderIdForUpdate("100000001")).thenReturn(Optional.of(attempt));
 
-        assertThatThrownBy(() -> service.processIpn(ipn(150001L, 0, 123456789L), true, "PARTNER"))
-                .isInstanceOf(IllegalArgumentException.class).hasMessage("MoMo IPN does not match the stored payment request");
+        assertThatThrownBy(() -> service.processWebhook(webhook(150001L, "00", "transaction-123"), true))
+                .isInstanceOf(IllegalArgumentException.class).hasMessage("PayOS webhook does not match the stored payment request");
         verifyNoInteractions(payments);
         assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.UNPAID);
     }
 
     @Test
-    void repeatedSuccessfulIpnIsIdempotent() {
+    void mismatchedPaymentLinkIdIsRejected() {
+        when(attempts.findByProviderOrderIdForUpdate("100000001")).thenReturn(Optional.of(attempt));
+
+        assertThatThrownBy(() -> service.processWebhook(webhook(150000L, "00", "transaction-123", "other-link"), true))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("PayOS webhook payment-link ID does not match the stored request");
+        verifyNoInteractions(payments);
+    }
+
+    @Test
+    void repeatedSuccessfulWebhookIsIdempotent() {
         attempt.setStatus(PaymentAttemptStatus.SUCCEEDED);
-        when(attempts.findByProviderOrderIdForUpdate("GN-order-1")).thenReturn(Optional.of(attempt));
+        payment.setPaymentStatus(PaymentStatus.PAID);
+        when(attempts.findByProviderOrderIdForUpdate("100000001")).thenReturn(Optional.of(attempt));
 
-        service.processIpn(ipn(150000L, 0, 123456789L), true, "PARTNER");
+        service.processWebhook(webhook(150000L, "00", "transaction-123"), true);
 
         verifyNoInteractions(payments);
-        assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.UNPAID);
     }
 
     @Test
-    void failedIpnLeavesPaymentUnpaidAndAllowsLaterRetry() {
-        when(attempts.findByProviderOrderIdForUpdate("GN-order-1")).thenReturn(Optional.of(attempt));
+    void failedWebhookLeavesPaymentUnpaidAndAllowsLaterRetry() {
+        when(attempts.findByProviderOrderIdForUpdate("100000001")).thenReturn(Optional.of(attempt));
         when(payments.findByBookingIdForUpdate(42L)).thenReturn(Optional.of(payment));
 
-        service.processIpn(ipn(150000L, 1006, null), true, "PARTNER");
+        service.processWebhook(webhook(150000L, "01", "transaction-123"), true);
 
         assertThat(attempt.getStatus()).isEqualTo(PaymentAttemptStatus.FAILED);
         assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.UNPAID);
         assertThat(payment.getVerifiedAt()).isNull();
     }
 
-    private MomoIpnRequest ipn(long amount, int resultCode, Long transactionId) {
-        return new MomoIpnRequest("PARTNER", "request-1", "GN-order-1", amount, "Payment test",
-                "momo_wallet", "", transactionId, resultCode, resultCode == 0 ? "Successful." : "Failed",
-                "qr", OffsetDateTime.now().toInstant().toEpochMilli(), "", "signature");
+    private PayosWebhookRequest webhook(long amount, String transactionCode, String reference) {
+        return webhook(amount, transactionCode, reference, "payment-link-1");
+    }
+
+    private PayosWebhookRequest webhook(long amount, String transactionCode, String reference, String linkId) {
+        Map<String, Object> data = Map.of("orderCode", 100000001L, "amount", amount, "currency", "VND",
+                "code", transactionCode, "paymentLinkId", linkId, "reference", reference);
+        return new PayosWebhookRequest("00", "success", true, data, "signature");
     }
 }

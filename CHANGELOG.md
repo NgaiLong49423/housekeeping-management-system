@@ -12,7 +12,7 @@ Ghi các thay đổi đáng chú ý theo thứ tự mới nhất trước. File 
 ## [Unreleased]
 
 ### Added
-- MoMo Test one-time checkout with persistent payment attempts, signed/idempotent IPN confirmation, Customer checkout status, and integration setup documentation.
+- PayOS payment-link checkout with persistent attempts, signed/idempotent webhook confirmation, Customer checkout status, and integration setup documentation; legacy MoMo payment rows remain readable but are no longer an active checkout method.
 - `database/setup-demo.sql` tạo database/login demo riêng, chạy lại không xóa dữ liệu; profile `demo` có sẵn kết nối tương ứng để người clone chỉ cần chạy SQL rồi Run `Housekeeping Demo`, không bắt buộc tạo `.env`.
 - Profile `demo` tạo ba tài khoản ứng dụng mẫu công khai bằng BCrypt, không tạo trùng/ghi đè tài khoản hiện có; cấu hình Run `Housekeeping Demo`, `.env.example` và hướng dẫn cho người clone từ GitHub.
 - Tự mở trang chủ trong trình duyệt mặc định khi Run `Housekeeping Full Stack` trong IntelliJ; đã kiểm tra Chrome mở frontend sau lượt dừng/chạy lại server.

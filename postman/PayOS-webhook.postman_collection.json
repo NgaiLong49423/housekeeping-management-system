@@ -1,0 +1,149 @@
+{
+  "info": {
+    "name": "Gon Nha - PayOS Webhook",
+    "description": "Local PayOS webhook contract checks. Use a real pending Payment_Attempt because PayOS has no sandbox.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "orderCode", "value": "" },
+    { "key": "amount", "value": "150000" },
+    { "key": "paymentLinkId", "value": "" },
+    { "key": "reference", "value": "transaction-reference" },
+    { "key": "transactionDateTime", "value": "2026-10-23 12:00:00" }
+  ],
+  "item": [
+    {
+      "name": "Valid successful webhook",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const raw = pm.variables.replaceIn(pm.request.body.raw);",
+              "const body = JSON.parse(raw);",
+              "const key = pm.environment.get('PAYOS_CHECKSUM_KEY');",
+              "if (!key) throw new Error('Set PAYOS_CHECKSUM_KEY as a local Postman secret variable.');",
+              "const canonical = Object.keys(body.data).sort().map(k => k + '=' + (body.data[k] == null ? '' : String(body.data[k]))).join('&');",
+              "pm.variables.set('payosSignature', CryptoJS.HmacSHA256(canonical, key).toString(CryptoJS.enc.Hex));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('Accepted by the webhook', () => pm.response.to.have.status(204));"]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"code\": \"00\",\n  \"desc\": \"success\",\n  \"success\": true,\n  \"data\": {\n    \"orderCode\": {{orderCode}},\n    \"amount\": {{amount}},\n    \"description\": \"GN0000123\",\n    \"accountNumber\": \"12345678\",\n    \"reference\": \"{{reference}}\",\n    \"transactionDateTime\": \"{{transactionDateTime}}\",\n    \"currency\": \"VND\",\n    \"paymentLinkId\": \"{{paymentLinkId}}\",\n    \"code\": \"00\",\n    \"desc\": \"Thành công\",\n    \"counterAccountBankId\": \"\",\n    \"counterAccountBankName\": \"\",\n    \"counterAccountName\": \"\",\n    \"counterAccountNumber\": \"\",\n    \"virtualAccountName\": \"\",\n    \"virtualAccountNumber\": \"\"\n  },\n  \"signature\": \"{{payosSignature}}\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{baseUrl}}/payments/payos/webhook"
+      }
+    },
+    {
+      "name": "Duplicate success webhook is idempotent",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const raw = pm.variables.replaceIn(pm.request.body.raw);",
+              "const body = JSON.parse(raw);",
+              "const key = pm.environment.get('PAYOS_CHECKSUM_KEY');",
+              "if (!key) throw new Error('Set PAYOS_CHECKSUM_KEY as a local Postman secret variable.');",
+              "const canonical = Object.keys(body.data).sort().map(k => k + '=' + (body.data[k] == null ? '' : String(body.data[k]))).join('&');",
+              "pm.variables.set('payosSignature', CryptoJS.HmacSHA256(canonical, key).toString(CryptoJS.enc.Hex));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('Duplicate webhook is acknowledged safely', () => pm.response.to.have.status(204));"]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"code\": \"00\",\n  \"desc\": \"success\",\n  \"success\": true,\n  \"data\": {\n    \"orderCode\": {{orderCode}},\n    \"amount\": {{amount}},\n    \"description\": \"GN0000123\",\n    \"accountNumber\": \"12345678\",\n    \"reference\": \"{{reference}}\",\n    \"transactionDateTime\": \"{{transactionDateTime}}\",\n    \"currency\": \"VND\",\n    \"paymentLinkId\": \"{{paymentLinkId}}\",\n    \"code\": \"00\",\n    \"desc\": \"Thành công\",\n    \"counterAccountBankId\": \"\",\n    \"counterAccountBankName\": \"\",\n    \"counterAccountName\": \"\",\n    \"counterAccountNumber\": \"\",\n    \"virtualAccountName\": \"\",\n    \"virtualAccountNumber\": \"\"\n  },\n  \"signature\": \"{{payosSignature}}\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{baseUrl}}/payments/payos/webhook"
+      }
+    },
+    {
+      "name": "Invalid signature is rejected",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('Invalid signature is rejected', () => pm.response.to.have.status(400));"]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"code\": \"00\",\n  \"desc\": \"success\",\n  \"success\": true,\n  \"data\": {\n    \"orderCode\": {{orderCode}},\n    \"amount\": {{amount}},\n    \"currency\": \"VND\",\n    \"paymentLinkId\": \"{{paymentLinkId}}\",\n    \"code\": \"00\"\n  },\n  \"signature\": \"invalid\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{baseUrl}}/payments/payos/webhook"
+      }
+    },
+    {
+      "name": "Signed but mismatched amount is rejected",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const raw = pm.variables.replaceIn(pm.request.body.raw);",
+              "const body = JSON.parse(raw);",
+              "body.data.amount += 1;",
+              "const key = pm.environment.get('PAYOS_CHECKSUM_KEY');",
+              "if (!key) throw new Error('Set PAYOS_CHECKSUM_KEY as a local Postman secret variable.');",
+              "const canonical = Object.keys(body.data).sort().map(k => k + '=' + (body.data[k] == null ? '' : String(body.data[k]))).join('&');",
+              "pm.variables.set('mismatchedAmount', body.data.amount);",
+              "pm.variables.set('payosSignature', CryptoJS.HmacSHA256(canonical, key).toString(CryptoJS.enc.Hex));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('Mismatched amount is rejected', () => pm.response.to.have.status(400));"]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"code\": \"00\",\n  \"desc\": \"success\",\n  \"success\": true,\n  \"data\": {\n    \"orderCode\": {{orderCode}},\n    \"amount\": {{mismatchedAmount}},\n    \"description\": \"GN0000123\",\n    \"accountNumber\": \"12345678\",\n    \"reference\": \"{{reference}}\",\n    \"transactionDateTime\": \"{{transactionDateTime}}\",\n    \"currency\": \"VND\",\n    \"paymentLinkId\": \"{{paymentLinkId}}\",\n    \"code\": \"00\",\n    \"desc\": \"Thành công\",\n    \"counterAccountBankId\": \"\",\n    \"counterAccountBankName\": \"\",\n    \"counterAccountName\": \"\",\n    \"counterAccountNumber\": \"\",\n    \"virtualAccountName\": \"\",\n    \"virtualAccountNumber\": \"\"\n  },\n  \"signature\": \"{{payosSignature}}\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{baseUrl}}/payments/payos/webhook"
+      }
+    }
+  ]
+}

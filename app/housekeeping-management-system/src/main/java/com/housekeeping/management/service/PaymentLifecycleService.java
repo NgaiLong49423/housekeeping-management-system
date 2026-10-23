@@ -28,8 +28,8 @@ public class PaymentLifecycleService {
         if (paymentMethod == null) {
             throw new IllegalArgumentException("A payment method must be selected");
         }
-        if (paymentMethod == PaymentMethod.MOMO) {
-            throw new IllegalArgumentException("Use the MoMo checkout flow for online payments");
+        if (paymentMethod == PaymentMethod.PAYOS || paymentMethod == PaymentMethod.MOMO) {
+            throw new IllegalArgumentException("Use the PayOS checkout flow for online payments");
         }
         Payment payment = paymentRepository.findByBookingIdForUpdate(bookingId)
                 .orElseThrow(() -> new IllegalArgumentException("Payment does not exist"));
@@ -37,12 +37,12 @@ public class PaymentLifecycleService {
                 || payment.getPaymentStatus() != PaymentStatus.UNPAID) {
             throw new IllegalStateException("A method can only be selected for an unpaid completed booking");
         }
-        if (payment.getPaymentMethod() == PaymentMethod.MOMO
+        if (payment.getPaymentMethod() == PaymentMethod.PAYOS || payment.getPaymentMethod() == PaymentMethod.MOMO
                 || attempts.findTopByPayment_PaymentIdOrderByCreatedAtDescAttemptIdDesc(payment.getPaymentId())
                         .filter(attempt -> attempt.getStatus() == PaymentAttemptStatus.INITIATING
                                 || attempt.getStatus() == PaymentAttemptStatus.PENDING)
                         .isPresent()) {
-            throw new IllegalStateException("A MoMo checkout has already started; complete or retry it before choosing a manual method");
+            throw new IllegalStateException("An online checkout has already started; complete or retry it before choosing a manual method");
         }
         payment.setPaymentMethod(paymentMethod);
         return paymentRepository.saveAndFlush(payment);
@@ -58,8 +58,8 @@ public class PaymentLifecycleService {
         if (payment.getPaymentStatus() != PaymentStatus.UNPAID || payment.getPaymentMethod() == null) {
             throw new IllegalStateException("Only an unpaid payment with a selected method can be confirmed");
         }
-        if (payment.getPaymentMethod() == PaymentMethod.MOMO) {
-            throw new IllegalStateException("MoMo payments are confirmed automatically after a verified provider notification");
+        if (payment.getPaymentMethod() == PaymentMethod.PAYOS || payment.getPaymentMethod() == PaymentMethod.MOMO) {
+            throw new IllegalStateException("Online payments are confirmed automatically after a verified PayOS webhook");
         }
         payment.setPaymentStatus(PaymentStatus.PAID);
         payment.setVerifiedAt(verifiedAt.withOffsetSameInstant(BUSINESS_OFFSET).withNano(0));

@@ -13,7 +13,7 @@ Giao diện được chuyển từ `UI_UX Design Refinement.zip` sang nền tả
 
 Giữ tông xanh ngọc, ảnh, thẻ dịch vụ, khu vực giới thiệu, form và bố cục dashboard; dùng tiếng Việt, trạng thái rỗng, thông báo lỗi và bố cục responsive. Ảnh dịch vụ chỉ là minh họa, không phải thuộc tính mới trong database.
 
-Không chuyển các chức năng lệch baseline từ mẫu: chuyển vai trò trên giao diện, dữ liệu localStorage/mock, đặt lịch định kỳ, bán kính phục vụ, tự điều phối nhân viên, trạng thái pending/assigned/in_progress, thanh toán gateway và Admin kiểm duyệt feedback.
+Không chuyển các chức năng lệch baseline từ mẫu: chuyển vai trò trên giao diện, dữ liệu localStorage/mock, đặt lịch định kỳ, bán kính phục vụ, tự điều phối nhân viên, trạng thái pending/assigned/in_progress và Admin kiểm duyệt feedback.
 
 Theo xác nhận của người dùng, bổ sung lớp MVC và đăng nhập còn thiếu để giao diện sử dụng backend. Không chỉnh sửa Entity, Repository, Service nghiệp vụ cũ, schema hoặc migration. Các thao tác chưa có điểm vào (hủy, feedback, yêu thích, CRUD danh mục/lịch) được đặt trong `web/PortalActionsService`, không viết nghiệp vụ trong template hoặc Controller.
 
@@ -55,14 +55,14 @@ Các route dưới đây là điểm vào MVC được thêm trong lần tích h
 | `/logout` | CSRF | Spring Security hủy session |
 | `/customer/bookings` | `staffId`, `scheduleId`, `startAt`, `serviceIds` lặp | `BookingReservationService.createBooking` |
 | `/customer/bookings/{id}/cancel` | CSRF | Owner, CONFIRMED, còn ít nhất 2 giờ |
-| `/customer/bookings/{id}/payment` | `method=CASH`, `BANK_TRANSFER` hoặc `MOMO` | Owner; thủ công qua `PaymentLifecycleService`, MoMo tạo checkout rồi redirect |
+| `/customer/bookings/{id}/payment` | `method=CASH`, `BANK_TRANSFER` hoặc `PAYOS` | Owner; thủ công qua `PaymentLifecycleService`, PayOS tạo payment link rồi redirect |
 | `/customer/bookings/{id}/feedback` | `rating=1..5`, `comment` tối đa 2.000 ký tự | Owner, COMPLETED, tối đa một Feedback |
 | `/customer/staff/{id}/favorite` | `favorite=true/false` | Thêm/bỏ cặp Customer–Staff, không thêm trùng |
 | `/staff/details/{id}/evidence` | Multipart `image` | Ownership rồi `EvidenceStorageService.upload` |
 | `/staff/bookings/{id}/complete` | CSRF | `BookingCompletionService.completeBooking` |
 | `/admin/bookings/{id}/paid` | `receiptVerified=true` | `PaymentLifecycleService.confirmReceivedByAdmin` |
-| `/payments/momo/ipn` | JSON IPN từ MoMo; không dùng session/CSRF | Public callback, HMAC + partner/order/request/amount validation, xử lý idempotent; chỉ trả 204 khi hợp lệ |
-| `/payments/momo/return` | Browser redirect từ MoMo | Chỉ thông báo/điều hướng; không xác nhận trạng thái thanh toán |
+| `/payments/payos/webhook` | JSON webhook từ PayOS; không dùng session/CSRF | Public callback, kiểm tra HMAC và order/amount/payment-link, xử lý idempotent; chỉ trả 204 khi hợp lệ |
+| `/payments/payos/return`, `/payments/payos/cancel` | Browser redirect từ PayOS | Chỉ thông báo/điều hướng; không xác nhận trạng thái thanh toán |
 | `/admin/services`, `/admin/services/{id}` | `name`, `description`, `duration`, `price` | Tạo/cập nhật theo Entity hiện có |
 | `/admin/staff` | `name`, `email`, `password`, `phone` | `GlobalEmailUniquenessService`, BCrypt trước khi lưu |
 | `/admin/staff/{id}` | `name`, `phone` | Sửa thông tin; email/mật khẩu không trong form sửa |

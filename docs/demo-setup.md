@@ -34,7 +34,7 @@ Các đường dẫn dưới đây tính từ thư mục gốc repository. Khi m
 | Cấu hình Run demo trong IntelliJ | [Housekeeping Demo - Reset DB.run.xml](<../.run/Housekeeping Demo - Reset DB.run.xml>) |
 | Cấu hình profile `demo` và đọc `.env` | [application-demo.properties](../app/housekeeping-management-system/src/main/resources/application-demo.properties) |
 | Migration nạp tài khoản, 8 dịch vụ và 20 booking mẫu | [R__demo_data.sql](../app/housekeeping-management-system/src/main/resources/db/migration/R__demo_data.sql) |
-| Thiết lập checkout MoMo Test và IPN | [momo-payment.md](momo-payment.md) |
+| Thiết lập checkout PayOS và webhook | [payos-payment.md](payos-payment.md) |
 | Mã tự tạo ba tài khoản demo | [DemoAccountSeeder.java](../app/housekeeping-management-system/src/main/java/com/housekeeping/management/demo/DemoAccountSeeder.java) |
 | Hướng dẫn schema, migration và baseline database | [database/README.md](../database/README.md) |
 
@@ -88,7 +88,7 @@ Nếu database đã có bảng tạo thủ công từ đúng schema V1 nhưng ch
 - `R__demo_data.sql` chỉ nạp dữ liệu mẫu khi bật profile `demo`; profile thông thường không nhận dữ liệu demo. Migration tạo các tài khoản mẫu còn thiếu với BCrypt hash tương ứng mật khẩu công khai; `DemoAccountSeeder` kiểm tra và bổ sung ba tài khoản chính nếu thiếu.
 - Bộ booking mẫu có các trạng thái `CONFIRMED`, `CANCELLED`, `COMPLETED`, các tình huống thanh toán và một số đánh giá. Booking `CONFIRMED` chưa có Payment cho tới khi Staff hoàn thành; Staff có thể tải ảnh bằng chứng rồi hoàn thành ngay, không cần chờ giờ bắt đầu dự kiến. Không seed bản ghi Evidence vì ảnh phải được lưu thật trên filesystem.
 - Để demo thanh toán ngay, đăng nhập Customer `customer@demo.gonnha.local` và mở booking **Tổng vệ sinh** của hôm nay với Staff `staff@demo.gonnha.local`. Booking đã `COMPLETED`, có Payment `UNPAID` và giá 300.000 ₫; Customer chọn phương thức thanh toán, sau đó Admin xác nhận đã nhận tiền. Ngày giờ của booking được tính tương đối theo ngày ứng dụng khởi động.
-- Để demo checkout MoMo, đăng ký hồ sơ MoMo for Business và dùng **Testing Credentials**. Sao chép các khóa vào `.env` theo `.env.example`, rồi đặt `MOMO_REDIRECT_URL` và `MOMO_IPN_URL` thành HTTPS URL công khai; MoMo cần gọi được IPN từ internet. Thanh toán Test cần MoMo Test App/Test wallet và không dùng ví production. Đơn MoMo chỉ được đánh dấu `PAID` sau IPN đã xác minh.
+- Để bật PayOS, tạo payment channel trong tài khoản PayOS, lấy Client ID/API Key/Checksum Key, rồi điền biến `PAYOS_*` trong `.env`. PayOS hiện không có sandbox; mọi giao dịch đi qua API Production và có thể chuyển tiền thật. Cấu hình HTTPS callback URLs công khai và webhook URL trong PayOS channel trước khi giao dịch. Xem [hướng dẫn PayOS](payos-payment.md).
 - `DemoAccountSeeder` chỉ tạo tài khoản chính còn thiếu bằng PasswordEncoder BCrypt của ứng dụng và tái sử dụng khóa kiểm tra email duy nhất giữa ba bảng.
 - Khi không bật reset, chạy lại không tạo trùng và không đổi mật khẩu hoặc thông tin của tài khoản đã có. Nếu bật `DB_RESET_ON_STARTUP=true`, schema và dữ liệu bị xóa trước, rồi seeder tạo lại ba tài khoản mẫu với mật khẩu công khai.
 - Nếu email demo đã thuộc vai trò khác hoặc trùng giữa nhiều bảng, ứng dụng báo lỗi thay vì tự cấp/chuyển vai trò.

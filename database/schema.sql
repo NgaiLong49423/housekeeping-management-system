@@ -94,7 +94,7 @@ CREATE TABLE Payment (
     CONSTRAINT PK_Payment PRIMARY KEY (payment_id),
     CONSTRAINT FK_Payment_Booking FOREIGN KEY (booking_id) REFERENCES Booking(booking_id) ON DELETE NO ACTION ON UPDATE NO ACTION,
     CONSTRAINT UQ_Payment_Booking UNIQUE (booking_id),
-    CONSTRAINT CK_Payment_Method CHECK (payment_method IS NULL OR payment_method IN ('CASH', 'BANK_TRANSFER', 'MOMO')),
+    CONSTRAINT CK_Payment_Method CHECK (payment_method IS NULL OR payment_method IN ('CASH', 'BANK_TRANSFER', 'PAYOS', 'MOMO')),
     CONSTRAINT CK_Payment_Status CHECK (payment_status IN ('UNPAID', 'PAID')),
     CONSTRAINT CK_Payment_Amount_NonNegative CHECK (amount >= 0),
     CONSTRAINT CK_Payment_Status_Invariants CHECK (
@@ -108,7 +108,8 @@ CREATE TABLE Payment_Attempt (
     payment_id BIGINT NOT NULL,
     provider_order_id VARCHAR(64) NOT NULL,
     request_id VARCHAR(64) NOT NULL,
-    provider_transaction_id BIGINT NULL,
+    provider_transaction_id VARCHAR(100) NULL,
+    provider_payment_link_id VARCHAR(100) NULL,
     amount DECIMAL(18,0) NOT NULL,
     attempt_status VARCHAR(12) NOT NULL,
     checkout_url NVARCHAR(2000) NULL,
@@ -125,6 +126,9 @@ CREATE TABLE Payment_Attempt (
 
 CREATE INDEX IX_Payment_Attempt_Payment_Created
     ON Payment_Attempt(payment_id, created_at DESC, attempt_id DESC);
+
+CREATE SEQUENCE dbo.PayOS_Order_Code_Seq
+    AS BIGINT START WITH 100000000 INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 NO CYCLE;
 
 CREATE TABLE Feedback (
     feedback_id BIGINT IDENTITY(1,1) NOT NULL,

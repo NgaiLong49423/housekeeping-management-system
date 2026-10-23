@@ -29,8 +29,8 @@ Hệ thống hỗ trợ một công ty giúp việc quản lý Staff part-time, 
 | `CONFIRMED` | Booking hợp lệ được xác nhận tự động. |
 | `CANCELLED` | Booking đã hủy theo điều kiện; dữ liệu được giữ và không tiếp tục chiếm lịch. |
 | `COMPLETED` | Booking hoàn tất sau khi Staff phụ trách đáp ứng các điều kiện hoàn thành. |
-| `UNPAID` / `PAID` | Payment chưa hoàn tất / đã được xác nhận bởi Admin (thủ công) hoặc IPN MoMo hợp lệ. |
-| `CASH` / `BANK_TRANSFER` / `MOMO` | Tiền mặt và chuyển khoản được Admin xác minh thủ công; MoMo checkout được xác nhận bằng IPN. |
+| `UNPAID` / `PAID` | Payment chưa hoàn tất / đã được xác nhận bởi Admin (thủ công) hoặc webhook PayOS hợp lệ. |
+| `CASH` / `BANK_TRANSFER` / `PAYOS` | Tiền mặt và chuyển khoản được Admin xác minh thủ công; PayOS checkout được xác nhận bằng webhook. `MOMO` chỉ là giá trị lịch sử được giữ để đọc dữ liệu cũ; checkout MoMo không còn hoạt động. |
 
 BR-01 về một công ty và Staff part-time là **business context/constraint**, không phải functional requirement. Xem mục 2.3.
 
@@ -183,27 +183,27 @@ Mỗi requirement dưới đây có acceptance criteria mang mã duy nhất. Tr�
 
 - **Actor:** Hệ thống; Customer.
 - **Precondition:** Booking vừa chuyển sang `COMPLETED`.
-- **Main flow:** Hệ thống tạo đúng một Payment trạng thái `UNPAID`. Customer chọn `CASH`/`BANK_TRANSFER` để Admin xác minh thủ công hoặc chọn `MOMO` để tạo checkout MoMo Test. Payment chỉ chuyển `PAID` sau khi nhận IPN MoMo hợp lệ và đối chiếu khớp dữ liệu Payment.
-- **Alternative/error:** Không cho tạo Payment thứ hai cho cùng Booking; không chấp nhận phương thức ngoài danh sách. Giao dịch MoMo thất bại giữ Payment `UNPAID`; callback lặp không được cập nhật hai lần. Return URL không phải bằng chứng thanh toán.
-- **Postcondition:** Một Payment gắn Booking; thanh toán thủ công giữ `UNPAID` đến khi Admin xác minh, còn MoMo chỉ chuyển `PAID` bởi IPN hợp lệ.
+- **Main flow:** Hệ thống tạo đúng một Payment trạng thái `UNPAID`. Customer chọn `CASH`/`BANK_TRANSFER` để Admin xác minh thủ công hoặc chọn `PAYOS` để tạo payment link PayOS. Payment chỉ chuyển `PAID` sau khi webhook PayOS có chữ ký hợp lệ và dữ liệu giao dịch khớp Payment.
+- **Alternative/error:** Không cho tạo Payment thứ hai cho cùng Booking; không chấp nhận phương thức ngoài danh sách. Giao dịch PayOS thất bại giữ Payment `UNPAID`; callback lặp được xử lý idempotent. Return/cancel URL không phải bằng chứng thanh toán.
+- **Postcondition:** Một Payment gắn Booking; thanh toán thủ công giữ `UNPAID` đến khi Admin xác minh, còn PayOS chỉ chuyển `PAID` bởi webhook hợp lệ.
 - **Acceptance criteria:**
   - **AC-10.1:** Khi Booking chuyển sang `COMPLETED`, hệ thống tạo đúng một Payment ở trạng thái `UNPAID`.
   - **AC-10.2:** Tạo Payment thứ hai cho cùng Booking bị từ chối; mỗi Booking có tối đa một Payment.
-  - **AC-10.3:** Customer chỉ chọn phương thức sau `COMPLETED` và chọn đúng một trong `CASH`, `BANK_TRANSFER` hoặc `MOMO`.
+  - **AC-10.3:** Customer chỉ chọn phương thức sau `COMPLETED` và chọn đúng một trong `CASH`, `BANK_TRANSFER` hoặc `PAYOS`.
   - **AC-10.4:** Trước khi Customer chọn phương thức, Payment vẫn là `UNPAID`; không tạo trạng thái Payment mới để biểu diễn phương thức chưa chọn.
 
 ### FR-11: Xác nhận Payment
 
-- **Actor:** Admin với tiền mặt/chuyển khoản thủ công; MoMo với giao dịch trực tuyến.
-- **Precondition:** Payment `UNPAID`; Admin xác minh đã nhận tiền thủ công, hoặc hệ thống nhận IPN MoMo.
-- **Main flow:** Admin xác nhận tiền mặt/chuyển khoản đã nhận. Với MoMo, hệ thống kiểm tra chữ ký HMAC-SHA256, partner/order/request ID và số tiền; chỉ `resultCode=0` khớp dữ liệu mới chuyển Payment `UNPAID → PAID`.
-- **Alternative/error:** Từ chối xác nhận thủ công cho Payment `MOMO`; từ chối IPN thiếu/sai chữ ký, sai partner, mã đơn, request ID hoặc số tiền. IPN thất bại giữ `UNPAID`; callback hợp lệ gửi lặp xử lý idempotent. Không xử lý hoàn tiền.
-- **Postcondition:** Payment chỉ ở `PAID` sau xác minh Admin đối với phương thức thủ công hoặc IPN xác thực đối với MoMo.
+- **Actor:** Admin với tiền mặt/chuyển khoản thủ công; PayOS webhook với giao dịch trực tuyến.
+- **Precondition:** Payment `UNPAID`; Admin xác minh đã nhận tiền thủ công, hoặc hệ thống nhận webhook PayOS.
+- **Main flow:** Admin xác nhận tiền mặt/chuyển khoản đã nhận. Với PayOS, hệ thống kiểm tra chữ ký HMAC-SHA256 cùng order code, payment-link ID và số tiền; chỉ giao dịch `data.code=00` khớp dữ liệu mới chuyển Payment `UNPAID → PAID`.
+- **Alternative/error:** Từ chối xác nhận thủ công cho Payment `PAYOS`; từ chối webhook thiếu/sai chữ ký, sai order code, payment-link ID, currency hoặc số tiền. Giao dịch thất bại giữ `UNPAID`; callback hợp lệ gửi lặp không cập nhật lặp. Không xử lý hoàn tiền.
+- **Postcondition:** Payment chỉ ở `PAID` sau xác minh Admin đối với phương thức thủ công hoặc webhook xác thực đối với PayOS.
 - **Acceptance criteria:**
   - **AC-11.1:** Admin chuyển được Payment `CASH`/`BANK_TRANSFER` sang `PAID` khi đã xác nhận nhận tiền.
-  - **AC-11.2:** Không cho Admin chuyển Payment `MOMO` sang `PAID`; phương thức thủ công cũng cần được xác minh.
-  - **AC-11.3:** MoMo chỉ cập nhật `PAID` khi IPN có chữ ký hợp lệ và partner/order/request ID cùng số tiền khớp; redirect trình duyệt không cập nhật trạng thái.
-  - **AC-11.4:** IPN gửi lặp không tạo cập nhật lặp; giao dịch thất bại không chuyển sang `PAID`.
+  - **AC-11.2:** Không cho Admin chuyển Payment `PAYOS` sang `PAID`; phương thức thủ công cũng cần được xác minh. Bản ghi `MOMO` cũ không được cập nhật thủ công.
+  - **AC-11.3:** PayOS chỉ cập nhật `PAID` khi webhook có chữ ký hợp lệ và order code, payment-link ID, currency cùng số tiền khớp; redirect trình duyệt không cập nhật trạng thái.
+  - **AC-11.4:** Webhook gửi lặp không tạo cập nhật lặp; giao dịch thất bại không chuyển sang `PAID`.
 
 ### FR-12: Customer gửi Feedback
 
@@ -291,7 +291,7 @@ Mỗi requirement dưới đây có acceptance criteria mang mã duy nhất. Tr�
 - **Đăng nhập:** một trang `/login` chung cho Customer, Staff và Admin; xác thực server-side bằng Spring Security và HTTP Session.
 - **Giao diện:** Spring Boot MVC + Thymeleaf + Bootstrap, render HTML phía server.
 - **Upload:** nhận JPEG/PNG qua Spring Boot `MultipartFile`; kiểm tra nội dung thực, tối đa 5 MB/ảnh và 1–5 ảnh hợp lệ/Booking_Detail; lưu trên filesystem local và lưu đường dẫn trong database.
-- **Thanh toán:** MoMo checkout dùng môi trường Test; trạng thái thành công lấy từ IPN đã xác minh, không tin redirect. `CASH`/`BANK_TRANSFER` vẫn được Admin xác minh thủ công.
+- **Thanh toán:** PayOS payment link dùng Production API; sandbox riêng không được cung cấp. Trạng thái thành công lấy từ webhook đã xác minh, không tin redirect. `CASH`/`BANK_TRANSFER` vẫn được Admin xác minh thủ công.
 - Các quyết định công nghệ: Java 21, Spring Boot 4.1.1, Maven, Microsoft SQL Server, Spring Data JPA/Hibernate, Flyway và JDBC Driver cho SQL Server. Spring Boot 4.1.1 đã được giảng viên chốt; dependency đã resolve/biên dịch, còn hành vi runtime cần kiểm chứng trên SQL Server/Testcontainers.
 - `/login` là route đã chốt; các route nghiệp vụ khác và giao thức chi tiết chưa được chốt trong baseline.
 
@@ -299,7 +299,7 @@ Mỗi requirement dưới đây có acceptance criteria mang mã duy nhất. Tr�
 
 ### 5.1 Thực thể trong phạm vi
 
-Giữ nguyên 11 thực thể nghiệp vụ baseline: Customer, Staff, Admin, Services, Booking, Booking_Detail, Work_Schedule, Payment, Feedback, Favorite_Staff và Evidences. Tích hợp gateway bổ sung bảng hỗ trợ kỹ thuật `Payment_Attempt` để lưu mã yêu cầu/đơn MoMo, checkout và trạng thái từng lần thử; bảng này không thay thế Payment hay Booking. Bảng sau ghi quan hệ nghiệp vụ cần được thể hiện; không khẳng định vị trí hoặc tên cột vật lý.
+Giữ nguyên 11 thực thể nghiệp vụ baseline: Customer, Staff, Admin, Services, Booking, Booking_Detail, Work_Schedule, Payment, Feedback, Favorite_Staff và Evidences. Tích hợp gateway bổ sung bảng hỗ trợ kỹ thuật `Payment_Attempt` để lưu order code, payment-link ID, checkout và trạng thái từng lần thử PayOS; bảng này không thay thế Payment hay Booking. Bảng sau ghi quan hệ nghiệp vụ cần được thể hiện; không khẳng định vị trí hoặc tên cột vật lý.
 
 | Thực thể/quan hệ | Quy tắc dữ liệu nghiệp vụ |
 |---|---|
@@ -310,7 +310,7 @@ Giữ nguyên 11 thực thể nghiệp vụ baseline: Customer, Staff, Admin, Se
 | Booking_Detail–Services | Mỗi detail gắn với dịch vụ tương ứng. |
 | Booking_Detail–Evidences–Staff | Mỗi detail cần từ 1 đến tối đa 5 Evidence ảnh hợp lệ (JPEG/PNG, tối đa 5 MB/ảnh); Evidence gắn đúng detail và do Staff phụ trách upload. |
 | Booking–Payment | Tối đa một Payment cho mỗi Booking; được tạo `UNPAID` khi Booking `COMPLETED`. |
-| Payment–Payment_Attempt | Một Payment có thể có nhiều lần thử MoMo; mỗi mã order/request của MoMo là duy nhất. Lần thử không tự tạo Payment thứ hai. |
+| Payment–Payment_Attempt | Một Payment có thể có nhiều lần thử PayOS; order code của mỗi lần thử là duy nhất. Lần thử không tự tạo Payment thứ hai. |
 | Customer–Booking–Feedback | Tối đa một Feedback/Booking; chỉ Customer sở hữu Booking `COMPLETED` gửi được. |
 | Customer–Favorite_Staff–Staff | Không có quan hệ trùng cho cùng cặp Customer–Staff. |
 
@@ -319,7 +319,7 @@ Giữ nguyên 11 thực thể nghiệp vụ baseline: Customer, Staff, Admin, Se
 - Booking chỉ dùng `CONFIRMED`, `CANCELLED`, `COMPLETED`; transition được quy định tại FR-06…FR-08.
 - Payment chỉ dùng `UNPAID`, `PAID`; transition được quy định tại FR-10 và FR-11.
 - Các giới hạn tối đa một Payment/Booking, một Feedback/Booking và duy nhất cặp Favorite_Staff là yêu cầu nghiệp vụ đã chốt. Constraint database tương ứng chưa được xác minh.
-- Payment giữ hai trạng thái `UNPAID`/`PAID`; trạng thái mỗi lần thử MoMo được lưu độc lập, và IPN lặp phải được xử lý idempotent.
+- Payment giữ hai trạng thái `UNPAID`/`PAID`; trạng thái mỗi lần thử PayOS được lưu độc lập, và webhook lặp phải được xử lý idempotent.
 - Thông tin đăng nhập/session có thể ánh xạ vào ba thực thể hiện có hay không là `UNVERIFIED`; không giả định thêm bảng/cột.
 
 ## 6. Yêu Cầu Chất Lượng
@@ -329,12 +329,12 @@ Giữ nguyên 11 thực thể nghiệp vụ baseline: Customer, Staff, Admin, Se
 | NFR-01 | Backend phải kiểm tra role và ownership cho thao tác nghiệp vụ. | AC-02.1…AC-02.3. |
 | NFR-02 | Kiểm tra đặt lịch phải ngăn hai request đồng thời cùng chiếm slot Staff. | AC-05.3; chỉ quy định kết quả, không chọn cơ chế transaction/locking. |
 | NFR-03 | Evidence phải là JPEG/PNG được kiểm tra nội dung thực, tối đa 5 MB/ảnh, từ 1 đến tối đa 5 ảnh hợp lệ/Booking_Detail và lưu local; không gửi lên cloud. | AC-09.1, AC-09.3 và AC-09.4. |
-| NFR-04 | IPN MoMo phải xác minh HMAC-SHA256 và đối chiếu partner, mã order/request, số tiền; không ghi log secret hoặc dữ liệu xác thực. | AC-11.3, kiểm thử chữ ký đúng/sai và callback lặp. |
+| NFR-04 | Webhook PayOS phải xác minh HMAC-SHA256 và đối chiếu order code, payment-link ID, currency, số tiền; không ghi log secret hoặc dữ liệu xác thực. | AC-11.3, kiểm thử chữ ký đúng/sai và callback lặp. |
 
 ## 7. Ràng Buộc Và Phụ Thuộc
 
-- 11 thực thể nghiệp vụ baseline được giữ nguyên; `Payment_Attempt` là bảng hỗ trợ integration MoMo.
-- Không dùng JWT, gateway ngoài MoMo, cloud storage, AI, hoàn tiền hoặc các tính năng ngoài phạm vi trong PRD.
+- 11 thực thể nghiệp vụ baseline được giữ nguyên; `Payment_Attempt` là bảng hỗ trợ integration PayOS.
+- Không dùng JWT, gateway ngoài PayOS, cloud storage, AI, hoàn tiền hoặc các tính năng ngoài phạm vi trong PRD.
 - Flyway migration runtime, kết nối môi trường, thông tin xác thực trong schema, thuộc tính/PK/FK/cardinality/nullability và constraint vật lý trên SQL Server chưa được xác minh. Dependency resolution/biên dịch đã kiểm tra; Spring Boot 4.1.1 và các lựa chọn nền tảng khác đã phê duyệt tại mục 2.3 không phải là unknown nghiệp vụ.
 - Các unknown trên là unknown về thiết kế/bằng chứng; không làm thay đổi trạng thái đã phê duyệt của BR/FR.
 
@@ -354,8 +354,8 @@ Mỗi AC có mã duy nhất theo requirement cha. `AC-BC-01.1` là tiêu chí ki
 | BR-08 | Functional | FR-08 | **AC-08.1:** Staff đúng người hoàn thành Booking `CONFIRMED` ở bất kỳ thời điểm nào khi mọi detail đủ Evidence. **AC-08.2:** Staff khác bị từ chối. **AC-08.3:** Booking sai trạng thái bị từ chối. **AC-08.4:** Một detail thiếu ảnh làm cả Booking không hoàn thành. |
 | BR-09 | Functional | FR-09 | **AC-09.1:** Mỗi detail có từ 1–5 ảnh hợp lệ trước hoàn thành, vượt giới hạn bị từ chối. **AC-09.2:** Sai detail/Staff, file rỗng/hỏng hoặc nội dung không hợp lệ bị từ chối. |
 | BR-10 | Functional | FR-09 | **AC-09.3:** File lưu local, đường dẫn lưu DB. **AC-09.4:** Dùng `MultipartFile`, chỉ phần mở rộng `.jpg`/`.jpeg`/`.png` và nội dung thực JPEG/PNG, tối đa 5 MB/ảnh, không tin MIME client, không cloud. |
-| BR-11 | Functional | FR-10 | **AC-10.3:** Chỉ chọn `CASH`, `BANK_TRANSFER` hoặc `MOMO` sau `COMPLETED`. |
-| BR-12 | Functional | FR-10, FR-11 | **AC-10.1:** Tạo đúng một Payment `UNPAID` khi Booking hoàn thành. **AC-10.2:** Payment thứ hai cùng Booking bị từ chối. **AC-10.4:** Phương thức chưa chọn không tạo trạng thái Payment mới. **AC-11.1:** Admin xác nhận tiền mặt/chuyển khoản đã nhận. **AC-11.2:** Admin không tự xác nhận MoMo. **AC-11.3:** Chỉ IPN đúng chữ ký, partner/order/request ID, số tiền mới chuyển MoMo sang `PAID`; redirect không có quyền cập nhật. **AC-11.4:** IPN lặp an toàn; giao dịch thất bại giữ `UNPAID`. |
+| BR-11 | Functional | FR-10 | **AC-10.3:** Chỉ chọn `CASH`, `BANK_TRANSFER` hoặc `PAYOS` sau `COMPLETED`. |
+| BR-12 | Functional | FR-10, FR-11 | **AC-10.1:** Tạo đúng một Payment `UNPAID` khi Booking hoàn thành. **AC-10.2:** Payment thứ hai cùng Booking bị từ chối. **AC-10.4:** Phương thức chưa chọn không tạo trạng thái Payment mới. **AC-11.1:** Admin xác nhận tiền mặt/chuyển khoản đã nhận. **AC-11.2:** Admin không tự xác nhận PayOS. **AC-11.3:** Chỉ webhook đúng chữ ký, order code/payment-link ID/currency/số tiền mới chuyển Payment sang `PAID`; redirect không có quyền cập nhật. **AC-11.4:** Webhook lặp an toàn; giao dịch thất bại giữ `UNPAID`. |
 | BR-13 | Functional | FR-12 | **AC-12.1:** Customer sở hữu Booking `COMPLETED` gửi rating 1–5 và nhận xét. **AC-12.2:** Sai owner/trạng thái/rating bị từ chối. **AC-12.3:** Feedback thứ hai bị từ chối. **AC-12.4:** Không thêm sửa/xóa/kiểm duyệt. |
 | BR-14 | Functional | FR-13 | **AC-13.1:** Có thể yêu thích Staff chưa từng phục vụ. **AC-13.2:** Không tạo cặp trùng. **AC-13.3:** Customer bỏ yêu thích được. |
 
@@ -382,10 +382,10 @@ Phụ lục này không thay đổi hay gắn `UNVERIFIED` lên các BR/FR đã 
 
 | Hạng mục | Kết quả xác minh thiết kế | Diễn giải |
 |---|---|---|
-| Danh sách 11 thực thể baseline và phần mở rộng MoMo | `VERIFIED` trong baseline và DDL source | Migration V1 giữ 11 thực thể nghiệp vụ; V2 bổ sung bảng kỹ thuật `Payment_Attempt` cho MoMo; snapshot phản ánh schema hiện tại. Chưa xác nhận migration trên SQL Server runtime. |
+| Danh sách 11 thực thể baseline và phần mở rộng PayOS | `VERIFIED` trong baseline và DDL source | Migration V1 giữ 11 thực thể nghiệp vụ; V2 bổ sung bảng kỹ thuật `Payment_Attempt`; V3 mở rộng bảng cho PayOS và giữ MoMo cũ để đọc lịch sử. Chưa xác nhận migration trên SQL Server runtime. |
 | Quan hệ, PK/FK, nullability, kiểu và constraint | `VERIFIED` trong DDL source; runtime `UNVERIFIED` | Có thể đối chiếu trong V1, V2 và snapshot. Tính hợp lệ thực tế trên SQL Server và Hibernate validation chưa chạy do thiếu Docker/SQL Server. |
 | Booking–Booking_Detail–Staff–Work_Schedule | `VERIFIED` về cột FK trong DDL; invariant `UNVERIFIED` runtime | DDL nối Detail với Booking và Work_Schedule. Service kiểm tra cùng Staff, thời lượng tuần tự, không overlap/khoảng trống và nằm trong lịch; kiểm thử concurrency chưa chạy trên SQL Server. |
-| Booking–Payment và MoMo attempts | `VERIFIED` trong DDL source; runtime `UNVERIFIED` | V1 giữ FK/UNIQUE một Payment mỗi Booking và trạng thái `UNPAID`/`PAID`; V2 cho phép phương thức `MOMO` và thêm Payment_Attempt với mã order/request duy nhất, trạng thái lần thử và FK tới Payment. Flyway/runtime chưa được chạy. |
+| Booking–Payment và PayOS attempts | `VERIFIED` trong DDL source; runtime `UNVERIFIED` | V1 giữ FK/UNIQUE một Payment mỗi Booking và trạng thái `UNPAID`/`PAID`; V2 thêm Payment_Attempt; V3 cho phép `PAYOS`, lưu payment-link ID và tạo sequence cho order code. Flyway/runtime chưa được chạy. |
 | Booking–Feedback | `VERIFIED` trong DDL source; runtime `UNVERIFIED` | DDL có FK và UNIQUE giới hạn một Feedback mỗi Booking; chưa được kiểm chứng bằng SQL Server runtime. |
 | Booking_Detail–Evidence–Staff | `VERIFIED` về FK source; ownership/cardinality `UNVERIFIED` runtime | DDL thể hiện các FK đã duyệt. Service kiểm tra Staff được phân công và giới hạn 1–5 Evidence hợp lệ trước `COMPLETED`; kiểm thử đồng thời chưa chạy. |
 | Định danh email ba role | `VERIFIED` về UNIQUE riêng và collation trong DDL; uniqueness toàn cục `UNVERIFIED` runtime | DDL có UNIQUE riêng và collation không phân biệt hoa/thường. Service canonical hóa trim/lowercase và transaction SERIALIZABLE khóa các dải index theo thứ tự cố định; test cạnh tranh ba role đã viết nhưng chưa chạy được. |
@@ -393,7 +393,7 @@ Phụ lục này không thay đổi hay gắn `UNVERIFIED` lên các BR/FR đã 
 | DATETIMEOFFSET và migration Flyway | Mapping/source `VERIFIED`; SQL Server runtime `UNVERIFIED` | Migration dùng `DATETIMEOFFSET(0)` và JPA map `OffsetDateTime`; bài kiểm tra round-trip `+07:00` cùng Flyway tạo schema rỗng đã có nhưng không chạy do Docker không khả dụng. |
 | Evidence file storage và reconciliation | `VERIFIED` trong source; runtime `UNVERIFIED` | Service lưu metadata, giới hạn upload, bù trừ lỗi ghi file và reconciler xử lý file mồ côi; chưa chạy kiểm thử tích hợp trong môi trường này. |
 
-MoMo là phần mở rộng được phê duyệt cho luồng thanh toán; V1 không bị sửa và V2 ghi nhận phần mở rộng. Đây chưa phải nghiệm thu database: Flyway tạo schema rỗng, Hibernate validate, DATETIMEOFFSET round-trip và các test concurrency trên SQL Server/Testcontainers đều còn `UNVERIFIED` vì Docker/SQL Server không khả dụng.
+PayOS thay MoMo làm cổng trực tuyến; V1 và V2 không bị sửa, V3 ghi nhận phần mở rộng. PayOS không cung cấp sandbox nên giao dịch end-to-end cần merchant production và có thể chuyển tiền thật. Đây chưa phải nghiệm thu database: Flyway tạo schema rỗng, Hibernate validate, DATETIMEOFFSET round-trip và các test concurrency trên SQL Server/Testcontainers đều còn `UNVERIFIED` cho tới khi chạy trên SQL Server.
 
 ## 9. Nghiệm Thu Và Lịch Sử Thay Đổi
 

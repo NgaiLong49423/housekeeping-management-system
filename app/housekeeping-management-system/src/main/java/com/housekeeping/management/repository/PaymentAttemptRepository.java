@@ -10,6 +10,9 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface PaymentAttemptRepository extends JpaRepository<PaymentAttempt, Long> {
+    @Query(value = "SELECT NEXT VALUE FOR dbo.PayOS_Order_Code_Seq", nativeQuery = true)
+    Long nextPayosOrderCode();
+
     List<PaymentAttempt> findByPayment_PaymentIdOrderByCreatedAtDescAttemptIdDesc(Long paymentId);
 
     Optional<PaymentAttempt> findTopByPayment_PaymentIdOrderByCreatedAtDescAttemptIdDesc(Long paymentId);
