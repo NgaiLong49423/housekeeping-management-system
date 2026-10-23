@@ -36,6 +36,20 @@ public class PortalActionsService {
 
     public static OffsetDateTime now() { return OffsetDateTime.now(ZoneOffset.ofHours(7)).withNano(0); }
 
+    public void registerCustomer(CustomerRegistrationForm form) {
+        String hash = encoder.encode(form.password());
+        emailUniqueness.executeWithUniqueEmail(form.email(), canonical -> {
+            Customer customer = new Customer();
+            customer.setDisplayName(form.name().trim());
+            customer.setEmail(canonical);
+            customer.setPasswordHash(hash);
+            customer.setPhoneNumber(form.phone() == null || form.phone().isBlank() ? null : form.phone().trim());
+            em.persist(customer);
+            em.flush();
+            return null;
+        });
+    }
+
     @Transactional
     public void cancel(Long bookingId, Long customerId) {
         Booking booking = ownedBooking(bookingId, customerId);

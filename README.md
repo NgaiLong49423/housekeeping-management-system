@@ -49,8 +49,12 @@ Chạy [setup-demo.sql](database/setup-demo.sql), chọn JDK 21 rồi Run **Hous
 | Vai trò | Email | Mật khẩu demo |
 |---|---|---|
 | Admin | `admin@demo.gonnha.local` | `Demo@123456` |
-| Customer | `customer@demo.gonnha.local` | `Demo@123456` |
-| Staff | `staff@demo.gonnha.local` | `Demo@123456` |
+| Customer chính | `customer@demo.gonnha.local` | `Demo@123456` |
+| Customer bổ sung | `customer01@demo.gonnha.local` đến `customer07@demo.gonnha.local` | `Demo@123456` |
+| Staff chính | `staff@demo.gonnha.local` | `Demo@123456` |
+| Staff bổ sung | `staff01@demo.gonnha.local` đến `staff07@demo.gonnha.local` | `Demo@123456` |
+
+Flyway nạp tổng cộng 8 Customer, 8 Staff, 8 dịch vụ và 20 booking để trình bày các trạng thái nghiệp vụ. Xem [danh sách tài khoản và hướng dẫn demo](docs/demo-setup.md) để dùng các tài khoản bổ sung.
 
 Đây là tài khoản ứng dụng mẫu công khai, chỉ bật cho môi trường demo. SQL login mẫu là `housekeeping_demo_app` / `HousekeepingDemo@2026`, database `housekeeping_demo`; đây là tài khoản kết nối database, khác ba tài khoản website. Người clone vẫn cần SQL Server trên máy của họ; không chia sẻ `.env` hoặc `.runtime/` chứa thông tin kết nối riêng.
 

@@ -17,7 +17,8 @@ class PortalOwnershipTest {
     void roleAndIdMustBothMatchToReadBookingOrEvidence() {
         PortalQueryService query = new PortalQueryService(mock(JdbcTemplate.class));
         var now = OffsetDateTime.now();
-        var card = new PortalViews.BookingCard(42L, 1L, 2L, "Customer", "Staff", now, now.plusHours(1), "CONFIRMED", BigDecimal.TEN, null, null, null);
+        var card = new PortalViews.BookingCard(42L, 1L, 2L, "Customer", "Staff", now, now.plusHours(1), "CONFIRMED", BigDecimal.TEN,
+                null, null, null, null, null);
         assertThatCode(() -> query.authorize(card, PortalMvcTest.account(1L, "CUSTOMER", "Owner"))).doesNotThrowAnyException();
         assertThatCode(() -> query.authorize(card, PortalMvcTest.account(2L, "STAFF", "Assigned"))).doesNotThrowAnyException();
         assertThatCode(() -> query.authorize(card, PortalMvcTest.account(3L, "ADMIN", "Admin"))).doesNotThrowAnyException();

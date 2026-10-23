@@ -7,15 +7,19 @@
 
 # Clone Project Và Đăng Nhập Bằng Tài Khoản Demo
 
-Profile **`demo`** tự tạo ba tài khoản ứng dụng dưới đây sau khi Flyway khởi tạo schema. Đây là thông tin mẫu công khai để các thành viên clone từ GitHub và chạy trên máy của mình; không phải thông tin đăng nhập SQL Server.
+Profile **`demo`** tạo bộ dữ liệu trình diễn gồm 8 Customer, 8 Staff, 1 Admin, 8 dịch vụ và 20 booking sau khi Flyway khởi tạo schema. Đây là thông tin mẫu công khai để các thành viên clone từ GitHub và chạy trên máy của mình; không phải thông tin đăng nhập SQL Server.
 
 **Quy trình mặc định: chạy [setup-demo.sql](../database/setup-demo.sql) trong SSMS → Run `Housekeeping Demo` trong IntelliJ → đăng nhập. Không cần tạo `.env`, nhập SQL password trong IntelliJ hoặc baseline Flyway.**
 
 | Vai trò | Email | Mật khẩu demo |
 |---|---|---|
 | Admin | `admin@demo.gonnha.local` | `Demo@123456` |
-| Customer | `customer@demo.gonnha.local` | `Demo@123456` |
-| Staff | `staff@demo.gonnha.local` | `Demo@123456` |
+| Customer chính | `customer@demo.gonnha.local` | `Demo@123456` |
+| Customer bổ sung | `customer01@demo.gonnha.local` đến `customer07@demo.gonnha.local` | `Demo@123456` |
+| Staff chính | `staff@demo.gonnha.local` | `Demo@123456` |
+| Staff bổ sung | `staff01@demo.gonnha.local` đến `staff07@demo.gonnha.local` | `Demo@123456` |
+
+Các email Customer/Staff bổ sung đều đăng nhập được; hậu tố số chạy liên tục từ `01` đến `07`. Mọi tài khoản trên dùng chung mật khẩu demo công khai.
 
 ## Thông tin nằm ở đâu
 
@@ -29,7 +33,8 @@ Các đường dẫn dưới đây tính từ thư mục gốc repository. Khi m
 | Mẫu kết nối SQL Server để sao chép thành `.env` | [app/housekeeping-management-system/.env.example](../app/housekeeping-management-system/.env.example) |
 | Cấu hình Run demo trong IntelliJ | [Housekeeping Demo - Reset DB.run.xml](<../.run/Housekeeping Demo - Reset DB.run.xml>) |
 | Cấu hình profile `demo` và đọc `.env` | [application-demo.properties](../app/housekeeping-management-system/src/main/resources/application-demo.properties) |
-| Migration nạp tài khoản, dịch vụ và booking mẫu | [R__demo_data.sql](../app/housekeeping-management-system/src/main/resources/db/migration/R__demo_data.sql) |
+| Migration nạp tài khoản, 8 dịch vụ và 20 booking mẫu | [R__demo_data.sql](../app/housekeeping-management-system/src/main/resources/db/migration/R__demo_data.sql) |
+| Thiết lập checkout MoMo Test và IPN | [momo-payment.md](momo-payment.md) |
 | Mã tự tạo ba tài khoản demo | [DemoAccountSeeder.java](../app/housekeeping-management-system/src/main/java/com/housekeeping/management/demo/DemoAccountSeeder.java) |
 | Hướng dẫn schema, migration và baseline database | [database/README.md](../database/README.md) |
 
@@ -80,8 +85,11 @@ Nếu database đã có bảng tạo thủ công từ đúng schema V1 nhưng ch
 
 ## Cách tạo và giữ tài khoản
 
-- `R__demo_data.sql` chỉ nạp tài khoản và dữ liệu mẫu khi bật profile `demo`; profile thông thường không nhận dữ liệu demo. `DemoAccountSeeder` tiếp tục kiểm tra và bổ sung tài khoản nếu thiếu.
-- Chỉ tạo tài khoản còn thiếu, mã hóa mật khẩu bằng PasswordEncoder BCrypt của ứng dụng và tái sử dụng khóa kiểm tra email duy nhất giữa ba bảng.
+- `R__demo_data.sql` chỉ nạp dữ liệu mẫu khi bật profile `demo`; profile thông thường không nhận dữ liệu demo. Migration tạo các tài khoản mẫu còn thiếu với BCrypt hash tương ứng mật khẩu công khai; `DemoAccountSeeder` kiểm tra và bổ sung ba tài khoản chính nếu thiếu.
+- Bộ booking mẫu có các trạng thái `CONFIRMED`, `CANCELLED`, `COMPLETED`, các tình huống thanh toán và một số đánh giá. Booking `CONFIRMED` chưa có Payment cho tới khi Staff hoàn thành; Staff có thể tải ảnh bằng chứng rồi hoàn thành ngay, không cần chờ giờ bắt đầu dự kiến. Không seed bản ghi Evidence vì ảnh phải được lưu thật trên filesystem.
+- Để demo thanh toán ngay, đăng nhập Customer `customer@demo.gonnha.local` và mở booking **Tổng vệ sinh** của hôm nay với Staff `staff@demo.gonnha.local`. Booking đã `COMPLETED`, có Payment `UNPAID` và giá 300.000 ₫; Customer chọn phương thức thanh toán, sau đó Admin xác nhận đã nhận tiền. Ngày giờ của booking được tính tương đối theo ngày ứng dụng khởi động.
+- Để demo checkout MoMo, đăng ký hồ sơ MoMo for Business và dùng **Testing Credentials**. Sao chép các khóa vào `.env` theo `.env.example`, rồi đặt `MOMO_REDIRECT_URL` và `MOMO_IPN_URL` thành HTTPS URL công khai; MoMo cần gọi được IPN từ internet. Thanh toán Test cần MoMo Test App/Test wallet và không dùng ví production. Đơn MoMo chỉ được đánh dấu `PAID` sau IPN đã xác minh.
+- `DemoAccountSeeder` chỉ tạo tài khoản chính còn thiếu bằng PasswordEncoder BCrypt của ứng dụng và tái sử dụng khóa kiểm tra email duy nhất giữa ba bảng.
 - Khi không bật reset, chạy lại không tạo trùng và không đổi mật khẩu hoặc thông tin của tài khoản đã có. Nếu bật `DB_RESET_ON_STARTUP=true`, schema và dữ liệu bị xóa trước, rồi seeder tạo lại ba tài khoản mẫu với mật khẩu công khai.
 - Nếu email demo đã thuộc vai trò khác hoặc trùng giữa nhiều bảng, ứng dụng báo lỗi thay vì tự cấp/chuyển vai trò.
 - Không thay Entity, schema hay migration V1; seeder không tạo SQL login hoặc seed lịch đặt/thanh toán. Admin có thể thêm dịch vụ và khoảng sẵn sàng qua giao diện hiện có. Tùy chọn `DB_RESET_ON_STARTUP=true` xóa dữ liệu trong schema trước khi khởi động.

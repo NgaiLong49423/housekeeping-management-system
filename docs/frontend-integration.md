@@ -55,12 +55,14 @@ Các route dưới đây là điểm vào MVC được thêm trong lần tích h
 | `/logout` | CSRF | Spring Security hủy session |
 | `/customer/bookings` | `staffId`, `scheduleId`, `startAt`, `serviceIds` lặp | `BookingReservationService.createBooking` |
 | `/customer/bookings/{id}/cancel` | CSRF | Owner, CONFIRMED, còn ít nhất 2 giờ |
-| `/customer/bookings/{id}/payment` | `method=CASH` hoặc `BANK_TRANSFER` | Owner rồi `PaymentLifecycleService.chooseMethod` |
+| `/customer/bookings/{id}/payment` | `method=CASH`, `BANK_TRANSFER` hoặc `MOMO` | Owner; thủ công qua `PaymentLifecycleService`, MoMo tạo checkout rồi redirect |
 | `/customer/bookings/{id}/feedback` | `rating=1..5`, `comment` tối đa 2.000 ký tự | Owner, COMPLETED, tối đa một Feedback |
 | `/customer/staff/{id}/favorite` | `favorite=true/false` | Thêm/bỏ cặp Customer–Staff, không thêm trùng |
 | `/staff/details/{id}/evidence` | Multipart `image` | Ownership rồi `EvidenceStorageService.upload` |
 | `/staff/bookings/{id}/complete` | CSRF | `BookingCompletionService.completeBooking` |
 | `/admin/bookings/{id}/paid` | `receiptVerified=true` | `PaymentLifecycleService.confirmReceivedByAdmin` |
+| `/payments/momo/ipn` | JSON IPN từ MoMo; không dùng session/CSRF | Public callback, HMAC + partner/order/request/amount validation, xử lý idempotent; chỉ trả 204 khi hợp lệ |
+| `/payments/momo/return` | Browser redirect từ MoMo | Chỉ thông báo/điều hướng; không xác nhận trạng thái thanh toán |
 | `/admin/services`, `/admin/services/{id}` | `name`, `description`, `duration`, `price` | Tạo/cập nhật theo Entity hiện có |
 | `/admin/staff` | `name`, `email`, `password`, `phone` | `GlobalEmailUniquenessService`, BCrypt trước khi lưu |
 | `/admin/staff/{id}` | `name`, `phone` | Sửa thông tin; email/mật khẩu không trong form sửa |

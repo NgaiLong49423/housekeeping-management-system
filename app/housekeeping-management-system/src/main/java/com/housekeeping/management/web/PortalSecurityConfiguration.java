@@ -33,11 +33,13 @@ public class PortalSecurityConfiguration {
     SecurityFilterChain portalSecurity(HttpSecurity http) throws Exception {
         return http.authorizeHttpRequests(access -> access
                     .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
-                    .requestMatchers("/", "/services", "/login", "/css/**", "/js/**", "/images/**", "/vendor/**", "/error").permitAll()
+                    .requestMatchers("/", "/services", "/login", "/register", "/css/**", "/js/**", "/images/**", "/vendor/**", "/error").permitAll()
+                    .requestMatchers("/payments/momo/ipn", "/payments/momo/return").permitAll()
                     .requestMatchers("/customer/**").hasRole("CUSTOMER")
                     .requestMatchers("/staff/**").hasRole("STAFF")
                     .requestMatchers("/admin/**").hasRole("ADMIN")
                     .anyRequest().authenticated())
+                .csrf(csrf -> csrf.ignoringRequestMatchers("/payments/momo/ipn"))
                 .formLogin(login -> login.loginPage("/login").usernameParameter("email")
                     .defaultSuccessUrl("/portal", true).failureUrl("/login?error").permitAll())
                 .logout(logout -> logout.logoutSuccessUrl("/login?logout"))

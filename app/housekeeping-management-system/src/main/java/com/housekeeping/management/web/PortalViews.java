@@ -22,7 +22,7 @@ public final class PortalViews {
     }
     public record BookingCard(Long id, Long customerId, Long staffId, String customerName, String staffName,
             OffsetDateTime start, OffsetDateTime end, String status, BigDecimal amount,
-            String paymentStatus, String method, Integer rating) {
+            String paymentStatus, String method, String paymentAttemptStatus, String checkoutUrl, Integer rating) {
         public String getStartLabel() { return time(start); }
         public String getEndLabel() { return time(end); }
         public String getStatusLabel() {
@@ -32,7 +32,6 @@ public final class PortalViews {
             return switch (status) { case "CONFIRMED" -> "confirmed"; case "COMPLETED" -> "completed"; default -> "cancelled"; };
         }
         public boolean isCancellable() { return status.equals("CONFIRMED") && !OffsetDateTime.now().isAfter(start.minusHours(2)); }
-        public boolean isStarted() { return !OffsetDateTime.now().isBefore(start); }
     }
     public record EvidenceCard(Long id, String uploadedAt) { }
     public record DetailCard(Long id, String name, int sequence, int duration, BigDecimal price, List<EvidenceCard> evidence) { }

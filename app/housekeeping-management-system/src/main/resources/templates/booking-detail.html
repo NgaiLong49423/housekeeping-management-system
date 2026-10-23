@@ -189,8 +189,21 @@
               </span>
             </div>
 
-            <p class="small text-secondary mt-3 mb-0" th:if="${booking.method != null}" th:text="'Phương thức: ' + ${booking.method == 'CASH' ? 'Tiền mặt' : 'Chuyển khoản ngân hàng'}">
+            <p class="small text-secondary mt-3 mb-0" th:if="${booking.method != null}" th:text="'Phương thức: ' + ${booking.method == 'CASH' ? 'Tiền mặt' : (booking.method == 'BANK_TRANSFER' ? 'Chuyển khoản ngân hàng' : 'MoMo')}">
             </p>
+
+            <div th:if="${booking.method == 'MOMO' and booking.paymentStatus == 'UNPAID'}" class="mt-3">
+              <p class="small text-warning mb-2" th:if="${booking.paymentAttemptStatus == 'INITIATING' or booking.paymentAttemptStatus == 'PENDING'}">
+                Đang chờ MoMo xác nhận giao dịch. Nếu chưa thanh toán, bạn có thể mở lại trang checkout.
+              </p>
+              <p class="small text-danger mb-2" th:if="${booking.paymentAttemptStatus == 'FAILED'}">
+                Giao dịch chưa thành công. Bạn có thể thử tạo checkout MoMo mới.
+              </p>
+              <a th:if="${booking.checkoutUrl != null and booking.paymentAttemptStatus == 'PENDING'}"
+                 class="btn btn-outline-primary w-100" th:href="${booking.checkoutUrl}" rel="noopener">
+                Mở lại trang thanh toán MoMo
+              </a>
+            </div>
 
             <!-- Customer Payment Method Selection -->
             <form th:if="${currentUser.role == 'CUSTOMER' and booking.status == 'COMPLETED' and booking.paymentStatus == 'UNPAID'}" method="post" th:action="@{/customer/bookings/{id}/payment(id=${booking.id})}" class="mt-3 pt-3 border-top">
@@ -199,19 +212,23 @@
               </label>
               <select class="form-select" id="method" name="method" required>
                 <option value="">Chọn phương thức</option>
-                <option value="CASH" th:selected="${booking.method == 'CASH'}">Tiền mặt (trực tiếp)</option>
-                <option value="BANK_TRANSFER" th:selected="${booking.method == 'BANK_TRANSFER'}">Chuyển khoản ngân hàng</option>
+                <option value="CASH" th:selected="${booking.method == 'CASH'}" th:disabled="${booking.method == 'MOMO'}">Tiền mặt (trực tiếp)</option>
+                <option value="BANK_TRANSFER" th:selected="${booking.method == 'BANK_TRANSFER'}" th:disabled="${booking.method == 'MOMO'}">Chuyển khoản ngân hàng</option>
+                <option value="MOMO" th:selected="${booking.method == 'MOMO'}">Ví MoMo (Test)</option>
               </select>
               <button class="btn btn-primary w-100 mt-3" type="submit">
-                Lưu phương thức thanh toán
+                Tiếp tục thanh toán
               </button>
-              <p class="small text-secondary mt-2 mb-0">
+              <p class="small text-secondary mt-2 mb-0" th:if="${booking.method != 'MOMO'}">
                 Trạng thái chỉ đổi sang Đã thanh toán sau khi quản trị viên kiểm tra và xác minh nhận tiền.
+              </p>
+              <p class="small text-secondary mt-2 mb-0" th:if="${booking.method == 'MOMO'}">
+                MoMo sẽ mở checkout Test; hệ thống chỉ xác nhận qua thông báo giao dịch đã ký.
               </p>
             </form>
 
             <!-- Admin Receipt Verification -->
-            <form th:if="${currentUser.role == 'ADMIN' and booking.paymentStatus == 'UNPAID'}" method="post" th:action="@{/admin/bookings/{id}/paid(id=${booking.id})}" data-confirm="Xác nhận đã thực tế nhận đủ tiền cho lịch hẹn này?" class="mt-3 pt-3 border-top">
+            <form th:if="${currentUser.role == 'ADMIN' and booking.paymentStatus == 'UNPAID' and booking.method != 'MOMO'}" method="post" th:action="@{/admin/bookings/{id}/paid(id=${booking.id})}" data-confirm="Xác nhận đã thực tế nhận đủ tiền cho lịch hẹn này?" class="mt-3 pt-3 border-top">
               <label class="d-flex gap-2 small align-items-center">
                 <input type="checkbox" name="receiptVerified" value="true" required th:disabled="${booking.method == null}">
                 <span class="fw-semibold">Tôi đã kiểm tra và xác minh thực tế nhận đủ tiền.</span>
@@ -252,15 +269,12 @@
               Kiểm tra tất cả dịch vụ đã có đủ ảnh bằng chứng trước khi bấm xác nhận.
             </p>
             <form method="post" th:action="@{/staff/bookings/{id}/complete(id=${booking.id})}" data-confirm="Xác nhận đã hoàn thành toàn bộ dịch vụ?">
-              <button class="btn btn-primary w-100" type="submit" th:disabled="${!allEvidenceReady or !booking.started}">
+              <button class="btn btn-primary w-100" type="submit" th:disabled="${!allEvidenceReady}">
                 Xác nhận hoàn thành
               </button>
             </form>
             <p class="small text-warning mt-2 mb-0" th:unless="${allEvidenceReady}">
               ⚠ Mỗi dịch vụ cần ít nhất một ảnh bằng chứng nghiệm thu.
-            </p>
-            <p class="small text-secondary mt-2 mb-0" th:unless="${booking.started}">
-              ⏱ Chưa đến giờ bắt đầu công việc.
             </p>
           </section>
         </aside>

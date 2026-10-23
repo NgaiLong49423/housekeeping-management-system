@@ -12,6 +12,7 @@ Ghi các thay đổi đáng chú ý theo thứ tự mới nhất trước. File 
 ## [Unreleased]
 
 ### Added
+- MoMo Test one-time checkout with persistent payment attempts, signed/idempotent IPN confirmation, Customer checkout status, and integration setup documentation.
 - `database/setup-demo.sql` tạo database/login demo riêng, chạy lại không xóa dữ liệu; profile `demo` có sẵn kết nối tương ứng để người clone chỉ cần chạy SQL rồi Run `Housekeeping Demo`, không bắt buộc tạo `.env`.
 - Profile `demo` tạo ba tài khoản ứng dụng mẫu công khai bằng BCrypt, không tạo trùng/ghi đè tài khoản hiện có; cấu hình Run `Housekeeping Demo`, `.env.example` và hướng dẫn cho người clone từ GitHub.
 - Tự mở trang chủ trong trình duyệt mặc định khi Run `Housekeeping Full Stack` trong IntelliJ; đã kiểm tra Chrome mở frontend sau lượt dừng/chạy lại server.
@@ -28,6 +29,7 @@ Ghi các thay đổi đáng chú ý theo thứ tự mới nhất trước. File 
 ### Changed
 - Chuẩn hóa thư mục ứng dụng thành `app/` và cập nhật các mẫu dự án.
 - Tổng quát hóa tài liệu và hướng dẫn repository để tái sử dụng cho các dự án Java web.
+- Staff có thể hoàn thành Booking `CONFIRMED` bất cứ lúc nào khi đủ Evidence, kể cả trước giờ bắt đầu dự kiến; booking mẫu đang xác nhận chưa tạo Payment cho tới khi hoàn thành.
 
 ### Fixed
 - Đồng bộ các bản Run Configuration dùng SDK `ms-21` và thư mục làm việc theo module Maven, sửa lỗi không tìm thấy `file:./.runtime/` khi chạy từ thư mục project khác.

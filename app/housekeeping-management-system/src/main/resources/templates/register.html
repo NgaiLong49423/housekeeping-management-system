@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+  <head th:replace="~{fragments/layout :: head('Đăng ký tài khoản Customer')}"></head>
+  <body>
+    <header th:replace="~{fragments/layout :: header('register')}"></header>
+    <main id="main" class="container d-flex align-items-center justify-content-center py-5">
+      <div class="login-grid surface overflow-hidden mx-auto w-100">
+        <div class="login-photo">
+          <img th:src="@{/images/d856e.png}" alt="Không gian nhà bếp sạch sẽ" width="512" height="279">
+          <div class="p-4 p-lg-5">
+            <span class="eyebrow">Gọn Nhà</span>
+            <h2>Nhà sạch hơn.<br>Ngày nhẹ hơn.</h2>
+            <p class="mb-0">Tạo tài khoản Customer để đặt lịch chăm sóc ngôi nhà của bạn.</p>
+          </div>
+        </div>
+        <div class="p-4 p-lg-5 d-flex flex-column justify-content-center">
+          <span class="eyebrow">Bắt đầu với Gọn Nhà</span>
+          <h1 class="h2 mb-2">Đăng ký Customer</h1>
+          <p class="text-secondary small mb-4">Staff và Admin được cấp tài khoản bởi quản trị viên.</p>
+          <form th:action="@{/register}" th:object="${registrationForm}" method="post" class="vstack gap-3">
+            <div>
+              <label class="form-label" for="name">Họ và tên</label>
+              <input id="name" type="text" th:field="*{name}" class="form-control" maxlength="150" autocomplete="name" required>
+              <div th:if="${#fields.hasErrors('name')}" th:errors="*{name}" class="invalid-feedback d-block"></div>
+            </div>
+            <div>
+              <label class="form-label" for="email">Email</label>
+              <input id="email" type="email" th:field="*{email}" class="form-control" maxlength="254" autocomplete="email" required>
+              <div th:if="${#fields.hasErrors('email')}" th:errors="*{email}" class="invalid-feedback d-block"></div>
+            </div>
+            <div>
+              <label class="form-label" for="phone">Số điện thoại <span class="text-secondary">(không bắt buộc)</span></label>
+              <input id="phone" type="tel" th:field="*{phone}" class="form-control" maxlength="20" autocomplete="tel">
+              <div th:if="${#fields.hasErrors('phone')}" th:errors="*{phone}" class="invalid-feedback d-block"></div>
+            </div>
+            <div>
+              <label class="form-label" for="password">Mật khẩu</label>
+              <input id="password" name="password" type="password" class="form-control" minlength="8" maxlength="72" autocomplete="new-password" required>
+              <div class="form-text">Mật khẩu có từ 8 đến 72 ký tự và tối đa 72 byte UTF-8.</div>
+              <div th:if="${#fields.hasErrors('password')}" th:errors="*{password}" class="invalid-feedback d-block"></div>
+            </div>
+            <div>
+              <label class="form-label" for="confirmPassword">Nhập lại mật khẩu</label>
+              <input id="confirmPassword" name="confirmPassword" type="password" class="form-control" maxlength="72" autocomplete="new-password" required>
+              <div th:if="${#fields.hasErrors('confirmPassword')}" th:errors="*{confirmPassword}" class="invalid-feedback d-block"></div>
+            </div>
+            <button type="submit" class="btn btn-primary w-100 mt-2">Tạo tài khoản</button>
+          </form>
+          <p class="small text-center text-secondary mt-4 mb-0">
+            Đã có tài khoản?
+            <a th:href="@{/login}">Đăng nhập</a>
+          </p>
+        </div>
+      </div>
+    </main>
+    <footer th:replace="~{fragments/layout :: footer}"></footer>
+  </body>
+</html>

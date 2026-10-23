@@ -32,7 +32,7 @@ Nếu tạo database thành công nhưng bước cấp login/quyền lỗi, data
 ## Schema và migration
 
 - SQL Server là hệ quản trị đã chọn.
-- [Flyway V1](../app/housekeeping-management-system/src/main/resources/db/migration/V1__create_initial_schema.sql) và các migration tiếp theo là nguồn chính thức duy nhất quản lý schema.
+- Các migration Flyway có phiên bản là nguồn chính thức duy nhất quản lý schema: [V1](../app/housekeeping-management-system/src/main/resources/db/migration/V1__create_initial_schema.sql) tạo schema baseline; [V2](../app/housekeeping-management-system/src/main/resources/db/migration/V2__add_momo_payment_attempts.sql) bổ sung bảng theo dõi giao dịch MoMo mà không sửa V1.
 - Mặc định ứng dụng không xóa dữ liệu khi khởi động. Có thể bật tùy chọn local `DB_RESET_ON_STARTUP=true` trong `.env`: ứng dụng tạo database từ `DB_URL` nếu chưa tồn tại (tài khoản kết nối cần quyền `CREATE DATABASE`), rồi Flyway xóa các object trong schema cấu hình và chạy lại migration. Toàn bộ dữ liệu trong schema sẽ bị mất; chỉ bật với database local dành riêng cho phát triển.
 - [schema.sql](schema.sql) là snapshot tham khảo, không chạy để bootstrap database demo.
 - [sample-data.sql](sample-data.sql) và [queries.sql](queries.sql) là file tham khảo; không bắt buộc cho quy trình demo.

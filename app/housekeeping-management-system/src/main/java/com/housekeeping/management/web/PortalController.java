@@ -3,14 +3,18 @@ package com.housekeeping.management.web;
 import static com.housekeeping.management.web.PortalForms.*;
 import static com.housekeeping.management.web.PortalViews.*;
 import com.housekeeping.management.domain.PaymentMethod;
+import com.housekeeping.management.service.MomoPaymentService;
+import com.housekeeping.management.service.MomoIpnRequest;
 import com.housekeeping.management.service.*;
 import jakarta.validation.Valid;
+import java.nio.charset.StandardCharsets;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
@@ -31,14 +35,15 @@ public class PortalController {
     private final BookingReservationService reservations;
     private final BookingCompletionService completion;
     private final PaymentLifecycleService payments;
+    private final MomoPaymentService momoPayments;
     private final EvidenceStorageService storage;
     private final Path evidenceRoot;
 
     public PortalController(PortalQueryService query, PortalActionsService actions, BookingReservationService reservations,
-            BookingCompletionService completion, PaymentLifecycleService payments, EvidenceStorageService storage,
+            BookingCompletionService completion, PaymentLifecycleService payments, MomoPaymentService momoPayments, EvidenceStorageService storage,
             @Value("${app.evidence.storage-root:./var/evidence}") String evidenceRoot) {
         this.query = query; this.actions = actions; this.reservations = reservations; this.completion = completion;
-        this.payments = payments; this.storage = storage; this.evidenceRoot = Path.of(evidenceRoot).toAbsolutePath().normalize();
+        this.payments = payments; this.momoPayments = momoPayments; this.storage = storage; this.evidenceRoot = Path.of(evidenceRoot).toAbsolutePath().normalize();
     }
 
     @GetMapping("/")
@@ -49,6 +54,33 @@ public class PortalController {
 
     @GetMapping("/login")
     String login() { return "login"; }
+
+    @GetMapping("/register")
+    String registration(Model model) {
+        if (!model.containsAttribute("registrationForm")) {
+            model.addAttribute("registrationForm", new CustomerRegistrationForm("", "", "", "", ""));
+        }
+        return "register";
+    }
+
+    @PostMapping("/register")
+    String register(@Valid @ModelAttribute("registrationForm") CustomerRegistrationForm form,
+            BindingResult errors) {
+        if (!Objects.equals(form.password(), form.confirmPassword())) {
+            errors.rejectValue("confirmPassword", "mismatch", "Mật khẩu nhập lại chưa khớp.");
+        }
+        if (form.password() != null && form.password().getBytes(StandardCharsets.UTF_8).length > 72) {
+            errors.rejectValue("password", "bcryptLength", "Mật khẩu không được vượt quá 72 byte UTF-8.");
+        }
+        if (errors.hasErrors()) { return "register"; }
+        try {
+            actions.registerCustomer(form);
+            return "redirect:/login?registered";
+        } catch (DuplicateEmailException duplicateEmail) {
+            errors.rejectValue("email", "duplicate", "Email này đã được đăng ký. Hãy đăng nhập hoặc dùng email khác.");
+            return "register";
+        }
+    }
 
     @GetMapping("/portal")
     String portal(@AuthenticationPrincipal PortalUser user) {
@@ -118,8 +150,24 @@ public class PortalController {
 
     @PostMapping("/customer/bookings/{id}/payment")
     String method(@PathVariable Long id, @RequestParam PaymentMethod method, @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
-        query.booking(id, user); payments.chooseMethod(id, method);
+        query.booking(id, user);
+        if (method == PaymentMethod.MOMO) {
+            return "redirect:" + momoPayments.checkout(id, user.getAccountId());
+        }
+        payments.chooseMethod(id, method);
         flash.addFlashAttribute("success", "Đã lưu phương thức. Thanh toán chờ quản trị viên xác minh nhận tiền."); return "redirect:/customer/bookings/" + id;
+    }
+
+    @GetMapping("/payments/momo/return")
+    String momoReturn(RedirectAttributes flash) {
+        flash.addFlashAttribute("success", "Đã quay lại từ MoMo. Trạng thái chỉ cập nhật sau khi hệ thống xác minh thông báo giao dịch.");
+        return "redirect:/customer/bookings";
+    }
+
+    @PostMapping("/payments/momo/ipn")
+    ResponseEntity<Void> momoIpn(@RequestBody MomoIpnRequest ipn) {
+        momoPayments.receiveIpn(ipn);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/customer/bookings/{id}/feedback")

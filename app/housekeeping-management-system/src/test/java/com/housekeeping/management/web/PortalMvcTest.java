@@ -40,6 +40,7 @@ class PortalMvcTest {
     @MockitoBean BookingReservationService reservations;
     @MockitoBean BookingCompletionService completion;
     @MockitoBean PaymentLifecycleService payments;
+    @MockitoBean MomoPaymentService momoPayments;
     @MockitoBean EvidenceStorageService storage;
 
     private final PortalUser customer = account(1L, "CUSTOMER", "Khách hàng kiểm thử");
@@ -67,7 +68,7 @@ class PortalMvcTest {
 
     BookingCard card(String status, String payment, String method) {
         return new BookingCard(42L, 1L, 2L, "Khách hàng kiểm thử", "Nhân viên kiểm thử", start, start.plusHours(2), status,
-                new BigDecimal("140000"), payment, method, null);
+                new BigDecimal("140000"), payment, method, null, null, null);
     }
 
     @Test
@@ -95,6 +96,37 @@ class PortalMvcTest {
         }
         mvc.perform(get("/customer/bookings/42").with(user(customer))).andExpect(content().string(org.hamcrest.Matchers.containsString("/customer/bookings/42/payment")));
         mvc.perform(get("/admin/bookings/42").with(user(admin))).andExpect(content().string(org.hamcrest.Matchers.containsString("receiptVerified")));
+    }
+
+    @Test
+    void momoPendingCheckoutIsReopenableByCustomerAndNotAdminVerified() throws Exception {
+        BookingCard momo = new BookingCard(42L, 1L, 2L, "Khách hàng kiểm thử", "Nhân viên kiểm thử", start,
+                start.plusHours(2), "COMPLETED", new BigDecimal("140000"), "UNPAID", "MOMO", "PENDING",
+                "https://test-payment.momo.vn/checkout", null);
+        when(query.booking(eq(42L), any())).thenReturn(momo);
+        when(query.details(eq(42L), any())).thenReturn(List.of());
+
+        mvc.perform(get("/customer/bookings/42").with(user(customer)))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Mở lại trang thanh toán MoMo")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("https://test-payment.momo.vn/checkout")));
+        mvc.perform(get("/admin/bookings/42").with(user(admin)))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("receiptVerified"))));
+    }
+
+    @Test
+    void staffCanConfirmCompletionBeforeScheduledStartWhenEvidenceIsReady() throws Exception {
+        when(query.details(eq(42L), any())).thenReturn(List.of(new DetailCard(30L, "Dọn dẹp nhà theo giờ", 1,
+                120, new BigDecimal("140000"), List.of(new EvidenceCard(50L, "10:00 · 22/10/2026")))));
+
+        String page = mvc.perform(get("/staff/bookings/42").with(user(staff)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(page).contains("Xác nhận hoàn thành");
+        assertThat(page).doesNotContain("Chưa đến giờ bắt đầu công việc.");
+        assertThat(page).doesNotContain("type=\"submit\" disabled=\"disabled\">");
     }
 
     @Test
@@ -168,6 +200,27 @@ class PortalMvcTest {
         mvc.perform(post("/customer/bookings/42/payment").with(user(customer)).with(csrf()).param("method", "CASH"))
                 .andExpect(status().isForbidden());
         verifyNoInteractions(payments);
+    }
+
+    @Test
+    void customerMomoChoiceRedirectsToProviderCheckout() throws Exception {
+        when(query.booking(eq(42L), any())).thenReturn(card("COMPLETED", "UNPAID", null));
+        when(momoPayments.checkout(42L, customer.getAccountId())).thenReturn("https://test-payment.momo.vn/checkout");
+
+        mvc.perform(post("/customer/bookings/42/payment").with(user(customer)).with(csrf()).param("method", "MOMO"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("https://test-payment.momo.vn/checkout"));
+        verify(momoPayments).checkout(42L, customer.getAccountId());
+        verifyNoInteractions(payments);
+    }
+
+    @Test
+    void momoIpnIsPublicAndExemptFromCsrfOnlyForProviderCallback() throws Exception {
+        mvc.perform(post("/payments/momo/ipn").contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"partnerCode\":\"TEST\",\"requestId\":\"r1\",\"orderId\":\"GN1\",\"amount\":140000,\"resultCode\":0,\"signature\":\"test\"}"))
+                .andExpect(status().isNoContent());
+        verify(momoPayments).receiveIpn(any(MomoIpnRequest.class));
+        mvc.perform(post("/customer/bookings/42/cancel").with(user(customer))).andExpect(status().isForbidden());
     }
 
     @Test

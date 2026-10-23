@@ -42,6 +42,10 @@
               <span aria-hidden="true">✓</span>
               <span>Bạn đã đăng xuất an toàn khỏi hệ thống.</span>
             </div>
+            <div th:if="${param.registered}" class="alert alert-success d-flex align-items-center gap-2 mb-3 border-0" role="status" style="background-color: var(--status-confirmed-bg); color: var(--status-confirmed-text); border-left: 4px solid var(--brand) !important;">
+              <span aria-hidden="true">✓</span>
+              <span>Tạo tài khoản thành công. Đăng nhập để tiếp tục.</span>
+            </div>
             <form th:action="@{/login}" method="post" class="vstack gap-3">
               <div>
                 <label class="form-label" for="email">
@@ -60,9 +64,13 @@
                 <span aria-hidden="true">→</span>
               </button>
             </form>
+            <div class="mt-4 text-center">
+              <span class="small text-secondary">Bạn chưa có tài khoản Customer?</span>
+              <a class="btn btn-outline-primary w-100 mt-2" th:href="@{/register}">Đăng ký tài khoản</a>
+            </div>
             <div class="mt-4 pt-3 border-top">
               <p class="small text-secondary mb-0">
-                ℹ Sử dụng tài khoản được cấp. Hệ thống sẽ tự động điều hướng đúng trang quản trị theo vai trò của bạn (Khách hàng, Nhân viên, Quản trị viên).
+                ℹ Customer có thể tự đăng ký. Nhân viên và Quản trị viên sử dụng tài khoản được cấp; hệ thống sẽ điều hướng theo vai trò sau khi đăng nhập.
               </p>
             </div>
           </div>

@@ -48,10 +48,6 @@ public class BookingCompletionService {
         }
 
         OffsetDateTime verifiedNow = completedAt.withOffsetSameInstant(BUSINESS_OFFSET).withNano(0);
-        if (verifiedNow.isBefore(booking.getStartAt())) {
-            throw new IllegalStateException("A booking cannot be completed before its start time");
-        }
-
         List<BookingDetail> details = bookingDetailRepository
                 .findAllByBooking_BookingIdOrderBySequenceNo(bookingId);
         if (details.isEmpty()) {

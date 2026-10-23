@@ -23,14 +23,14 @@ Hệ thống hỗ trợ một công ty giúp việc quản lý Staff part-time, 
 |---|---|
 | Customer | Khách chọn Staff và tạo Booking. |
 | Staff | Nhân viên part-time thực hiện Booking được Customer chọn. |
-| Admin | Quản lý Work_Schedule và xác minh nhận Payment. |
+| Admin | Quản lý Work_Schedule và xác minh nhận Payment tiền mặt/chuyển khoản. |
 | Booking_Detail | Chi tiết dịch vụ thuộc một Booking. |
 | Evidence | Ảnh bằng chứng gắn với đúng Booking_Detail và do Staff phụ trách upload. |
 | `CONFIRMED` | Booking hợp lệ được xác nhận tự động. |
 | `CANCELLED` | Booking đã hủy theo điều kiện; dữ liệu được giữ và không tiếp tục chiếm lịch. |
 | `COMPLETED` | Booking hoàn tất sau khi Staff phụ trách đáp ứng các điều kiện hoàn thành. |
-| `UNPAID` / `PAID` | Payment chưa được Admin xác minh đã nhận tiền / đã được xác minh đã nhận tiền. |
-| `CASH` / `BANK_TRANSFER` | Hai phương thức Customer được chọn; chuyển khoản được xác minh thủ công. |
+| `UNPAID` / `PAID` | Payment chưa hoàn tất / đã được xác nhận bởi Admin (thủ công) hoặc IPN MoMo hợp lệ. |
+| `CASH` / `BANK_TRANSFER` / `MOMO` | Tiền mặt và chuyển khoản được Admin xác minh thủ công; MoMo checkout được xác nhận bằng IPN. |
 
 BR-01 về một công ty và Staff part-time là **business context/constraint**, không phải functional requirement. Xem mục 2.3.
 
@@ -66,17 +66,20 @@ Sử dụng Spring Security với HTTP Session. Customer, Staff và Admin dùng 
 
 Mỗi requirement dưới đây có acceptance criteria mang mã duy nhất. Trạng thái yêu cầu trong mục này là đã phê duyệt theo baseline; độ xác minh ERD được tách riêng tại Phụ lục A.
 
-### FR-01: Session-based authentication
+### FR-01: Customer registration and session-based authentication
 
-- **Actor:** Customer, Staff, Admin.
-- **Precondition:** Người dùng có thông tin đăng nhập hợp lệ thuộc một trong ba role; cấu trúc lưu thông tin đăng nhập hiện có cần đối chiếu ERD.
-- **Main flow:** Người dùng đăng nhập; hệ thống xác thực và duy trì session gắn với danh tính, role cho các request tiếp theo.
-- **Alternative/error:** Thông tin không hợp lệ không tạo session; request được bảo vệ từ người chưa đăng nhập không thực hiện thao tác.
-- **Postcondition:** Session nhận diện người dùng và role hiện hành; không dùng JWT.
+- **Actor:** Khách chưa đăng nhập đăng ký Customer; Customer, Staff và Admin đăng nhập.
+- **Precondition:** Khi đăng nhập, người dùng có thông tin hợp lệ thuộc một role; khi đăng ký, người dùng chưa đăng nhập và cung cấp dữ liệu hợp lệ.
+- **Main flow:** Khách tạo tài khoản Customer; sau đó người dùng đăng nhập qua trang chung, hệ thống xác thực và duy trì session gắn với danh tính, role cho các request tiếp theo.
+- **Alternative/error:** Email đã được dùng hoặc form đăng ký không hợp lệ thì không tạo tài khoản; thông tin đăng nhập không hợp lệ không tạo session; request được bảo vệ từ người chưa đăng nhập không thực hiện thao tác.
+- **Postcondition:** Đăng ký tạo một Customer, không tự động đăng nhập; đăng nhập thành công tạo session đúng role hiện hành; không dùng JWT.
 - **Acceptance criteria:**
   - **AC-01.1:** Đăng nhập hợp lệ qua trang `/login` chung tạo HTTP Session gắn với đúng principal và đúng một role Customer, Staff hoặc Admin; sau xác thực hệ thống điều hướng theo role.
   - **AC-01.2:** Đăng nhập thất bại không tạo session đã xác thực.
   - **AC-01.3:** Request chưa đăng nhập không thực hiện được thao tác yêu cầu xác thực.
+  - **AC-01.4:** Khách chưa đăng nhập có thể tạo tài khoản Customer qua `/register` bằng họ tên tối đa 150 ký tự, email hợp lệ tối đa 254 ký tự, mật khẩu và xác nhận mật khẩu; số điện thoại tối đa 20 ký tự là tùy chọn. Không cho chọn role, tài khoản tự tạo luôn là Customer.
+  - **AC-01.5:** Email phải chưa được dùng ở Customer, Staff hoặc Admin; mật khẩu tối thiểu 8 và tối đa 72 ký tự, không quá 72 byte UTF-8, xác nhận phải khớp. Dữ liệu sai hoặc email trùng không tạo tài khoản; mật khẩu được lưu dạng BCrypt.
+  - **AC-01.6:** Đăng ký thành công điều hướng về `/login`; người dùng đăng nhập theo luồng AC-01.1 để tạo session, không tự động đăng nhập.
 
 ### FR-02: Backend role, ownership và Staff assignment authorization
 
@@ -153,14 +156,14 @@ Mỗi requirement dưới đây có acceptance criteria mang mã duy nhất. Tr�
 ### FR-08: Staff xác nhận Booking hoàn thành
 
 - **Actor:** Staff được Customer chọn cho Booking.
-- **Precondition:** Booking `CONFIRMED`; thời điểm hiện tại không trước giờ bắt đầu; mọi Booking_Detail đều có ít nhất một Evidence hợp lệ theo FR-09.
-- **Main flow:** Staff phụ trách xác nhận hoàn thành; hệ thống chuyển Booking `CONFIRMED → COMPLETED`.
-- **Alternative/error:** Từ chối Staff khác, Booking sai trạng thái, request trước giờ bắt đầu hoặc Booking có bất kỳ detail nào thiếu Evidence.
+- **Precondition:** Booking `CONFIRMED`; mọi Booking_Detail đều có ít nhất một Evidence hợp lệ theo FR-09.
+- **Main flow:** Staff phụ trách xác nhận hoàn thành bất cứ lúc nào, kể cả trước giờ bắt đầu dự kiến; hệ thống chuyển Booking `CONFIRMED → COMPLETED` và tạo Payment `UNPAID`.
+- **Alternative/error:** Từ chối Staff khác, Booking sai trạng thái hoặc Booking có bất kỳ detail nào thiếu Evidence.
 - **Postcondition:** Booking ở trạng thái `COMPLETED`; không có `IN_PROGRESS`, tự động hoàn thành hoặc bước Customer duyệt.
 - **Acceptance criteria:**
-  - **AC-08.1:** Staff được giao hoàn thành Booking `CONFIRMED` tại hoặc sau giờ bắt đầu khi mọi detail có Evidence hợp lệ.
+  - **AC-08.1:** Staff được giao có thể hoàn thành Booking `CONFIRMED` tại bất kỳ thời điểm nào khi mọi detail có Evidence hợp lệ.
   - **AC-08.2:** Staff không được giao hoặc người khác không thể hoàn thành Booking.
-  - **AC-08.3:** Yêu cầu trước giờ bắt đầu hoặc khi Booking không ở `CONFIRMED` bị từ chối.
+  - **AC-08.3:** Booking không ở `CONFIRMED` bị từ chối; thời gian bắt đầu/kết thúc dự kiến không chặn thao tác hoàn thành.
   - **AC-08.4:** Chỉ cần một Booking_Detail thiếu Evidence thì toàn Booking không thể chuyển sang `COMPLETED`.
 
 ### FR-09: Upload và liên kết Evidence
@@ -176,30 +179,31 @@ Mỗi requirement dưới đây có acceptance criteria mang mã duy nhất. Tr�
   - **AC-09.3:** File được lưu trên filesystem local; đường dẫn tương ứng được lưu trong database.
   - **AC-09.4:** Luồng upload nhận `MultipartFile`, chỉ chấp nhận tệp `.jpg`, `.jpeg` hoặc `.png` có nội dung thực tương ứng JPEG/PNG (không tin MIME do client gửi), giới hạn mỗi ảnh ở 5 MB và không dùng cloud storage.
 
-### FR-10: Tạo Payment và chọn phương thức
+### FR-10: Tạo Payment và thanh toán
 
-- **Actor:** Hệ thống; Customer chọn phương thức.
+- **Actor:** Hệ thống; Customer.
 - **Precondition:** Booking vừa chuyển sang `COMPLETED`.
-- **Main flow:** Hệ thống tạo đúng một Payment trạng thái `UNPAID`. Sau đó Customer chọn đúng một phương thức `CASH` hoặc `BANK_TRANSFER`. Việc chọn phương thức không đồng nghĩa thanh toán đã xảy ra; chỉ thanh toán sau khi Booking `COMPLETED`.
-- **Alternative/error:** Không cho tạo Payment thứ hai cho cùng Booking; không chấp nhận phương thức ngoài danh sách. Không thêm trạng thái Payment cho giai đoạn Customer chưa chọn phương thức.
-- **Postcondition:** Một Payment `UNPAID` gắn Booking; khi Customer chọn, phương thức là một trong hai giá trị hợp lệ.
+- **Main flow:** Hệ thống tạo đúng một Payment trạng thái `UNPAID`. Customer chọn `CASH`/`BANK_TRANSFER` để Admin xác minh thủ công hoặc chọn `MOMO` để tạo checkout MoMo Test. Payment chỉ chuyển `PAID` sau khi nhận IPN MoMo hợp lệ và đối chiếu khớp dữ liệu Payment.
+- **Alternative/error:** Không cho tạo Payment thứ hai cho cùng Booking; không chấp nhận phương thức ngoài danh sách. Giao dịch MoMo thất bại giữ Payment `UNPAID`; callback lặp không được cập nhật hai lần. Return URL không phải bằng chứng thanh toán.
+- **Postcondition:** Một Payment gắn Booking; thanh toán thủ công giữ `UNPAID` đến khi Admin xác minh, còn MoMo chỉ chuyển `PAID` bởi IPN hợp lệ.
 - **Acceptance criteria:**
   - **AC-10.1:** Khi Booking chuyển sang `COMPLETED`, hệ thống tạo đúng một Payment ở trạng thái `UNPAID`.
   - **AC-10.2:** Tạo Payment thứ hai cho cùng Booking bị từ chối; mỗi Booking có tối đa một Payment.
-  - **AC-10.3:** Customer chỉ chọn phương thức sau `COMPLETED` và chọn đúng một trong `CASH` hoặc `BANK_TRANSFER`.
+  - **AC-10.3:** Customer chỉ chọn phương thức sau `COMPLETED` và chọn đúng một trong `CASH`, `BANK_TRANSFER` hoặc `MOMO`.
   - **AC-10.4:** Trước khi Customer chọn phương thức, Payment vẫn là `UNPAID`; không tạo trạng thái Payment mới để biểu diễn phương thức chưa chọn.
 
-### FR-11: Admin xác minh Payment
+### FR-11: Xác nhận Payment
 
-- **Actor:** Admin.
-- **Precondition:** Admin đã đăng nhập; Payment `UNPAID`; Customer đã chọn phương thức hợp lệ; Admin đã xác minh thực tế đã nhận tiền.
-- **Main flow:** Admin xác nhận nhận tiền; hệ thống chuyển Payment `UNPAID → PAID`.
-- **Alternative/error:** Từ chối nếu phương thức chưa chọn/không hợp lệ hoặc Admin chưa xác minh đã nhận tiền. Chuyển khoản được xác minh thủ công; không tích hợp cổng thanh toán. Không xử lý hoàn tiền.
-- **Postcondition:** Payment chỉ ở `PAID` sau xác minh của Admin.
+- **Actor:** Admin với tiền mặt/chuyển khoản thủ công; MoMo với giao dịch trực tuyến.
+- **Precondition:** Payment `UNPAID`; Admin xác minh đã nhận tiền thủ công, hoặc hệ thống nhận IPN MoMo.
+- **Main flow:** Admin xác nhận tiền mặt/chuyển khoản đã nhận. Với MoMo, hệ thống kiểm tra chữ ký HMAC-SHA256, partner/order/request ID và số tiền; chỉ `resultCode=0` khớp dữ liệu mới chuyển Payment `UNPAID → PAID`.
+- **Alternative/error:** Từ chối xác nhận thủ công cho Payment `MOMO`; từ chối IPN thiếu/sai chữ ký, sai partner, mã đơn, request ID hoặc số tiền. IPN thất bại giữ `UNPAID`; callback hợp lệ gửi lặp xử lý idempotent. Không xử lý hoàn tiền.
+- **Postcondition:** Payment chỉ ở `PAID` sau xác minh Admin đối với phương thức thủ công hoặc IPN xác thực đối với MoMo.
 - **Acceptance criteria:**
-  - **AC-11.1:** Admin chuyển được Payment sang `PAID` khi phương thức là `CASH` hoặc `BANK_TRANSFER` và Admin xác nhận đã nhận tiền.
-  - **AC-11.2:** Không cho chuyển `PAID` nếu chưa có phương thức hợp lệ hoặc chưa xác minh nhận tiền.
-  - **AC-11.3:** Chỉ Admin thực hiện thao tác xác minh; không có gateway/webhook tự đánh dấu `PAID`.
+  - **AC-11.1:** Admin chuyển được Payment `CASH`/`BANK_TRANSFER` sang `PAID` khi đã xác nhận nhận tiền.
+  - **AC-11.2:** Không cho Admin chuyển Payment `MOMO` sang `PAID`; phương thức thủ công cũng cần được xác minh.
+  - **AC-11.3:** MoMo chỉ cập nhật `PAID` khi IPN có chữ ký hợp lệ và partner/order/request ID cùng số tiền khớp; redirect trình duyệt không cập nhật trạng thái.
+  - **AC-11.4:** IPN gửi lặp không tạo cập nhật lặp; giao dịch thất bại không chuyển sang `PAID`.
 
 ### FR-12: Customer gửi Feedback
 
@@ -287,7 +291,7 @@ Mỗi requirement dưới đây có acceptance criteria mang mã duy nhất. Tr�
 - **Đăng nhập:** một trang `/login` chung cho Customer, Staff và Admin; xác thực server-side bằng Spring Security và HTTP Session.
 - **Giao diện:** Spring Boot MVC + Thymeleaf + Bootstrap, render HTML phía server.
 - **Upload:** nhận JPEG/PNG qua Spring Boot `MultipartFile`; kiểm tra nội dung thực, tối đa 5 MB/ảnh và 1–5 ảnh hợp lệ/Booking_Detail; lưu trên filesystem local và lưu đường dẫn trong database.
-- **Thanh toán:** thao tác thủ công; `BANK_TRANSFER` không tích hợp gateway, webhook hay tự động đối soát.
+- **Thanh toán:** MoMo checkout dùng môi trường Test; trạng thái thành công lấy từ IPN đã xác minh, không tin redirect. `CASH`/`BANK_TRANSFER` vẫn được Admin xác minh thủ công.
 - Các quyết định công nghệ: Java 21, Spring Boot 4.1.1, Maven, Microsoft SQL Server, Spring Data JPA/Hibernate, Flyway và JDBC Driver cho SQL Server. Spring Boot 4.1.1 đã được giảng viên chốt; dependency đã resolve/biên dịch, còn hành vi runtime cần kiểm chứng trên SQL Server/Testcontainers.
 - `/login` là route đã chốt; các route nghiệp vụ khác và giao thức chi tiết chưa được chốt trong baseline.
 
@@ -295,7 +299,7 @@ Mỗi requirement dưới đây có acceptance criteria mang mã duy nhất. Tr�
 
 ### 5.1 Thực thể trong phạm vi
 
-Giữ nguyên 11 thực thể baseline: Customer, Staff, Admin, Services, Booking, Booking_Detail, Work_Schedule, Payment, Feedback, Favorite_Staff và Evidences. Bảng sau ghi quan hệ nghiệp vụ cần được thể hiện; không khẳng định vị trí hoặc tên cột vật lý.
+Giữ nguyên 11 thực thể nghiệp vụ baseline: Customer, Staff, Admin, Services, Booking, Booking_Detail, Work_Schedule, Payment, Feedback, Favorite_Staff và Evidences. Tích hợp gateway bổ sung bảng hỗ trợ kỹ thuật `Payment_Attempt` để lưu mã yêu cầu/đơn MoMo, checkout và trạng thái từng lần thử; bảng này không thay thế Payment hay Booking. Bảng sau ghi quan hệ nghiệp vụ cần được thể hiện; không khẳng định vị trí hoặc tên cột vật lý.
 
 | Thực thể/quan hệ | Quy tắc dữ liệu nghiệp vụ |
 |---|---|
@@ -306,6 +310,7 @@ Giữ nguyên 11 thực thể baseline: Customer, Staff, Admin, Services, Bookin
 | Booking_Detail–Services | Mỗi detail gắn với dịch vụ tương ứng. |
 | Booking_Detail–Evidences–Staff | Mỗi detail cần từ 1 đến tối đa 5 Evidence ảnh hợp lệ (JPEG/PNG, tối đa 5 MB/ảnh); Evidence gắn đúng detail và do Staff phụ trách upload. |
 | Booking–Payment | Tối đa một Payment cho mỗi Booking; được tạo `UNPAID` khi Booking `COMPLETED`. |
+| Payment–Payment_Attempt | Một Payment có thể có nhiều lần thử MoMo; mỗi mã order/request của MoMo là duy nhất. Lần thử không tự tạo Payment thứ hai. |
 | Customer–Booking–Feedback | Tối đa một Feedback/Booking; chỉ Customer sở hữu Booking `COMPLETED` gửi được. |
 | Customer–Favorite_Staff–Staff | Không có quan hệ trùng cho cùng cặp Customer–Staff. |
 
@@ -314,7 +319,7 @@ Giữ nguyên 11 thực thể baseline: Customer, Staff, Admin, Services, Bookin
 - Booking chỉ dùng `CONFIRMED`, `CANCELLED`, `COMPLETED`; transition được quy định tại FR-06…FR-08.
 - Payment chỉ dùng `UNPAID`, `PAID`; transition được quy định tại FR-10 và FR-11.
 - Các giới hạn tối đa một Payment/Booking, một Feedback/Booking và duy nhất cặp Favorite_Staff là yêu cầu nghiệp vụ đã chốt. Constraint database tương ứng chưa được xác minh.
-- Payment được tạo `UNPAID` trước khi Customer chọn phương thức theo baseline đã chốt. Khả năng biểu diễn phương thức chưa chọn trong schema hiện tại là `UNVERIFIED`; không thêm trạng thái Payment mới hoặc tự sửa schema.
+- Payment giữ hai trạng thái `UNPAID`/`PAID`; trạng thái mỗi lần thử MoMo được lưu độc lập, và IPN lặp phải được xử lý idempotent.
 - Thông tin đăng nhập/session có thể ánh xạ vào ba thực thể hiện có hay không là `UNVERIFIED`; không giả định thêm bảng/cột.
 
 ## 6. Yêu Cầu Chất Lượng
@@ -324,12 +329,12 @@ Giữ nguyên 11 thực thể baseline: Customer, Staff, Admin, Services, Bookin
 | NFR-01 | Backend phải kiểm tra role và ownership cho thao tác nghiệp vụ. | AC-02.1…AC-02.3. |
 | NFR-02 | Kiểm tra đặt lịch phải ngăn hai request đồng thời cùng chiếm slot Staff. | AC-05.3; chỉ quy định kết quả, không chọn cơ chế transaction/locking. |
 | NFR-03 | Evidence phải là JPEG/PNG được kiểm tra nội dung thực, tối đa 5 MB/ảnh, từ 1 đến tối đa 5 ảnh hợp lệ/Booking_Detail và lưu local; không gửi lên cloud. | AC-09.1, AC-09.3 và AC-09.4. |
+| NFR-04 | IPN MoMo phải xác minh HMAC-SHA256 và đối chiếu partner, mã order/request, số tiền; không ghi log secret hoặc dữ liệu xác thực. | AC-11.3, kiểm thử chữ ký đúng/sai và callback lặp. |
 
 ## 7. Ràng Buộc Và Phụ Thuộc
 
-- Phạm vi chỉ dùng 11 thực thể đã liệt kê; không thêm/xóa entity trong yêu cầu.
-- Không tự thêm bảng, cột, quan hệ, trạng thái hoặc quy tắc nghiệp vụ.
-- Không dùng JWT, payment gateway, cloud storage, AI, hoàn tiền hoặc các tính năng ngoài phạm vi trong PRD.
+- 11 thực thể nghiệp vụ baseline được giữ nguyên; `Payment_Attempt` là bảng hỗ trợ integration MoMo.
+- Không dùng JWT, gateway ngoài MoMo, cloud storage, AI, hoàn tiền hoặc các tính năng ngoài phạm vi trong PRD.
 - Flyway migration runtime, kết nối môi trường, thông tin xác thực trong schema, thuộc tính/PK/FK/cardinality/nullability và constraint vật lý trên SQL Server chưa được xác minh. Dependency resolution/biên dịch đã kiểm tra; Spring Boot 4.1.1 và các lựa chọn nền tảng khác đã phê duyệt tại mục 2.3 không phải là unknown nghiệp vụ.
 - Các unknown trên là unknown về thiết kế/bằng chứng; không làm thay đổi trạng thái đã phê duyệt của BR/FR.
 
@@ -346,11 +351,11 @@ Mỗi AC có mã duy nhất theo requirement cha. `AC-BC-01.1` là tiêu chí ki
 | BR-05 | Functional | FR-06 | **AC-06.1:** Booking hợp lệ tự thành `CONFIRMED` không cần Admin duyệt. **AC-06.2:** Booking ngoài điều kiện lịch không được xác nhận. |
 | BR-06 | Functional | FR-07 | **AC-07.1:** Hủy đúng mốc 2 giờ được phép. **AC-07.2:** Hủy sau mốc bị từ chối. |
 | BR-07 | Functional | FR-07 | **AC-07.3:** Chỉ `CONFIRMED → CANCELLED`, không hủy `COMPLETED`. **AC-07.4:** Dữ liệu được giữ, lịch được giải phóng. |
-| BR-08 | Functional | FR-08 | **AC-08.1:** Staff đúng người hoàn thành Booking đúng trạng thái, không trước giờ bắt đầu, mọi detail đủ Evidence. **AC-08.2:** Staff khác bị từ chối. **AC-08.3:** Sai thời điểm/trạng thái bị từ chối. **AC-08.4:** Một detail thiếu ảnh làm cả Booking không hoàn thành. |
+| BR-08 | Functional | FR-08 | **AC-08.1:** Staff đúng người hoàn thành Booking `CONFIRMED` ở bất kỳ thời điểm nào khi mọi detail đủ Evidence. **AC-08.2:** Staff khác bị từ chối. **AC-08.3:** Booking sai trạng thái bị từ chối. **AC-08.4:** Một detail thiếu ảnh làm cả Booking không hoàn thành. |
 | BR-09 | Functional | FR-09 | **AC-09.1:** Mỗi detail có từ 1–5 ảnh hợp lệ trước hoàn thành, vượt giới hạn bị từ chối. **AC-09.2:** Sai detail/Staff, file rỗng/hỏng hoặc nội dung không hợp lệ bị từ chối. |
 | BR-10 | Functional | FR-09 | **AC-09.3:** File lưu local, đường dẫn lưu DB. **AC-09.4:** Dùng `MultipartFile`, chỉ phần mở rộng `.jpg`/`.jpeg`/`.png` và nội dung thực JPEG/PNG, tối đa 5 MB/ảnh, không tin MIME client, không cloud. |
-| BR-11 | Functional | FR-10 | **AC-10.3:** Chỉ chọn `CASH` hoặc `BANK_TRANSFER` sau `COMPLETED`. |
-| BR-12 | Functional | FR-10, FR-11 | **AC-10.1:** Tạo đúng một Payment `UNPAID` khi Booking hoàn thành. **AC-10.2:** Payment thứ hai cùng Booking bị từ chối. **AC-10.4:** Phương thức chưa chọn không tạo trạng thái Payment mới. **AC-11.1:** Chỉ Admin đã xác minh nhận tiền và có phương thức hợp lệ mới chuyển `PAID`. **AC-11.2:** Thiếu phương thức/xác minh thì không `PAID`. **AC-11.3:** Không gateway/webhook tự xác nhận. |
+| BR-11 | Functional | FR-10 | **AC-10.3:** Chỉ chọn `CASH`, `BANK_TRANSFER` hoặc `MOMO` sau `COMPLETED`. |
+| BR-12 | Functional | FR-10, FR-11 | **AC-10.1:** Tạo đúng một Payment `UNPAID` khi Booking hoàn thành. **AC-10.2:** Payment thứ hai cùng Booking bị từ chối. **AC-10.4:** Phương thức chưa chọn không tạo trạng thái Payment mới. **AC-11.1:** Admin xác nhận tiền mặt/chuyển khoản đã nhận. **AC-11.2:** Admin không tự xác nhận MoMo. **AC-11.3:** Chỉ IPN đúng chữ ký, partner/order/request ID, số tiền mới chuyển MoMo sang `PAID`; redirect không có quyền cập nhật. **AC-11.4:** IPN lặp an toàn; giao dịch thất bại giữ `UNPAID`. |
 | BR-13 | Functional | FR-12 | **AC-12.1:** Customer sở hữu Booking `COMPLETED` gửi rating 1–5 và nhận xét. **AC-12.2:** Sai owner/trạng thái/rating bị từ chối. **AC-12.3:** Feedback thứ hai bị từ chối. **AC-12.4:** Không thêm sửa/xóa/kiểm duyệt. |
 | BR-14 | Functional | FR-13 | **AC-13.1:** Có thể yêu thích Staff chưa từng phục vụ. **AC-13.2:** Không tạo cặp trùng. **AC-13.3:** Customer bỏ yêu thích được. |
 
@@ -358,7 +363,7 @@ Yêu cầu session/authorization ngoài danh sách BR được truy vết riêng
 
 | Requirement | AC |
 |---|---|
-| FR-01 | AC-01.1: login hợp lệ tạo session đúng role; AC-01.2: login lỗi không tạo session; AC-01.3: chưa đăng nhập không thực hiện thao tác được bảo vệ. |
+| FR-01 | AC-01.1: login hợp lệ tạo session đúng role; AC-01.2: login lỗi không tạo session; AC-01.3: chưa đăng nhập không thực hiện thao tác được bảo vệ; AC-01.4…AC-01.6: chỉ Customer tự đăng ký, kiểm tra dữ liệu/email và đăng nhập sau khi đăng ký. |
 | FR-02 | AC-02.1: Customer không truy cập Booking người khác; AC-02.2: Staff không thao tác Booking Staff khác; AC-02.3: thao tác Admin chỉ dành cho Admin. |
 
 Các chức năng vai trò đã có trong Business Baseline V1.0 nhưng không mang mã BR riêng được truy vết riêng, không gán nhầm vào BR khác:
@@ -377,10 +382,10 @@ Phụ lục này không thay đổi hay gắn `UNVERIFIED` lên các BR/FR đã 
 
 | Hạng mục | Kết quả xác minh thiết kế | Diễn giải |
 |---|---|---|
-| Danh sách 11 tên thực thể | `VERIFIED` trong baseline và DDL source | Migration V1 và snapshot định nghĩa đúng 11 bảng theo Physical Data Dictionary Baseline; chưa xác nhận schema đã migrate trên SQL Server. |
-| Quan hệ, PK/FK, nullability, kiểu và constraint | `VERIFIED` trong DDL source; runtime `UNVERIFIED` | Có thể đối chiếu trong migration V1 và snapshot. Tính hợp lệ thực tế trên SQL Server và Hibernate validation chưa chạy do thiếu Docker/SQL Server. |
+| Danh sách 11 thực thể baseline và phần mở rộng MoMo | `VERIFIED` trong baseline và DDL source | Migration V1 giữ 11 thực thể nghiệp vụ; V2 bổ sung bảng kỹ thuật `Payment_Attempt` cho MoMo; snapshot phản ánh schema hiện tại. Chưa xác nhận migration trên SQL Server runtime. |
+| Quan hệ, PK/FK, nullability, kiểu và constraint | `VERIFIED` trong DDL source; runtime `UNVERIFIED` | Có thể đối chiếu trong V1, V2 và snapshot. Tính hợp lệ thực tế trên SQL Server và Hibernate validation chưa chạy do thiếu Docker/SQL Server. |
 | Booking–Booking_Detail–Staff–Work_Schedule | `VERIFIED` về cột FK trong DDL; invariant `UNVERIFIED` runtime | DDL nối Detail với Booking và Work_Schedule. Service kiểm tra cùng Staff, thời lượng tuần tự, không overlap/khoảng trống và nằm trong lịch; kiểm thử concurrency chưa chạy trên SQL Server. |
-| Booking–Payment và trạng thái Payment | `VERIFIED` trong DDL source; runtime `UNVERIFIED` | DDL có FK/UNIQUE cho tối đa một Payment mỗi Booking, trạng thái `UNPAID`/`PAID`, phương thức nullable và CHECK yêu cầu method cùng verified_at khi `PAID`, đồng thời `verified_at` rỗng khi `UNPAID`. Flyway/runtime chưa được chạy. |
+| Booking–Payment và MoMo attempts | `VERIFIED` trong DDL source; runtime `UNVERIFIED` | V1 giữ FK/UNIQUE một Payment mỗi Booking và trạng thái `UNPAID`/`PAID`; V2 cho phép phương thức `MOMO` và thêm Payment_Attempt với mã order/request duy nhất, trạng thái lần thử và FK tới Payment. Flyway/runtime chưa được chạy. |
 | Booking–Feedback | `VERIFIED` trong DDL source; runtime `UNVERIFIED` | DDL có FK và UNIQUE giới hạn một Feedback mỗi Booking; chưa được kiểm chứng bằng SQL Server runtime. |
 | Booking_Detail–Evidence–Staff | `VERIFIED` về FK source; ownership/cardinality `UNVERIFIED` runtime | DDL thể hiện các FK đã duyệt. Service kiểm tra Staff được phân công và giới hạn 1–5 Evidence hợp lệ trước `COMPLETED`; kiểm thử đồng thời chưa chạy. |
 | Định danh email ba role | `VERIFIED` về UNIQUE riêng và collation trong DDL; uniqueness toàn cục `UNVERIFIED` runtime | DDL có UNIQUE riêng và collation không phân biệt hoa/thường. Service canonical hóa trim/lowercase và transaction SERIALIZABLE khóa các dải index theo thứ tự cố định; test cạnh tranh ba role đã viết nhưng chưa chạy được. |
@@ -388,7 +393,7 @@ Phụ lục này không thay đổi hay gắn `UNVERIFIED` lên các BR/FR đã 
 | DATETIMEOFFSET và migration Flyway | Mapping/source `VERIFIED`; SQL Server runtime `UNVERIFIED` | Migration dùng `DATETIMEOFFSET(0)` và JPA map `OffsetDateTime`; bài kiểm tra round-trip `+07:00` cùng Flyway tạo schema rỗng đã có nhưng không chạy do Docker không khả dụng. |
 | Evidence file storage và reconciliation | `VERIFIED` trong source; runtime `UNVERIFIED` | Service lưu metadata, giới hạn upload, bù trừ lỗi ghi file và reconciler xử lý file mồ côi; chưa chạy kiểm thử tích hợp trong môi trường này. |
 
-Chưa phát hiện `CONFLICT` giữa migration/snapshot với baseline vật lý đã duyệt trong phạm vi kiểm tra source. Đây chưa phải nghiệm thu database: Flyway tạo schema rỗng, Hibernate validate, DATETIMEOFFSET round-trip và các test concurrency trên SQL Server/Testcontainers đều còn `UNVERIFIED` vì Docker/SQL Server không khả dụng. Nếu runtime phát hiện mâu thuẫn, dừng phần liên quan và xin quyết định trước khi đổi thiết kế.
+MoMo là phần mở rộng được phê duyệt cho luồng thanh toán; V1 không bị sửa và V2 ghi nhận phần mở rộng. Đây chưa phải nghiệm thu database: Flyway tạo schema rỗng, Hibernate validate, DATETIMEOFFSET round-trip và các test concurrency trên SQL Server/Testcontainers đều còn `UNVERIFIED` vì Docker/SQL Server không khả dụng.
 
 ## 9. Nghiệm Thu Và Lịch Sử Thay Đổi
 

@@ -48,6 +48,9 @@
             <a th:if="${currentUser == null}" class="btn btn-outline-primary" th:href="@{/login}">
               Đăng nhập
             </a>
+            <a th:if="${currentUser == null}" class="btn btn-outline-primary" th:href="@{/register}">
+              Đăng ký
+            </a>
             <a th:if="${currentUser == null or currentUser.role == 'CUSTOMER'}" class="btn btn-primary" th:href="@{/customer/bookings/new}">
               Đặt lịch ngay
               <span aria-hidden="true">↗</span>

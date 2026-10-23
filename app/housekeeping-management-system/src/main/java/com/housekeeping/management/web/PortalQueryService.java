@@ -114,15 +114,18 @@ public class PortalQueryService {
     private List<BookingCard> bookingQuery(String condition, Object[] params) {
         return jdbc.query("""
                 SELECT b.*, c.display_name AS customer_name, x.staff_id, s.display_name AS staff_name,
-                       x.total, p.payment_status, p.payment_method, f.rating
+                       x.total, p.payment_status, p.payment_method, last_attempt.attempt_status, last_attempt.checkout_url, f.rating
                 FROM Booking b JOIN Customer c ON c.customer_id=b.customer_id
                 JOIN (SELECT d.booking_id, MIN(w.staff_id) AS staff_id, SUM(d.unit_price_snapshot) AS total
                       FROM Booking_Detail d JOIN Work_Schedule w ON w.work_schedule_id=d.work_schedule_id GROUP BY d.booking_id) x ON x.booking_id=b.booking_id
                 JOIN Staff s ON s.staff_id=x.staff_id
                 LEFT JOIN Payment p ON p.booking_id=b.booking_id LEFT JOIN Feedback f ON f.booking_id=b.booking_id
+                OUTER APPLY (SELECT TOP (1) pa.attempt_status, pa.checkout_url FROM Payment_Attempt pa
+                             WHERE pa.payment_id=p.payment_id ORDER BY pa.created_at DESC, pa.attempt_id DESC) last_attempt
                 """ + condition + " ORDER BY b.start_at DESC", (rs, row) -> new BookingCard(
                     rs.getLong("booking_id"), rs.getLong("customer_id"), rs.getLong("staff_id"), rs.getString("customer_name"), rs.getString("staff_name"),
                     rs.getObject("start_at", OffsetDateTime.class), rs.getObject("end_at", OffsetDateTime.class), rs.getString("booking_status"),
-                    rs.getBigDecimal("total"), rs.getString("payment_status"), rs.getString("payment_method"), (Integer) rs.getObject("rating", Integer.class)), params);
+                    rs.getBigDecimal("total"), rs.getString("payment_status"), rs.getString("payment_method"),
+                    rs.getString("attempt_status"), rs.getString("checkout_url"), (Integer) rs.getObject("rating", Integer.class)), params);
     }
 }
