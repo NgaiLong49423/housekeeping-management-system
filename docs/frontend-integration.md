@@ -1,6 +1,6 @@
 > **Document:** Frontend–Backend Integration Guide\
 > **File:** `docs/frontend-integration.md`\
-> **Version:** v1.2.0\
+> **Version:** v1.3.0\
 > **Created:** 2026-10-16\
 > **Last Updated:** 2026-10-25\
 > **Status:** Draft
@@ -13,7 +13,7 @@ Giao diện được chuyển từ `UI_UX Design Refinement.zip` sang nền tả
 
 Giữ tông xanh ngọc, ảnh, thẻ dịch vụ, khu vực giới thiệu, form và bố cục dashboard; dùng tiếng Việt, trạng thái rỗng, thông báo lỗi và bố cục responsive. Ảnh dịch vụ chỉ là minh họa, không phải thuộc tính mới trong database.
 
-Không chuyển các chức năng lệch baseline từ mẫu: chuyển vai trò trên giao diện, dữ liệu localStorage/mock, đặt lịch định kỳ, bán kính phục vụ, tự điều phối nhân viên, trạng thái pending/assigned/in_progress và Admin kiểm duyệt feedback.
+Không sao chép các chức năng ngoài baseline từ mẫu: tự chuyển vai trò trên giao diện, dữ liệu localStorage/mock, đặt lịch định kỳ, tự điều phối nhân viên và các trạng thái pending/assigned/in_progress. Kiểm tra bán kính phục vụ là yêu cầu của baseline. Admin được trả lời và giải quyết Feedback dạng văn bản; không dùng quy trình kiểm duyệt Feedback của mẫu.
 
 Ứng dụng hiện tổ chức theo MVC–N-Layer: Controller nhận request và dựng view model; Service xử lý use case, phân quyền sở hữu và transaction; Repository/JDBC truy vấn SQL Server; Entity ánh xạ 15 bảng của baseline mới. Các luồng được chia theo nghiệp vụ (Booking, Payment, Staff, House, Feedback, Company Settings); không đặt quy tắc nghiệp vụ trong template hoặc Controller. Cấu trúc package mặc định được mô tả trong [hướng dẫn Java](architecture/java-package-structure.md).
 
@@ -37,13 +37,14 @@ Các route dưới đây là điểm vào MVC được thêm trong lần tích h
 
 | Vai trò | GET | Nội dung |
 |---|---|---|
-| Công khai | `/`, `/services`, `/login` | Trang chủ, dịch vụ, đăng nhập chung |
+| Công khai | `/`, `/services`, `/login`, `/register` | Trang chủ, dịch vụ, đăng nhập và đăng ký Customer |
 | Đã đăng nhập | `/portal` | Điều hướng theo vai trò từ database |
 | Customer | `/customer/bookings` | Lịch của chính khách và thanh toán |
 | Customer | `/customer/bookings/new` | Nhiều dịch vụ nối tiếp, một nhân viên, một khoảng sẵn sàng |
+| Customer | `/customer/houses` | Danh sách, tạo, sửa và ẩn địa chỉ nhà của chính khách |
 | Customer | `/customer/staff`, `/customer/schedules` | Nhân viên/yêu thích, khoảng sẵn sàng |
-| Staff | `/staff/bookings`, `/staff/schedules`, `/staff/leaves` | Công việc, khoảng sẵn sàng và đơn nghỉ của chính Staff |
-| Admin | `/admin/bookings`, `/admin/staff`, `/admin/services`, `/admin/schedules`, `/admin/leaves` | Tổng quan, quản lý danh mục, xem lịch và duyệt đơn nghỉ |
+| Staff | `/staff/bookings`, `/staff/schedules`, `/staff/leaves`, `/staff/profile` | Công việc, khoảng sẵn sàng, đơn nghỉ và hồ sơ của chính Staff |
+| Admin | `/admin/bookings`, `/admin/staff`, `/admin/services`, `/admin/schedules`, `/admin/leaves`, `/admin/settings`, `/admin/feedback` | Quản lý lịch, nhân viên, dịch vụ, giờ hoạt động, đơn nghỉ và phản hồi |
 | Từng vai trò | `/{customer,staff,admin}/bookings/{id}` | Chi tiết, Evidence và hành động đúng vai trò |
 | Người được phép xem Booking | `/evidence/{id}` | Ảnh sau kiểm tra ownership, không public thư mục lưu ảnh |
 
@@ -52,7 +53,11 @@ Các route dưới đây là điểm vào MVC được thêm trong lần tích h
 | POST | Dữ liệu gửi | Xử lý |
 |---|---|---|
 | `/login` | `email`, `password`, CSRF | Xác thực tài khoản dùng chung trong `Users`; tạo session theo role |
+| `/register` | `name`, `email`, `phone`, `password`, `confirmPassword`, CSRF | Đăng ký Customer; chuẩn hóa và kiểm tra email duy nhất toàn hệ thống |
 | `/logout` | CSRF | Spring Security hủy session |
+| `/customer/houses` | `houseName`, `address`, `latitude`, `longitude`, `addressNote` | Tạo House thuộc Customer đang đăng nhập |
+| `/customer/houses/{id}` | Các trường House như trên | Cập nhật House thuộc Customer; tọa độ phải hợp lệ |
+| `/customer/houses/{id}/delete` | CSRF | Ẩn House nếu không có Booking CONFIRMED/AWAITING_PAYMENT; giữ bản ghi lịch sử |
 | `/customer/bookings` | `staffId`, `houseId`, `startAt`, `serviceIds` lặp, `areaNote` | `BookingReservationService.createBooking`; kiểm tra giờ khả dụng và lưu snapshot dịch vụ |
 | `/customer/bookings/{id}/cancel` | CSRF | Owner, CONFIRMED, còn ít nhất 2 giờ |
 | `/customer/bookings/{id}/payment` | CSRF | Owner; tạo hoặc mở lại checkout ONLINE qua PayOS |
@@ -64,14 +69,21 @@ Các route dưới đây là điểm vào MVC được thêm trong lần tích h
 | `/payments/payos/webhook` | JSON webhook từ PayOS; không dùng session/CSRF | Public callback, kiểm tra HMAC và order/amount/payment-link, xử lý idempotent; chỉ trả 204 khi hợp lệ |
 | `/payments/payos/return`, `/payments/payos/cancel` | Browser redirect từ PayOS | Chỉ thông báo/điều hướng; không xác nhận trạng thái thanh toán |
 | `/admin/services`, `/admin/services/{id}` | `name`, `description`, `duration`, `price` | Tạo/cập nhật theo Entity hiện có |
+| `/admin/services/{id}/activate`, `/admin/staff/{id}/activate` | CSRF | Kích hoạt lại dịch vụ hoặc tài khoản Staff đã ngừng hoạt động |
 | `/admin/staff` | `name`, `email`, `password`, `phone` | `GlobalEmailUniquenessService`, BCrypt trước khi lưu |
 | `/admin/staff/{id}` | `name`, `phone` | Sửa thông tin; email/mật khẩu không trong form sửa |
 | `/admin/{services,staff}/{id}/delete` | CSRF | Ngừng hoạt động (soft delete); giữ lịch sử đặt dịch vụ |
+| `/admin/settings` | Địa chỉ, tọa độ, bán kính và 7 mục giờ hoạt động | Lưu cấu hình công ty; ngày đóng không có giờ, ngày mở cần khoảng giờ hợp lệ |
+| `/admin/feedback/{id}/reply` | `reply`, CSRF | Admin lưu nội dung trả lời Feedback |
+| `/admin/feedback/{id}/resolve` | CSRF | Admin đánh dấu Feedback đã giải quyết |
+| `/admin/bookings/{id}/cancel` | `reason`, CSRF | Admin hủy Booking CONFIRMED, lưu người hủy/thời điểm/lý do |
+| `/admin/bookings/{id}/reassign` | `staffId`, CSRF | Đổi Staff cho Booking CONFIRMED sau khi kiểm tra availability, nghỉ và xung đột |
 | `/staff/schedules`, `/staff/schedules/{id}/delete` | `workDate`, `startTime`, `endTime` | Staff PART_TIME tự đăng ký/xóa khoảng sẵn sàng; giờ bắt đầu/kết thúc cùng ngày |
+| `/staff/profile` | `avatarUrl`, `bio`, CSRF | Staff tự cập nhật hồ sơ; chỉ nhận URL avatar HTTPS |
 | `/staff/leaves` | `startDate`, `endDate`, `reason` | Staff gửi đơn nghỉ theo ngày nguyên; trạng thái ban đầu PENDING |
 | `/admin/leaves/{id}/approve`, `/admin/leaves/{id}/reject` | CSRF | Admin chỉ xét đơn PENDING; ghi reviewer và thời điểm xét duyệt |
 
-Customer ID và Staff ID lấy từ session, không tin ID vai trò do trình duyệt gửi. Giá và thời lượng do Service đọc từ SQL Server. `startAt` là local datetime theo UTC+7. Các dịch vụ được thực hiện theo thứ tự gửi trong form.
+Customer ID và Staff ID lấy từ session, không tin ID vai trò do trình duyệt gửi. Giá và thời lượng do Service đọc từ SQL Server. `startAt` là local datetime theo UTC+7. Backend lưu snapshot cho từng dịch vụ và tổng hợp giá/thời lượng; schema không lưu thứ tự thực hiện dịch vụ.
 
 Booking chọn một Staff, một House thuộc Customer và một thời điểm bắt đầu. Backend tự tính thời lượng/giá từ Services, kiểm tra khoảng làm việc (Company Operating Hours cho FULL_TIME, Staff Availability theo ngày cho PART_TIME), lead time, booking horizon, buffer và xung đột trước khi lưu snapshot. Không dùng `Work_Schedule` hoặc ID lịch do client quyết định.
 
