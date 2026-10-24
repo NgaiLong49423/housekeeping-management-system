@@ -1,5 +1,6 @@
 package com.housekeeping.management.service;
 
+import java.math.BigDecimal;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -33,11 +34,29 @@ public class PayosPaymentService {
                 || !"VND".equals(webhook.data().get("currency"))) {
             throw new IllegalArgumentException("PayOS webhook is missing required transaction data.");
         }
+        long exactOrderCode = exactLong(orderCode, "orderCode");
+        BigDecimal exactAmount = exactAmount(amount);
         if (Boolean.TRUE.equals(webhook.success()) && "00".equals(webhook.code())
                 && "00".equals(webhook.data().get("code"))) {
-            payments.confirmOnlinePayment(orderCode.longValue(), java.math.BigDecimal.valueOf(amount.longValue()));
+            payments.confirmOnlinePayment(exactOrderCode, exactAmount);
         } else {
-            payments.failOnlinePayment(orderCode.longValue(), java.math.BigDecimal.valueOf(amount.longValue()));
+            payments.failOnlinePayment(exactOrderCode, exactAmount);
+        }
+    }
+
+    private static long exactLong(Number value, String fieldName) {
+        try {
+            return new BigDecimal(value.toString()).longValueExact();
+        } catch (ArithmeticException | NumberFormatException invalidValue) {
+            throw new IllegalArgumentException("PayOS webhook contains an invalid " + fieldName + ".", invalidValue);
+        }
+    }
+
+    private static BigDecimal exactAmount(Number value) {
+        try {
+            return new BigDecimal(value.toString());
+        } catch (NumberFormatException invalidAmount) {
+            throw new IllegalArgumentException("PayOS webhook contains an invalid amount.", invalidAmount);
         }
     }
 }

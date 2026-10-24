@@ -3,6 +3,8 @@ package com.housekeeping.management.service;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -58,8 +60,32 @@ class PayosPaymentServiceTest {
         verify(payments).failOnlinePayment(1001L, java.math.BigDecimal.valueOf(150000));
     }
 
+    @Test
+    void webhookPreservesFractionalAmountInsteadOfTruncatingIt() {
+        when(gateway.verifyWebhook(any())).thenReturn(true);
+        service.receiveWebhook(webhook(true, "00", 1001L, new BigDecimal("150000.50")));
+
+        verify(payments).confirmOnlinePayment(1001L, new BigDecimal("150000.50"));
+    }
+
+    @Test
+    void webhookRejectsOrderCodeOutsideLongRange() {
+        when(gateway.verifyWebhook(any())).thenReturn(true);
+
+        assertThatThrownBy(() -> service.receiveWebhook(webhook(true, "00",
+                new BigInteger("9223372036854775808"), 150000L)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("orderCode");
+
+        verifyNoInteractions(payments);
+    }
+
     private PayosWebhookRequest webhook(boolean success, String code) {
+        return webhook(success, code, 1001L, 150000L);
+    }
+
+    private PayosWebhookRequest webhook(boolean success, String code, Number orderCode, Number amount) {
         return new PayosWebhookRequest(code, "result", success,
-                Map.of("orderCode", 1001L, "amount", 150000L, "currency", "VND", "code", code), "signature");
+                Map.of("orderCode", orderCode, "amount", amount, "currency", "VND", "code", code), "signature");
     }
 }

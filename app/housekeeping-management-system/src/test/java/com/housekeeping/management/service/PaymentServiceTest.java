@@ -91,7 +91,7 @@ class PaymentServiceTest {
         when(payments.findByOrderCode(1001L)).thenReturn(Optional.of(pending));
         when(bookings.lockBooking(42L)).thenReturn(Optional.of(booking(7L, 11L, "AWAITING_PAYMENT")));
         when(payments.findByOrderCodeForUpdate(1001L)).thenReturn(Optional.of(pending));
-        assertThatThrownBy(() -> service.confirmOnlinePayment(1001L, new BigDecimal("150001")))
+        assertThatThrownBy(() -> service.confirmOnlinePayment(1001L, new BigDecimal("150000.50")))
                 .isInstanceOf(IllegalArgumentException.class);
         verify(payments, never()).completeBooking(anyLong());
     }
