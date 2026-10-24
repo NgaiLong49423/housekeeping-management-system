@@ -130,7 +130,7 @@
                 <label class="form-label" for="startAt">
                   Giờ bắt đầu mong muốn
                 </label>
-                <input type="datetime-local" class="form-control" th:field="*{startAt}" step="1800" required aria-describedby="availability-note">
+                <input id="startAt" type="datetime-local" class="form-control" th:field="*{startAt}" step="1800" required aria-describedby="availability-note">
                 <p class="small text-secondary mt-2 mb-0" id="availability-note">
                   Nhân viên part-time phải có khoảng sẵn sàng bao gồm giờ bắt đầu. Thời lượng có thể vượt giờ đóng cửa hoặc cuối khoảng sẵn sàng.
                 </p>

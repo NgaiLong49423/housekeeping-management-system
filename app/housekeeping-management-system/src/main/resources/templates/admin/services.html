@@ -108,21 +108,21 @@
               </summary>
               <form class="vstack gap-3 mt-3 p-3 bg-light rounded" method="post" th:action="@{/admin/services/{id}(id=${service.id})}">
                 <div>
-                  <label class="form-label small">Tên dịch vụ</label>
-                  <input name="name" class="form-control" th:value="${service.name}" maxlength="150" required>
+                  <label class="form-label small" for="service-name" th:for="|service-name-${service.id}|">Tên dịch vụ</label>
+                  <input id="service-name" th:id="|service-name-${service.id}|" name="name" class="form-control" th:value="${service.name}" maxlength="150" required>
                 </div>
                 <div>
-                  <label class="form-label small">Mô tả</label>
-                  <textarea name="description" class="form-control" th:text="${service.description}" maxlength="1000" rows="2"></textarea>
+                  <label class="form-label small" for="service-description" th:for="|service-description-${service.id}|">Mô tả</label>
+                  <textarea id="service-description" th:id="|service-description-${service.id}|" name="description" class="form-control" th:text="${service.description}" maxlength="1000" rows="2"></textarea>
                 </div>
                 <div class="row g-3">
                   <div class="col-sm-6">
-                    <label class="form-label small">Thời lượng (phút)</label>
-                    <input name="duration" class="form-control" type="number" min="1" step="1" th:value="${service.duration}" required>
+                    <label class="form-label small" for="service-duration" th:for="|service-duration-${service.id}|">Thời lượng (phút)</label>
+                    <input id="service-duration" th:id="|service-duration-${service.id}|" name="duration" class="form-control" type="number" min="1" step="1" th:value="${service.duration}" required>
                   </div>
                   <div class="col-sm-6">
-                    <label class="form-label small">Giá (₫)</label>
-                    <input name="price" class="form-control" type="number" min="0" step="0.01" th:value="${service.price}" required>
+                    <label class="form-label small" for="service-price" th:for="|service-price-${service.id}|">Giá (₫)</label>
+                    <input id="service-price" th:id="|service-price-${service.id}|" name="price" class="form-control" type="number" min="0" step="0.01" th:value="${service.price}" required>
                   </div>
                 </div>
                 <div class="d-flex justify-content-end">

@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
-  <head th:replace="~{fragments/layout :: head('Phản hồi khách hàng')}"></head>
+  <head th:replace="~{fragments/layout :: head('Phản hồi khách hàng')}"><title>Phản hồi khách hàng · Gọn Nhà</title></head>
   <body>
     <header th:replace="~{fragments/layout :: header('feedback')}"></header>
     <main id="main" class="container py-4 py-md-5">
@@ -23,8 +23,8 @@
             <strong>Phản hồi hiện tại:</strong> <span th:text="${item.adminReply}"></span>
           </p>
           <form method="post" class="vstack gap-2" th:action="@{/admin/feedback/{id}/reply(id=${item.id})}">
-            <label class="form-label mb-0" th:for="|reply-${item.id}|">Trả lời khách hàng</label>
-            <textarea class="form-control" rows="3" name="reply" th:id="|reply-${item.id}|" required></textarea>
+            <label class="form-label mb-0" for="reply" th:for="|reply-${item.id}|">Trả lời khách hàng</label>
+            <textarea id="reply" class="form-control" rows="3" name="reply" th:id="|reply-${item.id}|" required></textarea>
             <button class="btn btn-outline-primary align-self-start" type="submit">Lưu trả lời</button>
           </form>
           <form th:if="${item.status == 'OPEN'}" method="post" class="mt-2" th:action="@{/admin/feedback/{id}/resolve(id=${item.id})}">

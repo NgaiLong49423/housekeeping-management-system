@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
-  <head th:replace="~{fragments/layout :: head('Cấu hình công ty')}"></head>
+  <head th:replace="~{fragments/layout :: head('Cấu hình công ty')}"><title>Cấu hình công ty · Gọn Nhà</title></head>
   <body>
     <header th:replace="~{fragments/layout :: header('settings')}"></header>
     <main id="main" class="container py-4 py-md-5">
@@ -21,9 +21,9 @@
           <thead><tr><th>Ngày</th><th>Nghỉ</th><th>Mở cửa</th><th>Đóng cửa</th></tr></thead>
           <tbody><tr th:each="day, stat : ${dayNames}">
             <td th:text="${day}">Thứ Hai</td>
-            <td><input class="form-check-input" type="checkbox" th:field="*{operatingHours[__${stat.index}__].closed}"><input type="hidden" th:field="*{operatingHours[__${stat.index}__].dayOfWeek}"></td>
-            <td><input class="form-control" type="time" th:field="*{operatingHours[__${stat.index}__].openingTime}"></td>
-            <td><input class="form-control" type="time" th:field="*{operatingHours[__${stat.index}__].closingTime}"></td>
+            <td><label for="closed" th:for="|closed-${stat.index}|" class="visually-hidden">Ngày nghỉ <span th:text="${day}">Thứ Hai</span></label><input id="closed" th:id="|closed-${stat.index}|" class="form-check-input" type="checkbox" th:field="*{operatingHours[__${stat.index}__].closed}"><input type="hidden" th:field="*{operatingHours[__${stat.index}__].dayOfWeek}"></td>
+            <td><label for="openingTime" th:for="|openingTime-${stat.index}|" class="visually-hidden">Giờ mở cửa <span th:text="${day}">Thứ Hai</span></label><input id="openingTime" th:id="|openingTime-${stat.index}|" class="form-control" type="time" th:field="*{operatingHours[__${stat.index}__].openingTime}"></td>
+            <td><label for="closingTime" th:for="|closingTime-${stat.index}|" class="visually-hidden">Giờ đóng cửa <span th:text="${day}">Thứ Hai</span></label><input id="closingTime" th:id="|closingTime-${stat.index}|" class="form-control" type="time" th:field="*{operatingHours[__${stat.index}__].closingTime}"></td>
           </tr></tbody>
         </table></div>
         <p class="small text-secondary">Đánh dấu “Nghỉ” để đóng cửa cả ngày. Ngày mở cửa cần có đủ giờ bắt đầu và kết thúc; giờ kết thúc phải sau giờ bắt đầu. Không có giờ mặc định được tự áp dụng.</p>

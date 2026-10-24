@@ -388,7 +388,9 @@ class PortalMvcTest {
         assertThat(html).contains("lang=\"vi\"", "/css/portal.css").doesNotContain("unused-hash", "password_hash");
         if (Boolean.getBoolean("portal.preview")) {
             Path directory = Path.of("target", "ui-preview"); Files.createDirectories(directory);
-            Files.writeString(directory.resolve(name + ".html"), html);
+            Path preview = directory.resolve(name + ".html");
+            Files.createDirectories(preview.getParent());
+            Files.writeString(preview, html);
         }
     }
 }
