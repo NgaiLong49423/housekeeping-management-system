@@ -1,3 +1,4 @@
 @echo off
-powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\start-local.ps1" %*
-if errorlevel 1 pause
+echo The legacy local launcher is retired because it targets the old database schema.
+echo See docs\demo-setup.md for the current SQL Server demo setup.
+exit /b 1
