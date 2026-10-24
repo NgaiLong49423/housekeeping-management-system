@@ -42,6 +42,9 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
     @Autowired private StaffLeaveRepository leaves;
     @Autowired private LeaveManagementService leaveManagement;
     @Autowired private AdminBookingManagementService adminBookingManagement;
+    @Autowired private BookingCompletionService bookingCompletion;
+    @Autowired private PaymentService paymentService;
+    @Autowired private FeedbackService feedbackService;
     @Autowired private BookingPersistenceRepository bookingPersistence;
     @Autowired private JdbcTemplate jdbc;
 
@@ -202,6 +205,55 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
                 .containsEntry("service_name_snapshot", "Dịch vụ ban đầu")
                 .containsEntry("unit_price", new BigDecimal("125000.00"))
                 .containsEntry("duration_minutes", 60);
+    }
+
+    @Test
+    void concurrentFeedbackSubmissionsPersistOnlyOneFeedbackForCompletedBooking() throws Exception {
+        String suffix = UUID.randomUUID().toString();
+        User customer = users.saveAndFlush(user("feedback-customer-" + suffix, UserRole.CUSTOMER));
+        User staffUser = users.saveAndFlush(user("feedback-staff-" + suffix, UserRole.STAFF));
+        Staff staff = new Staff();
+        staff.setUser(staffUser);
+        staff.setStaffType(StaffType.FULL_TIME);
+        Staff savedStaff = staffAccounts.saveAndFlush(staff);
+        House house = houses.saveAndFlush(house(customer.getUserId(), "Feedback " + suffix));
+        Services service = services.saveAndFlush(service());
+        LocalDateTime start = LocalDateTime.now(ZoneOffset.ofHours(7)).plusDays(4)
+                .withHour(10).withMinute(0).withSecond(0).withNano(0);
+        Long bookingId = reservationService.createBooking(customer.getUserId(), savedStaff.getStaffId(),
+                house.getHouseId(), start, List.of(service.getServiceId()), null);
+        bookingCompletion.completeBooking(bookingId, savedStaff.getStaffId());
+        paymentService.confirmCashReceived(bookingId, savedStaff.getStaffId());
+
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch startTogether = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var first = executor.submit(() -> submitFeedback(bookingId, customer.getUserId(),
+                    "Nhân viên làm việc cẩn thận.", ready, startTogether));
+            var second = executor.submit(() -> submitFeedback(bookingId, customer.getUserId(),
+                    "Dịch vụ rất tốt.", ready, startTogether));
+            assertThat(ready.await(10, TimeUnit.SECONDS)).isTrue();
+            startTogether.countDown();
+            assertThat((first.get(30, TimeUnit.SECONDS) ? 1 : 0)
+                    + (second.get(30, TimeUnit.SECONDS) ? 1 : 0)).isEqualTo(1);
+        }
+
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Feedbacks WHERE booking_id=?", Integer.class, bookingId))
+                .isEqualTo(1);
+    }
+
+    private boolean submitFeedback(Long bookingId, Long customerId, String content,
+            CountDownLatch ready, CountDownLatch startTogether) throws InterruptedException {
+        ready.countDown();
+        if (!startTogether.await(10, TimeUnit.SECONDS)) {
+            throw new IllegalStateException("Concurrent feedback test did not start");
+        }
+        try {
+            feedbackService.submit(bookingId, customerId, content);
+            return true;
+        } catch (IllegalStateException alreadySubmitted) {
+            return false;
+        }
     }
 
     @Test
