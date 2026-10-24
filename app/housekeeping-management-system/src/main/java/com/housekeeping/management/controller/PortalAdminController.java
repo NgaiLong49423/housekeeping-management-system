@@ -72,64 +72,69 @@ public class PortalAdminController {
     }
 
     @PostMapping("/feedback/{id}/reply")
-    String reply(@PathVariable Long id, @Valid @ModelAttribute FeedbackReplyForm form,
+    String reply(@PathVariable Long id, @AuthenticationPrincipal PortalUser user,
+            @Valid @ModelAttribute FeedbackReplyForm form,
             BindingResult errors, RedirectAttributes flash) {
         if (!invalid(errors, flash)) {
-            feedbackService.reply(id, form.reply());
+            feedbackService.reply(id, user.getUserId(), form.reply());
             flash.addFlashAttribute("success", "Đã lưu phản hồi cho khách hàng.");
         }
         return "redirect:/admin/feedback";
     }
 
     @PostMapping("/feedback/{id}/resolve")
-    String resolve(@PathVariable Long id, RedirectAttributes flash) {
-        feedbackService.resolve(id);
+    String resolve(@PathVariable Long id, @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
+        feedbackService.resolve(id, user.getUserId());
         flash.addFlashAttribute("success", "Đã đánh dấu phản hồi là đã giải quyết.");
         return "redirect:/admin/feedback";
     }
 
     @PostMapping("/services")
-    String createService(@Valid @ModelAttribute ServiceForm form, BindingResult errors, RedirectAttributes flash) {
-        if (!invalid(errors, flash)) { serviceManagement.save(null, form); flash.addFlashAttribute("success", "Đã thêm dịch vụ."); }
+    String createService(@AuthenticationPrincipal PortalUser user, @Valid @ModelAttribute ServiceForm form,
+            BindingResult errors, RedirectAttributes flash) {
+        if (!invalid(errors, flash)) { serviceManagement.save(user.getUserId(), null, form); flash.addFlashAttribute("success", "Đã thêm dịch vụ."); }
         return "redirect:/admin/services";
     }
 
     @PostMapping("/services/{id}")
-    String updateService(@PathVariable Long id, @Valid @ModelAttribute ServiceForm form, BindingResult errors, RedirectAttributes flash) {
-        if (!invalid(errors, flash)) { serviceManagement.save(id, form); flash.addFlashAttribute("success", "Đã cập nhật dịch vụ."); }
+    String updateService(@PathVariable Long id, @AuthenticationPrincipal PortalUser user,
+            @Valid @ModelAttribute ServiceForm form, BindingResult errors, RedirectAttributes flash) {
+        if (!invalid(errors, flash)) { serviceManagement.save(user.getUserId(), id, form); flash.addFlashAttribute("success", "Đã cập nhật dịch vụ."); }
         return "redirect:/admin/services";
     }
 
     @PostMapping("/services/{id}/delete")
-    String deleteService(@PathVariable Long id, RedirectAttributes flash) {
-        serviceManagement.deactivate(id); flash.addFlashAttribute("success", "Đã ngừng cung cấp dịch vụ; lịch sử đặt dịch vụ được giữ nguyên."); return "redirect:/admin/services";
+    String deleteService(@PathVariable Long id, @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
+        serviceManagement.deactivate(user.getUserId(), id); flash.addFlashAttribute("success", "Đã ngừng cung cấp dịch vụ; lịch sử đặt dịch vụ được giữ nguyên."); return "redirect:/admin/services";
     }
 
     @PostMapping("/services/{id}/activate")
-    String activateService(@PathVariable Long id, RedirectAttributes flash) {
-        serviceManagement.activate(id); flash.addFlashAttribute("success", "Đã kích hoạt lại dịch vụ."); return "redirect:/admin/services";
+    String activateService(@PathVariable Long id, @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
+        serviceManagement.activate(user.getUserId(), id); flash.addFlashAttribute("success", "Đã kích hoạt lại dịch vụ."); return "redirect:/admin/services";
     }
 
     @PostMapping("/staff")
-    String createStaff(@Valid @ModelAttribute StaffCreateForm form, BindingResult errors, RedirectAttributes flash) {
-        if (!invalid(errors, flash)) { staffManagement.create(form); flash.addFlashAttribute("success", "Đã tạo nhân viên và tài khoản đăng nhập."); }
+    String createStaff(@AuthenticationPrincipal PortalUser user, @Valid @ModelAttribute StaffCreateForm form,
+            BindingResult errors, RedirectAttributes flash) {
+        if (!invalid(errors, flash)) { staffManagement.create(user.getUserId(), form); flash.addFlashAttribute("success", "Đã tạo nhân viên và tài khoản đăng nhập."); }
         return "redirect:/admin/staff";
     }
 
     @PostMapping("/staff/{id}")
-    String updateStaff(@PathVariable Long id, @Valid @ModelAttribute StaffUpdateForm form, BindingResult errors, RedirectAttributes flash) {
-        if (!invalid(errors, flash)) { staffManagement.update(id, form); flash.addFlashAttribute("success", "Đã cập nhật nhân viên."); }
+    String updateStaff(@PathVariable Long id, @AuthenticationPrincipal PortalUser user,
+            @Valid @ModelAttribute StaffUpdateForm form, BindingResult errors, RedirectAttributes flash) {
+        if (!invalid(errors, flash)) { staffManagement.update(user.getUserId(), id, form); flash.addFlashAttribute("success", "Đã cập nhật nhân viên."); }
         return "redirect:/admin/staff";
     }
 
     @PostMapping("/staff/{id}/delete")
-    String deleteStaff(@PathVariable Long id, RedirectAttributes flash) {
-        staffManagement.deactivate(id); flash.addFlashAttribute("success", "Đã ngừng hoạt động tài khoản; dữ liệu lịch sử được giữ nguyên."); return "redirect:/admin/staff";
+    String deleteStaff(@PathVariable Long id, @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
+        staffManagement.deactivate(user.getUserId(), id); flash.addFlashAttribute("success", "Đã ngừng hoạt động tài khoản; dữ liệu lịch sử được giữ nguyên."); return "redirect:/admin/staff";
     }
 
     @PostMapping("/staff/{id}/activate")
-    String activateStaff(@PathVariable Long id, RedirectAttributes flash) {
-        staffManagement.activate(id); flash.addFlashAttribute("success", "Đã kích hoạt lại tài khoản nhân viên."); return "redirect:/admin/staff";
+    String activateStaff(@PathVariable Long id, @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
+        staffManagement.activate(user.getUserId(), id); flash.addFlashAttribute("success", "Đã kích hoạt lại tài khoản nhân viên."); return "redirect:/admin/staff";
     }
 
     private boolean invalid(BindingResult errors, RedirectAttributes flash) {

@@ -9,10 +9,13 @@ import org.springframework.transaction.annotation.Transactional;
 public class FeedbackService {
     private final BookingPersistenceRepository bookings;
     private final FeedbackRepository feedback;
+    private final AccountAuthorizationService authorization;
 
-    public FeedbackService(BookingPersistenceRepository bookings, FeedbackRepository feedback) {
+    public FeedbackService(BookingPersistenceRepository bookings, FeedbackRepository feedback,
+            AccountAuthorizationService authorization) {
         this.bookings = bookings;
         this.feedback = feedback;
+        this.authorization = authorization;
     }
 
     @Transactional
@@ -35,7 +38,8 @@ public class FeedbackService {
     }
 
     @Transactional
-    public void reply(Long feedbackId, String reply) {
+    public void reply(Long feedbackId, Long adminId, String reply) {
+        authorization.requireActiveAdmin(adminId);
         if (reply == null || reply.isBlank()) {
             throw new IllegalArgumentException("Nội dung trả lời không được để trống.");
         }
@@ -45,9 +49,11 @@ public class FeedbackService {
     }
 
     @Transactional
-    public void resolve(Long feedbackId) {
+    public void resolve(Long feedbackId, Long adminId) {
+        authorization.requireActiveAdmin(adminId);
         if (feedback.resolve(feedbackId) != 1) {
             throw new IllegalStateException("Phản hồi không tồn tại hoặc đã được giải quyết.");
         }
     }
+
 }

@@ -13,23 +13,19 @@ import com.housekeeping.management.entity.Staff;
 import com.housekeeping.management.entity.User;
 import com.housekeeping.management.repository.BookingPersistenceRepository;
 import com.housekeeping.management.repository.StaffAccountRepository;
-import com.housekeeping.management.repository.UserRepository;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.security.access.AccessDeniedException;
 
 class AdminBookingManagementServiceTest {
     private final BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
     private final StaffAccountRepository staffAccounts = mock(StaffAccountRepository.class);
-    private final UserRepository users = mock(UserRepository.class);
-    private final AdminBookingManagementService service = new AdminBookingManagementService(bookings, staffAccounts, users);
+    private final AccountAuthorizationService authorization = mock(AccountAuthorizationService.class);
+    private final AdminBookingManagementService service = new AdminBookingManagementService(bookings, staffAccounts, authorization);
 
     @BeforeEach
     void setup() {
-        User admin = new User(); admin.setUserId(99L); admin.setRole(UserRole.ADMIN); admin.setStatus(UserStatus.ACTIVE);
-        when(users.findById(99L)).thenReturn(Optional.of(admin));
         BookingPersistenceRepository.BookingState confirmed = new BookingPersistenceRepository.BookingState(
                 51L, 4L, 12L, 22L, LocalDateTime.of(2026, 11, 1, 10, 0), LocalDateTime.of(2026, 11, 1, 12, 0), "CONFIRMED");
         when(bookings.findBooking(51L)).thenReturn(Optional.of(confirmed));
@@ -93,16 +89,6 @@ class AdminBookingManagementServiceTest {
         service.reassignConfirmedBooking(51L, 99L, 13L);
 
         verify(bookings).assignStaff(51L, 12L, 13L);
-    }
-
-    @Test
-    void inactiveOrNonAdminUserCannotManageBooking() {
-        User customer = new User(); customer.setRole(UserRole.CUSTOMER); customer.setStatus(UserStatus.ACTIVE);
-        when(users.findById(2L)).thenReturn(Optional.of(customer));
-
-        assertThatThrownBy(() -> service.cancelConfirmedBooking(51L, 2L, "reason"))
-                .isInstanceOf(AccessDeniedException.class);
-        verify(bookings, never()).lockBooking(51L);
     }
 
     private static Staff activeStaff(long id, StaffType type) {

@@ -174,10 +174,10 @@ class PortalMvcTest {
 
         mvc.perform(post("/admin/feedback/90/reply").with(user(admin)).with(csrf()).param("reply", "Cảm ơn bạn đã góp ý."))
                 .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/admin/feedback"));
-        verify(feedbackService).reply(90L, "Cảm ơn bạn đã góp ý.");
+        verify(feedbackService).reply(90L, 3L, "Cảm ơn bạn đã góp ý.");
         mvc.perform(post("/admin/feedback/90/resolve").with(user(admin)).with(csrf()))
                 .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/admin/feedback"));
-        verify(feedbackService).resolve(90L);
+        verify(feedbackService).resolve(90L, 3L);
     }
 
     @Test

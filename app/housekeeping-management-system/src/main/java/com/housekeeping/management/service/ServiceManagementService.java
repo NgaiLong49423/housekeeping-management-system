@@ -9,11 +9,16 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ServiceManagementService {
     private final ServicesRepository services;
+    private final AccountAuthorizationService authorization;
 
-    public ServiceManagementService(ServicesRepository services) { this.services = services; }
+    public ServiceManagementService(ServicesRepository services, AccountAuthorizationService authorization) {
+        this.services = services;
+        this.authorization = authorization;
+    }
 
     @Transactional
-    public void save(Long serviceId, ServiceForm form) {
+    public void save(Long adminId, Long serviceId, ServiceForm form) {
+        authorization.requireActiveAdmin(adminId);
         Services service = serviceId == null ? new Services()
                 : findService(serviceId);
         service.setServiceName(form.name().trim());
@@ -25,10 +30,16 @@ public class ServiceManagementService {
     }
 
     @Transactional
-    public void deactivate(Long serviceId) { findService(serviceId).setStatus(Services.Status.INACTIVE); }
+    public void deactivate(Long adminId, Long serviceId) {
+        authorization.requireActiveAdmin(adminId);
+        findService(serviceId).setStatus(Services.Status.INACTIVE);
+    }
 
     @Transactional
-    public void activate(Long serviceId) { findService(serviceId).setStatus(Services.Status.ACTIVE); }
+    public void activate(Long adminId, Long serviceId) {
+        authorization.requireActiveAdmin(adminId);
+        findService(serviceId).setStatus(Services.Status.ACTIVE);
+    }
 
     private Services findService(Long serviceId) {
         return services.findById(serviceId)

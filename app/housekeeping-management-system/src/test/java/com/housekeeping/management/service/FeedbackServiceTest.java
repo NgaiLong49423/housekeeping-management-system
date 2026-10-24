@@ -14,13 +14,15 @@ import org.springframework.security.access.AccessDeniedException;
 class FeedbackServiceTest {
     private BookingPersistenceRepository bookings;
     private FeedbackRepository feedback;
+    private AccountAuthorizationService authorization;
     private FeedbackService service;
 
     @BeforeEach
     void setUp() {
         bookings = mock(BookingPersistenceRepository.class);
         feedback = mock(FeedbackRepository.class);
-        service = new FeedbackService(bookings, feedback);
+        authorization = mock(AccountAuthorizationService.class);
+        service = new FeedbackService(bookings, feedback, authorization);
     }
 
     @Test
@@ -47,6 +49,36 @@ class FeedbackServiceTest {
         assertThatThrownBy(() -> service.submit(30L, 4L, "Góp ý"))
                 .isInstanceOf(IllegalStateException.class);
         verify(feedback, never()).create(anyLong(), anyLong(), anyString());
+    }
+
+    @Test
+    void feedbackReplyAndResolutionRequireAnActiveAdmin() {
+        when(feedback.reply(90L, "Đã tiếp nhận.")).thenReturn(1);
+        when(feedback.resolve(90L)).thenReturn(1);
+
+        service.reply(90L, 9L, " Đã tiếp nhận. ");
+        service.resolve(90L, 9L);
+
+        verify(feedback).reply(90L, "Đã tiếp nhận.");
+        verify(feedback).resolve(90L);
+        verify(authorization, times(2)).requireActiveAdmin(9L);
+    }
+
+    @Test
+    void feedbackReplyAndResolutionRejectNonAdminInactiveOrUnknownActors() {
+        doThrow(new AccessDeniedException("forbidden")).when(authorization).requireActiveAdmin(4L);
+        doThrow(new AccessDeniedException("forbidden")).when(authorization).requireActiveAdmin(5L);
+        doThrow(new AccessDeniedException("forbidden")).when(authorization).requireActiveAdmin(null);
+
+        assertThatThrownBy(() -> service.reply(90L, 4L, "Trả lời"))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> service.resolve(90L, 5L))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> service.reply(90L, null, "Trả lời"))
+                .isInstanceOf(AccessDeniedException.class);
+
+        verify(feedback, never()).reply(anyLong(), anyString());
+        verify(feedback, never()).resolve(anyLong());
     }
 
     private BookingPersistenceRepository.BookingState booking(Long customerId, String status) {

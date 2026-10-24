@@ -1,16 +1,11 @@
 package com.housekeeping.management.service;
 
 import com.housekeeping.management.domain.StaffType;
-import com.housekeeping.management.domain.UserRole;
-import com.housekeeping.management.domain.UserStatus;
 import com.housekeeping.management.entity.Staff;
-import com.housekeeping.management.entity.User;
 import com.housekeeping.management.repository.BookingPersistenceRepository;
 import com.housekeeping.management.repository.StaffAccountRepository;
-import com.housekeeping.management.repository.UserRepository;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,18 +14,18 @@ public class AdminBookingManagementService {
     private static final ZoneOffset BUSINESS_OFFSET = ZoneOffset.ofHours(7);
     private final BookingPersistenceRepository bookings;
     private final StaffAccountRepository staffAccounts;
-    private final UserRepository users;
+    private final AccountAuthorizationService authorization;
 
     public AdminBookingManagementService(BookingPersistenceRepository bookings,
-            StaffAccountRepository staffAccounts, UserRepository users) {
+            StaffAccountRepository staffAccounts, AccountAuthorizationService authorization) {
         this.bookings = bookings;
         this.staffAccounts = staffAccounts;
-        this.users = users;
+        this.authorization = authorization;
     }
 
     @Transactional
     public void cancelConfirmedBooking(Long bookingId, Long adminId, String reason) {
-        requireActiveAdmin(adminId);
+        authorization.requireActiveAdmin(adminId);
         var booking = bookings.lockBooking(bookingId)
                 .orElseThrow(() -> new IllegalArgumentException("Lịch hẹn không tồn tại."));
         if (!"CONFIRMED".equals(booking.status())) {
@@ -43,7 +38,7 @@ public class AdminBookingManagementService {
 
     @Transactional
     public void reassignConfirmedBooking(Long bookingId, Long adminId, Long replacementStaffId) {
-        requireActiveAdmin(adminId);
+        authorization.requireActiveAdmin(adminId);
         var observed = bookings.findBooking(bookingId)
                 .orElseThrow(() -> new IllegalArgumentException("Lịch hẹn không tồn tại."));
         if (!"CONFIRMED".equals(observed.status())) {
@@ -74,13 +69,6 @@ public class AdminBookingManagementService {
         }
         if (bookings.assignStaff(bookingId, booking.staffId(), replacementStaffId) != 1) {
             throw new IllegalStateException("Lịch hẹn vừa thay đổi. Hãy tải lại trang.");
-        }
-    }
-
-    private void requireActiveAdmin(Long adminId) {
-        User admin = users.findById(adminId).orElse(null);
-        if (admin == null || admin.getRole() != UserRole.ADMIN || admin.getStatus() != UserStatus.ACTIVE) {
-            throw new AccessDeniedException("Chỉ Admin đang hoạt động mới có thể xử lý lịch hẹn.");
         }
     }
 

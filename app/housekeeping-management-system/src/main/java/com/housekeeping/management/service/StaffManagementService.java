@@ -18,17 +18,21 @@ public class StaffManagementService {
     private final StaffAccountRepository staffAccounts;
     private final GlobalEmailUniquenessService emails;
     private final PasswordEncoder passwords;
+    private final AccountAuthorizationService authorization;
 
     public StaffManagementService(EntityManager entities, StaffAccountRepository staffAccounts,
-            GlobalEmailUniquenessService emails, PasswordEncoder passwords) {
+            GlobalEmailUniquenessService emails, PasswordEncoder passwords,
+            AccountAuthorizationService authorization) {
         this.entities = entities;
         this.staffAccounts = staffAccounts;
         this.emails = emails;
         this.passwords = passwords;
+        this.authorization = authorization;
     }
 
     @Transactional
-    public void create(StaffCreateForm form) {
+    public void create(Long adminId, StaffCreateForm form) {
+        authorization.requireActiveAdmin(adminId);
         String passwordHash = passwords.encode(form.password());
         emails.executeWithUniqueEmail(form.email(), canonicalEmail -> {
             User user = new User();
@@ -50,17 +54,24 @@ public class StaffManagementService {
     }
 
     @Transactional
-    public void update(Long staffId, StaffUpdateForm form) {
+    public void update(Long adminId, Long staffId, StaffUpdateForm form) {
+        authorization.requireActiveAdmin(adminId);
         Staff staff = findStaff(staffId);
         staff.getUser().setFullName(form.name().trim());
         if (form.phone() != null && !form.phone().isBlank()) staff.getUser().setPhone(form.phone().trim());
     }
 
     @Transactional
-    public void deactivate(Long staffId) { findStaff(staffId).getUser().setStatus(UserStatus.INACTIVE); }
+    public void deactivate(Long adminId, Long staffId) {
+        authorization.requireActiveAdmin(adminId);
+        findStaff(staffId).getUser().setStatus(UserStatus.INACTIVE);
+    }
 
     @Transactional
-    public void activate(Long staffId) { findStaff(staffId).getUser().setStatus(UserStatus.ACTIVE); }
+    public void activate(Long adminId, Long staffId) {
+        authorization.requireActiveAdmin(adminId);
+        findStaff(staffId).getUser().setStatus(UserStatus.ACTIVE);
+    }
 
     private Staff findStaff(Long staffId) {
         return staffAccounts.findById(staffId)

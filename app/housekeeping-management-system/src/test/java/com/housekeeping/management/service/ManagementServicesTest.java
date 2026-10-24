@@ -52,8 +52,8 @@ class ManagementServicesTest {
         PasswordEncoder passwords = mock(PasswordEncoder.class);
         when(passwords.encode("staff-secret")).thenReturn("staff-hash");
         StaffManagementService service = new StaffManagementService(entities, mock(StaffAccountRepository.class),
-                unlockedEmails(), passwords);
-        service.create(new PortalForms.StaffCreateForm("Staff Name", "staff@example.test", "staff-secret",
+                unlockedEmails(), passwords, mock(AccountAuthorizationService.class));
+        service.create(99L, new PortalForms.StaffCreateForm("Staff Name", "staff@example.test", "staff-secret",
                 "0900000001", StaffType.PART_TIME));
         var users = org.mockito.ArgumentCaptor.forClass(User.class);
         var staff = org.mockito.ArgumentCaptor.forClass(Staff.class);
@@ -74,12 +74,12 @@ class ManagementServicesTest {
         when(staffAccounts.findById(9L)).thenReturn(Optional.of(staff));
         when(services.findById(4L)).thenReturn(Optional.of(service));
         StaffManagementService staffManagement = new StaffManagementService(mock(EntityManager.class), staffAccounts,
-                mock(GlobalEmailUniquenessService.class), mock(PasswordEncoder.class));
-        ServiceManagementService serviceManagement = new ServiceManagementService(services);
-        staffManagement.deactivate(9L); serviceManagement.deactivate(4L);
+                mock(GlobalEmailUniquenessService.class), mock(PasswordEncoder.class), mock(AccountAuthorizationService.class));
+        ServiceManagementService serviceManagement = new ServiceManagementService(services, mock(AccountAuthorizationService.class));
+        staffManagement.deactivate(99L, 9L); serviceManagement.deactivate(99L, 4L);
         assertThat(user.getStatus()).isEqualTo(UserStatus.INACTIVE);
         assertThat(service.getStatus()).isEqualTo(Services.Status.INACTIVE);
-        staffManagement.activate(9L); serviceManagement.activate(4L);
+        staffManagement.activate(99L, 9L); serviceManagement.activate(99L, 4L);
         assertThat(user.getStatus()).isEqualTo(UserStatus.ACTIVE);
         assertThat(service.getStatus()).isEqualTo(Services.Status.ACTIVE);
     }
@@ -87,7 +87,7 @@ class ManagementServicesTest {
     @Test
     void serviceSaveKeepsTheApprovedFieldsAndDefaultsNewServiceToActive() {
         ServicesRepository services = mock(ServicesRepository.class);
-        new ServiceManagementService(services).save(null,
+        new ServiceManagementService(services, mock(AccountAuthorizationService.class)).save(99L, null,
                 new PortalForms.ServiceForm("  Dọn nhà  ", "Mô tả", 90, new BigDecimal("125000.00")));
         var captured = org.mockito.ArgumentCaptor.forClass(Services.class);
         verify(services).saveAndFlush(captured.capture());
