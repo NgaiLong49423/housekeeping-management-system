@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+  <head th:replace="~{fragments/layout :: head('Đơn xin nghỉ')}"></head>
+  <body>
+    <header th:replace="~{fragments/layout :: header('leaves')}"></header>
+    <main id="main" class="container py-4 py-md-5">
+      <div class="page-heading">
+        <span class="eyebrow">Quản lý ngày nghỉ</span>
+        <h1>Đơn xin nghỉ</h1>
+        <p class="lead">Gửi yêu cầu nghỉ theo ngày nguyên và theo dõi kết quả xét duyệt của Admin.</p>
+      </div>
+      <div th:replace="~{fragments/layout :: alerts}"></div>
+
+      <section class="surface p-4 mb-4">
+        <h2 class="h5">Tạo yêu cầu nghỉ</h2>
+        <form method="post" th:action="@{/staff/leaves}" th:object="${leaveRequestForm}" class="row g-3 align-items-end">
+          <div class="col-sm-4">
+            <label class="form-label" for="startDate">Từ ngày</label>
+            <input id="startDate" class="form-control" type="date" th:field="*{startDate}" required>
+          </div>
+          <div class="col-sm-4">
+            <label class="form-label" for="endDate">Đến ngày</label>
+            <input id="endDate" class="form-control" type="date" th:field="*{endDate}" required>
+          </div>
+          <div class="col-sm-12">
+            <label class="form-label" for="reason">Lý do</label>
+            <textarea id="reason" class="form-control" th:field="*{reason}" maxlength="500" rows="3" required></textarea>
+          </div>
+          <div class="col-12"><button class="btn btn-primary" type="submit">Gửi đơn nghỉ</button></div>
+        </form>
+      </section>
+
+      <section class="surface p-4">
+        <h2 class="h5 mb-3">Lịch sử yêu cầu</h2>
+        <div th:if="${#lists.isEmpty(leaveRequests)}" class="empty-state py-4">
+          <h3>Chưa có đơn nghỉ</h3><p>Bạn có thể gửi yêu cầu ở biểu mẫu phía trên.</p>
+        </div>
+        <div class="table-responsive" th:unless="${#lists.isEmpty(leaveRequests)}">
+          <table class="table align-middle">
+            <thead><tr><th>Thời gian nghỉ</th><th>Lý do</th><th>Trạng thái</th><th>Ngày gửi</th></tr></thead>
+            <tbody>
+              <tr th:each="item : ${leaveRequests}">
+                <td><span th:text="${#temporals.format(item.startDate, 'dd/MM/yyyy')}"></span> – <span th:text="${#temporals.format(item.endDate, 'dd/MM/yyyy')}"></span></td>
+                <td class="text-break" th:text="${item.reason}">Lý do</td>
+                <td><span class="badge" th:classappend="${item.status == 'APPROVED' ? 'text-bg-success' : (item.status == 'REJECTED' ? 'text-bg-danger' : 'text-bg-warning')}" th:text="${item.status}">PENDING</span></td>
+                <td th:text="${item.createdAt}">Thời gian gửi</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="small text-secondary mb-0">Đơn PENDING chưa ảnh hưởng đến việc đặt lịch. Đơn được duyệt sẽ chặn Booking mới bắt đầu trong ngày nghỉ.</p>
+      </section>
+    </main>
+    <footer th:replace="~{fragments/layout :: footer}"></footer>
+  </body>
+</html>

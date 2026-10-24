@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+  <head th:replace="~{fragments/layout :: head('Duyệt đơn nghỉ')}"></head>
+  <body>
+    <header th:replace="~{fragments/layout :: header('leaves')}"></header>
+    <main id="main" class="container py-4 py-md-5">
+      <div class="page-heading">
+        <span class="eyebrow">Vận hành nhân sự</span>
+        <h1>Duyệt đơn nghỉ</h1>
+        <p class="lead">Duyệt hoặc từ chối yêu cầu nghỉ nguyên ngày của nhân viên.</p>
+      </div>
+      <div th:replace="~{fragments/layout :: alerts}"></div>
+      <section class="surface p-4">
+        <div th:if="${#lists.isEmpty(leaveRequests)}" class="empty-state py-5">
+          <h3>Chưa có yêu cầu nghỉ</h3><p>Các đơn mới gửi sẽ xuất hiện tại đây.</p>
+        </div>
+        <div class="table-responsive" th:unless="${#lists.isEmpty(leaveRequests)}">
+          <table class="table align-middle">
+            <thead><tr><th>Nhân viên</th><th>Thời gian nghỉ</th><th>Lý do</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+            <tbody>
+              <tr th:each="item : ${leaveRequests}">
+                <td th:text="${item.staffName}">Nhân viên</td>
+                <td><span th:text="${#temporals.format(item.startDate, 'dd/MM/yyyy')}"></span> – <span th:text="${#temporals.format(item.endDate, 'dd/MM/yyyy')}"></span></td>
+                <td class="text-break" th:text="${item.reason}">Lý do</td>
+                <td><span class="badge" th:classappend="${item.status == 'APPROVED' ? 'text-bg-success' : (item.status == 'REJECTED' ? 'text-bg-danger' : 'text-bg-warning')}" th:text="${item.status}">PENDING</span></td>
+                <td>
+                  <div th:if="${item.status == 'PENDING'}" class="d-flex gap-2">
+                    <form method="post" th:action="@{/admin/leaves/{id}/approve(id=${item.id})}"><button class="btn btn-success btn-sm" type="submit">Duyệt</button></form>
+                    <form method="post" th:action="@{/admin/leaves/{id}/reject(id=${item.id})}"><button class="btn btn-outline-danger btn-sm" type="submit">Từ chối</button></form>
+                  </div>
+                  <span th:unless="${item.status == 'PENDING'}" class="small text-secondary">Đã xét duyệt</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="small text-secondary mb-0">Đơn được duyệt chặn Booking mới theo ngày bắt đầu trong thời gian nghỉ. Hệ thống không tự hủy hoặc đổi nhân viên cho Booking đã xác nhận; Admin cần xử lý riêng.</p>
+      </section>
+    </main>
+    <footer th:replace="~{fragments/layout :: footer}"></footer>
+  </body>
+</html>

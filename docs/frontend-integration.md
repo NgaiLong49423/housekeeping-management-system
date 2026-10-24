@@ -42,8 +42,8 @@ Các route dưới đây là điểm vào MVC được thêm trong lần tích h
 | Customer | `/customer/bookings` | Lịch của chính khách và thanh toán |
 | Customer | `/customer/bookings/new` | Nhiều dịch vụ nối tiếp, một nhân viên, một khoảng sẵn sàng |
 | Customer | `/customer/staff`, `/customer/schedules` | Nhân viên/yêu thích, khoảng sẵn sàng |
-| Staff | `/staff/bookings`, `/staff/schedules` | Công việc và khoảng sẵn sàng của chính Staff |
-| Admin | `/admin/bookings`, `/admin/staff`, `/admin/services`, `/admin/schedules` | Tổng quan, quản lý danh mục và xem lịch sẵn sàng |
+| Staff | `/staff/bookings`, `/staff/schedules`, `/staff/leaves` | Công việc, khoảng sẵn sàng và đơn nghỉ của chính Staff |
+| Admin | `/admin/bookings`, `/admin/staff`, `/admin/services`, `/admin/schedules`, `/admin/leaves` | Tổng quan, quản lý danh mục, xem lịch và duyệt đơn nghỉ |
 | Từng vai trò | `/{customer,staff,admin}/bookings/{id}` | Chi tiết, Evidence và hành động đúng vai trò |
 | Người được phép xem Booking | `/evidence/{id}` | Ảnh sau kiểm tra ownership, không public thư mục lưu ảnh |
 
@@ -68,6 +68,8 @@ Các route dưới đây là điểm vào MVC được thêm trong lần tích h
 | `/admin/staff/{id}` | `name`, `phone` | Sửa thông tin; email/mật khẩu không trong form sửa |
 | `/admin/{services,staff}/{id}/delete` | CSRF | Ngừng hoạt động (soft delete); giữ lịch sử đặt dịch vụ |
 | `/staff/schedules`, `/staff/schedules/{id}/delete` | `workDate`, `startTime`, `endTime` | Staff PART_TIME tự đăng ký/xóa khoảng sẵn sàng; giờ bắt đầu/kết thúc cùng ngày |
+| `/staff/leaves` | `startDate`, `endDate`, `reason` | Staff gửi đơn nghỉ theo ngày nguyên; trạng thái ban đầu PENDING |
+| `/admin/leaves/{id}/approve`, `/admin/leaves/{id}/reject` | CSRF | Admin chỉ xét đơn PENDING; ghi reviewer và thời điểm xét duyệt |
 
 Customer ID và Staff ID lấy từ session, không tin ID vai trò do trình duyệt gửi. Giá và thời lượng do Service đọc từ SQL Server. `startAt` là local datetime theo UTC+7. Các dịch vụ được thực hiện theo thứ tự gửi trong form.
 
@@ -119,7 +121,7 @@ Surefire dùng Mockito javaagent từ dependency Maven, không phụ thuộc kh�
 Quy trình nghiệm thu với SQL Server:
 
 1. Chuẩn bị tài khoản ba vai trò; kiểm tra đăng nhập/đăng xuất và route sai role bị từ chối.
-2. Admin tạo Staff và Service; email trùng bị từ chối. Staff PART_TIME đăng ký khoảng sẵn sàng của mình; Staff FULL_TIME theo khung giờ công ty.
+2. Admin tạo Staff và Service; email trùng bị từ chối. Staff PART_TIME đăng ký khoảng sẵn sàng của mình; Staff FULL_TIME theo khung giờ công ty. Staff gửi đơn nghỉ theo ngày, Admin duyệt/từ chối; chỉ đơn APPROVED chặn Booking mới.
 3. Customer đặt lịch thành `CONFIRMED`; đặt trùng bị từ chối kể cả hai cửa sổ đồng thời; hủy theo mốc 2 giờ và kiểm tra giải phóng lịch.
 4. Staff chỉ thấy việc của mình; tải JPEG/PNG vào từng detail; file hỏng, quá 5 MB và vượt 5 ảnh bị từ chối. Không hoàn thành khi thiếu ảnh hoặc chưa tới giờ bắt đầu.
 5. Hoàn thành chuyển Booking sang `AWAITING_PAYMENT`; Staff được phân công xác nhận CASH hoặc Customer thanh toán ONLINE qua PayOS webhook; Payment thành `SUCCESS` thì Booking mới thành `COMPLETED`.

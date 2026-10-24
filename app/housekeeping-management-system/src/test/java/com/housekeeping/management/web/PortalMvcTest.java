@@ -13,6 +13,8 @@ import com.housekeeping.management.dto.response.PortalViews;
 import com.housekeeping.management.dto.request.PortalForms.HouseForm;
 import com.housekeeping.management.controller.PortalAdminController;
 import com.housekeeping.management.controller.PortalController;
+import com.housekeeping.management.controller.StaffLeaveController;
+import com.housekeeping.management.controller.AdminLeaveController;
 import com.housekeeping.management.service.PortalActionsService;
 import com.housekeeping.management.service.PortalQueryService;
 import com.housekeeping.management.service.*;
@@ -35,7 +37,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.mock.web.MockMultipartFile;
 
-@WebMvcTest({PortalController.class, PortalAdminController.class})
+@WebMvcTest({PortalController.class, PortalAdminController.class, StaffLeaveController.class, AdminLeaveController.class})
 @Import(SecurityConfig.class)
 class PortalMvcTest {
     @Autowired MockMvc mvc;
@@ -50,6 +52,7 @@ class PortalMvcTest {
     @MockitoBean FeedbackService feedbackService;
     @MockitoBean EvidenceStorageService storage;
     @MockitoBean HouseService houses;
+    @MockitoBean LeaveManagementService leaveManagement;
 
     private final PortalUser customer = account(1L, "CUSTOMER", "Khách hàng kiểm thử");
     private final PortalUser staff = account(2L, "STAFF", "Nhân viên kiểm thử");
@@ -71,6 +74,8 @@ class PortalMvcTest {
         when(query.busyIntervals()).thenReturn(List.of(new PortalQueryService.BusyInterval(2L, start.plusHours(4), start.plusHours(5))));
         when(query.bookings(any())).thenReturn(List.of(card("CONFIRMED", null, null), card("AWAITING_PAYMENT", "PENDING", "ONLINE")));
         when(query.feedback()).thenReturn(List.of());
+        when(leaveManagement.findForStaff(2L)).thenReturn(List.of());
+        when(leaveManagement.findAllForAdmin(3L)).thenReturn(List.of());
         when(query.booking(eq(42L), any())).thenReturn(card("CONFIRMED", null, null));
         when(query.details(eq(42L), any())).thenReturn(List.of(new DetailCard(30L, "Dọn dẹp nhà theo giờ", 1, 120, new BigDecimal("140000"), List.of())));
     }
@@ -89,9 +94,11 @@ class PortalMvcTest {
         render("/customer/houses", customer, "customer/houses");
         render("/customer/schedules", customer, "customer-schedules");
         render("/staff/bookings", staff, "staff-bookings"); render("/staff/schedules", staff, "staff-schedules");
+        render("/staff/leaves", staff, "staff-leaves");
         render("/admin/bookings", admin, "admin-bookings"); render("/admin/services", admin, "admin-services");
         render("/admin/staff", admin, "admin-staff"); render("/admin/schedules", admin, "admin-schedules");
         render("/admin/feedback", admin, "admin-feedback");
+        render("/admin/leaves", admin, "admin-leaves");
         for (PortalUser user : List.of(customer, staff, admin)) {
             render("/" + user.getRole().toLowerCase() + "/bookings/42", user, user.getRole().toLowerCase() + "-detail-confirmed");
         }
@@ -274,6 +281,24 @@ class PortalMvcTest {
         mvc.perform(post("/staff/bookings/42/cash-payment").with(user(staff)).with(csrf()))
                 .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/staff/bookings/42"));
         verify(payments).confirmCashReceived(42L, staff.getAccountId());
+    }
+
+    @Test
+    void staffCanSubmitOwnLeaveAndAdminCanReviewIt() throws Exception {
+        mvc.perform(post("/staff/leaves").with(user(staff)).with(csrf())
+                        .param("startDate", "2026-11-03").param("endDate", "2026-11-04")
+                        .param("reason", "Việc cá nhân"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/staff/leaves"));
+        verify(leaveManagement).submitLeaveRequest(eq(staff.getAccountId()), any());
+
+        mvc.perform(post("/admin/leaves/21/approve").with(user(admin)).with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/leaves"));
+        verify(leaveManagement).reviewLeaveRequest(21L, admin.getUserId(), com.housekeeping.management.domain.LeaveStatus.APPROVED);
+
+        mvc.perform(post("/admin/leaves/21/reject").with(user(staff)).with(csrf()))
+                .andExpect(status().isForbidden());
     }
 
     @Test

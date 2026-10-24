@@ -6,6 +6,8 @@ import com.housekeeping.management.SqlServerIntegrationTest;
 import com.housekeeping.management.domain.StaffType;
 import com.housekeeping.management.domain.UserRole;
 import com.housekeeping.management.domain.UserStatus;
+import com.housekeeping.management.domain.LeaveStatus;
+import com.housekeeping.management.dto.request.PortalForms.LeaveRequestForm;
 import com.housekeeping.management.entity.Services;
 import com.housekeeping.management.entity.House;
 import com.housekeeping.management.entity.Staff;
@@ -13,6 +15,7 @@ import com.housekeeping.management.entity.User;
 import com.housekeeping.management.repository.HouseRepository;
 import com.housekeeping.management.repository.ServicesRepository;
 import com.housekeeping.management.repository.StaffAccountRepository;
+import com.housekeeping.management.repository.StaffLeaveRepository;
 import com.housekeeping.management.repository.UserRepository;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -35,6 +38,8 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
     @Autowired private StaffAccountRepository staffAccounts;
     @Autowired private HouseRepository houses;
     @Autowired private ServicesRepository services;
+    @Autowired private StaffLeaveRepository leaves;
+    @Autowired private LeaveManagementService leaveManagement;
     @Autowired private JdbcTemplate jdbc;
 
     @BeforeEach
@@ -90,6 +95,39 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
             boolean secondCreated = second.get(30, TimeUnit.SECONDS);
             assertThat((firstCreated ? 1 : 0) + (secondCreated ? 1 : 0)).isEqualTo(1);
         }
+    }
+
+    @Test
+    void pendingLeaveDoesNotBlockBookingButApprovalBlocksLaterStartsOnItsDates() {
+        String suffix = UUID.randomUUID().toString();
+        User customer = users.saveAndFlush(user("leave-customer-" + suffix, UserRole.CUSTOMER));
+        User staffUser = users.saveAndFlush(user("leave-staff-" + suffix, UserRole.STAFF));
+        User admin = users.saveAndFlush(user("leave-admin-" + suffix, UserRole.ADMIN));
+        Staff staff = new Staff();
+        staff.setUser(staffUser);
+        staff.setStaffType(StaffType.FULL_TIME);
+        Staff savedStaff = staffAccounts.saveAndFlush(staff);
+        House house = houses.saveAndFlush(house(customer.getUserId(), "Leave integration"));
+        Services service = services.saveAndFlush(service());
+        LocalDateTime bookingDate = LocalDateTime.now(ZoneOffset.ofHours(7)).plusDays(4)
+                .withHour(10).withMinute(0).withSecond(0).withNano(0);
+
+        leaveManagement.submitLeaveRequest(savedStaff.getStaffId(), new LeaveRequestForm(
+                bookingDate.toLocalDate(), bookingDate.toLocalDate(), "Integration test"));
+        assertThat(leaves.findAllByStaff_StaffIdOrderByCreatedAtDesc(savedStaff.getStaffId()))
+                .singleElement().satisfies(request -> assertThat(request.getStatus()).isEqualTo(LeaveStatus.PENDING));
+
+        reservationService.createBooking(customer.getUserId(), savedStaff.getStaffId(), house.getHouseId(), bookingDate,
+                List.of(service.getServiceId()), null);
+
+        Long leaveId = leaves.findAllByStaff_StaffIdOrderByCreatedAtDesc(savedStaff.getStaffId()).getFirst().getLeaveId();
+        leaveManagement.reviewLeaveRequest(leaveId, admin.getUserId(), LeaveStatus.APPROVED);
+
+        LocalDateTime laterStart = bookingDate.plusHours(4);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> reservationService.createBooking(customer.getUserId(),
+                savedStaff.getStaffId(), house.getHouseId(), laterStart, List.of(service.getServiceId()), null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Nhân viên đã được duyệt nghỉ trong ngày bắt đầu này.");
     }
 
     private boolean reserve(Long customerId, Long staffId, Long houseId, LocalDateTime start,

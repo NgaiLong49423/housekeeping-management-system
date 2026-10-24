@@ -2,6 +2,7 @@ package com.housekeeping.management.dto.response;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -48,5 +49,7 @@ public final class PortalViews {
     public record EvidenceCard(Long id, String uploadedAt) { }
     public record FeedbackCard(Long id, Long bookingId, String customerName, String content,
             String adminReply, String status) { }
+    public record LeaveCard(Long id, Long staffId, String staffName, LocalDate startDate,
+            LocalDate endDate, String reason, String status, String createdAt) { }
     public record DetailCard(Long id, String name, int sequence, int duration, BigDecimal price, List<EvidenceCard> evidence) { }
 }
