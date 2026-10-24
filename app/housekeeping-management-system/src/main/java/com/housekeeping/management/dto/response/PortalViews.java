@@ -26,10 +26,22 @@ public final class PortalViews {
         public String getStartLabel() { return time(start); }
         public String getEndLabel() { return time(end); }
         public String getStatusLabel() {
-            return switch (status) { case "CONFIRMED" -> "Đã xác nhận"; case "COMPLETED" -> "Đã hoàn thành"; default -> "Đã hủy"; };
+            return switch (status) {
+                case "CONFIRMED" -> "Đã xác nhận";
+                case "AWAITING_PAYMENT" -> "Chờ thanh toán";
+                case "COMPLETED" -> "Đã hoàn thành";
+                case "CANCELLED" -> "Đã hủy";
+                default -> "Không xác định";
+            };
         }
         public String getStatusClass() {
-            return switch (status) { case "CONFIRMED" -> "confirmed"; case "COMPLETED" -> "completed"; default -> "cancelled"; };
+            return switch (status) {
+                case "CONFIRMED" -> "confirmed";
+                case "AWAITING_PAYMENT" -> "unpaid";
+                case "COMPLETED" -> "completed";
+                case "CANCELLED" -> "cancelled";
+                default -> "cancelled";
+            };
         }
         public boolean isCancellable() { return status.equals("CONFIRMED") && !OffsetDateTime.now().isAfter(start.minusHours(2)); }
     }

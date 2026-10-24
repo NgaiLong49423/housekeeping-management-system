@@ -9,9 +9,10 @@ import org.springframework.format.annotation.DateTimeFormat;
 
 public final class PortalForms {
     private PortalForms() { }
-    public record BookingForm(@NotNull @Positive Long staffId, @NotNull @Positive Long scheduleId,
+    public record BookingForm(@NotNull @Positive Long staffId, @NotNull @Positive Long houseId,
             @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startAt,
-            @NotEmpty @Size(max = 20) List<@NotNull @Positive Long> serviceIds) { }
+            @NotEmpty List<@NotNull @Positive Long> serviceIds,
+            @Size(max = 2000) String areaNote) { }
     public record FeedbackForm(@Min(1) @Max(5) int rating, @NotBlank @Size(max = 2000) String comment) { }
     public record CustomerRegistrationForm(@NotBlank @Size(max = 150) String name,
             @NotBlank @Email @Size(max = 255) String email, @NotBlank @Size(max = 20) String phone,

@@ -4,6 +4,7 @@ import static com.housekeeping.management.dto.request.PortalForms.*;
 import com.housekeeping.management.domain.BookingStatus;
 import com.housekeeping.management.domain.entity.*;
 import com.housekeeping.management.repository.*;
+import com.housekeeping.management.repository.BookingPersistenceRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import java.time.OffsetDateTime;
@@ -21,6 +22,7 @@ import com.housekeeping.management.service.DuplicateEmailException;
 public class PortalActionsService {
     private final EntityManager em;
     private final BookingRepository bookings;
+    private final BookingPersistenceRepository bookingPersistence;
     private final StaffRepository staff;
     private final StaffAccountRepository staffAccounts;
     private final ServicesRepository services;
@@ -29,11 +31,13 @@ public class PortalActionsService {
     private final GlobalEmailUniquenessService emailUniqueness;
     private final PasswordEncoder encoder;
 
-    public PortalActionsService(EntityManager em, BookingRepository bookings, StaffRepository staff,
+    public PortalActionsService(EntityManager em, BookingRepository bookings, BookingPersistenceRepository bookingPersistence,
+            StaffRepository staff,
             WorkScheduleRepository schedules, JdbcTemplate jdbc,
             GlobalEmailUniquenessService emailUniqueness, PasswordEncoder encoder,
             StaffAccountRepository staffAccounts, ServicesRepository services) {
-        this.em = em; this.bookings = bookings; this.staff = staff; this.staffAccounts = staffAccounts;
+        this.em = em; this.bookings = bookings; this.bookingPersistence = bookingPersistence;
+        this.staff = staff; this.staffAccounts = staffAccounts;
         this.services = services;
         this.schedules = schedules; this.jdbc = jdbc; this.emailUniqueness = emailUniqueness; this.encoder = encoder;
     }
@@ -51,11 +55,17 @@ public class PortalActionsService {
 
     @Transactional
     public void cancel(Long bookingId, Long customerId) {
-        Booking booking = ownedBooking(bookingId, customerId);
-        if (booking.getBookingStatus() != BookingStatus.CONFIRMED || now().isAfter(booking.getStartAt().minusHours(2))) {
+        BookingPersistenceRepository.BookingState booking = bookingPersistence.lockBooking(bookingId)
+                .orElseThrow(() -> new IllegalArgumentException("Lịch hẹn không tồn tại."));
+        if (!booking.customerId().equals(customerId)) {
+            throw new AccessDeniedException("Lịch hẹn không thuộc tài khoản của bạn.");
+        }
+        if (!"CONFIRMED".equals(booking.status()) || now().toLocalDateTime().isAfter(booking.startTime().minusHours(2))) {
             throw new IllegalStateException("Chỉ có thể hủy lịch đã xác nhận trước giờ bắt đầu ít nhất 2 giờ.");
         }
-        booking.setBookingStatus(BookingStatus.CANCELLED);
+        if (bookingPersistence.cancel(bookingId, customerId, "Khách hàng yêu cầu hủy lịch.", now().toLocalDateTime()) != 1) {
+            throw new IllegalStateException("Trạng thái lịch hẹn vừa thay đổi. Hãy tải lại trang.");
+        }
     }
 
     @Transactional

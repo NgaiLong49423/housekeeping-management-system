@@ -9,6 +9,7 @@ import com.housekeeping.management.service.PortalActionsService;
 import com.housekeeping.management.service.PortalQueryService;
 import com.housekeeping.management.repository.*;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -32,19 +33,21 @@ class PortalOwnershipTest {
     @Test
     void cancellationCannotChangeAnotherCustomersBookingOrCompletedBooking() {
         BookingRepository repository = mock(BookingRepository.class);
-        PortalActionsService actions = new PortalActionsService(null, repository, null, null, null, null, null, null, null);
-        Customer owner = new Customer(); owner.setCustomerId(1L);
-        Booking booking = new Booking(); booking.setCustomer(owner); booking.setBookingStatus(BookingStatus.CONFIRMED);
-        booking.setStartAt(PortalActionsService.now().plusHours(3));
-        when(repository.findByIdForUpdate(42L)).thenReturn(Optional.of(booking));
+        BookingPersistenceRepository persistence = mock(BookingPersistenceRepository.class);
+        PortalActionsService actions = new PortalActionsService(null, repository, persistence, null, null, null, null, null, null, null);
+        var booking = new BookingPersistenceRepository.BookingState(42L, 1L, 2L, 3L,
+                LocalDateTime.now().plusHours(3), LocalDateTime.now().plusHours(4), "CONFIRMED");
+        when(persistence.lockBooking(42L)).thenReturn(Optional.of(booking));
         assertThatThrownBy(() -> actions.cancel(42L, 9L)).isInstanceOf(AccessDeniedException.class);
-        assertThat(booking.getBookingStatus()).isEqualTo(BookingStatus.CONFIRMED);
-        booking.setBookingStatus(BookingStatus.COMPLETED);
+        when(persistence.lockBooking(42L)).thenReturn(Optional.of(new BookingPersistenceRepository.BookingState(42L, 1L, 2L, 3L,
+                LocalDateTime.now().plusHours(3), LocalDateTime.now().plusHours(4), "COMPLETED")));
         assertThatThrownBy(() -> actions.cancel(42L, 1L)).isInstanceOf(IllegalStateException.class);
-        assertThat(booking.getBookingStatus()).isEqualTo(BookingStatus.COMPLETED);
-        booking.setBookingStatus(BookingStatus.CONFIRMED); booking.setStartAt(PortalActionsService.now().plusMinutes(119));
+        when(persistence.lockBooking(42L)).thenReturn(Optional.of(new BookingPersistenceRepository.BookingState(42L, 1L, 2L, 3L,
+                LocalDateTime.now().plusMinutes(119), LocalDateTime.now().plusHours(2), "CONFIRMED")));
         assertThatThrownBy(() -> actions.cancel(42L, 1L)).isInstanceOf(IllegalStateException.class);
-        booking.setStartAt(PortalActionsService.now().plusHours(3)); actions.cancel(42L, 1L);
-        assertThat(booking.getBookingStatus()).isEqualTo(BookingStatus.CANCELLED);
+        when(persistence.lockBooking(42L)).thenReturn(Optional.of(booking));
+        when(persistence.cancel(anyLong(), anyLong(), anyString(), any(LocalDateTime.class))).thenReturn(1);
+        actions.cancel(42L, 1L);
+        verify(persistence).cancel(anyLong(), anyLong(), anyString(), any(LocalDateTime.class));
     }
 }

@@ -2,6 +2,8 @@ package com.housekeeping.management.service;
 
 import static com.housekeeping.management.dto.response.PortalViews.*;
 import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.AccessDeniedException;
@@ -61,18 +63,18 @@ public class PortalQueryService {
 
     public List<BusyInterval> busyIntervals() {
         return jdbc.query("""
-                SELECT DISTINCT w.staff_id, b.start_at, b.end_at FROM Booking b
-                JOIN Booking_Detail d ON d.booking_id=b.booking_id
-                JOIN Work_Schedule w ON w.work_schedule_id=d.work_schedule_id
-                WHERE b.booking_status='CONFIRMED' AND b.end_at>SYSDATETIMEOFFSET()
-                ORDER BY b.start_at
-                """, (rs, row) -> new BusyInterval(rs.getLong(1), rs.getObject(2, OffsetDateTime.class), rs.getObject(3, OffsetDateTime.class)));
+                SELECT b.staff_id, b.start_time, b.end_time FROM dbo.Bookings b
+                WHERE b.status IN ('CONFIRMED', 'AWAITING_PAYMENT') AND b.end_time>SYSDATETIME()
+                ORDER BY b.start_time
+                """, (rs, row) -> new BusyInterval(rs.getLong(1),
+                    rs.getObject(2, LocalDateTime.class).atOffset(ZoneOffset.ofHours(7)),
+                    rs.getObject(3, LocalDateTime.class).atOffset(ZoneOffset.ofHours(7))));
     }
 
     public List<BookingCard> bookings(PortalUser user) {
         String condition = switch (user.getRole()) {
             case "CUSTOMER" -> " WHERE b.customer_id=?";
-            case "STAFF" -> " WHERE EXISTS (SELECT 1 FROM Booking_Detail d JOIN Work_Schedule w ON w.work_schedule_id=d.work_schedule_id WHERE d.booking_id=b.booking_id AND w.staff_id=?)";
+            case "STAFF" -> " WHERE b.staff_id=?";
             case "ADMIN" -> "";
             default -> throw new AccessDeniedException("Vai trò không hợp lệ.");
         };
@@ -99,45 +101,58 @@ public class PortalQueryService {
     public List<DetailCard> details(Long bookingId, PortalUser user) {
         booking(bookingId, user);
         return jdbc.query("""
-                SELECT d.booking_detail_id, s.service_name, d.sequence_no, d.duration_minutes_snapshot, d.unit_price_snapshot
-                FROM Booking_Detail d JOIN Services s ON s.service_id=d.service_id
-                WHERE d.booking_id=? ORDER BY d.sequence_no
-                """, (rs, row) -> new DetailCard(rs.getLong(1), rs.getString(2), rs.getInt(3), rs.getInt(4), rs.getBigDecimal(5),
-                    jdbc.query("SELECT evidence_id, uploaded_at FROM Evidences WHERE booking_detail_id=? ORDER BY evidence_id",
-                        (ev, index) -> new EvidenceCard(ev.getLong(1), time(ev.getObject(2, OffsetDateTime.class))), rs.getLong(1))), bookingId);
+                SELECT d.booking_detail_id, d.service_name_snapshot,
+                       ROW_NUMBER() OVER (ORDER BY d.booking_detail_id) AS display_order,
+                       d.duration_minutes, d.unit_price
+                FROM dbo.Booking_Details d
+                WHERE d.booking_id=? ORDER BY d.booking_detail_id
+                """, (rs, row) -> new DetailCard(rs.getLong(1), rs.getString(2), rs.getInt(3), rs.getInt(4), rs.getBigDecimal(5), List.of()), bookingId);
+    }
+
+    public List<EvidenceCard> bookingImages(Long bookingId, PortalUser user) {
+        booking(bookingId, user);
+        return jdbc.query("""
+                SELECT image_id, uploaded_at FROM dbo.Booking_Images
+                WHERE booking_id=? ORDER BY uploaded_at, image_id
+                """, (rs, row) -> new EvidenceCard(rs.getLong(1),
+                    time(rs.getObject(2, LocalDateTime.class).atOffset(ZoneOffset.ofHours(7)))), bookingId);
     }
 
     public Long bookingIdForDetail(Long detailId, PortalUser user) {
-        List<Long> ids = jdbc.query("SELECT booking_id FROM Booking_Detail WHERE booking_detail_id=?", (rs, row) -> rs.getLong(1), detailId);
+        List<Long> ids = jdbc.query("SELECT booking_id FROM dbo.Booking_Details WHERE booking_detail_id=?", (rs, row) -> rs.getLong(1), detailId);
         if (ids.isEmpty()) { throw new ResponseStatusException(HttpStatus.NOT_FOUND); }
         booking(ids.getFirst(), user);
         return ids.getFirst();
     }
 
     public String evidencePath(Long evidenceId, PortalUser user) {
-        List<Long> ids = jdbc.query("""
-                SELECT d.booking_id FROM Evidences e JOIN Booking_Detail d ON d.booking_detail_id=e.booking_detail_id WHERE e.evidence_id=?
-                """, (rs, row) -> rs.getLong(1), evidenceId);
+        List<Long> ids = jdbc.query("SELECT booking_id FROM dbo.Booking_Images WHERE image_id=?", (rs, row) -> rs.getLong(1), evidenceId);
         if (ids.isEmpty()) { throw new ResponseStatusException(HttpStatus.NOT_FOUND); }
         booking(ids.getFirst(), user);
-        return jdbc.queryForObject("SELECT storage_path FROM Evidences WHERE evidence_id=?", String.class, evidenceId);
+        return jdbc.queryForObject("SELECT image_url FROM dbo.Booking_Images WHERE image_id=?", String.class, evidenceId);
     }
 
     private List<BookingCard> bookingQuery(String condition, Object[] params) {
         return jdbc.query("""
-                SELECT b.*, c.display_name AS customer_name, x.staff_id, s.display_name AS staff_name,
-                       x.total, p.payment_status, p.payment_method, last_attempt.attempt_status, last_attempt.checkout_url, f.rating
-                FROM Booking b JOIN Customer c ON c.customer_id=b.customer_id
-                JOIN (SELECT d.booking_id, MIN(w.staff_id) AS staff_id, SUM(d.unit_price_snapshot) AS total
-                      FROM Booking_Detail d JOIN Work_Schedule w ON w.work_schedule_id=d.work_schedule_id GROUP BY d.booking_id) x ON x.booking_id=b.booking_id
-                JOIN Staff s ON s.staff_id=x.staff_id
-                LEFT JOIN Payment p ON p.booking_id=b.booking_id LEFT JOIN Feedback f ON f.booking_id=b.booking_id
-                OUTER APPLY (SELECT TOP (1) pa.attempt_status, pa.checkout_url FROM Payment_Attempt pa
-                             WHERE pa.payment_id=p.payment_id ORDER BY pa.created_at DESC, pa.attempt_id DESC) last_attempt
-                """ + condition + " ORDER BY b.start_at DESC", (rs, row) -> new BookingCard(
+                SELECT b.booking_id, b.customer_id, b.staff_id, customer.full_name AS customer_name,
+                       staff_user.full_name AS staff_name, b.start_time, b.end_time, b.status,
+                       b.total_amount,
+                       CASE WHEN payment.status='SUCCESS' THEN 'PAID'
+                            WHEN payment.payment_id IS NOT NULL THEN 'UNPAID' ELSE NULL END AS payment_status,
+                       payment.payment_method, CAST(NULL AS VARCHAR(20)) AS attempt_status,
+                       CAST(NULL AS NVARCHAR(500)) AS checkout_url, CAST(NULL AS INT) AS rating
+                FROM dbo.Bookings b
+                JOIN dbo.Users customer ON customer.user_id=b.customer_id
+                JOIN dbo.Staff selected_staff ON selected_staff.staff_id=b.staff_id
+                JOIN dbo.Users staff_user ON staff_user.user_id=selected_staff.user_id
+                OUTER APPLY (SELECT TOP (1) p.payment_id, p.status, p.payment_method
+                             FROM dbo.Payments p WHERE p.booking_id=b.booking_id
+                             ORDER BY p.created_at DESC, p.payment_id DESC) payment
+                """ + condition + " ORDER BY b.start_time DESC", (rs, row) -> new BookingCard(
                     rs.getLong("booking_id"), rs.getLong("customer_id"), rs.getLong("staff_id"), rs.getString("customer_name"), rs.getString("staff_name"),
-                    rs.getObject("start_at", OffsetDateTime.class), rs.getObject("end_at", OffsetDateTime.class), rs.getString("booking_status"),
-                    rs.getBigDecimal("total"), rs.getString("payment_status"), rs.getString("payment_method"),
+                    rs.getObject("start_time", LocalDateTime.class).atOffset(ZoneOffset.ofHours(7)),
+                    rs.getObject("end_time", LocalDateTime.class).atOffset(ZoneOffset.ofHours(7)), rs.getString("status"),
+                    rs.getBigDecimal("total_amount"), rs.getString("payment_status"), rs.getString("payment_method"),
                     rs.getString("attempt_status"), rs.getString("checkout_url"), (Integer) rs.getObject("rating", Integer.class)), params);
     }
 }

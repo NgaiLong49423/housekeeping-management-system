@@ -70,9 +70,7 @@
               <h2 class="h5 mb-0">
                 Dịch vụ &amp; Bằng chứng hoàn thành
               </h2>
-              <span class="small text-secondary">
-                1–5 ảnh JPEG/PNG hợp lệ (tối đa 5 MB/ảnh)
-              </span>
+              <span class="small text-secondary">Snapshot dịch vụ được lưu khi đặt lịch</span>
             </div>
 
             <article class="detail-service pt-3" th:each="detail : ${details}">
@@ -84,38 +82,28 @@
                     0 phút · 0 ₫
                   </p>
                 </div>
-                <span class="badge rounded-pill bg-light text-secondary border small" th:text="${#lists.size(detail.evidence)} + '/5 ảnh bằng chứng'">
-                  0/5 ảnh
-                </span>
               </div>
-
-              <!-- Evidence Gallery -->
-              <div class="evidence-grid mt-3" th:unless="${#lists.isEmpty(detail.evidence)}">
-                <a th:each="photo : ${detail.evidence}" th:href="@{/evidence/{id}(id=${photo.id})}" target="_blank" rel="noopener" title="Nhấp để xem ảnh kích thước gốc">
-                  <img th:src="@{/evidence/{id}(id=${photo.id})}" th:alt="'Bằng chứng dịch vụ ' + ${detail.name}" width="160" height="120" loading="lazy">
-                  <small th:text="${photo.uploadedAt}">Thời gian</small>
-                </a>
-              </div>
-              <p class="small text-secondary mt-3 mb-0" th:if="${#lists.isEmpty(detail.evidence)}">
-                Chưa có ảnh bằng chứng nghiệm thu nào.
-              </p>
-
-              <!-- Evidence Upload Form (Staff only) -->
-              <form th:if="${currentUser.role == 'STAFF' and booking.status == 'CONFIRMED' and #lists.size(detail.evidence) lt 5}" class="upload-box mt-3" method="post" enctype="multipart/form-data" th:action="@{/staff/details/{id}/evidence(id=${detail.id})}" data-upload-form>
-                <label class="form-label small fw-bold" th:for="'image-' + ${detail.id}">
-                  Tải ảnh bằng chứng nghiệm thu dịch vụ
-                </label>
-                <div class="d-flex flex-wrap gap-2">
-                  <input type="file" name="image" th:id="'image-' + ${detail.id}" class="form-control" accept=".jpg,.jpeg,.png,image/jpeg,image/png" required>
-                  <button class="btn btn-outline-primary" type="submit">
-                    Tải ảnh lên ↗
-                  </button>
-                </div>
-                <p class="small text-secondary mt-2 mb-0" data-file-status role="status">
-                  Chọn một ảnh JPEG hoặc PNG mỗi lần tải.
-                </p>
-              </form>
             </article>
+          </section>
+
+          <!-- Booking Images -->
+          <section class="surface p-4">
+            <h2 class="h5 mb-3 border-bottom pb-2">Ảnh minh chứng của lịch hẹn</h2>
+            <div class="evidence-grid mt-3" th:unless="${#lists.isEmpty(bookingImages)}">
+              <a th:each="photo : ${bookingImages}" th:href="@{/evidence/{id}(id=${photo.id})}" target="_blank" rel="noopener" title="Nhấp để xem ảnh kích thước gốc">
+                <img th:src="@{/evidence/{id}(id=${photo.id})}" alt="Ảnh minh chứng công việc" width="160" height="120" loading="lazy">
+                <small th:text="${photo.uploadedAt}">Thời gian</small>
+              </a>
+            </div>
+            <p class="small text-secondary mt-3 mb-0" th:if="${#lists.isEmpty(bookingImages)}">Chưa có ảnh minh chứng nào.</p>
+            <form th:if="${currentUser.role == 'STAFF' and booking.status == 'CONFIRMED'}" class="upload-box mt-3" method="post" enctype="multipart/form-data" th:action="@{/staff/bookings/{id}/evidence(id=${booking.id})}" data-upload-form>
+              <label class="form-label small fw-bold" for="booking-image">Tải ảnh minh chứng</label>
+              <div class="d-flex flex-wrap gap-2">
+                <input type="file" name="image" id="booking-image" class="form-control" accept=".jpg,.jpeg,.png,image/jpeg,image/png" required>
+                <button class="btn btn-outline-primary" type="submit">Tải ảnh lên ↗</button>
+              </div>
+              <p class="small text-secondary mt-2 mb-0" data-file-status role="status">Chọn ảnh JPEG hoặc PNG; giới hạn kỹ thuật hiện tại là 5 MB/ảnh.</p>
+            </form>
           </section>
 
           <!-- Customer Feedback Section -->
@@ -272,13 +260,10 @@
               Kiểm tra tất cả dịch vụ đã có đủ ảnh bằng chứng trước khi bấm xác nhận.
             </p>
             <form method="post" th:action="@{/staff/bookings/{id}/complete(id=${booking.id})}" data-confirm="Xác nhận đã hoàn thành toàn bộ dịch vụ?">
-              <button class="btn btn-primary w-100" type="submit" th:disabled="${!allEvidenceReady}">
+              <button class="btn btn-primary w-100" type="submit">
                 Xác nhận hoàn thành
               </button>
             </form>
-            <p class="small text-warning mt-2 mb-0" th:unless="${allEvidenceReady}">
-              ⚠ Mỗi dịch vụ cần ít nhất một ảnh bằng chứng nghiệm thu.
-            </p>
           </section>
         </aside>
       </div>

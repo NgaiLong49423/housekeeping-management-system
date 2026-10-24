@@ -8,7 +8,6 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-import com.housekeeping.management.domain.entity.Booking;
 import com.housekeeping.management.config.SecurityConfig;
 import com.housekeeping.management.dto.response.PortalViews;
 import com.housekeeping.management.dto.request.PortalForms.HouseForm;
@@ -204,19 +203,18 @@ class PortalMvcTest {
 
     @Test
     void bookingUsesSessionCustomerServerServiceSelectionAndVietnamOffset() throws Exception {
-        Booking saved = new Booking(); saved.setBookingId(42L);
-        when(reservations.createBooking(anyLong(), anyLong(), any(), anyList())).thenReturn(saved);
+        when(reservations.createBooking(anyLong(), anyLong(), anyLong(), any(), anyList(), any())).thenReturn(42L);
         mvc.perform(post("/customer/bookings").with(user(customer)).with(csrf())
-                .param("customerId", "999").param("totalPrice", "1").param("staffId", "2").param("scheduleId", "20")
-                .param("startAt", "2026-11-01T08:00").param("serviceIds", "10", "11"))
+                .param("customerId", "999").param("totalPrice", "1").param("staffId", "2").param("houseId", "30")
+                .param("startAt", "2026-11-01T08:00").param("serviceIds", "10", "11").param("areaNote", "Entryway"))
             .andExpect(redirectedUrl("/customer/bookings/42"));
-        verify(reservations).createBooking(eq(1L), eq(2L), eq(OffsetDateTime.parse("2026-11-01T08:00:00+07:00")), eq(List.of(
-                new BookingReservationService.ServiceSelection(20L, 10L, 1), new BookingReservationService.ServiceSelection(20L, 11L, 2))));
+        verify(reservations).createBooking(eq(1L), eq(2L), eq(30L), eq(java.time.LocalDateTime.parse("2026-11-01T08:00")),
+                eq(List.of(10L, 11L)), eq("Entryway"));
     }
 
     @Test
     void invalidBookingRedisplaysInputsWithoutCallingReservation() throws Exception {
-        mvc.perform(post("/customer/bookings").with(user(customer)).with(csrf()).param("staffId", "2").param("scheduleId", "20")
+        mvc.perform(post("/customer/bookings").with(user(customer)).with(csrf()).param("staffId", "2").param("houseId", "20")
                 .param("startAt", "2026-11-01T08:00")).andExpect(status().isOk()).andExpect(view().name("booking-new"));
         verifyNoInteractions(reservations);
     }
@@ -260,9 +258,9 @@ class PortalMvcTest {
 
     @Test
     void evidenceUploadChecksOwnershipBeforeWritingAFile() throws Exception {
-        when(query.bookingIdForDetail(30L, staff)).thenThrow(new AccessDeniedException("Other staff"));
+        when(query.booking(42L, staff)).thenThrow(new AccessDeniedException("Other staff"));
         MockMultipartFile image = new MockMultipartFile("image", "proof.png", "image/png", new byte[]{1, 2, 3});
-        mvc.perform(multipart("/staff/details/30/evidence").file(image).with(user(staff)).with(csrf()))
+        mvc.perform(multipart("/staff/bookings/42/evidence").file(image).with(user(staff)).with(csrf()))
                 .andExpect(status().isForbidden());
         verifyNoInteractions(storage);
     }

@@ -16,8 +16,6 @@ import java.nio.charset.StandardCharsets;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import org.springframework.beans.factory.annotation.Value;
@@ -176,8 +174,8 @@ public class PortalController {
     @GetMapping("/customer/bookings/new")
     String newBooking(@AuthenticationPrincipal PortalUser user, Model model) {
         model.addAttribute("services", query.services()); model.addAttribute("staff", query.staff(user));
-        model.addAttribute("schedules", query.schedules(user));
-        if (!model.containsAttribute("bookingForm")) { model.addAttribute("bookingForm", new BookingForm(null, null, null, List.of())); }
+        model.addAttribute("houses", houses.findCustomerHouses(user.getUserId()));
+        if (!model.containsAttribute("bookingForm")) { model.addAttribute("bookingForm", new BookingForm(null, null, null, List.of(), "")); }
         // Occupied intervals are shown explicitly; the reservation service rechecks atomically on submit.
         model.addAttribute("busy", query.busyIntervals());
         return "booking-new";
@@ -188,12 +186,8 @@ public class PortalController {
             BindingResult errors, Model model) {
         if (errors.hasErrors()) { return newBooking(user, model); }
         try {
-            List<BookingReservationService.ServiceSelection> selections = new ArrayList<>();
-            for (int i = 0; i < bookingForm.serviceIds().size(); i++) {
-                selections.add(new BookingReservationService.ServiceSelection(bookingForm.scheduleId(), bookingForm.serviceIds().get(i), i + 1));
-            }
-            Long id = reservations.createBooking(user.getAccountId(), bookingForm.staffId(),
-                    bookingForm.startAt().atOffset(ZoneOffset.ofHours(7)), selections).getBookingId();
+            Long id = reservations.createBooking(user.getUserId(), bookingForm.staffId(), bookingForm.houseId(),
+                    bookingForm.startAt(), bookingForm.serviceIds(), bookingForm.areaNote());
             return "redirect:/customer/bookings/" + id;
         } catch (IllegalArgumentException | IllegalStateException failure) {
             model.addAttribute("error", PortalMessages.business(failure)); return newBooking(user, model);
@@ -205,7 +199,7 @@ public class PortalController {
         BookingCard booking = query.booking(id, user);
         List<DetailCard> details = query.details(id, user);
         model.addAttribute("booking", booking); model.addAttribute("details", details);
-        model.addAttribute("allEvidenceReady", !details.isEmpty() && details.stream().allMatch(d -> !d.evidence().isEmpty() && d.evidence().size() <= 5));
+        model.addAttribute("bookingImages", query.bookingImages(id, user));
         return "booking-detail";
     }
 
@@ -249,18 +243,18 @@ public class PortalController {
         actions.favorite(id, user.getAccountId(), favorite); return "redirect:/customer/staff";
     }
 
-    @PostMapping("/staff/details/{id}/evidence")
+    @PostMapping("/staff/bookings/{id}/evidence")
     String upload(@PathVariable Long id, @RequestParam MultipartFile image, @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
-        Long bookingId = query.bookingIdForDetail(id, user);
-        try { storage.upload(id, user.getAccountId(), image); flash.addFlashAttribute("success", "Đã lưu ảnh bằng chứng."); }
+        query.booking(id, user);
+        try { storage.upload(id, user.getAccountId(), image); flash.addFlashAttribute("success", "Đã lưu ảnh minh chứng cho lịch hẹn."); }
         catch (IllegalArgumentException | IllegalStateException failure) { flash.addFlashAttribute("error", PortalMessages.business(failure)); }
-        return "redirect:/staff/bookings/" + bookingId;
+        return "redirect:/staff/bookings/" + id;
     }
 
     @PostMapping("/staff/bookings/{id}/complete")
     String complete(@PathVariable Long id, @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
-        query.booking(id, user); completion.completeBooking(id, user.getAccountId(), PortalActionsService.now());
-        flash.addFlashAttribute("success", "Công việc đã hoàn thành. Hệ thống đã tạo thanh toán chưa trả."); return "redirect:/staff/bookings/" + id;
+        query.booking(id, user); completion.completeBooking(id, user.getAccountId());
+        flash.addFlashAttribute("success", "Công việc đã hoàn thành. Khách hàng có thể chọn phương thức thanh toán."); return "redirect:/staff/bookings/" + id;
     }
 
     @PostMapping("/admin/bookings/{id}/paid")

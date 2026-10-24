@@ -1,17 +1,13 @@
 package com.housekeeping.management.service;
 
-import com.housekeeping.management.domain.BookingStatus;
-import com.housekeeping.management.domain.entity.BookingDetail;
-import com.housekeeping.management.domain.entity.Evidences;
-import com.housekeeping.management.repository.BookingDetailRepository;
-import com.housekeeping.management.repository.EvidencesRepository;
+import com.housekeeping.management.repository.BookingImageRepository;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Iterator;
 import java.util.Locale;
@@ -28,26 +24,22 @@ import org.springframework.web.multipart.MultipartFile;
 @Service
 public class EvidenceStorageService {
     private static final long MAX_FILE_BYTES = 5L * 1024 * 1024;
-    private static final int MAX_EVIDENCES_PER_DETAIL = 5;
     private static final ZoneOffset BUSINESS_OFFSET = ZoneOffset.ofHours(7);
 
-    private final BookingDetailRepository bookingDetailRepository;
-    private final EvidencesRepository evidencesRepository;
+    private final BookingImageRepository bookingImages;
     private final TransactionTemplate transactionTemplate;
     private final Path storageRoot;
 
     public EvidenceStorageService(
-            BookingDetailRepository bookingDetailRepository,
-            EvidencesRepository evidencesRepository,
+            BookingImageRepository bookingImages,
             PlatformTransactionManager transactionManager,
             @Value("${app.evidence.storage-root:./var/evidence}") String storageRoot) {
-        this.bookingDetailRepository = bookingDetailRepository;
-        this.evidencesRepository = evidencesRepository;
+        this.bookingImages = bookingImages;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.storageRoot = Path.of(storageRoot).toAbsolutePath().normalize();
     }
 
-    public Evidences upload(Long bookingDetailId, Long staffId, MultipartFile upload) {
+    public Long upload(Long bookingId, Long staffId, MultipartFile upload) {
         ValidatedImage image = validate(upload);
         Path temporaryFile = null;
         Path finalFile = null;
@@ -64,33 +56,23 @@ public class EvidenceStorageService {
             }
             Path finalForCleanup = finalFile;
 
-            Evidences saved = transactionTemplate.execute(status -> {
-                BookingDetail detail = bookingDetailRepository.findByIdForUpdate(bookingDetailId)
-                        .orElseThrow(() -> new IllegalArgumentException("Booking detail does not exist"));
-                if (detail.getBooking().getBookingStatus() != BookingStatus.CONFIRMED) {
-                    throw new IllegalStateException("Evidence can only be uploaded for a confirmed booking");
+            Long saved = transactionTemplate.execute(status -> {
+                BookingImageRepository.BookingAccess booking = bookingImages.lockBooking(bookingId)
+                        .orElseThrow(() -> new IllegalArgumentException("Lịch hẹn không tồn tại."));
+                if (!"CONFIRMED".equals(booking.status())) {
+                    throw new IllegalStateException("Chỉ có thể tải ảnh cho lịch đang được xác nhận.");
                 }
-                if (!detail.getWorkSchedule().getStaff().getStaffId().equals(staffId)) {
-                    throw new IllegalArgumentException("Only the selected Staff can upload this evidence");
+                if (!booking.staffId().equals(staffId)) {
+                    throw new IllegalArgumentException("Chỉ nhân viên được phân công mới có thể tải ảnh minh chứng.");
                 }
-                long existingCount = evidencesRepository.countByBookingDetail_BookingDetailId(bookingDetailId);
-                if (existingCount >= MAX_EVIDENCES_PER_DETAIL) {
-                    throw new IllegalStateException("A detail cannot have more than five evidences");
-                }
-
-                Evidences evidence = new Evidences();
-                evidence.setBookingDetail(detail);
-                evidence.setStaff(detail.getWorkSchedule().getStaff());
-                evidence.setStoragePath(finalForCleanup.getFileName().toString());
-                evidence.setFileSizeBytes((long) image.bytes().length);
-                evidence.setUploadedAt(OffsetDateTime.now(BUSINESS_OFFSET).withNano(0));
-                Evidences persisted = evidencesRepository.saveAndFlush(evidence);
+                Long imageId = bookingImages.insertImage(bookingId, finalForCleanup.getFileName().toString(),
+                        LocalDateTime.now(BUSINESS_OFFSET).withNano(0));
                 try {
                     moveIntoFinalStorage(tempForCleanup, finalForCleanup);
                 } catch (IOException failure) {
                     throw new IllegalStateException("Could not finalize the evidence file", failure);
                 }
-                return persisted;
+                return imageId;
             });
             return saved;
         } catch (RuntimeException | Error failure) {

@@ -169,10 +169,7 @@ class PaymentAndEvidenceConcurrencySqlServerTest extends SqlServerIntegrationTes
             throw new IllegalStateException("Concurrent completion test did not start");
         }
         try {
-            bookingCompletionService.completeBooking(
-                    fixture.bookingId(),
-                    fixture.staffId(),
-                    OffsetDateTime.now(ZoneOffset.ofHours(7)));
+            bookingCompletionService.completeBooking(fixture.bookingId(), fixture.staffId());
             return true;
         } catch (IllegalStateException alreadyCompleted) {
             return false;
