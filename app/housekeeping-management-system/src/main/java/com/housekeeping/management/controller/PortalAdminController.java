@@ -5,6 +5,7 @@ import com.housekeeping.management.dto.response.PortalViews;
 import com.housekeeping.management.service.FeedbackService;
 import com.housekeeping.management.service.PortalActionsService;
 import com.housekeeping.management.service.PortalQueryService;
+import com.housekeeping.management.service.AdminBookingManagementService;
 import com.housekeeping.management.web.PortalUser;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -20,8 +21,10 @@ public class PortalAdminController {
     private final PortalQueryService query;
     private final PortalActionsService actions;
     private final FeedbackService feedbackService;
-    public PortalAdminController(PortalQueryService query, PortalActionsService actions, FeedbackService feedbackService) {
-        this.query = query; this.actions = actions; this.feedbackService = feedbackService;
+    private final AdminBookingManagementService bookingManagement;
+    public PortalAdminController(PortalQueryService query, PortalActionsService actions, FeedbackService feedbackService,
+            AdminBookingManagementService bookingManagement) {
+        this.query = query; this.actions = actions; this.feedbackService = feedbackService; this.bookingManagement = bookingManagement;
     }
 
     @GetMapping("/services")
@@ -37,6 +40,32 @@ public class PortalAdminController {
 
     @GetMapping("/feedback")
     String feedback(Model model) { model.addAttribute("feedback", query.feedback()); return "admin/feedback"; }
+
+    @PostMapping("/bookings/{id}/cancel")
+    String cancelBooking(@PathVariable Long id, @AuthenticationPrincipal PortalUser user,
+            @Valid @ModelAttribute AdminBookingCancellationForm form, BindingResult errors, RedirectAttributes flash) {
+        if (errors.hasErrors()) flash.addFlashAttribute("error", "Lý do hủy không được để trống và tối đa 500 ký tự.");
+        else try {
+            bookingManagement.cancelConfirmedBooking(id, user.getUserId(), form.reason());
+            flash.addFlashAttribute("success", "Admin đã hủy lịch CONFIRMED; lịch sử và snapshot được giữ nguyên.");
+        } catch (IllegalArgumentException | IllegalStateException failure) {
+            flash.addFlashAttribute("error", failure.getMessage());
+        }
+        return "redirect:/admin/bookings/" + id;
+    }
+
+    @PostMapping("/bookings/{id}/reassign")
+    String reassignBooking(@PathVariable Long id, @AuthenticationPrincipal PortalUser user,
+            @Valid @ModelAttribute BookingReassignmentForm form, BindingResult errors, RedirectAttributes flash) {
+        if (errors.hasErrors()) flash.addFlashAttribute("error", "Hãy chọn nhân viên hợp lệ.");
+        else try {
+            bookingManagement.reassignConfirmedBooking(id, user.getUserId(), form.staffId());
+            flash.addFlashAttribute("success", "Đã cập nhật nhân viên phụ trách; nhân viên ban đầu được giữ nguyên trong lịch sử.");
+        } catch (IllegalArgumentException | IllegalStateException failure) {
+            flash.addFlashAttribute("error", failure.getMessage());
+        }
+        return "redirect:/admin/bookings/" + id;
+    }
 
     @PostMapping("/feedback/{id}/reply")
     String reply(@PathVariable Long id, @Valid @ModelAttribute FeedbackReplyForm form,

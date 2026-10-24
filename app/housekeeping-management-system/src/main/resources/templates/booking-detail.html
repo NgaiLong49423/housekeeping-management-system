@@ -64,6 +64,28 @@
             </dl>
           </section>
 
+          <section class="surface p-4" th:if="${currentUser.role == 'ADMIN' and booking.status == 'CONFIRMED'}">
+            <h2 class="h5 mb-3">Xử lý lịch đã xác nhận</h2>
+            <form method="post" class="mb-4" th:action="@{/admin/bookings/{id}/reassign(id=${booking.id})}">
+              <label class="form-label" for="replacementStaff">Đổi nhân viên phụ trách</label>
+              <div class="input-group">
+                <select class="form-select" name="staffId" id="replacementStaff" required>
+                  <option th:each="candidate : ${assignableStaff}" th:value="${candidate.id}" th:selected="${candidate.id == booking.staffId}" th:text="${candidate.name + (candidate.staffType == 'FULL_TIME' ? ' · Toàn thời gian' : ' · Bán thời gian')}">Nhân viên</option>
+                </select>
+                <button class="btn btn-outline-primary" type="submit">Lưu nhân viên</button>
+              </div>
+              <p class="small text-secondary mt-2 mb-0">Hệ thống kiểm tra nhân viên đang hoạt động, ngày nghỉ, giờ sẵn sàng part-time và xung đột/đệm lịch 60 phút. Không đủ điều kiện thì không đổi lịch.</p>
+            </form>
+            <form method="post" th:action="@{/admin/bookings/{id}/cancel(id=${booking.id})}">
+              <label class="form-label" for="adminCancelReason">Hủy lịch (ghi rõ lý do)</label>
+              <div class="input-group">
+                <input class="form-control" id="adminCancelReason" name="reason" maxlength="500" required>
+                <button class="btn btn-outline-danger" type="submit">Hủy lịch</button>
+              </div>
+              <p class="small text-secondary mt-2 mb-0">Chỉ áp dụng khi trạng thái là CONFIRMED. Lịch hoàn thành/chờ thanh toán không bị hủy ở đây vì chưa có quy tắc hoàn tiền được duyệt.</p>
+            </form>
+          </section>
+
           <!-- Services and Evidence Card -->
           <section class="surface p-4">
             <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">

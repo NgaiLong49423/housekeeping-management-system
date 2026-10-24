@@ -22,10 +22,18 @@ public class BookingPersistenceRepository {
     }
 
     public Optional<BookingState> lockBooking(Long bookingId) {
+        return findBooking(bookingId, true);
+    }
+
+    public Optional<BookingState> findBooking(Long bookingId) {
+        return findBooking(bookingId, false);
+    }
+
+    private Optional<BookingState> findBooking(Long bookingId, boolean lock) {
+        String lockHint = lock ? " WITH (UPDLOCK, HOLDLOCK)" : "";
         List<BookingState> rows = jdbc.query("""
                 SELECT booking_id, customer_id, staff_id, house_id, start_time, end_time, status
-                FROM dbo.Bookings WITH (UPDLOCK, HOLDLOCK) WHERE booking_id=?
-                """, (rs, row) -> new BookingState(rs.getLong("booking_id"), rs.getLong("customer_id"),
+                FROM dbo.Bookings""" + lockHint + " WHERE booking_id=?", (rs, row) -> new BookingState(rs.getLong("booking_id"), rs.getLong("customer_id"),
                     rs.getLong("staff_id"), rs.getLong("house_id"), rs.getObject("start_time", LocalDateTime.class),
                     rs.getObject("end_time", LocalDateTime.class), rs.getString("status")), bookingId);
         return rows.stream().findFirst();
@@ -45,6 +53,13 @@ public class BookingPersistenceRepository {
                 UPDATE dbo.Bookings SET status='CANCELLED', cancelled_at=?, cancelled_by=?, cancellation_reason=?
                 WHERE booking_id=? AND status='CONFIRMED'
                 """, cancelledAt, cancelledBy, reason, bookingId);
+    }
+
+    public int assignStaff(Long bookingId, Long expectedStaffId, Long replacementStaffId) {
+        return jdbc.update("""
+                UPDATE dbo.Bookings SET staff_id=?
+                WHERE booking_id=? AND staff_id=? AND status='CONFIRMED'
+                """, replacementStaffId, bookingId, expectedStaffId);
     }
 
     public boolean companyAcceptsStart(LocalDate date, LocalTime startTime) {
@@ -80,6 +95,16 @@ public class BookingPersistenceRepository {
                   AND start_time < DATEADD(MINUTE, 60, ?)
                   AND end_time > DATEADD(MINUTE, -60, ?)
                 """, Integer.class, staffId, end, start);
+        return matches != null && matches > 0;
+    }
+
+    public boolean hasConflictingBookingExcept(Long staffId, LocalDateTime start, LocalDateTime end, Long excludedBookingId) {
+        Integer matches = jdbc.queryForObject("""
+                SELECT COUNT(*) FROM dbo.Bookings
+                WHERE staff_id=? AND booking_id<>? AND status IN ('CONFIRMED', 'AWAITING_PAYMENT', 'COMPLETED')
+                  AND start_time < DATEADD(MINUTE, 60, ?)
+                  AND end_time > DATEADD(MINUTE, -60, ?)
+                """, Integer.class, staffId, excludedBookingId, end, start);
         return matches != null && matches > 0;
     }
 

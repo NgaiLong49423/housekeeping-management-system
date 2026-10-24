@@ -17,6 +17,7 @@ import com.housekeeping.management.controller.StaffLeaveController;
 import com.housekeeping.management.controller.AdminLeaveController;
 import com.housekeeping.management.controller.AdminCompanySettingsController;
 import com.housekeeping.management.controller.StaffProfileController;
+import com.housekeeping.management.service.AdminBookingManagementService;
 import com.housekeeping.management.dto.request.PortalForms.CompanySettingsForm;
 import com.housekeeping.management.dto.request.PortalForms.OperatingHoursForm;
 import com.housekeeping.management.dto.request.PortalForms.StaffProfileForm;
@@ -60,6 +61,7 @@ class PortalMvcTest {
     @MockitoBean LeaveManagementService leaveManagement;
     @MockitoBean CompanySettingsService companySettings;
     @MockitoBean StaffProfileService staffProfiles;
+    @MockitoBean AdminBookingManagementService adminBookingManagement;
 
     private final PortalUser customer = account(1L, "CUSTOMER", "Khách hàng kiểm thử");
     private final PortalUser staff = account(2L, "STAFF", "Nhân viên kiểm thử");
@@ -77,6 +79,7 @@ class PortalMvcTest {
             new ServiceCard(11L, "Tổng vệ sinh nhà cửa", "Làm sạch kỹ lưỡng để tổ ấm thêm trong lành.", 180, new BigDecimal("350000"), true),
             new ServiceCard(12L, "Vệ sinh sofa", "Chăm sóc khu vực sinh hoạt của gia đình.", 60, new BigDecimal("200000"), true)));
         when(query.staff(any())).thenReturn(List.of(new StaffCard(2L, "Nhân viên kiểm thử", "", true, "PART_TIME", true, null, "Tận tâm"), new StaffCard(4L, "Nhân viên thứ hai", "", false, "FULL_TIME", true, null, null)));
+        when(query.staff(isNull())).thenReturn(List.of(new StaffCard(2L, "Nhân viên kiểm thử", "", false, "PART_TIME", true, null, null)));
         when(query.schedules(any())).thenReturn(List.of(new ScheduleCard(20L, 2L, "Nhân viên kiểm thử", start, start.plusHours(8))));
         when(query.busyIntervals()).thenReturn(List.of(new PortalQueryService.BusyInterval(2L, start.plusHours(4), start.plusHours(5))));
         when(query.bookings(any())).thenReturn(List.of(card("CONFIRMED", null, null), card("AWAITING_PAYMENT", "PENDING", "ONLINE")));
@@ -340,6 +343,17 @@ class PortalMvcTest {
                 .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/staff/profile"));
         verify(staffProfiles).updateOwnProfile(2L, new StaffProfileForm("https://example.test/staff.png", "Giới thiệu"));
         verify(staffProfiles, never()).findOwnProfile(1L);
+    }
+
+    @Test
+    void adminCanRequestCancellationAndReassignmentWithCsrf() throws Exception {
+        mvc.perform(post("/admin/bookings/42/cancel").with(user(admin)).with(csrf()).param("reason", "Điều phối nhân sự"))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/admin/bookings/42"));
+        verify(adminBookingManagement).cancelConfirmedBooking(42L, 3L, "Điều phối nhân sự");
+
+        mvc.perform(post("/admin/bookings/42/reassign").with(user(admin)).with(csrf()).param("staffId", "2"))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/admin/bookings/42"));
+        verify(adminBookingManagement).reassignConfirmedBooking(42L, 3L, 2L);
     }
 
     private void render(String url, PortalUser principal, String name) throws Exception {

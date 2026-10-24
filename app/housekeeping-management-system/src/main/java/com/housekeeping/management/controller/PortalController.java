@@ -239,6 +239,7 @@ public class PortalController {
         List<DetailCard> details = query.details(id, user);
         model.addAttribute("booking", booking); model.addAttribute("details", details);
         model.addAttribute("bookingImages", query.bookingImages(id, user));
+        if ("ADMIN".equals(user.getRole())) model.addAttribute("assignableStaff", query.staff(null));
         if ("CUSTOMER".equals(user.getRole()) && booking.feedbackStatus() == null) {
             model.addAttribute("feedbackForm", new FeedbackForm(""));
         }

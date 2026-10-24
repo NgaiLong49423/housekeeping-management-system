@@ -40,6 +40,7 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
     @Autowired private ServicesRepository services;
     @Autowired private StaffLeaveRepository leaves;
     @Autowired private LeaveManagementService leaveManagement;
+    @Autowired private AdminBookingManagementService adminBookingManagement;
     @Autowired private JdbcTemplate jdbc;
 
     @BeforeEach
@@ -128,6 +129,36 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
                 savedStaff.getStaffId(), house.getHouseId(), laterStart, List.of(service.getServiceId()), null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Nhân viên đã được duyệt nghỉ trong ngày bắt đầu này.");
+    }
+
+    @Test
+    void adminReassignmentPreservesOriginalStaffAndCanCancelConfirmedBooking() {
+        String suffix = UUID.randomUUID().toString();
+        User customer = users.saveAndFlush(user("admin-flow-customer-" + suffix, UserRole.CUSTOMER));
+        User originalUser = users.saveAndFlush(user("admin-flow-original-" + suffix, UserRole.STAFF));
+        User replacementUser = users.saveAndFlush(user("admin-flow-replacement-" + suffix, UserRole.STAFF));
+        User admin = users.saveAndFlush(user("admin-flow-admin-" + suffix, UserRole.ADMIN));
+        Staff original = new Staff(); original.setUser(originalUser); original.setStaffType(StaffType.FULL_TIME);
+        Staff savedOriginal = staffAccounts.saveAndFlush(original);
+        Staff replacement = new Staff(); replacement.setUser(replacementUser); replacement.setStaffType(StaffType.FULL_TIME);
+        Staff savedReplacement = staffAccounts.saveAndFlush(replacement);
+        House house = houses.saveAndFlush(house(customer.getUserId(), "Admin flow " + suffix));
+        Services service = services.saveAndFlush(service());
+        LocalDateTime start = LocalDateTime.now(ZoneOffset.ofHours(7)).plusDays(5)
+                .withHour(10).withMinute(0).withSecond(0).withNano(0);
+        Long bookingId = reservationService.createBooking(customer.getUserId(), savedOriginal.getStaffId(),
+                house.getHouseId(), start, List.of(service.getServiceId()), null);
+
+        adminBookingManagement.reassignConfirmedBooking(bookingId, admin.getUserId(), savedReplacement.getStaffId());
+        assertThat(jdbc.queryForMap("SELECT staff_id, original_staff_id FROM dbo.Bookings WHERE booking_id=?", bookingId))
+                .containsEntry("staff_id", savedReplacement.getStaffId())
+                .containsEntry("original_staff_id", savedOriginal.getStaffId());
+
+        adminBookingManagement.cancelConfirmedBooking(bookingId, admin.getUserId(), "Admin integration cancellation");
+        assertThat(jdbc.queryForMap("SELECT status, cancelled_by, cancellation_reason FROM dbo.Bookings WHERE booking_id=?", bookingId))
+                .containsEntry("status", "CANCELLED")
+                .containsEntry("cancelled_by", admin.getUserId())
+                .containsEntry("cancellation_reason", "Admin integration cancellation");
     }
 
     private boolean reserve(Long customerId, Long staffId, Long houseId, LocalDateTime start,
