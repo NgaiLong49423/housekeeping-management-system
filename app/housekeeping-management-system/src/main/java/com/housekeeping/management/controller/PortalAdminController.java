@@ -3,9 +3,10 @@ package com.housekeeping.management.controller;
 import static com.housekeeping.management.dto.request.PortalForms.*;
 import com.housekeeping.management.dto.response.PortalViews;
 import com.housekeeping.management.service.FeedbackService;
-import com.housekeeping.management.service.PortalActionsService;
 import com.housekeeping.management.service.PortalQueryService;
 import com.housekeeping.management.service.AdminBookingManagementService;
+import com.housekeeping.management.service.ServiceManagementService;
+import com.housekeeping.management.service.StaffManagementService;
 import com.housekeeping.management.web.PortalUser;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -19,12 +20,15 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 @RequestMapping("/admin")
 public class PortalAdminController {
     private final PortalQueryService query;
-    private final PortalActionsService actions;
+    private final ServiceManagementService serviceManagement;
+    private final StaffManagementService staffManagement;
     private final FeedbackService feedbackService;
     private final AdminBookingManagementService bookingManagement;
-    public PortalAdminController(PortalQueryService query, PortalActionsService actions, FeedbackService feedbackService,
+    public PortalAdminController(PortalQueryService query, ServiceManagementService serviceManagement,
+            StaffManagementService staffManagement, FeedbackService feedbackService,
             AdminBookingManagementService bookingManagement) {
-        this.query = query; this.actions = actions; this.feedbackService = feedbackService; this.bookingManagement = bookingManagement;
+        this.query = query; this.serviceManagement = serviceManagement; this.staffManagement = staffManagement;
+        this.feedbackService = feedbackService; this.bookingManagement = bookingManagement;
     }
 
     @GetMapping("/services")
@@ -86,46 +90,46 @@ public class PortalAdminController {
 
     @PostMapping("/services")
     String createService(@Valid @ModelAttribute ServiceForm form, BindingResult errors, RedirectAttributes flash) {
-        if (!invalid(errors, flash)) { actions.saveService(null, form); flash.addFlashAttribute("success", "Đã thêm dịch vụ."); }
+        if (!invalid(errors, flash)) { serviceManagement.save(null, form); flash.addFlashAttribute("success", "Đã thêm dịch vụ."); }
         return "redirect:/admin/services";
     }
 
     @PostMapping("/services/{id}")
     String updateService(@PathVariable Long id, @Valid @ModelAttribute ServiceForm form, BindingResult errors, RedirectAttributes flash) {
-        if (!invalid(errors, flash)) { actions.saveService(id, form); flash.addFlashAttribute("success", "Đã cập nhật dịch vụ."); }
+        if (!invalid(errors, flash)) { serviceManagement.save(id, form); flash.addFlashAttribute("success", "Đã cập nhật dịch vụ."); }
         return "redirect:/admin/services";
     }
 
     @PostMapping("/services/{id}/delete")
     String deleteService(@PathVariable Long id, RedirectAttributes flash) {
-        actions.deleteService(id); flash.addFlashAttribute("success", "Đã ngừng cung cấp dịch vụ; lịch sử đặt dịch vụ được giữ nguyên."); return "redirect:/admin/services";
+        serviceManagement.deactivate(id); flash.addFlashAttribute("success", "Đã ngừng cung cấp dịch vụ; lịch sử đặt dịch vụ được giữ nguyên."); return "redirect:/admin/services";
     }
 
     @PostMapping("/services/{id}/activate")
     String activateService(@PathVariable Long id, RedirectAttributes flash) {
-        actions.activateService(id); flash.addFlashAttribute("success", "Đã kích hoạt lại dịch vụ."); return "redirect:/admin/services";
+        serviceManagement.activate(id); flash.addFlashAttribute("success", "Đã kích hoạt lại dịch vụ."); return "redirect:/admin/services";
     }
 
     @PostMapping("/staff")
     String createStaff(@Valid @ModelAttribute StaffCreateForm form, BindingResult errors, RedirectAttributes flash) {
-        if (!invalid(errors, flash)) { actions.createStaff(form); flash.addFlashAttribute("success", "Đã tạo nhân viên và tài khoản đăng nhập."); }
+        if (!invalid(errors, flash)) { staffManagement.create(form); flash.addFlashAttribute("success", "Đã tạo nhân viên và tài khoản đăng nhập."); }
         return "redirect:/admin/staff";
     }
 
     @PostMapping("/staff/{id}")
     String updateStaff(@PathVariable Long id, @Valid @ModelAttribute StaffUpdateForm form, BindingResult errors, RedirectAttributes flash) {
-        if (!invalid(errors, flash)) { actions.updateStaff(id, form); flash.addFlashAttribute("success", "Đã cập nhật nhân viên."); }
+        if (!invalid(errors, flash)) { staffManagement.update(id, form); flash.addFlashAttribute("success", "Đã cập nhật nhân viên."); }
         return "redirect:/admin/staff";
     }
 
     @PostMapping("/staff/{id}/delete")
     String deleteStaff(@PathVariable Long id, RedirectAttributes flash) {
-        actions.deleteStaff(id); flash.addFlashAttribute("success", "Đã ngừng hoạt động tài khoản; dữ liệu lịch sử được giữ nguyên."); return "redirect:/admin/staff";
+        staffManagement.deactivate(id); flash.addFlashAttribute("success", "Đã ngừng hoạt động tài khoản; dữ liệu lịch sử được giữ nguyên."); return "redirect:/admin/staff";
     }
 
     @PostMapping("/staff/{id}/activate")
     String activateStaff(@PathVariable Long id, RedirectAttributes flash) {
-        actions.activateStaff(id); flash.addFlashAttribute("success", "Đã kích hoạt lại tài khoản nhân viên."); return "redirect:/admin/staff";
+        staffManagement.activate(id); flash.addFlashAttribute("success", "Đã kích hoạt lại tài khoản nhân viên."); return "redirect:/admin/staff";
     }
 
     private boolean invalid(BindingResult errors, RedirectAttributes flash) {

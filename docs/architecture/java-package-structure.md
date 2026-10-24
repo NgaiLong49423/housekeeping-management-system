@@ -1,8 +1,8 @@
 > **Document:** Java Package Structure Guide\
 > **File:** `docs/architecture/java-package-structure.md`\
-> **Version:** v2.0.0\
+> **Version:** v2.1.0\
 > **Created:** 2026-10-24\
-> **Last Updated:** 2026-10-24\
+> **Last Updated:** 2026-10-25\
 > **Status:** Active\
 
 # Hướng dẫn cấu trúc package Java
@@ -67,7 +67,9 @@ Provider PayOS phải nằm sau lớp tích hợp rõ ràng. Chỉ tạo `Paymen
 
 ## Áp dụng với code hiện tại
 
-Repo hiện còn package cũ `web/`, `domain/entity/` và các lớp tổng hợp `PortalController`, `PortalActionsService`, `PortalQueryService`. Goal này đã duyệt việc tổ chức lại theo layout mục tiêu. Khi sửa một vertical slice, hãy chuyển các class liên quan vào `controller/`, `dto/`, `entity/` hoặc `service/`, cập nhật wiring/imports và kiểm tra cùng slice. Không để thêm nghiệp vụ mới vào `Portal*` chỉ để tránh migration; giữ lớp tương thích cũ tạm thời chỉ khi lát cắt chưa được chuyển.
+Các route hiện được chia theo controller của luồng nghiệp vụ: `AuthController`, `BookingController`, `PaymentController`, `HouseController`, `StaffController`, `PortalAdminController`, cùng các controller chuyên trách Leave, Staff Profile và Company Settings. `PortalController` chỉ giữ trang chủ, danh mục dịch vụ công khai và điều hướng theo role. Business operation được đặt trong service theo domain như `BookingReservationService`, `BookingCancellationService`, `PaymentService`, `StaffAvailabilityService`, `StaffManagementService`, `ServiceManagementService` và `StaffFollowService`; không đưa nghiệp vụ mới vào controller tổng hợp.
+
+`domain/entity/` và một số repository cũ cho mô hình Customer/Admin riêng, WorkSchedule, FavoriteStaff, PaymentAttempt và Evidence vẫn còn trong lịch sử source nhưng không thuộc mô hình chạy hiện tại. `HousekeepingManagementSystemApplication` chỉ scan `com.housekeeping.management.entity`; các repository legacy có `@NoRepositoryBean`, vì vậy không được coi là contract để phát triển tiếp. Không import chúng vào feature mới. Việc dọn các file legacy còn lại cần thực hiện trong đợt được cho phép rõ ràng; không sửa hoặc xóa migration lịch sử để làm sạch package.
 
 Không đổi framework hoặc giao thức: đây vẫn là một ứng dụng Java 21/Spring Boot, Spring MVC + Thymeleaf + Bootstrap trong một Maven project, dùng Spring Data JPA/Hibernate, SQL Server, Flyway và Spring Security HTTP Session. Đây không phải REST API riêng hay React SPA; route MVC hiện có chỉ đổi khi use case yêu cầu.
 

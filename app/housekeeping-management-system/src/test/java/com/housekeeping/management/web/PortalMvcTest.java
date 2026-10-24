@@ -13,6 +13,11 @@ import com.housekeeping.management.dto.response.PortalViews;
 import com.housekeeping.management.dto.request.PortalForms.HouseForm;
 import com.housekeeping.management.controller.PortalAdminController;
 import com.housekeeping.management.controller.PortalController;
+import com.housekeeping.management.controller.AuthController;
+import com.housekeeping.management.controller.BookingController;
+import com.housekeeping.management.controller.PaymentController;
+import com.housekeeping.management.controller.HouseController;
+import com.housekeeping.management.controller.StaffController;
 import com.housekeeping.management.controller.StaffLeaveController;
 import com.housekeeping.management.controller.AdminLeaveController;
 import com.housekeeping.management.controller.AdminCompanySettingsController;
@@ -21,7 +26,6 @@ import com.housekeeping.management.service.AdminBookingManagementService;
 import com.housekeeping.management.dto.request.PortalForms.CompanySettingsForm;
 import com.housekeeping.management.dto.request.PortalForms.OperatingHoursForm;
 import com.housekeeping.management.dto.request.PortalForms.StaffProfileForm;
-import com.housekeeping.management.service.PortalActionsService;
 import com.housekeeping.management.service.PortalQueryService;
 import com.housekeeping.management.service.*;
 import java.math.BigDecimal;
@@ -43,13 +47,18 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.mock.web.MockMultipartFile;
 
-@WebMvcTest({PortalController.class, PortalAdminController.class, StaffLeaveController.class, AdminLeaveController.class, AdminCompanySettingsController.class, StaffProfileController.class})
+@WebMvcTest({PortalController.class, AuthController.class, BookingController.class, PaymentController.class, HouseController.class, StaffController.class, PortalAdminController.class, StaffLeaveController.class, AdminLeaveController.class, AdminCompanySettingsController.class, StaffProfileController.class})
 @Import(SecurityConfig.class)
 class PortalMvcTest {
     @Autowired MockMvc mvc;
     @Autowired PasswordEncoder encoder;
     @MockitoBean PortalQueryService query;
-    @MockitoBean PortalActionsService actions;
+    @MockitoBean RegistrationService registration;
+    @MockitoBean BookingCancellationService cancellation;
+    @MockitoBean StaffAvailabilityService availability;
+    @MockitoBean StaffFollowService follows;
+    @MockitoBean ServiceManagementService serviceManagement;
+    @MockitoBean StaffManagementService staffManagement;
     @MockitoBean AuthService identity;
     @MockitoBean BookingReservationService reservations;
     @MockitoBean BookingCompletionService completion;
@@ -216,7 +225,8 @@ class PortalMvcTest {
         mvc.perform(get("/admin/bookings").with(user(customer))).andExpect(status().isForbidden());
         mvc.perform(get("/staff/bookings").with(user(customer))).andExpect(status().isForbidden());
         mvc.perform(post("/admin/services").with(user(customer)).with(csrf())).andExpect(status().isForbidden());
-        verifyNoInteractions(actions, reservations, payments, storage, houses);
+        verifyNoInteractions(registration, cancellation, availability, follows, serviceManagement, staffManagement,
+                reservations, payments, storage, houses);
     }
 
     @Test
@@ -244,7 +254,7 @@ class PortalMvcTest {
     void csrfIsRequiredForMutationsAndLogout() throws Exception {
         mvc.perform(post("/customer/bookings/42/cancel").with(user(customer))).andExpect(status().isForbidden());
         mvc.perform(post("/logout").with(user(customer))).andExpect(status().isForbidden());
-        verifyNoInteractions(actions);
+        verifyNoInteractions(cancellation);
     }
 
     @Test
