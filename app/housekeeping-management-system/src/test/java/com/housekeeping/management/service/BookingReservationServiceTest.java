@@ -107,6 +107,49 @@ class BookingReservationServiceTest {
     }
 
     @Test
+    void rejectsInactiveServiceBeforeWritingBookingOrDetails() {
+        User customer = new User();
+        customer.setUserId(12L);
+        customer.setRole(UserRole.CUSTOMER);
+        customer.setStatus(UserStatus.ACTIVE);
+        when(users.findById(12L)).thenReturn(Optional.of(customer));
+
+        House house = new House();
+        house.setHouseId(31L);
+        house.setAddress("12 Đường Mẫu, Quận 1");
+        house.setLatitude(new BigDecimal("10.0000000"));
+        house.setLongitude(new BigDecimal("106.0000000"));
+        when(houses.findLockedByHouseIdAndCustomerIdAndDeletedFalse(31L, 12L)).thenReturn(Optional.of(house));
+        when(houseService.isWithinServiceRadius(house.getLatitude(), house.getLongitude())).thenReturn(true);
+
+        Staff staff = new Staff();
+        staff.setStaffId(7L);
+        staff.setStaffType(StaffType.FULL_TIME);
+        when(staffAccounts.findActiveByStaffIdForUpdate(7L)).thenReturn(Optional.of(staff));
+
+        LocalDateTime start = LocalDateTime.now(ZoneOffset.ofHours(7)).plusDays(3)
+                .withHour(10).withMinute(0).withSecond(0).withNano(0);
+        when(bookings.companyAcceptsStart(start.toLocalDate(), start.toLocalTime())).thenReturn(true);
+        when(bookings.isOnApprovedLeave(7L, start.toLocalDate())).thenReturn(false);
+        Services inactive = service(5L, "Dọn phòng", "100.00", 60);
+        inactive.setStatus(Services.Status.INACTIVE);
+        when(services.findAllById(java.util.List.of(5L))).thenReturn(java.util.List.of(inactive));
+
+        assertThatThrownBy(() -> service.createBooking(12L, 7L, 31L, start, java.util.List.of(5L), null))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("ngừng hoạt động");
+
+        verify(bookings, org.mockito.Mockito.never()).hasConflictingBooking(
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        verify(bookings, org.mockito.Mockito.never()).insertBooking(org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        verify(bookings, org.mockito.Mockito.never()).insertDetails(org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyList());
+    }
+
+    @Test
     void sumsServiceSnapshotsAndAllowsWorkToEndAfterCompanyClosingTime() {
         User customer = new User();
         customer.setUserId(12L);
