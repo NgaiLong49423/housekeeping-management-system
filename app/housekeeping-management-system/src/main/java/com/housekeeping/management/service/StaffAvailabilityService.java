@@ -5,6 +5,7 @@ import com.housekeeping.management.dto.request.PortalForms.AvailabilityForm;
 import com.housekeeping.management.entity.Staff;
 import com.housekeeping.management.repository.StaffAccountRepository;
 import com.housekeeping.management.repository.StaffAvailabilityRepository;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,12 +20,12 @@ public class StaffAvailabilityService {
     }
 
     @Transactional
-    public void save(Long staffId, Long availabilityId, AvailabilityForm form) {
+    public void save(Long userId, Long availabilityId, AvailabilityForm form) {
+        Long staffId = requirePartTimeStaff(userId).getStaffId();
         if (form.startTime() == null || form.endTime() == null || form.workDate() == null
                 || !form.endTime().isAfter(form.startTime())) {
             throw new IllegalArgumentException("Giờ kết thúc phải sau giờ bắt đầu.");
         }
-        requirePartTimeStaff(staffId);
         if (availabilityId != null && availability.containsExistingBookingStart(availabilityId, staffId)
                 && !availability.unchanged(availabilityId, staffId, form.workDate(), form.startTime(), form.endTime())) {
             throw new IllegalStateException("Không thể đổi khoảng đã có lịch hẹn bắt đầu bên trong.");
@@ -39,8 +40,8 @@ public class StaffAvailabilityService {
     }
 
     @Transactional
-    public void delete(Long staffId, Long availabilityId) {
-        requirePartTimeStaff(staffId);
+    public void delete(Long userId, Long availabilityId) {
+        Long staffId = requirePartTimeStaff(userId).getStaffId();
         if (availability.containsExistingBookingStart(availabilityId, staffId)) {
             throw new IllegalStateException("Không thể xóa khoảng đã có lịch hẹn bắt đầu bên trong.");
         }
@@ -49,9 +50,9 @@ public class StaffAvailabilityService {
         }
     }
 
-    private Staff requirePartTimeStaff(Long staffId) {
-        Staff staff = staffAccounts.findActiveByStaffIdForUpdate(staffId)
-                .orElseThrow(() -> new IllegalArgumentException("Nhân viên không tồn tại hoặc không hoạt động."));
+    private Staff requirePartTimeStaff(Long userId) {
+        Staff staff = staffAccounts.findActiveByUserIdForUpdate(userId)
+                .orElseThrow(() -> new AccessDeniedException("Tài khoản Staff không tồn tại hoặc không hoạt động."));
         if (staff.getStaffType() != StaffType.PART_TIME) {
             throw new IllegalStateException("Nhân viên toàn thời gian không đăng ký khoảng sẵn sàng riêng.");
         }

@@ -102,11 +102,12 @@ class ManagementServicesTest {
         StaffAccountRepository staffAccounts = mock(StaffAccountRepository.class);
         StaffAvailabilityRepository availability = mock(StaffAvailabilityRepository.class);
         Staff staff = new Staff(); staff.setStaffType(StaffType.PART_TIME);
-        when(staffAccounts.findActiveByStaffIdForUpdate(8L)).thenReturn(Optional.of(staff));
+        staff.setStaffId(8L);
+        when(staffAccounts.findActiveByUserIdForUpdate(800L)).thenReturn(Optional.of(staff));
         when(availability.overlapsAnotherInterval(8L, LocalDate.of(2026, 11, 3),
                 LocalTime.of(9, 0), LocalTime.of(12, 0), null)).thenReturn(true);
         StaffAvailabilityService service = new StaffAvailabilityService(staffAccounts, availability);
-        assertThatThrownBy(() -> service.save(8L, null, new PortalForms.AvailabilityForm(
+        assertThatThrownBy(() -> service.save(800L, null, new PortalForms.AvailabilityForm(
                 LocalDate.of(2026, 11, 3), LocalTime.of(9, 0), LocalTime.of(12, 0))))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("bị chồng");
         org.mockito.Mockito.verify(availability, org.mockito.Mockito.never()).insert(any(), any(), any(), any());

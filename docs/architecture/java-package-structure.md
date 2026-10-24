@@ -1,6 +1,6 @@
 > **Document:** Java Package Structure Guide\
 > **File:** `docs/architecture/java-package-structure.md`\
-> **Version:** v2.2.0\
+> **Version:** v2.3.0\
 > **Created:** 2026-10-24\
 > **Last Updated:** 2026-10-25\
 > **Status:** Active\
@@ -68,6 +68,8 @@ Provider PayOS phải nằm sau lớp tích hợp rõ ràng. Chỉ tạo `Paymen
 ## Áp dụng với code hiện tại
 
 Các route hiện được chia theo controller của luồng nghiệp vụ: `AuthController`, `BookingController`, `PaymentController`, `HouseController`, `StaffController`, `PortalAdminController`, cùng các controller chuyên trách Leave, Staff Profile và Company Settings. `PortalController` chỉ giữ trang chủ, danh mục dịch vụ công khai và điều hướng theo role. Business operation được đặt trong service theo domain như `BookingReservationService`, `BookingCancellationService`, `PaymentService`, `StaffAvailabilityService`, `StaffManagementService`, `ServiceManagementService` và `StaffFollowService`; `AccountAuthorizationService` dùng chung để xác minh Admin còn hoạt động ở ranh giới service. Không đưa nghiệp vụ mới vào controller tổng hợp.
+
+Các use case tự phục vụ của Staff nhận `userId` từ principal đăng nhập rồi tự tìm bản ghi Staff liên kết bên trong service; không truyền `staffId` do request cung cấp làm danh tính người thao tác. `PortalUser.accountId` vẫn được dùng cho những màn hình cần mã Customer/Staff domain, còn `PortalUser.userId` là khóa của bảng `Users`.
 
 `domain/entity/` và một số repository cũ cho mô hình Customer/Admin riêng, WorkSchedule, FavoriteStaff, PaymentAttempt và Evidence vẫn còn trong lịch sử source nhưng không thuộc mô hình chạy hiện tại. `HousekeepingManagementSystemApplication` chỉ scan `com.housekeeping.management.entity`; các repository legacy có `@NoRepositoryBean`, vì vậy không được coi là contract để phát triển tiếp. Không import chúng vào feature mới. Việc dọn các file legacy còn lại cần thực hiện trong đợt được cho phép rõ ràng; không sửa hoặc xóa migration lịch sử để làm sạch package.
 

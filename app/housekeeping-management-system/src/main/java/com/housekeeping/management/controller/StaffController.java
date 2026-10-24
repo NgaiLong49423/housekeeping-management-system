@@ -90,7 +90,7 @@ public class StaffController {
             flash.addFlashAttribute("error", "Ngày và giờ sẵn sàng chưa hợp lệ.");
         } else {
             try {
-                availability.save(user.getAccountId(), null, form);
+                availability.save(user.getUserId(), null, form);
                 flash.addFlashAttribute("success", "Đã đăng ký khoảng sẵn sàng.");
             } catch (IllegalArgumentException | IllegalStateException failure) {
                 flash.addFlashAttribute("error", PortalMessages.business(failure));
@@ -103,7 +103,7 @@ public class StaffController {
     String deleteAvailability(@PathVariable Long id, @AuthenticationPrincipal PortalUser user,
             RedirectAttributes flash) {
         try {
-            availability.delete(user.getAccountId(), id);
+            availability.delete(user.getUserId(), id);
             flash.addFlashAttribute("success", "Đã xóa khoảng sẵn sàng.");
         } catch (IllegalArgumentException | IllegalStateException failure) {
             flash.addFlashAttribute("error", PortalMessages.business(failure));

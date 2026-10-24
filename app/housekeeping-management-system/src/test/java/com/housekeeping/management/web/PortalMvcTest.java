@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.housekeeping.management.config.SecurityConfig;
 import com.housekeeping.management.dto.response.PortalViews;
 import com.housekeeping.management.dto.request.PortalForms.HouseForm;
+import com.housekeeping.management.dto.request.PortalForms.AvailabilityForm;
 import com.housekeeping.management.controller.PortalAdminController;
 import com.housekeeping.management.controller.PortalController;
 import com.housekeeping.management.controller.AuthController;
@@ -73,7 +74,7 @@ class PortalMvcTest {
     @MockitoBean AdminBookingManagementService adminBookingManagement;
 
     private final PortalUser customer = account(1L, "CUSTOMER", "Khách hàng kiểm thử");
-    private final PortalUser staff = account(2L, "STAFF", "Nhân viên kiểm thử");
+    private final PortalUser staff = new PortalUser(2L, 22L, "staff@example.test", "unused-hash", "Nhân viên kiểm thử", "STAFF");
     private final PortalUser admin = account(3L, "ADMIN", "Quản trị kiểm thử");
     private final OffsetDateTime start = OffsetDateTime.now(ZoneOffset.ofHours(7)).plusDays(2).withHour(8).withMinute(0).withSecond(0).withNano(0);
 
@@ -100,7 +101,7 @@ class PortalMvcTest {
                 .mapToObj(day -> new OperatingHoursForm(day, day == 7,
                         day == 7 ? null : java.time.LocalTime.of(8, 0),
                         day == 7 ? null : java.time.LocalTime.of(17, 0))).toList()));
-        when(staffProfiles.findOwnProfile(2L)).thenReturn(new StaffProfileForm(null, "Giới thiệu nhân viên"));
+        when(staffProfiles.findOwnProfile(22L)).thenReturn(new StaffProfileForm(null, "Giới thiệu nhân viên"));
         when(query.booking(eq(42L), any())).thenReturn(card("CONFIRMED", null, null));
         when(query.details(eq(42L), any())).thenReturn(List.of(new DetailCard(30L, "Dọn dẹp nhà theo giờ", 1, 120, new BigDecimal("140000"), List.of())));
     }
@@ -230,6 +231,20 @@ class PortalMvcTest {
     }
 
     @Test
+    void staffSelfServicePassesUsersIdentityInsteadOfStaffAccountId() throws Exception {
+        AvailabilityForm form = new AvailabilityForm(java.time.LocalDate.of(2026, 11, 3),
+                java.time.LocalTime.of(9, 0), java.time.LocalTime.of(12, 0));
+        mvc.perform(post("/staff/schedules").with(user(staff)).with(csrf())
+                        .param("workDate", "2026-11-03").param("startTime", "09:00").param("endTime", "12:00"))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/staff/schedules"));
+        verify(availability).save(22L, null, form);
+
+        mvc.perform(post("/staff/schedules/20/delete").with(user(staff)).with(csrf()))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/staff/schedules"));
+        verify(availability).delete(22L, 20L);
+    }
+
+    @Test
     void loginCreatesSessionAndPortalRedirectsByDatabaseRole() throws Exception {
         for (PortalUser user : List.of(customer, staff, admin)) {
             PortalUser stored = new PortalUser(user.getAccountId(), user.getUsername(), encoder.encode("test-password"), user.getDisplayName(), user.getRole());
@@ -351,7 +366,7 @@ class PortalMvcTest {
         mvc.perform(post("/staff/profile").with(user(staff)).with(csrf())
                         .param("avatarUrl", "https://example.test/staff.png").param("bio", "Giới thiệu"))
                 .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/staff/profile"));
-        verify(staffProfiles).updateOwnProfile(2L, new StaffProfileForm("https://example.test/staff.png", "Giới thiệu"));
+        verify(staffProfiles).updateOwnProfile(22L, new StaffProfileForm("https://example.test/staff.png", "Giới thiệu"));
         verify(staffProfiles, never()).findOwnProfile(1L);
     }
 

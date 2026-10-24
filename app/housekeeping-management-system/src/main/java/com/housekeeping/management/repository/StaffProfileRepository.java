@@ -18,12 +18,6 @@ public class StaffProfileRepository {
         return profiles.stream().findFirst();
     }
 
-    public boolean lockStaff(long staffId) {
-        List<Long> staff = jdbc.query("SELECT staff_id FROM dbo.Staff WITH (UPDLOCK, HOLDLOCK) WHERE staff_id=?",
-                (rs, row) -> rs.getLong(1), staffId);
-        return !staff.isEmpty();
-    }
-
     public void save(long staffId, String avatarUrl, String bio) {
         int updated = jdbc.update("""
                 UPDATE dbo.Staff_Profiles SET avatar_url=?, bio=? WHERE staff_id=?

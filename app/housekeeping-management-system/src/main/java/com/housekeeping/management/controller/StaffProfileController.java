@@ -22,7 +22,7 @@ public class StaffProfileController {
 
     @GetMapping
     String view(@AuthenticationPrincipal PortalUser user, Model model) {
-        model.addAttribute("profileForm", profiles.findOwnProfile(user.getAccountId()));
+        model.addAttribute("profileForm", profiles.findOwnProfile(user.getUserId()));
         return "staff/profile";
     }
 
@@ -35,7 +35,7 @@ public class StaffProfileController {
             return "staff/profile";
         }
         try {
-            profiles.updateOwnProfile(user.getAccountId(), form);
+            profiles.updateOwnProfile(user.getUserId(), form);
             flash.addFlashAttribute("success", "Hồ sơ của bạn đã được cập nhật.");
         } catch (IllegalArgumentException failure) {
             flash.addFlashAttribute("error", failure.getMessage());

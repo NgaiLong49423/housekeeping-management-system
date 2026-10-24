@@ -39,10 +39,10 @@ class StaffProfileSqlServerTest extends SqlServerIntegrationTest {
         staff.setStaffType(StaffType.FULL_TIME);
         long staffId = staffAccounts.saveAndFlush(staff).getStaffId();
 
-        profiles.updateOwnProfile(staffId, new StaffProfileForm("https://example.test/avatar.png", "Giới thiệu ban đầu"));
-        profiles.updateOwnProfile(staffId, new StaffProfileForm(null, "Giới thiệu đã sửa"));
+        profiles.updateOwnProfile(savedUser.getUserId(), new StaffProfileForm("https://example.test/avatar.png", "Giới thiệu ban đầu"));
+        profiles.updateOwnProfile(savedUser.getUserId(), new StaffProfileForm(null, "Giới thiệu đã sửa"));
 
-        assertThat(profiles.findOwnProfile(staffId)).isEqualTo(new StaffProfileForm(null, "Giới thiệu đã sửa"));
+        assertThat(profiles.findOwnProfile(savedUser.getUserId())).isEqualTo(new StaffProfileForm(null, "Giới thiệu đã sửa"));
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Staff_Profiles WHERE staff_id=?", Integer.class, staffId)).isEqualTo(1);
     }
 }
