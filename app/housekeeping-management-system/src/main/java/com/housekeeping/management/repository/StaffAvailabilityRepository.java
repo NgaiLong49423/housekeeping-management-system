@@ -17,7 +17,7 @@ public class StaffAvailabilityRepository {
         Integer count = jdbc.queryForObject("""
                 SELECT COUNT(*) FROM dbo.Staff_Availability WITH (UPDLOCK, HOLDLOCK)
                 WHERE staff_id=? AND work_date=? AND (? IS NULL OR availability_id<>?)
-                  AND start_time < ? AND end_time > ?
+                  AND start_time < CAST(? AS TIME(0)) AND end_time > CAST(? AS TIME(0))
                 """, Integer.class, staffId, date, exceptId, exceptId, end, start);
         return count != null && count > 0;
     }
@@ -38,7 +38,8 @@ public class StaffAvailabilityRepository {
     public boolean unchanged(Long id, Long staffId, LocalDate date, LocalTime start, LocalTime end) {
         Integer count = jdbc.queryForObject("""
                 SELECT COUNT(*) FROM dbo.Staff_Availability
-                WHERE availability_id=? AND staff_id=? AND work_date=? AND start_time=? AND end_time=?
+                WHERE availability_id=? AND staff_id=? AND work_date=?
+                  AND start_time=CAST(? AS TIME(0)) AND end_time=CAST(? AS TIME(0))
                 """, Integer.class, id, staffId, date, start, end);
         return count != null && count == 1;
     }

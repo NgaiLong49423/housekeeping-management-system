@@ -9,6 +9,7 @@ import com.housekeeping.management.repository.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -32,15 +33,16 @@ class PortalOwnershipTest {
     void cancellationCannotChangeAnotherCustomersBookingOrCompletedBooking() {
         BookingPersistenceRepository persistence = mock(BookingPersistenceRepository.class);
         BookingCancellationService cancellation = new BookingCancellationService(persistence);
+        LocalDateTime now = LocalDateTime.now(ZoneOffset.ofHours(7)).withNano(0);
         var booking = new BookingPersistenceRepository.BookingState(42L, 1L, 2L, 3L,
-                LocalDateTime.now().plusHours(3), LocalDateTime.now().plusHours(4), "CONFIRMED");
+                now.plusHours(3), now.plusHours(4), "CONFIRMED");
         when(persistence.lockBooking(42L)).thenReturn(Optional.of(booking));
         assertThatThrownBy(() -> cancellation.cancelByCustomer(42L, 9L)).isInstanceOf(AccessDeniedException.class);
         when(persistence.lockBooking(42L)).thenReturn(Optional.of(new BookingPersistenceRepository.BookingState(42L, 1L, 2L, 3L,
-                LocalDateTime.now().plusHours(3), LocalDateTime.now().plusHours(4), "COMPLETED")));
+                now.plusHours(3), now.plusHours(4), "COMPLETED")));
         assertThatThrownBy(() -> cancellation.cancelByCustomer(42L, 1L)).isInstanceOf(IllegalStateException.class);
         when(persistence.lockBooking(42L)).thenReturn(Optional.of(new BookingPersistenceRepository.BookingState(42L, 1L, 2L, 3L,
-                LocalDateTime.now().plusMinutes(119), LocalDateTime.now().plusHours(2), "CONFIRMED")));
+                now.plusMinutes(119), now.plusHours(2), "CONFIRMED")));
         assertThatThrownBy(() -> cancellation.cancelByCustomer(42L, 1L)).isInstanceOf(IllegalStateException.class);
         when(persistence.lockBooking(42L)).thenReturn(Optional.of(booking));
         when(persistence.cancel(anyLong(), anyLong(), anyString(), any(LocalDateTime.class))).thenReturn(1);

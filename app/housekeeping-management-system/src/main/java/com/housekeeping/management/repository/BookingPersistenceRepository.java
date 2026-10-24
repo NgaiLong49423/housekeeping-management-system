@@ -67,7 +67,8 @@ public class BookingPersistenceRepository {
         Integer matches = jdbc.queryForObject("""
                 SELECT COUNT(*) FROM dbo.Company_Operating_Hours h
                 JOIN dbo.Company_Settings c ON c.company_id=h.company_id
-                WHERE h.day_of_week=? AND h.is_closed=0 AND ? >= h.opening_time AND ? < h.closing_time
+                WHERE h.day_of_week=? AND h.is_closed=0
+                  AND CAST(? AS TIME(0)) >= h.opening_time AND CAST(? AS TIME(0)) < h.closing_time
                 """, Integer.class, dayOfWeek, startTime, startTime);
         return matches != null && matches == 1;
     }
@@ -75,7 +76,8 @@ public class BookingPersistenceRepository {
     public boolean hasPartTimeAvailability(Long staffId, LocalDate date, LocalTime startTime) {
         Integer matches = jdbc.queryForObject("""
                 SELECT COUNT(*) FROM dbo.Staff_Availability
-                WHERE staff_id=? AND work_date=? AND start_time<=? AND end_time>?
+                WHERE staff_id=? AND work_date=?
+                  AND start_time<=CAST(? AS TIME(0)) AND end_time>CAST(? AS TIME(0))
                 """, Integer.class, staffId, date, startTime, startTime);
         return matches != null && matches > 0;
     }

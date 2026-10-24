@@ -16,10 +16,13 @@ import com.housekeeping.management.repository.BookingPersistenceRepository;
 import com.housekeeping.management.repository.HouseRepository;
 import com.housekeeping.management.repository.ServicesRepository;
 import com.housekeeping.management.repository.StaffAccountRepository;
+import com.housekeeping.management.repository.StaffAvailabilityRepository;
 import com.housekeeping.management.repository.StaffLeaveRepository;
 import com.housekeeping.management.repository.UserRepository;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
@@ -40,6 +43,7 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
     @Autowired private HouseRepository houses;
     @Autowired private ServicesRepository services;
     @Autowired private StaffLeaveRepository leaves;
+    @Autowired private StaffAvailabilityRepository availability;
     @Autowired private LeaveManagementService leaveManagement;
     @Autowired private AdminBookingManagementService adminBookingManagement;
     @Autowired private BookingCompletionService bookingCompletion;
@@ -159,6 +163,42 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
 
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Bookings WHERE booking_id IN (?, ?) AND status='CONFIRMED'",
                 Integer.class, firstBookingId, secondBookingId)).isEqualTo(2);
+    }
+
+    @Test
+    void partTimeBookingUsesSqlServerTimeValuesAndMayEndAfterAvailability() {
+        String suffix = UUID.randomUUID().toString();
+        User customer = users.saveAndFlush(user("part-time-customer-" + suffix, UserRole.CUSTOMER));
+        User staffUser = users.saveAndFlush(user("part-time-staff-" + suffix, UserRole.STAFF));
+        Staff staff = new Staff();
+        staff.setUser(staffUser);
+        staff.setStaffType(StaffType.PART_TIME);
+        Staff savedStaff = staffAccounts.saveAndFlush(staff);
+        House house = houses.saveAndFlush(house(customer.getUserId(), "Part-time " + suffix));
+        Services service = service();
+        service.setDurationMinutes(120);
+        Services savedService = services.saveAndFlush(service);
+        LocalDate workDate = LocalDate.now(ZoneOffset.ofHours(7)).plusDays(4);
+
+        assertThat(availability.insert(savedStaff.getStaffId(), workDate, LocalTime.of(8, 0),
+                LocalTime.of(9, 0))).isEqualTo(1);
+        Long availabilityId = jdbc.queryForObject("SELECT availability_id FROM dbo.Staff_Availability WHERE staff_id=?",
+                Long.class, savedStaff.getStaffId());
+
+        assertThat(availability.overlapsAnotherInterval(savedStaff.getStaffId(), workDate,
+                LocalTime.of(8, 30), LocalTime.of(9, 30), null)).isTrue();
+        assertThat(availability.overlapsAnotherInterval(savedStaff.getStaffId(), workDate,
+                LocalTime.of(9, 0), LocalTime.of(10, 0), null)).isFalse();
+        assertThat(availability.unchanged(availabilityId, savedStaff.getStaffId(), workDate,
+                LocalTime.of(8, 0), LocalTime.of(9, 0))).isTrue();
+
+        Long bookingId = reservationService.createBooking(customer.getUserId(), savedStaff.getStaffId(),
+                house.getHouseId(), workDate.atTime(8, 30), List.of(savedService.getServiceId()), null);
+
+        assertThat(bookingPersistence.findBooking(bookingId).orElseThrow().endTime())
+                .isEqualTo(workDate.atTime(10, 30));
+        assertThat(bookingPersistence.hasPartTimeAvailability(savedStaff.getStaffId(), workDate,
+                LocalTime.of(9, 0))).isFalse();
     }
 
     @Test
