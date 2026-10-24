@@ -131,6 +131,80 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
     }
 
     @Test
+    void sameHouseAndTimeCanBeBookedWithDifferentStaff() {
+        String suffix = UUID.randomUUID().toString();
+        User customer = users.saveAndFlush(user("different-staff-customer-" + suffix, UserRole.CUSTOMER));
+        User firstStaffUser = users.saveAndFlush(user("different-staff-first-" + suffix, UserRole.STAFF));
+        User secondStaffUser = users.saveAndFlush(user("different-staff-second-" + suffix, UserRole.STAFF));
+        Staff firstStaff = new Staff();
+        firstStaff.setUser(firstStaffUser);
+        firstStaff.setStaffType(StaffType.FULL_TIME);
+        Staff savedFirstStaff = staffAccounts.saveAndFlush(firstStaff);
+        Staff secondStaff = new Staff();
+        secondStaff.setUser(secondStaffUser);
+        secondStaff.setStaffType(StaffType.FULL_TIME);
+        Staff savedSecondStaff = staffAccounts.saveAndFlush(secondStaff);
+        House house = houses.saveAndFlush(house(customer.getUserId(), "Different staff " + suffix));
+        Services service = services.saveAndFlush(service());
+        LocalDateTime start = LocalDateTime.now(ZoneOffset.ofHours(7)).plusDays(4)
+                .withHour(10).withMinute(0).withSecond(0).withNano(0);
+
+        Long firstBookingId = reservationService.createBooking(customer.getUserId(), savedFirstStaff.getStaffId(),
+                house.getHouseId(), start, List.of(service.getServiceId()), null);
+        Long secondBookingId = reservationService.createBooking(customer.getUserId(), savedSecondStaff.getStaffId(),
+                house.getHouseId(), start, List.of(service.getServiceId()), null);
+
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Bookings WHERE booking_id IN (?, ?) AND status='CONFIRMED'",
+                Integer.class, firstBookingId, secondBookingId)).isEqualTo(2);
+    }
+
+    @Test
+    void bookingSnapshotsRemainUnchangedWhenHouseAndServiceAreEditedLater() {
+        String suffix = UUID.randomUUID().toString();
+        User customer = users.saveAndFlush(user("snapshot-customer-" + suffix, UserRole.CUSTOMER));
+        User staffUser = users.saveAndFlush(user("snapshot-staff-" + suffix, UserRole.STAFF));
+        Staff staff = new Staff();
+        staff.setUser(staffUser);
+        staff.setStaffType(StaffType.FULL_TIME);
+        Staff savedStaff = staffAccounts.saveAndFlush(staff);
+        House house = houses.saveAndFlush(house(customer.getUserId(), "Before edit " + suffix));
+        house.setAddress("Địa chỉ ban đầu");
+        house.setAddressNote("Ghi chú ban đầu");
+        houses.saveAndFlush(house);
+        Services service = services.saveAndFlush(service());
+        service.setServiceName("Dịch vụ ban đầu");
+        service.setPrice(new BigDecimal("125000.00"));
+        services.saveAndFlush(service);
+        LocalDateTime start = LocalDateTime.now(ZoneOffset.ofHours(7)).plusDays(4)
+                .withHour(10).withMinute(0).withSecond(0).withNano(0);
+
+        Long bookingId = reservationService.createBooking(customer.getUserId(), savedStaff.getStaffId(),
+                house.getHouseId(), start, List.of(service.getServiceId()), null);
+
+        house.setAddress("Địa chỉ đã sửa");
+        house.setAddressNote("Ghi chú đã sửa");
+        houses.saveAndFlush(house);
+        service.setServiceName("Dịch vụ đã sửa");
+        service.setPrice(new BigDecimal("999999.00"));
+        service.setDurationMinutes(120);
+        service.setStatus(Services.Status.INACTIVE);
+        services.saveAndFlush(service);
+
+        assertThat(jdbc.queryForMap("""
+                SELECT b.address_snapshot, b.address_note_snapshot, d.service_name_snapshot,
+                       d.unit_price, d.duration_minutes
+                FROM dbo.Bookings b
+                JOIN dbo.Booking_Details d ON d.booking_id=b.booking_id
+                WHERE b.booking_id=?
+                """, bookingId))
+                .containsEntry("address_snapshot", "Địa chỉ ban đầu")
+                .containsEntry("address_note_snapshot", "Ghi chú ban đầu")
+                .containsEntry("service_name_snapshot", "Dịch vụ ban đầu")
+                .containsEntry("unit_price", new BigDecimal("125000.00"))
+                .containsEntry("duration_minutes", 60);
+    }
+
+    @Test
     void pendingLeaveDoesNotBlockBookingButApprovalBlocksLaterStartsOnItsDates() {
         String suffix = UUID.randomUUID().toString();
         User customer = users.saveAndFlush(user("leave-customer-" + suffix, UserRole.CUSTOMER));
