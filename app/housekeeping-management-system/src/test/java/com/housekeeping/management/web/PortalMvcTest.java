@@ -16,8 +16,10 @@ import com.housekeeping.management.controller.PortalController;
 import com.housekeeping.management.controller.StaffLeaveController;
 import com.housekeeping.management.controller.AdminLeaveController;
 import com.housekeeping.management.controller.AdminCompanySettingsController;
+import com.housekeeping.management.controller.StaffProfileController;
 import com.housekeeping.management.dto.request.PortalForms.CompanySettingsForm;
 import com.housekeeping.management.dto.request.PortalForms.OperatingHoursForm;
+import com.housekeeping.management.dto.request.PortalForms.StaffProfileForm;
 import com.housekeeping.management.service.PortalActionsService;
 import com.housekeeping.management.service.PortalQueryService;
 import com.housekeeping.management.service.*;
@@ -40,7 +42,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.mock.web.MockMultipartFile;
 
-@WebMvcTest({PortalController.class, PortalAdminController.class, StaffLeaveController.class, AdminLeaveController.class, AdminCompanySettingsController.class})
+@WebMvcTest({PortalController.class, PortalAdminController.class, StaffLeaveController.class, AdminLeaveController.class, AdminCompanySettingsController.class, StaffProfileController.class})
 @Import(SecurityConfig.class)
 class PortalMvcTest {
     @Autowired MockMvc mvc;
@@ -57,6 +59,7 @@ class PortalMvcTest {
     @MockitoBean HouseService houses;
     @MockitoBean LeaveManagementService leaveManagement;
     @MockitoBean CompanySettingsService companySettings;
+    @MockitoBean StaffProfileService staffProfiles;
 
     private final PortalUser customer = account(1L, "CUSTOMER", "Khách hàng kiểm thử");
     private final PortalUser staff = account(2L, "STAFF", "Nhân viên kiểm thử");
@@ -73,7 +76,7 @@ class PortalMvcTest {
             new ServiceCard(10L, "Dọn dẹp nhà theo giờ", "Làm sạch không gian sống, chăm chút từng góc nhỏ.", 120, new BigDecimal("140000"), true),
             new ServiceCard(11L, "Tổng vệ sinh nhà cửa", "Làm sạch kỹ lưỡng để tổ ấm thêm trong lành.", 180, new BigDecimal("350000"), true),
             new ServiceCard(12L, "Vệ sinh sofa", "Chăm sóc khu vực sinh hoạt của gia đình.", 60, new BigDecimal("200000"), true)));
-        when(query.staff(any())).thenReturn(List.of(new StaffCard(2L, "Nhân viên kiểm thử", "", true, "PART_TIME", true), new StaffCard(4L, "Nhân viên thứ hai", "", false, "FULL_TIME", true)));
+        when(query.staff(any())).thenReturn(List.of(new StaffCard(2L, "Nhân viên kiểm thử", "", true, "PART_TIME", true, null, "Tận tâm"), new StaffCard(4L, "Nhân viên thứ hai", "", false, "FULL_TIME", true, null, null)));
         when(query.schedules(any())).thenReturn(List.of(new ScheduleCard(20L, 2L, "Nhân viên kiểm thử", start, start.plusHours(8))));
         when(query.busyIntervals()).thenReturn(List.of(new PortalQueryService.BusyInterval(2L, start.plusHours(4), start.plusHours(5))));
         when(query.bookings(any())).thenReturn(List.of(card("CONFIRMED", null, null), card("AWAITING_PAYMENT", "PENDING", "ONLINE")));
@@ -85,6 +88,7 @@ class PortalMvcTest {
                 .mapToObj(day -> new OperatingHoursForm(day, day == 7,
                         day == 7 ? null : java.time.LocalTime.of(8, 0),
                         day == 7 ? null : java.time.LocalTime.of(17, 0))).toList()));
+        when(staffProfiles.findOwnProfile(2L)).thenReturn(new StaffProfileForm(null, "Giới thiệu nhân viên"));
         when(query.booking(eq(42L), any())).thenReturn(card("CONFIRMED", null, null));
         when(query.details(eq(42L), any())).thenReturn(List.of(new DetailCard(30L, "Dọn dẹp nhà theo giờ", 1, 120, new BigDecimal("140000"), List.of())));
     }
@@ -104,6 +108,7 @@ class PortalMvcTest {
         render("/customer/schedules", customer, "customer-schedules");
         render("/staff/bookings", staff, "staff-bookings"); render("/staff/schedules", staff, "staff-schedules");
         render("/staff/leaves", staff, "staff-leaves");
+        render("/staff/profile", staff, "staff-profile");
         render("/admin/bookings", admin, "admin-bookings"); render("/admin/services", admin, "admin-services");
         render("/admin/staff", admin, "admin-staff"); render("/admin/schedules", admin, "admin-schedules");
         render("/admin/feedback", admin, "admin-feedback");
@@ -324,6 +329,17 @@ class PortalMvcTest {
     void evidenceDownloadRejectsPathsOutsideStorageRoot() throws Exception {
         when(query.evidencePath(50L, customer)).thenReturn("../outside.png");
         mvc.perform(get("/evidence/50").with(user(customer))).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void onlyStaffCanReadAndUpdateTheirOwnProfile() throws Exception {
+        mvc.perform(get("/staff/profile").with(user(customer))).andExpect(status().isForbidden());
+        mvc.perform(get("/staff/profile").with(user(admin))).andExpect(status().isForbidden());
+        mvc.perform(post("/staff/profile").with(user(staff)).with(csrf())
+                        .param("avatarUrl", "https://example.test/staff.png").param("bio", "Giới thiệu"))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/staff/profile"));
+        verify(staffProfiles).updateOwnProfile(2L, new StaffProfileForm("https://example.test/staff.png", "Giới thiệu"));
+        verify(staffProfiles, never()).findOwnProfile(1L);
     }
 
     private void render(String url, PortalUser principal, String name) throws Exception {

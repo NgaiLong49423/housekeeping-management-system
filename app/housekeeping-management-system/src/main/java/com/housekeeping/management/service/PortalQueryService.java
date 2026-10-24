@@ -43,13 +43,15 @@ public class PortalQueryService {
         return jdbc.query("""
                 SELECT s.staff_id, u.full_name, u.phone,
                        CASE WHEN f.staff_id IS NULL THEN 0 ELSE 1 END AS favorite,
-                       s.staff_type, u.status
+                       s.staff_type, u.status, p.avatar_url, p.bio
                 FROM dbo.Staff s JOIN dbo.Users u ON u.user_id=s.user_id
                 LEFT JOIN dbo.Staff_Follows f ON f.staff_id=s.staff_id AND f.customer_id=?
+                LEFT JOIN dbo.Staff_Profiles p ON p.staff_id=s.staff_id
                 WHERE (? = 1 OR u.status='ACTIVE')
                 ORDER BY u.full_name
                 """, (rs, row) -> new StaffCard(rs.getLong(1), rs.getString(2), rs.getString(3),
-                        rs.getBoolean(4), rs.getString(5), "ACTIVE".equals(rs.getString(6))), customerId, includeInactive ? 1 : 0);
+                        rs.getBoolean(4), rs.getString(5), "ACTIVE".equals(rs.getString(6)), rs.getString(7), rs.getString(8)),
+                customerId, includeInactive ? 1 : 0);
     }
 
     public List<ScheduleCard> schedules(PortalUser user) {

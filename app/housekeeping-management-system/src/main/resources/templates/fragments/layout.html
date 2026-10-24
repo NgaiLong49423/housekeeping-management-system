@@ -63,6 +63,7 @@
             <a class="nav-link" th:classappend="${active == 'bookings'} ? 'active'" th:href="@{/staff/bookings}">Công việc của tôi</a>
             <a class="nav-link" th:classappend="${active == 'schedules'} ? 'active'" th:href="@{/staff/schedules}">Lịch sẵn sàng</a>
             <a class="nav-link" th:classappend="${active == 'leaves'} ? 'active'" th:href="@{/staff/leaves}">Đơn nghỉ</a>
+            <a class="nav-link" th:classappend="${active == 'profile'} ? 'active'" th:href="@{/staff/profile}">Hồ sơ của tôi</a>
           </div>
           <div class="navbar-nav mx-auto gap-lg-1" th:if="${currentUser != null and currentUser.role == 'ADMIN'}">
             <a class="nav-link" th:classappend="${active == 'bookings'} ? 'active'" th:href="@{/admin/bookings}">Tổng quan</a>

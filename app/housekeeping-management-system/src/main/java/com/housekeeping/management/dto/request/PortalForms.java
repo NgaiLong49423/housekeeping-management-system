@@ -49,4 +49,5 @@ public final class PortalForms {
     public record OperatingHoursForm(@NotNull @Min(1) @Max(7) Integer dayOfWeek, boolean closed,
             @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime openingTime,
             @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime closingTime) { }
+    public record StaffProfileForm(@Size(max = 500) String avatarUrl, @Size(max = 5000) String bio) { }
 }

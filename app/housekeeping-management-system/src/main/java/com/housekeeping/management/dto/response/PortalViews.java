@@ -14,7 +14,8 @@ public final class PortalViews {
         return value.withOffsetSameInstant(ZoneOffset.ofHours(7)).format(DateTimeFormatter.ofPattern("HH:mm · dd/MM/yyyy"));
     }
     public record ServiceCard(Long id, String name, String description, int duration, BigDecimal price, boolean active) { }
-    public record StaffCard(Long id, String name, String phone, boolean favorite, String staffType, boolean active) { }
+    public record StaffCard(Long id, String name, String phone, boolean favorite, String staffType, boolean active,
+            String avatarUrl, String bio) { }
     public record ScheduleCard(Long id, Long staffId, String staffName, OffsetDateTime start, OffsetDateTime end) {
         public String getStartLabel() { return time(start); }
         public String getEndLabel() { return time(end); }

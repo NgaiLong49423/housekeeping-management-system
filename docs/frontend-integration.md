@@ -121,7 +121,7 @@ Surefire dùng Mockito javaagent từ dependency Maven, không phụ thuộc kh�
 Quy trình nghiệm thu với SQL Server:
 
 1. Chuẩn bị tài khoản ba vai trò; kiểm tra đăng nhập/đăng xuất và route sai role bị từ chối.
-2. Admin cấu hình địa chỉ/tọa độ/bán kính và đủ 7 ngày giờ hoạt động tại `/admin/settings` trước khi nhận lịch; ngày nghỉ không có giờ, ngày mở phải có giờ bắt đầu/kết thúc hợp lệ. Admin tạo Staff và Service; email trùng bị từ chối. Staff PART_TIME đăng ký khoảng sẵn sàng của mình; Staff FULL_TIME theo khung giờ công ty. Staff gửi đơn nghỉ theo ngày, Admin duyệt/từ chối; chỉ đơn APPROVED chặn Booking mới.
+2. Admin cấu hình địa chỉ/tọa độ/bán kính và đủ 7 ngày giờ hoạt động tại `/admin/settings` trước khi nhận lịch; ngày nghỉ không có giờ, ngày mở phải có giờ bắt đầu/kết thúc hợp lệ. Admin tạo Staff và Service; email trùng bị từ chối. Staff tự cập nhật bio/URL avatar HTTPS tại `/staff/profile`; Customer/Admin không truy cập được trang sửa này. Staff PART_TIME đăng ký khoảng sẵn sàng của mình; Staff FULL_TIME theo khung giờ công ty. Staff gửi đơn nghỉ theo ngày, Admin duyệt/từ chối; chỉ đơn APPROVED chặn Booking mới.
 3. Customer đặt lịch thành `CONFIRMED`; đặt trùng bị từ chối kể cả hai cửa sổ đồng thời; hủy theo mốc 2 giờ và kiểm tra giải phóng lịch.
 4. Staff chỉ thấy việc của mình; tải JPEG/PNG vào từng detail; file hỏng, quá 5 MB và vượt 5 ảnh bị từ chối. Không hoàn thành khi thiếu ảnh hoặc chưa tới giờ bắt đầu.
 5. Hoàn thành chuyển Booking sang `AWAITING_PAYMENT`; Staff được phân công xác nhận CASH hoặc Customer thanh toán ONLINE qua PayOS webhook; Payment thành `SUCCESS` thì Booking mới thành `COMPLETED`.
