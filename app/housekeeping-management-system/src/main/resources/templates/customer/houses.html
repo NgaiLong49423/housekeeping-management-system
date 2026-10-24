@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+  <head th:replace="~{fragments/layout :: head('Nhà của tôi')}"></head>
+  <body>
+    <header th:replace="~{fragments/layout :: header('houses')}"></header>
+    <main id="main" class="container py-4 py-md-5">
+      <div class="section-heading">
+        <div>
+          <span class="eyebrow">Quản lý địa chỉ</span>
+          <h1>Nhà của tôi</h1>
+          <p class="lead">Lưu địa chỉ và tọa độ để đặt dịch vụ. Booking đã xác nhận vẫn giữ nguyên ảnh chụp địa chỉ ban đầu.</p>
+        </div>
+      </div>
+      <div th:replace="~{fragments/layout :: alerts}"></div>
+      <div class="alert alert-success" th:if="${param.saved}">Đã lưu địa chỉ nhà.</div>
+
+      <section class="surface p-4 mb-4" aria-labelledby="house-form-title">
+        <h2 id="house-form-title" class="h4" th:text="${editHouseId == null ? 'Thêm địa chỉ nhà' : 'Cập nhật địa chỉ'}">Thêm địa chỉ nhà</h2>
+        <form method="post" th:object="${houseForm}"
+              th:action="${editHouseId == null ? '/customer/houses' : '/customer/houses/' + editHouseId}">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label" for="houseName">Tên gợi nhớ</label>
+              <input class="form-control" id="houseName" th:field="*{houseName}" maxlength="100" required>
+              <div class="text-danger small" th:errors="*{houseName}"></div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="houseAddressPicker">Tìm địa chỉ trên Google Maps</label>
+              <div id="houseAddressPicker" class="mb-2"></div>
+              <label class="form-label" for="houseAddress">Địa chỉ</label>
+              <input class="form-control" id="houseAddress" th:field="*{address}" maxlength="500" required autocomplete="street-address">
+              <div class="text-danger small" th:errors="*{address}"></div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="latitude">Vĩ độ (latitude)</label>
+              <input class="form-control" id="latitude" type="number" step="0.0000001" min="-90" max="90" th:field="*{latitude}" required>
+              <div class="text-danger small" th:errors="*{latitude}"></div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="longitude">Kinh độ (longitude)</label>
+              <input class="form-control" id="longitude" type="number" step="0.0000001" min="-180" max="180" th:field="*{longitude}" required>
+              <div class="text-danger small" th:errors="*{longitude}"></div>
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="addressNote">Ghi chú vị trí (không bắt buộc)</label>
+              <textarea class="form-control" id="addressNote" th:field="*{addressNote}" maxlength="500" rows="2"></textarea>
+              <div class="text-danger small" th:errors="*{addressNote}"></div>
+            </div>
+          </div>
+          <p class="form-text mt-3" th:if="${mapsBrowserKey == null or #strings.isEmpty(mapsBrowserKey)}">
+            Chọn địa chỉ bằng Google Maps khi đã cấu hình <code>GOOGLE_MAPS_BROWSER_KEY</code>; hiện tại có thể nhập tọa độ thủ công.
+          </p>
+          <div class="d-flex gap-2 mt-3">
+            <button class="btn btn-primary" type="submit" th:text="${editHouseId == null ? 'Lưu địa chỉ' : 'Cập nhật'}">Lưu địa chỉ</button>
+            <a class="btn btn-outline-secondary" th:if="${editHouseId != null}" th:href="@{/customer/houses}">Hủy sửa</a>
+          </div>
+        </form>
+      </section>
+
+      <section class="row g-3" aria-label="Địa chỉ đã lưu">
+        <div class="col-md-6" th:each="house : ${houses}">
+          <article class="surface p-4 h-100">
+            <h2 class="h5" th:text="${house.houseName}">Nhà</h2>
+            <p class="mb-2" th:text="${house.address}">Địa chỉ</p>
+            <p class="small text-secondary mb-2" th:text="${house.addressNote}">Ghi chú</p>
+            <p class="small text-secondary">Tọa độ: <span th:text="${house.latitude}"></span>, <span th:text="${house.longitude}"></span></p>
+            <div class="d-flex gap-2">
+              <a class="btn btn-outline-primary btn-sm" th:href="@{/customer/houses(editId=${house.houseId})}">Sửa</a>
+              <form method="post" th:action="@{/customer/houses/{id}/delete(id=${house.houseId})}">
+                <button class="btn btn-outline-danger btn-sm" type="submit">Ẩn địa chỉ</button>
+              </form>
+            </div>
+          </article>
+        </div>
+        <div class="col-12" th:if="${#lists.isEmpty(houses)}">
+          <div class="surface p-4 text-secondary">Bạn chưa lưu địa chỉ nhà nào.</div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

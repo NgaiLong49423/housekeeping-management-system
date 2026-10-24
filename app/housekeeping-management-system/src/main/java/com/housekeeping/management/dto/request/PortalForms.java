@@ -25,4 +25,9 @@ public final class PortalForms {
     public record ScheduleForm(@NotNull @Positive Long staffId,
             @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startAt,
             @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endAt) { }
+    public record HouseForm(@NotBlank @Size(max = 100) String houseName,
+            @NotBlank @Size(max = 500) String address,
+            @NotNull @DecimalMin("-90.0") @DecimalMax("90.0") @Digits(integer = 3, fraction = 7) BigDecimal latitude,
+            @NotNull @DecimalMin("-180.0") @DecimalMax("180.0") @Digits(integer = 3, fraction = 7) BigDecimal longitude,
+            @Size(max = 500) String addressNote) { }
 }

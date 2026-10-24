@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.housekeeping.management.domain.entity.Booking;
 import com.housekeeping.management.config.SecurityConfig;
 import com.housekeeping.management.dto.response.PortalViews;
+import com.housekeeping.management.dto.request.PortalForms.HouseForm;
 import com.housekeeping.management.controller.PortalAdminController;
 import com.housekeeping.management.controller.PortalController;
 import com.housekeeping.management.service.PortalActionsService;
@@ -48,6 +49,7 @@ class PortalMvcTest {
     @MockitoBean PaymentLifecycleService payments;
     @MockitoBean PayosPaymentService payosPayments;
     @MockitoBean EvidenceStorageService storage;
+    @MockitoBean HouseService houses;
 
     private final PortalUser customer = account(1L, "CUSTOMER", "Khách hàng kiểm thử");
     private final PortalUser staff = account(2L, "STAFF", "Nhân viên kiểm thử");
@@ -83,6 +85,7 @@ class PortalMvcTest {
         render("/customer/bookings", customer, "customer-bookings");
         render("/customer/bookings/new", customer, "booking-new");
         render("/customer/staff", customer, "customer-staff");
+        render("/customer/houses", customer, "customer/houses");
         render("/customer/schedules", customer, "customer-schedules");
         render("/staff/bookings", staff, "staff-bookings"); render("/staff/schedules", staff, "staff-schedules");
         render("/admin/bookings", admin, "admin-bookings"); render("/admin/services", admin, "admin-services");
@@ -102,6 +105,23 @@ class PortalMvcTest {
         }
         mvc.perform(get("/customer/bookings/42").with(user(customer))).andExpect(content().string(org.hamcrest.Matchers.containsString("/customer/bookings/42/payment")));
         mvc.perform(get("/admin/bookings/42").with(user(admin))).andExpect(content().string(org.hamcrest.Matchers.containsString("receiptVerified")));
+    }
+
+    @Test
+    void customerHouseFormUsesAuthenticatedUserAndValidCoordinates() throws Exception {
+        mvc.perform(post("/customer/houses").with(user(customer)).with(csrf())
+                        .param("houseName", "Nhà chính")
+                        .param("address", "Quận 1, TP. Hồ Chí Minh")
+                        .param("latitude", "10.1234567")
+                        .param("longitude", "106.1234567")
+                        .param("addressNote", "Cổng màu xanh"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/customer/houses?saved"));
+
+        org.mockito.ArgumentCaptor<HouseForm> form = org.mockito.ArgumentCaptor.forClass(HouseForm.class);
+        verify(houses).save(eq(customer.getUserId()), isNull(), form.capture());
+        assertThat(form.getValue().houseName()).isEqualTo("Nhà chính");
+        assertThat(form.getValue().latitude()).isEqualByComparingTo("10.1234567");
     }
 
     @Test
@@ -147,10 +167,11 @@ class PortalMvcTest {
     @Test
     void guestAndWrongRoleCannotUseProtectedPages() throws Exception {
         mvc.perform(get("/customer/bookings")).andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/login"));
+        mvc.perform(get("/customer/houses").with(user(admin))).andExpect(status().isForbidden());
         mvc.perform(get("/admin/bookings").with(user(customer))).andExpect(status().isForbidden());
         mvc.perform(get("/staff/bookings").with(user(customer))).andExpect(status().isForbidden());
         mvc.perform(post("/admin/services").with(user(customer)).with(csrf())).andExpect(status().isForbidden());
-        verifyNoInteractions(actions, reservations, payments, storage);
+        verifyNoInteractions(actions, reservations, payments, storage, houses);
     }
 
     @Test

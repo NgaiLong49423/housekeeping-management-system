@@ -42,13 +42,18 @@ public class PortalController {
     private final PaymentLifecycleService payments;
     private final PayosPaymentService payosPayments;
     private final EvidenceStorageService storage;
+    private final HouseService houses;
+    private final String mapsBrowserKey;
     private final Path evidenceRoot;
 
     public PortalController(PortalQueryService query, PortalActionsService actions, BookingReservationService reservations,
             BookingCompletionService completion, PaymentLifecycleService payments, PayosPaymentService payosPayments, EvidenceStorageService storage,
-            @Value("${app.evidence.storage-root:./var/evidence}") String evidenceRoot) {
+            HouseService houses, @Value("${app.evidence.storage-root:./var/evidence}") String evidenceRoot,
+            @Value("${app.maps.browser-key:}") String mapsBrowserKey) {
         this.query = query; this.actions = actions; this.reservations = reservations; this.completion = completion;
-        this.payments = payments; this.payosPayments = payosPayments; this.storage = storage; this.evidenceRoot = Path.of(evidenceRoot).toAbsolutePath().normalize();
+        this.payments = payments; this.payosPayments = payosPayments; this.storage = storage; this.houses = houses;
+        this.evidenceRoot = Path.of(evidenceRoot).toAbsolutePath().normalize();
+        this.mapsBrowserKey = mapsBrowserKey;
     }
 
     @GetMapping("/")
@@ -105,6 +110,62 @@ public class PortalController {
     @GetMapping("/customer/staff")
     String staff(@AuthenticationPrincipal PortalUser user, Model model) {
         model.addAttribute("staff", query.staff(user)); return "staff";
+    }
+
+    @GetMapping("/customer/houses")
+    String houses(@AuthenticationPrincipal PortalUser user, @RequestParam(required = false) Long editId, Model model) {
+        model.addAttribute("houses", houses.findCustomerHouses(user.getUserId()));
+        model.addAttribute("mapsBrowserKey", mapsBrowserKey);
+        if (!model.containsAttribute("houseForm")) {
+            if (editId == null) {
+                model.addAttribute("houseForm", new HouseForm("", "", null, null, ""));
+            } else {
+                var house = houses.findCustomerHouse(user.getUserId(), editId);
+                model.addAttribute("houseForm", new HouseForm(house.getHouseName(), house.getAddress(),
+                        house.getLatitude(), house.getLongitude(), house.getAddressNote()));
+                model.addAttribute("editHouseId", editId);
+            }
+        } else if (editId != null) {
+            model.addAttribute("editHouseId", editId);
+        }
+        return "customer/houses";
+    }
+
+    @PostMapping("/customer/houses")
+    String createHouse(@AuthenticationPrincipal PortalUser user, @Valid @ModelAttribute("houseForm") HouseForm form,
+            BindingResult errors, Model model) {
+        if (errors.hasErrors()) { return houses(user, null, model); }
+        try {
+            houses.save(user.getUserId(), null, form);
+            return "redirect:/customer/houses?saved";
+        } catch (IllegalArgumentException | IllegalStateException failure) {
+            model.addAttribute("error", failure.getMessage());
+            return houses(user, null, model);
+        }
+    }
+
+    @PostMapping("/customer/houses/{id}")
+    String updateHouse(@PathVariable Long id, @AuthenticationPrincipal PortalUser user,
+            @Valid @ModelAttribute("houseForm") HouseForm form, BindingResult errors, Model model) {
+        if (errors.hasErrors()) { return houses(user, id, model); }
+        try {
+            houses.save(user.getUserId(), id, form);
+            return "redirect:/customer/houses?saved";
+        } catch (IllegalArgumentException | IllegalStateException failure) {
+            model.addAttribute("error", failure.getMessage());
+            return houses(user, id, model);
+        }
+    }
+
+    @PostMapping("/customer/houses/{id}/delete")
+    String deleteHouse(@PathVariable Long id, @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
+        try {
+            houses.softDelete(user.getUserId(), id);
+            flash.addFlashAttribute("success", "Đã ẩn địa chỉ nhà khỏi danh sách đặt lịch.");
+        } catch (IllegalArgumentException | IllegalStateException failure) {
+            flash.addFlashAttribute("error", failure.getMessage());
+        }
+        return "redirect:/customer/houses";
     }
 
     @GetMapping({"/customer/schedules", "/staff/schedules"})
