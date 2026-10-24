@@ -1,6 +1,6 @@
 > **Document:** Database Guide\
 > **File:** `database/README.md`\
-> **Version:** v2.1.0\
+> **Version:** v2.2.0\
 > **Created:** 2026-06-14\
 > **Last Updated:** 2026-10-25\
 > **Status:** Draft\
@@ -30,6 +30,8 @@ Tạo SQL login riêng và map vào database demo; cấp quyền DDL cần thi�
 Trong `.env` ở thư mục Maven module, đặt `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` cho database development mới. Không dùng credentials production và không commit `.env`. Profile demo trỏ cố định tới `home_cleaning_demo`, không lấy URL từ `.env`.
 
 ## Kiểm chứng
+
+GitHub Actions chạy `bash ./mvnw -B verify` trên JDK 21 và Docker; job này bao gồm nhóm Testcontainers SQL Server. Chỉ coi migration, Hibernate mapping và concurrency đã được xác minh khi job kiểm thử ứng dụng hoàn tất thành công.
 
 ```powershell
 # Unit/MVC, không cần SQL Server
