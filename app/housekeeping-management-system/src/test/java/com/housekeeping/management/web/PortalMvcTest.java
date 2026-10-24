@@ -15,6 +15,9 @@ import com.housekeeping.management.controller.PortalAdminController;
 import com.housekeeping.management.controller.PortalController;
 import com.housekeeping.management.controller.StaffLeaveController;
 import com.housekeeping.management.controller.AdminLeaveController;
+import com.housekeeping.management.controller.AdminCompanySettingsController;
+import com.housekeeping.management.dto.request.PortalForms.CompanySettingsForm;
+import com.housekeeping.management.dto.request.PortalForms.OperatingHoursForm;
 import com.housekeeping.management.service.PortalActionsService;
 import com.housekeeping.management.service.PortalQueryService;
 import com.housekeeping.management.service.*;
@@ -37,7 +40,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.mock.web.MockMultipartFile;
 
-@WebMvcTest({PortalController.class, PortalAdminController.class, StaffLeaveController.class, AdminLeaveController.class})
+@WebMvcTest({PortalController.class, PortalAdminController.class, StaffLeaveController.class, AdminLeaveController.class, AdminCompanySettingsController.class})
 @Import(SecurityConfig.class)
 class PortalMvcTest {
     @Autowired MockMvc mvc;
@@ -53,6 +56,7 @@ class PortalMvcTest {
     @MockitoBean EvidenceStorageService storage;
     @MockitoBean HouseService houses;
     @MockitoBean LeaveManagementService leaveManagement;
+    @MockitoBean CompanySettingsService companySettings;
 
     private final PortalUser customer = account(1L, "CUSTOMER", "Khách hàng kiểm thử");
     private final PortalUser staff = account(2L, "STAFF", "Nhân viên kiểm thử");
@@ -76,6 +80,11 @@ class PortalMvcTest {
         when(query.feedback()).thenReturn(List.of());
         when(leaveManagement.findForStaff(2L)).thenReturn(List.of());
         when(leaveManagement.findAllForAdmin(3L)).thenReturn(List.of());
+        when(companySettings.get()).thenReturn(new CompanySettingsForm("Địa chỉ kiểm thử", BigDecimal.ZERO,
+                BigDecimal.ZERO, BigDecimal.ONE, java.util.stream.IntStream.rangeClosed(1, 7)
+                .mapToObj(day -> new OperatingHoursForm(day, day == 7,
+                        day == 7 ? null : java.time.LocalTime.of(8, 0),
+                        day == 7 ? null : java.time.LocalTime.of(17, 0))).toList()));
         when(query.booking(eq(42L), any())).thenReturn(card("CONFIRMED", null, null));
         when(query.details(eq(42L), any())).thenReturn(List.of(new DetailCard(30L, "Dọn dẹp nhà theo giờ", 1, 120, new BigDecimal("140000"), List.of())));
     }
@@ -99,6 +108,7 @@ class PortalMvcTest {
         render("/admin/staff", admin, "admin-staff"); render("/admin/schedules", admin, "admin-schedules");
         render("/admin/feedback", admin, "admin-feedback");
         render("/admin/leaves", admin, "admin-leaves");
+        render("/admin/settings", admin, "admin-settings");
         for (PortalUser user : List.of(customer, staff, admin)) {
             render("/" + user.getRole().toLowerCase() + "/bookings/42", user, user.getRole().toLowerCase() + "-detail-confirmed");
         }

@@ -1,6 +1,7 @@
 package com.housekeeping.management.dto.request;
 
 import jakarta.validation.constraints.*;
+import jakarta.validation.Valid;
 import com.housekeeping.management.domain.StaffType;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -40,4 +41,12 @@ public final class PortalForms {
             @NotNull @DecimalMin("-90.0") @DecimalMax("90.0") @Digits(integer = 3, fraction = 7) BigDecimal latitude,
             @NotNull @DecimalMin("-180.0") @DecimalMax("180.0") @Digits(integer = 3, fraction = 7) BigDecimal longitude,
             @Size(max = 500) String addressNote) { }
+    public record CompanySettingsForm(@NotBlank @Size(max = 500) String companyAddress,
+            @NotNull @DecimalMin("-90.0") @DecimalMax("90.0") @Digits(integer = 3, fraction = 7) BigDecimal latitude,
+            @NotNull @DecimalMin("-180.0") @DecimalMax("180.0") @Digits(integer = 3, fraction = 7) BigDecimal longitude,
+            @NotNull @DecimalMin(value = "0.01") @Digits(integer = 4, fraction = 2) BigDecimal serviceRadiusKm,
+            @Size(min = 7, max = 7) List<@Valid OperatingHoursForm> operatingHours) { }
+    public record OperatingHoursForm(@NotNull @Min(1) @Max(7) Integer dayOfWeek, boolean closed,
+            @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime openingTime,
+            @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime closingTime) { }
 }
