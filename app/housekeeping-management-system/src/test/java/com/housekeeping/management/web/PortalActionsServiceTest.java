@@ -13,7 +13,7 @@ import com.housekeeping.management.dto.request.PortalForms;
 import com.housekeeping.management.service.PortalActionsService;
 import com.housekeeping.management.domain.UserRole;
 import com.housekeeping.management.domain.UserStatus;
-import com.housekeeping.management.domain.entity.Services;
+import com.housekeeping.management.entity.Services;
 import com.housekeeping.management.entity.Staff;
 import com.housekeeping.management.entity.User;
 import com.housekeeping.management.repository.BookingDetailRepository;
@@ -21,8 +21,7 @@ import com.housekeeping.management.repository.BookingRepository;
 import com.housekeeping.management.repository.CustomerRepository;
 import com.housekeeping.management.repository.ServicesRepository;
 import com.housekeeping.management.repository.StaffAccountRepository;
-import com.housekeeping.management.repository.StaffRepository;
-import com.housekeeping.management.repository.WorkScheduleRepository;
+import com.housekeeping.management.repository.StaffAvailabilityRepository;
 import com.housekeeping.management.service.GlobalEmailUniquenessService;
 import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
@@ -125,9 +124,9 @@ class PortalActionsServiceTest {
 
     private PortalActionsService actions(EntityManager em, GlobalEmailUniquenessService emails, PasswordEncoder encoder,
             StaffAccountRepository staffAccounts, ServicesRepository services) {
-        return new PortalActionsService(em, mock(com.housekeeping.management.repository.BookingPersistenceRepository.class), mock(StaffRepository.class),
-                mock(WorkScheduleRepository.class), mock(JdbcTemplate.class), emails, encoder,
+        return new PortalActionsService(em, mock(com.housekeeping.management.repository.BookingPersistenceRepository.class),
                 staffAccounts == null ? mock(StaffAccountRepository.class) : staffAccounts,
+                mock(StaffAvailabilityRepository.class), mock(JdbcTemplate.class), emails, encoder,
                 services == null ? mock(ServicesRepository.class) : services);
     }
 }

@@ -36,6 +36,10 @@ public class BookingPersistenceRepository {
                 newStatus, bookingId, expectedStatus);
     }
 
+    public BigDecimal bookingAmount(Long bookingId) {
+        return jdbc.queryForObject("SELECT total_amount FROM dbo.Bookings WHERE booking_id=?", BigDecimal.class, bookingId);
+    }
+
     public int cancel(Long bookingId, Long cancelledBy, String reason, LocalDateTime cancelledAt) {
         return jdbc.update("""
                 UPDATE dbo.Bookings SET status='CANCELLED', cancelled_at=?, cancelled_by=?, cancellation_reason=?

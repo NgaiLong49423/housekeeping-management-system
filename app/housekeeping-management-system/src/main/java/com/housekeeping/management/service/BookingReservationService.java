@@ -3,7 +3,7 @@ package com.housekeeping.management.service;
 import com.housekeeping.management.domain.StaffType;
 import com.housekeeping.management.domain.UserRole;
 import com.housekeeping.management.domain.UserStatus;
-import com.housekeeping.management.domain.entity.Services;
+import com.housekeeping.management.entity.Services;
 import com.housekeeping.management.entity.House;
 import com.housekeeping.management.entity.Staff;
 import com.housekeeping.management.entity.User;

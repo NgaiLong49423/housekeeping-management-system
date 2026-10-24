@@ -4,6 +4,8 @@ import jakarta.validation.constraints.*;
 import com.housekeeping.management.domain.StaffType;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import org.springframework.format.annotation.DateTimeFormat;
 
@@ -27,6 +29,9 @@ public final class PortalForms {
     public record ScheduleForm(@NotNull @Positive Long staffId,
             @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startAt,
             @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endAt) { }
+    public record AvailabilityForm(@NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate workDate,
+            @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime startTime,
+            @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime endTime) { }
     public record HouseForm(@NotBlank @Size(max = 100) String houseName,
             @NotBlank @Size(max = 500) String address,
             @NotNull @DecimalMin("-90.0") @DecimalMax("90.0") @Digits(integer = 3, fraction = 7) BigDecimal latitude,

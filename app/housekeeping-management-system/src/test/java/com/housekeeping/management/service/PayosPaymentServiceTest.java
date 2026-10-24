@@ -3,19 +3,20 @@ package com.housekeeping.management.service;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class PayosPaymentServiceTest {
-    private PaymentAttemptService attempts;
+    private PaymentService payments;
     private PayosGatewayClient gateway;
     private PayosPaymentService service;
 
     @BeforeEach
     void setUp() {
-        attempts = mock(PaymentAttemptService.class);
+        payments = mock(PaymentService.class);
         gateway = mock(PayosGatewayClient.class);
-        service = new PayosPaymentService(attempts, gateway);
+        service = new PayosPaymentService(payments, gateway);
     }
 
     @Test
@@ -26,8 +27,39 @@ class PayosPaymentServiceTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Configure PayOS credentials and public HTTPS callback URLs before starting checkout.");
 
-        verifyNoInteractions(attempts);
+        verifyNoInteractions(payments);
         verify(gateway).isConfigured();
         verify(gateway, never()).createCheckout(anyLong(), anyLong());
+    }
+
+    @Test
+    void createsOrRecoversCheckoutForPersistedPaymentAttempt() {
+        when(gateway.isConfigured()).thenReturn(true);
+        when(payments.prepareOnlineCheckout(42L, 7L)).thenReturn(new PaymentService.OnlineCheckout(1001L, 150000L, false));
+        when(gateway.createCheckout(1001L, 150000L))
+                .thenReturn(new PayosGatewayClient.Checkout("https://pay.payos.vn/web/link", "link"));
+        org.assertj.core.api.Assertions.assertThat(service.checkout(42L, 7L)).isEqualTo("https://pay.payos.vn/web/link");
+
+        when(payments.prepareOnlineCheckout(42L, 7L)).thenReturn(new PaymentService.OnlineCheckout(1001L, 150000L, true));
+        when(gateway.recoverCheckout(1001L, 150000L))
+                .thenReturn(new PayosGatewayClient.Checkout("https://pay.payos.vn/web/recovered", "link"));
+        org.assertj.core.api.Assertions.assertThat(service.checkout(42L, 7L)).isEqualTo("https://pay.payos.vn/web/recovered");
+        verify(gateway).createCheckout(1001L, 150000L);
+        verify(gateway).recoverCheckout(1001L, 150000L);
+    }
+
+    @Test
+    void verifiedWebhookConfirmsSuccessAndFailureOnPersistedPaymentRows() {
+        when(gateway.verifyWebhook(any())).thenReturn(true);
+        service.receiveWebhook(webhook(true, "00"));
+        verify(payments).confirmOnlinePayment(1001L, java.math.BigDecimal.valueOf(150000));
+
+        service.receiveWebhook(webhook(false, "01"));
+        verify(payments).failOnlinePayment(1001L, java.math.BigDecimal.valueOf(150000));
+    }
+
+    private PayosWebhookRequest webhook(boolean success, String code) {
+        return new PayosWebhookRequest(code, "result", success,
+                Map.of("orderCode", 1001L, "amount", 150000L, "currency", "VND", "code", code), "signature");
     }
 }

@@ -45,7 +45,7 @@ class PortalMvcTest {
     @MockitoBean AuthService identity;
     @MockitoBean BookingReservationService reservations;
     @MockitoBean BookingCompletionService completion;
-    @MockitoBean PaymentLifecycleService payments;
+    @MockitoBean PaymentService payments;
     @MockitoBean PayosPaymentService payosPayments;
     @MockitoBean FeedbackService feedbackService;
     @MockitoBean EvidenceStorageService storage;
@@ -69,7 +69,7 @@ class PortalMvcTest {
         when(query.staff(any())).thenReturn(List.of(new StaffCard(2L, "Nhân viên kiểm thử", "", true, "PART_TIME", true), new StaffCard(4L, "Nhân viên thứ hai", "", false, "FULL_TIME", true)));
         when(query.schedules(any())).thenReturn(List.of(new ScheduleCard(20L, 2L, "Nhân viên kiểm thử", start, start.plusHours(8))));
         when(query.busyIntervals()).thenReturn(List.of(new PortalQueryService.BusyInterval(2L, start.plusHours(4), start.plusHours(5))));
-        when(query.bookings(any())).thenReturn(List.of(card("CONFIRMED", null, null), card("COMPLETED", "UNPAID", null)));
+        when(query.bookings(any())).thenReturn(List.of(card("CONFIRMED", null, null), card("AWAITING_PAYMENT", "PENDING", "ONLINE")));
         when(query.feedback()).thenReturn(List.of());
         when(query.booking(eq(42L), any())).thenReturn(card("CONFIRMED", null, null));
         when(query.details(eq(42L), any())).thenReturn(List.of(new DetailCard(30L, "Dọn dẹp nhà theo giờ", 1, 120, new BigDecimal("140000"), List.of())));
@@ -77,7 +77,7 @@ class PortalMvcTest {
 
     BookingCard card(String status, String payment, String method) {
         return new BookingCard(42L, 1L, 2L, "Khách hàng kiểm thử", "Nhân viên kiểm thử", start, start.plusHours(2), status,
-                new BigDecimal("140000"), payment, method, null, null, null, null, null);
+                new BigDecimal("140000"), payment, method, null, null, null);
     }
 
     @Test
@@ -99,14 +99,14 @@ class PortalMvcTest {
 
     @Test
     void rendersCompletedBookingActionsAndEvidenceForEachRole() throws Exception {
-        when(query.booking(eq(42L), any())).thenReturn(card("COMPLETED", "UNPAID", "CASH"));
+        when(query.booking(eq(42L), any())).thenReturn(card("AWAITING_PAYMENT", "PENDING", "CASH"));
         when(query.details(eq(42L), any())).thenReturn(List.of(new DetailCard(30L, "Dọn dẹp nhà theo giờ", 1, 120,
                 new BigDecimal("140000"), List.of(new EvidenceCard(50L, "10:00 · 16/10/2026")))));
         for (PortalUser user : List.of(customer, staff, admin)) {
             render("/" + user.getRole().toLowerCase() + "/bookings/42", user, user.getRole().toLowerCase() + "-detail-completed");
         }
         mvc.perform(get("/customer/bookings/42").with(user(customer))).andExpect(content().string(org.hamcrest.Matchers.containsString("/customer/bookings/42/payment")));
-        mvc.perform(get("/admin/bookings/42").with(user(admin))).andExpect(content().string(org.hamcrest.Matchers.containsString("receiptVerified")));
+        mvc.perform(get("/staff/bookings/42").with(user(staff))).andExpect(content().string(org.hamcrest.Matchers.containsString("cash-payment")));
     }
 
     @Test
@@ -147,20 +147,18 @@ class PortalMvcTest {
     }
 
     @Test
-    void payosPendingCheckoutIsReopenableByCustomerAndNotAdminVerified() throws Exception {
+    void awaitingPaymentOffersOnlineCheckoutAndAssignedStaffCashConfirmation() throws Exception {
         BookingCard payos = new BookingCard(42L, 1L, 2L, "Khách hàng kiểm thử", "Nhân viên kiểm thử", start,
-                start.plusHours(2), "COMPLETED", new BigDecimal("140000"), "UNPAID", "PAYOS", "PENDING",
-                "https://pay.payos.vn/web/payment-link", null, null, null);
+                start.plusHours(2), "AWAITING_PAYMENT", new BigDecimal("140000"), "PENDING", "ONLINE", null, null, null);
         when(query.booking(eq(42L), any())).thenReturn(payos);
         when(query.details(eq(42L), any())).thenReturn(List.of());
 
         mvc.perform(get("/customer/bookings/42").with(user(customer)))
                 .andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Mở lại trang thanh toán PayOS")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("https://pay.payos.vn/web/payment-link")));
-        mvc.perform(get("/admin/bookings/42").with(user(admin)))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Thanh toán trực tuyến qua PayOS")));
+        mvc.perform(get("/staff/bookings/42").with(user(staff)))
                 .andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("receiptVerified"))));
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("cash-payment")));
     }
 
     @Test
@@ -245,17 +243,17 @@ class PortalMvcTest {
     @Test
     void ownershipFailureStopsPaymentBeforeExistingServiceIsCalled() throws Exception {
         when(query.booking(42L, customer)).thenThrow(new AccessDeniedException("Forbidden"));
-        mvc.perform(post("/customer/bookings/42/payment").with(user(customer)).with(csrf()).param("method", "CASH"))
+        mvc.perform(post("/customer/bookings/42/payment").with(user(customer)).with(csrf()))
                 .andExpect(status().isForbidden());
-        verifyNoInteractions(payments);
+        verifyNoInteractions(payosPayments);
     }
 
     @Test
     void customerPayosChoiceRedirectsToProviderCheckout() throws Exception {
-        when(query.booking(eq(42L), any())).thenReturn(card("COMPLETED", "UNPAID", null));
+        when(query.booking(eq(42L), any())).thenReturn(card("AWAITING_PAYMENT", "PENDING", "ONLINE"));
         when(payosPayments.checkout(42L, customer.getAccountId())).thenReturn("https://pay.payos.vn/web/payment-link");
 
-        mvc.perform(post("/customer/bookings/42/payment").with(user(customer)).with(csrf()).param("method", "PAYOS"))
+        mvc.perform(post("/customer/bookings/42/payment").with(user(customer)).with(csrf()))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("https://pay.payos.vn/web/payment-link"));
         verify(payosPayments).checkout(42L, customer.getAccountId());
@@ -272,11 +270,10 @@ class PortalMvcTest {
     }
 
     @Test
-    void adminMustSubmitExplicitReceiptVerification() throws Exception {
-        doThrow(new IllegalArgumentException("Receipt must be verified before confirming payment"))
-                .when(payments).confirmReceivedByAdmin(eq(42L), eq(false), any());
-        mvc.perform(post("/admin/bookings/42/paid").with(user(admin)).with(csrf()))
-                .andExpect(status().isBadRequest()).andExpect(view().name("error"));
+    void assignedStaffConfirmsCashPayment() throws Exception {
+        mvc.perform(post("/staff/bookings/42/cash-payment").with(user(staff)).with(csrf()))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/staff/bookings/42"));
+        verify(payments).confirmCashReceived(42L, staff.getAccountId());
     }
 
     @Test

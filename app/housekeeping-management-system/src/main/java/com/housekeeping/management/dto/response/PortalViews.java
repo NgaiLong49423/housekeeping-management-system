@@ -22,8 +22,7 @@ public final class PortalViews {
     }
     public record BookingCard(Long id, Long customerId, Long staffId, String customerName, String staffName,
             OffsetDateTime start, OffsetDateTime end, String status, BigDecimal amount,
-            String paymentStatus, String method, String paymentAttemptStatus, String checkoutUrl,
-            String feedbackContent, String adminReply, String feedbackStatus) {
+            String paymentStatus, String method, String feedbackContent, String adminReply, String feedbackStatus) {
         public String getStartLabel() { return time(start); }
         public String getEndLabel() { return time(end); }
         public String getStatusLabel() {

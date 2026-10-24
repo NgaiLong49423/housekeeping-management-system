@@ -3,6 +3,8 @@ package com.housekeeping.management.service;
 import static com.housekeeping.management.dto.response.PortalViews.*;
 import java.time.OffsetDateTime;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -51,14 +53,29 @@ public class PortalQueryService {
     }
 
     public List<ScheduleCard> schedules(PortalUser user) {
-        String condition = user.getRole().equals("STAFF") ? " WHERE w.staff_id=?" : "";
+        String condition = switch (user.getRole()) {
+            case "STAFF" -> " WHERE a.staff_id=?";
+            case "CUSTOMER" -> " WHERE u.status='ACTIVE'";
+            case "ADMIN" -> "";
+            default -> throw new AccessDeniedException("Vai trò không hợp lệ.");
+        };
         Object[] params = user.getRole().equals("STAFF") ? new Object[]{user.getAccountId()} : new Object[]{};
         return jdbc.query("""
-                SELECT w.work_schedule_id, w.staff_id, s.display_name, w.available_start, w.available_end
-                FROM Work_Schedule w JOIN Staff s ON s.staff_id=w.staff_id
-                """ + condition + " ORDER BY w.available_start", (rs, row) -> new ScheduleCard(
-                    rs.getLong(1), rs.getLong(2), rs.getString(3), rs.getObject(4, OffsetDateTime.class),
-                    rs.getObject(5, OffsetDateTime.class)), params);
+                SELECT a.availability_id, a.staff_id, u.full_name, a.work_date, a.start_time, a.end_time
+                FROM dbo.Staff_Availability a
+                JOIN dbo.Staff s ON s.staff_id=a.staff_id
+                JOIN dbo.Users u ON u.user_id=s.user_id
+                """ + condition + " ORDER BY a.work_date, a.start_time", (rs, row) -> new ScheduleCard(
+                    rs.getLong(1), rs.getLong(2), rs.getString(3),
+                    LocalDateTime.of(rs.getObject("work_date", LocalDate.class), rs.getObject("start_time", LocalTime.class))
+                            .atOffset(ZoneOffset.ofHours(7)),
+                    LocalDateTime.of(rs.getObject("work_date", LocalDate.class), rs.getObject("end_time", LocalTime.class))
+                            .atOffset(ZoneOffset.ofHours(7))), params);
+    }
+
+    public boolean isPartTime(Long staffId) {
+        String type = jdbc.queryForObject("SELECT staff_type FROM dbo.Staff WHERE staff_id=?", String.class, staffId);
+        return "PART_TIME".equals(type);
     }
 
     public record BusyInterval(Long staffId, OffsetDateTime start, OffsetDateTime end) {
@@ -141,10 +158,7 @@ public class PortalQueryService {
                 SELECT b.booking_id, b.customer_id, b.staff_id, customer.full_name AS customer_name,
                        staff_user.full_name AS staff_name, b.start_time, b.end_time, b.status,
                        b.total_amount,
-                       CASE WHEN payment.status='SUCCESS' THEN 'PAID'
-                            WHEN payment.payment_id IS NOT NULL THEN 'UNPAID' ELSE NULL END AS payment_status,
-                       payment.payment_method, CAST(NULL AS VARCHAR(20)) AS attempt_status,
-                       CAST(NULL AS NVARCHAR(500)) AS checkout_url, f.content AS feedback_content,
+                       payment.status AS payment_status, payment.payment_method, f.content AS feedback_content,
                        f.admin_reply, f.status AS feedback_status
                 FROM dbo.Bookings b
                 JOIN dbo.Users customer ON customer.user_id=b.customer_id
@@ -159,7 +173,7 @@ public class PortalQueryService {
                     rs.getObject("start_time", LocalDateTime.class).atOffset(ZoneOffset.ofHours(7)),
                     rs.getObject("end_time", LocalDateTime.class).atOffset(ZoneOffset.ofHours(7)), rs.getString("status"),
                     rs.getBigDecimal("total_amount"), rs.getString("payment_status"), rs.getString("payment_method"),
-                    rs.getString("attempt_status"), rs.getString("checkout_url"), rs.getString("feedback_content"),
+                    rs.getString("feedback_content"),
                     rs.getString("admin_reply"), rs.getString("feedback_status")), params);
     }
 }

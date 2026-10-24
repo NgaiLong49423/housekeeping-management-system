@@ -1,8 +1,15 @@
 package com.housekeeping.management.service;
 
 import static com.housekeeping.management.dto.request.PortalForms.*;
-import com.housekeeping.management.domain.entity.*;
-import com.housekeeping.management.repository.*;
+import com.housekeeping.management.entity.Services;
+import com.housekeeping.management.entity.Staff;
+import com.housekeeping.management.entity.User;
+import com.housekeeping.management.domain.StaffType;
+import com.housekeeping.management.domain.UserRole;
+import com.housekeeping.management.domain.UserStatus;
+import com.housekeeping.management.repository.ServicesRepository;
+import com.housekeeping.management.repository.StaffAccountRepository;
+import com.housekeeping.management.repository.StaffAvailabilityRepository;
 import com.housekeeping.management.repository.BookingPersistenceRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
@@ -11,33 +18,29 @@ import java.time.ZoneOffset;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import com.housekeeping.management.repository.StaffAccountRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.housekeeping.management.service.DuplicateEmailException;
 
 /** Small missing portal operations; the existing booking/payment/evidence services remain authoritative. */
 @Service
 public class PortalActionsService {
     private final EntityManager em;
     private final BookingPersistenceRepository bookingPersistence;
-    private final StaffRepository staff;
     private final StaffAccountRepository staffAccounts;
+    private final StaffAvailabilityRepository availability;
     private final ServicesRepository services;
-    private final WorkScheduleRepository schedules;
     private final JdbcTemplate jdbc;
     private final GlobalEmailUniquenessService emailUniqueness;
     private final PasswordEncoder encoder;
 
     public PortalActionsService(EntityManager em, BookingPersistenceRepository bookingPersistence,
-            StaffRepository staff,
-            WorkScheduleRepository schedules, JdbcTemplate jdbc,
+            StaffAccountRepository staffAccounts, StaffAvailabilityRepository availability, JdbcTemplate jdbc,
             GlobalEmailUniquenessService emailUniqueness, PasswordEncoder encoder,
-            StaffAccountRepository staffAccounts, ServicesRepository services) {
+            ServicesRepository services) {
         this.em = em; this.bookingPersistence = bookingPersistence;
-        this.staff = staff; this.staffAccounts = staffAccounts;
+        this.staffAccounts = staffAccounts; this.availability = availability;
         this.services = services;
-        this.schedules = schedules; this.jdbc = jdbc; this.emailUniqueness = emailUniqueness; this.encoder = encoder;
+        this.jdbc = jdbc; this.emailUniqueness = emailUniqueness; this.encoder = encoder;
     }
 
     public static OffsetDateTime now() { return OffsetDateTime.now(ZoneOffset.ofHours(7)).withNano(0); }
@@ -46,7 +49,7 @@ public class PortalActionsService {
         String hash = encoder.encode(form.password());
         emailUniqueness.executeWithUniqueEmail(form.email(), canonical -> {
             em.persist(newUser(form.name(), canonical, hash, form.phone(),
-                    com.housekeeping.management.domain.UserRole.CUSTOMER));
+                    UserRole.CUSTOMER));
             return null;
         });
     }
@@ -68,13 +71,11 @@ public class PortalActionsService {
 
     @Transactional
     public void favorite(Long staffId, Long customerId, boolean favorite) {
-        com.housekeeping.management.entity.Staff selected = staffAccounts.findById(staffId)
-                .filter(item -> item.getUser().getStatus() == com.housekeeping.management.domain.UserStatus.ACTIVE)
+        Staff selected = staffAccounts.findById(staffId)
+                .filter(item -> item.getUser().getStatus() == UserStatus.ACTIVE)
                 .orElseThrow(() -> new IllegalArgumentException("Nhân viên không tồn tại hoặc không hoạt động."));
-        com.housekeeping.management.entity.User customer = em.find(com.housekeeping.management.entity.User.class,
-                customerId, LockModeType.PESSIMISTIC_WRITE);
-        if (customer == null || customer.getRole() != com.housekeeping.management.domain.UserRole.CUSTOMER
-                || customer.getStatus() != com.housekeeping.management.domain.UserStatus.ACTIVE) {
+        User customer = em.find(User.class, customerId, LockModeType.PESSIMISTIC_WRITE);
+        if (customer == null || customer.getRole() != UserRole.CUSTOMER || customer.getStatus() != UserStatus.ACTIVE) {
             throw new AccessDeniedException("Tài khoản Customer không còn hợp lệ.");
         }
         if (favorite) {
@@ -91,11 +92,10 @@ public class PortalActionsService {
     public void createStaff(StaffCreateForm form) {
         String hash = encoder.encode(form.password());
         emailUniqueness.executeWithUniqueEmail(form.email(), canonical -> {
-            com.housekeeping.management.entity.User user = newUser(form.name(), canonical, hash, form.phone(),
-                    com.housekeeping.management.domain.UserRole.STAFF);
+            User user = newUser(form.name(), canonical, hash, form.phone(), UserRole.STAFF);
             em.persist(user);
             em.flush();
-            com.housekeeping.management.entity.Staff item = new com.housekeeping.management.entity.Staff();
+            Staff item = new Staff();
             item.setUser(user);
             item.setStaffType(form.staffType());
             em.persist(item);
@@ -104,21 +104,20 @@ public class PortalActionsService {
         });
     }
 
-    private com.housekeeping.management.entity.User newUser(String name, String email, String passwordHash,
-            String phone, com.housekeeping.management.domain.UserRole role) {
-        com.housekeeping.management.entity.User user = new com.housekeeping.management.entity.User();
+    private User newUser(String name, String email, String passwordHash, String phone, UserRole role) {
+        User user = new User();
         user.setFullName(name.trim());
         user.setEmail(email);
         user.setPasswordHash(passwordHash);
         user.setPhone(phone.trim());
         user.setRole(role);
-        user.setStatus(com.housekeeping.management.domain.UserStatus.ACTIVE);
+        user.setStatus(UserStatus.ACTIVE);
         return user;
     }
 
     @Transactional
     public void updateStaff(Long id, StaffUpdateForm form) {
-        com.housekeeping.management.entity.Staff item = staffAccounts.findById(id)
+        Staff item = staffAccounts.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Nhân viên không tồn tại."));
         item.getUser().setFullName(form.name().trim());
         if (form.phone() != null && !form.phone().isBlank()) {
@@ -139,47 +138,53 @@ public class PortalActionsService {
     }
 
     @Transactional
-    public void saveSchedule(Long id, Long adminId, ScheduleForm form) {
-        if (!form.endAt().isAfter(form.startAt())) { throw new IllegalArgumentException("Giờ kết thúc phải sau giờ bắt đầu."); }
-        // Same Staff lock as reservations prevents schedule changes racing a new booking.
-        WorkSchedule item = id == null ? new WorkSchedule() : schedules.findById(id).orElseThrow(() -> new IllegalArgumentException("Lịch không tồn tại."));
-        Long originalStaffId = id == null ? form.staffId() : item.getStaff().getStaffId();
-        staff.findByIdForUpdate(originalStaffId).orElseThrow(() -> new IllegalArgumentException("Nhân viên không tồn tại."));
-        if (!originalStaffId.equals(form.staffId())) { throw new IllegalArgumentException("Hãy tạo khoảng sẵn sàng mới khi đổi nhân viên."); }
-        if (id != null) {
-            var proposedStart = form.startAt().atOffset(ZoneOffset.ofHours(7));
-            var proposedEnd = form.endAt().atOffset(ZoneOffset.ofHours(7));
-            boolean invalidatesExistingDetail = jdbc.query("""
-                    SELECT b.start_at, d.duration_minutes_snapshot,
-                           (SELECT COALESCE(SUM(p.duration_minutes_snapshot),0) FROM Booking_Detail p
-                            WHERE p.booking_id=d.booking_id AND p.sequence_no<d.sequence_no) AS preceding_minutes
-                    FROM Booking_Detail d JOIN Booking b ON b.booking_id=d.booking_id WHERE d.work_schedule_id=?
-                    """, (rs, row) -> {
-                        OffsetDateTime detailStart = rs.getObject(1, OffsetDateTime.class).plusMinutes(rs.getLong(3));
-                        OffsetDateTime detailEnd = detailStart.plusMinutes(rs.getInt(2));
-                        return detailStart.isBefore(proposedStart) || detailEnd.isAfter(proposedEnd);
-                    }, id).stream().anyMatch(Boolean::booleanValue);
-            if (invalidatesExistingDetail) {
-                throw new IllegalStateException("Khoảng mới không còn bao phủ lịch hẹn đã đặt. Hãy giữ thời gian đã đặt hoặc tạo khoảng mới.");
-            }
+    public void saveAvailability(Long staffId, Long id, AvailabilityForm form) {
+        if (!form.endTime().isAfter(form.startTime())) {
+            throw new IllegalArgumentException("Giờ kết thúc phải sau giờ bắt đầu.");
         }
-        item.setStaff(em.getReference(Staff.class, form.staffId())); item.setManagedByAdmin(em.getReference(Admin.class, adminId));
-        item.setAvailableStart(form.startAt().atOffset(ZoneOffset.ofHours(7)));
-        item.setAvailableEnd(form.endAt().atOffset(ZoneOffset.ofHours(7))); schedules.saveAndFlush(item);
+        Staff staff = staffAccounts.findActiveByStaffIdForUpdate(staffId)
+                .orElseThrow(() -> new IllegalArgumentException("Nhân viên không tồn tại hoặc không hoạt động."));
+        if (staff.getStaffType() != StaffType.PART_TIME) {
+            throw new IllegalStateException("Nhân viên toàn thời gian làm theo giờ hoạt động công ty, không đăng ký khoảng riêng.");
+        }
+        if (id != null && availability.containsExistingBookingStart(id, staffId)
+                && !availability.unchanged(id, staffId, form.workDate(), form.startTime(), form.endTime())) {
+            throw new IllegalStateException("Không thể đổi khoảng đã có lịch hẹn bắt đầu bên trong.");
+        }
+        if (availability.overlapsAnotherInterval(staffId, form.workDate(), form.startTime(), form.endTime(), id)) {
+            throw new IllegalArgumentException("Khoảng sẵn sàng bị chồng lên một khoảng khác trong cùng ngày.");
+        }
+        int affected = id == null
+                ? availability.insert(staffId, form.workDate(), form.startTime(), form.endTime())
+                : availability.update(id, staffId, form.workDate(), form.startTime(), form.endTime());
+        if (affected != 1) throw new IllegalArgumentException("Khoảng sẵn sàng không tồn tại.");
+    }
+
+    @Transactional
+    public void deleteAvailability(Long staffId, Long id) {
+        Staff staff = staffAccounts.findActiveByStaffIdForUpdate(staffId)
+                .orElseThrow(() -> new IllegalArgumentException("Nhân viên không tồn tại hoặc không hoạt động."));
+        if (staff.getStaffType() != StaffType.PART_TIME) {
+            throw new IllegalStateException("Nhân viên toàn thời gian không có khoảng sẵn sàng riêng.");
+        }
+        if (availability.containsExistingBookingStart(id, staffId)) {
+            throw new IllegalStateException("Không thể xóa khoảng đã có lịch hẹn bắt đầu bên trong.");
+        }
+        if (availability.delete(id, staffId) != 1) throw new IllegalArgumentException("Khoảng sẵn sàng không tồn tại.");
     }
 
     @Transactional
     public void deleteStaff(Long id) {
-        com.housekeeping.management.entity.Staff item = staffAccounts.findById(id)
+        Staff item = staffAccounts.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Nhân viên không tồn tại."));
-        item.getUser().setStatus(com.housekeeping.management.domain.UserStatus.INACTIVE);
+        item.getUser().setStatus(UserStatus.INACTIVE);
     }
 
     @Transactional
     public void activateStaff(Long id) {
-        com.housekeeping.management.entity.Staff item = staffAccounts.findById(id)
+        Staff item = staffAccounts.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Nhân viên không tồn tại."));
-        item.getUser().setStatus(com.housekeeping.management.domain.UserStatus.ACTIVE);
+        item.getUser().setStatus(UserStatus.ACTIVE);
     }
 
     @Transactional

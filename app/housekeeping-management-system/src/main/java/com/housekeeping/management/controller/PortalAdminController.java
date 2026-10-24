@@ -32,7 +32,7 @@ public class PortalAdminController {
 
     @GetMapping("/schedules")
     String schedules(@AuthenticationPrincipal PortalUser user, Model model) {
-        model.addAttribute("schedules", query.schedules(user)); model.addAttribute("staff", query.staff(user)); return "admin/schedules";
+        model.addAttribute("schedules", query.schedules(user)); return "admin/schedules";
     }
 
     @GetMapping("/feedback")
@@ -97,19 +97,6 @@ public class PortalAdminController {
     @PostMapping("/staff/{id}/activate")
     String activateStaff(@PathVariable Long id, RedirectAttributes flash) {
         actions.activateStaff(id); flash.addFlashAttribute("success", "Đã kích hoạt lại tài khoản nhân viên."); return "redirect:/admin/staff";
-    }
-
-    @PostMapping("/schedules")
-    String createSchedule(@AuthenticationPrincipal PortalUser user, @Valid @ModelAttribute ScheduleForm form, BindingResult errors, RedirectAttributes flash) {
-        if (!invalid(errors, flash)) { actions.saveSchedule(null, user.getAccountId(), form); flash.addFlashAttribute("success", "Đã thêm khoảng sẵn sàng."); }
-        return "redirect:/admin/schedules";
-    }
-
-    @PostMapping("/schedules/{id}")
-    String updateSchedule(@PathVariable Long id, @AuthenticationPrincipal PortalUser user,
-            @Valid @ModelAttribute ScheduleForm form, BindingResult errors, RedirectAttributes flash) {
-        if (!invalid(errors, flash)) { actions.saveSchedule(id, user.getAccountId(), form); flash.addFlashAttribute("success", "Đã cập nhật khoảng sẵn sàng."); }
-        return "redirect:/admin/schedules";
     }
 
     private boolean invalid(BindingResult errors, RedirectAttributes flash) {

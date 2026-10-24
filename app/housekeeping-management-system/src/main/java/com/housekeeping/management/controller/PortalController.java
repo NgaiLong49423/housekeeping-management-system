@@ -7,7 +7,6 @@ import com.housekeeping.management.service.PortalActionsService;
 import com.housekeeping.management.service.PortalQueryService;
 import com.housekeeping.management.web.PortalUser;
 import com.housekeeping.management.web.PortalMessages;
-import com.housekeeping.management.domain.PaymentMethod;
 import com.housekeeping.management.service.PayosPaymentService;
 import com.housekeeping.management.service.PayosWebhookRequest;
 import com.housekeeping.management.service.*;
@@ -18,6 +17,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZoneOffset;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
@@ -37,7 +39,7 @@ public class PortalController {
     private final PortalActionsService actions;
     private final BookingReservationService reservations;
     private final BookingCompletionService completion;
-    private final PaymentLifecycleService payments;
+    private final PaymentService payments;
     private final PayosPaymentService payosPayments;
     private final FeedbackService feedbackService;
     private final EvidenceStorageService storage;
@@ -46,7 +48,7 @@ public class PortalController {
     private final Path evidenceRoot;
 
     public PortalController(PortalQueryService query, PortalActionsService actions, BookingReservationService reservations,
-            BookingCompletionService completion, PaymentLifecycleService payments, PayosPaymentService payosPayments,
+            BookingCompletionService completion, PaymentService payments, PayosPaymentService payosPayments,
             FeedbackService feedbackService, EvidenceStorageService storage,
             HouseService houses, @Value("${app.evidence.storage-root:./var/evidence}") String evidenceRoot,
             @Value("${app.maps.browser-key:}") String mapsBrowserKey) {
@@ -104,7 +106,7 @@ public class PortalController {
         model.addAttribute("bookings", items);
         model.addAttribute("confirmedCount", items.stream().filter(b -> b.status().equals("CONFIRMED")).count());
         model.addAttribute("completedCount", items.stream().filter(b -> b.status().equals("COMPLETED")).count());
-        model.addAttribute("unpaidCount", items.stream().filter(b -> "UNPAID".equals(b.paymentStatus())).count());
+        model.addAttribute("unpaidCount", items.stream().filter(b -> "AWAITING_PAYMENT".equals(b.status())).count());
         return "bookings";
     }
 
@@ -171,7 +173,41 @@ public class PortalController {
 
     @GetMapping({"/customer/schedules", "/staff/schedules"})
     String schedules(@AuthenticationPrincipal PortalUser user, Model model) {
-        model.addAttribute("schedules", query.schedules(user)); return "schedules";
+        model.addAttribute("schedules", query.schedules(user));
+        if ("STAFF".equals(user.getRole())) {
+            boolean partTime = query.isPartTime(user.getAccountId());
+            model.addAttribute("partTime", partTime);
+            if (partTime) model.addAttribute("availabilityForm", new AvailabilityForm(
+                    LocalDate.now(ZoneOffset.ofHours(7)), LocalTime.of(8, 0), LocalTime.of(12, 0)));
+        }
+        return "schedules";
+    }
+
+    @PostMapping("/staff/schedules")
+    String addAvailability(@AuthenticationPrincipal PortalUser user,
+            @Valid @ModelAttribute AvailabilityForm form, BindingResult errors, RedirectAttributes flash) {
+        if (errors.hasErrors()) flash.addFlashAttribute("error", "Ngày và giờ sẵn sàng chưa hợp lệ.");
+        else {
+            try {
+                actions.saveAvailability(user.getAccountId(), null, form);
+                flash.addFlashAttribute("success", "Đã đăng ký khoảng sẵn sàng.");
+            } catch (IllegalArgumentException | IllegalStateException failure) {
+                flash.addFlashAttribute("error", PortalMessages.business(failure));
+            }
+        }
+        return "redirect:/staff/schedules";
+    }
+
+    @PostMapping("/staff/schedules/{id}/delete")
+    String deleteAvailability(@PathVariable Long id, @AuthenticationPrincipal PortalUser user,
+            RedirectAttributes flash) {
+        try {
+            actions.deleteAvailability(user.getAccountId(), id);
+            flash.addFlashAttribute("success", "Đã xóa khoảng sẵn sàng.");
+        } catch (IllegalArgumentException | IllegalStateException failure) {
+            flash.addFlashAttribute("error", PortalMessages.business(failure));
+        }
+        return "redirect:/staff/schedules";
     }
 
     @GetMapping("/customer/bookings/new")
@@ -215,13 +251,9 @@ public class PortalController {
     }
 
     @PostMapping("/customer/bookings/{id}/payment")
-    String method(@PathVariable Long id, @RequestParam PaymentMethod method, @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
+    String onlinePayment(@PathVariable Long id, @AuthenticationPrincipal PortalUser user) {
         query.booking(id, user);
-        if (method == PaymentMethod.PAYOS) {
-            return "redirect:" + payosPayments.checkout(id, user.getAccountId());
-        }
-        payments.chooseMethod(id, method);
-        flash.addFlashAttribute("success", "Đã lưu phương thức. Thanh toán chờ quản trị viên xác minh nhận tiền."); return "redirect:/customer/bookings/" + id;
+        return "redirect:" + payosPayments.checkout(id, user.getAccountId());
     }
 
     @GetMapping({"/payments/payos/return", "/payments/payos/cancel"})
@@ -263,11 +295,12 @@ public class PortalController {
         flash.addFlashAttribute("success", "Công việc đã hoàn thành. Khách hàng có thể chọn phương thức thanh toán."); return "redirect:/staff/bookings/" + id;
     }
 
-    @PostMapping("/admin/bookings/{id}/paid")
-    String paid(@PathVariable Long id, @RequestParam(defaultValue = "false") boolean receiptVerified,
-            @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
-        query.booking(id, user); payments.confirmReceivedByAdmin(id, receiptVerified, PortalActionsService.now());
-        flash.addFlashAttribute("success", "Đã xác minh nhận tiền."); return "redirect:/admin/bookings/" + id;
+    @PostMapping("/staff/bookings/{id}/cash-payment")
+    String confirmCashPayment(@PathVariable Long id, @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
+        query.booking(id, user);
+        payments.confirmCashReceived(id, user.getAccountId());
+        flash.addFlashAttribute("success", "Đã xác nhận nhận tiền mặt; lịch hẹn đã hoàn tất.");
+        return "redirect:/staff/bookings/" + id;
     }
 
     @GetMapping("/evidence/{id}")
