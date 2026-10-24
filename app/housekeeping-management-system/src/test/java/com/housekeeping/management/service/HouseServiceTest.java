@@ -71,6 +71,19 @@ class HouseServiceTest {
         verify(houses).findLockedByHouseIdAndCustomerIdAndDeletedFalse(8L, 3L);
     }
 
+    @Test
+    void softDeleteAllowsHouseWhenItHasNoActiveBookings() {
+        House house = new House();
+        when(houses.findLockedByHouseIdAndCustomerIdAndDeletedFalse(8L, 3L)).thenReturn(Optional.of(house));
+        when(jdbc.queryForObject(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq(Integer.class),
+                org.mockito.ArgumentMatchers.eq(8L))).thenReturn(0);
+
+        service.softDelete(3L, 8L);
+
+        assertThat(house.isDeleted()).isTrue();
+        verify(houses).findLockedByHouseIdAndCustomerIdAndDeletedFalse(8L, 3L);
+    }
+
     @SuppressWarnings({"rawtypes", "unchecked"})
     private void configureCompanyLocation(BigDecimal latitude, BigDecimal longitude, BigDecimal radius) throws Exception {
         when(jdbc.query(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(RowMapper.class)))
