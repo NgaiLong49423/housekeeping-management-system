@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -111,6 +112,43 @@ class ManagementServicesTest {
                 LocalDate.of(2026, 11, 3), LocalTime.of(9, 0), LocalTime.of(12, 0))))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("bị chồng");
         org.mockito.Mockito.verify(availability, org.mockito.Mockito.never()).insert(any(), any(), any(), any());
+    }
+
+    @Test
+    void partTimeStaffCannotChangeAvailabilityThatContainsAConfirmedBookingStart() {
+        StaffAccountRepository staffAccounts = mock(StaffAccountRepository.class);
+        StaffAvailabilityRepository availability = mock(StaffAvailabilityRepository.class);
+        Staff staff = new Staff();
+        staff.setStaffType(StaffType.PART_TIME);
+        staff.setStaffId(8L);
+        when(staffAccounts.findActiveByUserIdForUpdate(800L)).thenReturn(Optional.of(staff));
+        when(availability.containsExistingBookingStart(25L, 8L)).thenReturn(true);
+        StaffAvailabilityService service = new StaffAvailabilityService(staffAccounts, availability);
+
+        assertThatThrownBy(() -> service.save(800L, 25L, new PortalForms.AvailabilityForm(
+                LocalDate.of(2026, 11, 3), LocalTime.of(10, 0), LocalTime.of(13, 0))))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("đã có lịch hẹn");
+
+        verify(availability).containsExistingBookingStart(25L, 8L);
+        verify(availability, never()).update(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void partTimeStaffCannotDeleteAvailabilityThatContainsAConfirmedBookingStart() {
+        StaffAccountRepository staffAccounts = mock(StaffAccountRepository.class);
+        StaffAvailabilityRepository availability = mock(StaffAvailabilityRepository.class);
+        Staff staff = new Staff();
+        staff.setStaffType(StaffType.PART_TIME);
+        staff.setStaffId(8L);
+        when(staffAccounts.findActiveByUserIdForUpdate(800L)).thenReturn(Optional.of(staff));
+        when(availability.containsExistingBookingStart(25L, 8L)).thenReturn(true);
+        StaffAvailabilityService service = new StaffAvailabilityService(staffAccounts, availability);
+
+        assertThatThrownBy(() -> service.delete(800L, 25L))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("đã có lịch hẹn");
+
+        verify(availability).containsExistingBookingStart(25L, 8L);
+        verify(availability, never()).delete(25L, 8L);
     }
 
     @SuppressWarnings("unchecked")
