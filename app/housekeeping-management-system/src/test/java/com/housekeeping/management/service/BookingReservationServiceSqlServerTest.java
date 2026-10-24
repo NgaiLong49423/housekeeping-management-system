@@ -1,6 +1,7 @@
 package com.housekeeping.management.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.housekeeping.management.SqlServerIntegrationTest;
 import com.housekeeping.management.domain.StaffType;
@@ -49,6 +50,7 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
     @Autowired private BookingCompletionService bookingCompletion;
     @Autowired private PaymentService paymentService;
     @Autowired private FeedbackService feedbackService;
+    @Autowired private StaffManagementService staffManagement;
     @Autowired private BookingPersistenceRepository bookingPersistence;
     @Autowired private JdbcTemplate jdbc;
 
@@ -357,6 +359,35 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
                 .containsEntry("status", "CANCELLED")
                 .containsEntry("cancelled_by", admin.getUserId())
                 .containsEntry("cancellation_reason", "Admin integration cancellation");
+    }
+
+    @Test
+    void sqlServerPreventsStaffDeactivationUntilUnfinishedBookingIsCancelled() {
+        String suffix = UUID.randomUUID().toString();
+        User customer = users.saveAndFlush(user("deactivate-customer-" + suffix, UserRole.CUSTOMER));
+        User staffUser = users.saveAndFlush(user("deactivate-staff-" + suffix, UserRole.STAFF));
+        User admin = users.saveAndFlush(user("deactivate-admin-" + suffix, UserRole.ADMIN));
+        Staff staff = new Staff();
+        staff.setUser(staffUser);
+        staff.setStaffType(StaffType.FULL_TIME);
+        Staff savedStaff = staffAccounts.saveAndFlush(staff);
+        House house = houses.saveAndFlush(house(customer.getUserId(), "Deactivate " + suffix));
+        Services service = services.saveAndFlush(service());
+        LocalDateTime start = LocalDateTime.now(ZoneOffset.ofHours(7)).plusDays(5)
+                .withHour(10).withMinute(0).withSecond(0).withNano(0);
+        Long bookingId = reservationService.createBooking(customer.getUserId(), savedStaff.getStaffId(),
+                house.getHouseId(), start, List.of(service.getServiceId()), null);
+
+        assertThatThrownBy(() -> staffManagement.deactivate(admin.getUserId(), savedStaff.getStaffId()))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("chưa hoàn tất");
+        assertThat(jdbc.queryForObject("SELECT status FROM dbo.Users WHERE user_id=?", String.class,
+                staffUser.getUserId())).isEqualTo("ACTIVE");
+
+        assertThat(bookingPersistence.cancel(bookingId, admin.getUserId(), "Integration cancellation",
+                LocalDateTime.now(ZoneOffset.ofHours(7)).withNano(0))).isEqualTo(1);
+        staffManagement.deactivate(admin.getUserId(), savedStaff.getStaffId());
+        assertThat(jdbc.queryForObject("SELECT status FROM dbo.Users WHERE user_id=?", String.class,
+                staffUser.getUserId())).isEqualTo("INACTIVE");
     }
 
     private boolean reserve(Long customerId, Long staffId, Long houseId, LocalDateTime start,
