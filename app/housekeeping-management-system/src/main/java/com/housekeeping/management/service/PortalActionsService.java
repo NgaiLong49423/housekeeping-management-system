@@ -1,10 +1,9 @@
-package com.housekeeping.management.web;
+package com.housekeeping.management.service;
 
-import static com.housekeeping.management.web.PortalForms.*;
+import static com.housekeeping.management.dto.request.PortalForms.*;
 import com.housekeeping.management.domain.BookingStatus;
 import com.housekeeping.management.domain.entity.*;
 import com.housekeeping.management.repository.*;
-import com.housekeeping.management.service.GlobalEmailUniquenessService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import java.time.OffsetDateTime;
@@ -12,8 +11,10 @@ import java.time.ZoneOffset;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import com.housekeeping.management.repository.StaffAccountRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.housekeeping.management.service.DuplicateEmailException;
 
 /** Small missing portal operations; the existing booking/payment/evidence services remain authoritative. */
 @Service
@@ -21,6 +22,7 @@ public class PortalActionsService {
     private final EntityManager em;
     private final BookingRepository bookings;
     private final StaffRepository staff;
+    private final StaffAccountRepository staffAccounts;
     private final ServicesRepository services;
     private final WorkScheduleRepository schedules;
     private final JdbcTemplate jdbc;
@@ -28,9 +30,11 @@ public class PortalActionsService {
     private final PasswordEncoder encoder;
 
     public PortalActionsService(EntityManager em, BookingRepository bookings, StaffRepository staff,
-            ServicesRepository services, WorkScheduleRepository schedules, JdbcTemplate jdbc,
-            GlobalEmailUniquenessService emailUniqueness, PasswordEncoder encoder) {
-        this.em = em; this.bookings = bookings; this.staff = staff; this.services = services;
+            WorkScheduleRepository schedules, JdbcTemplate jdbc,
+            GlobalEmailUniquenessService emailUniqueness, PasswordEncoder encoder,
+            StaffAccountRepository staffAccounts, ServicesRepository services) {
+        this.em = em; this.bookings = bookings; this.staff = staff; this.staffAccounts = staffAccounts;
+        this.services = services;
         this.schedules = schedules; this.jdbc = jdbc; this.emailUniqueness = emailUniqueness; this.encoder = encoder;
     }
 
@@ -39,13 +43,8 @@ public class PortalActionsService {
     public void registerCustomer(CustomerRegistrationForm form) {
         String hash = encoder.encode(form.password());
         emailUniqueness.executeWithUniqueEmail(form.email(), canonical -> {
-            Customer customer = new Customer();
-            customer.setDisplayName(form.name().trim());
-            customer.setEmail(canonical);
-            customer.setPasswordHash(hash);
-            customer.setPhoneNumber(form.phone() == null || form.phone().isBlank() ? null : form.phone().trim());
-            em.persist(customer);
-            em.flush();
+            em.persist(newUser(form.name(), canonical, hash, form.phone(),
+                    com.housekeeping.management.domain.UserRole.CUSTOMER));
             return null;
         });
     }
@@ -73,36 +72,74 @@ public class PortalActionsService {
 
     @Transactional
     public void favorite(Long staffId, Long customerId, boolean favorite) {
-        Customer customer = em.find(Customer.class, customerId, LockModeType.PESSIMISTIC_WRITE);
-        if (customer == null) { throw new AccessDeniedException("Tài khoản không còn tồn tại."); }
-        Staff selected = staff.findById(staffId).orElseThrow(() -> new IllegalArgumentException("Nhân viên không tồn tại."));
-        FavoriteStaffId id = new FavoriteStaffId(customerId, staffId);
-        FavoriteStaff existing = em.find(FavoriteStaff.class, id);
-        if (favorite && existing == null) {
-            FavoriteStaff item = new FavoriteStaff(); item.setId(id); item.setCustomer(customer);
-            item.setStaff(selected); item.setCreatedAt(now()); em.persist(item);
-        } else if (!favorite && existing != null) { em.remove(existing); }
+        com.housekeeping.management.entity.Staff selected = staffAccounts.findById(staffId)
+                .filter(item -> item.getUser().getStatus() == com.housekeeping.management.domain.UserStatus.ACTIVE)
+                .orElseThrow(() -> new IllegalArgumentException("Nhân viên không tồn tại hoặc không hoạt động."));
+        com.housekeeping.management.entity.User customer = em.find(com.housekeeping.management.entity.User.class,
+                customerId, LockModeType.PESSIMISTIC_WRITE);
+        if (customer == null || customer.getRole() != com.housekeeping.management.domain.UserRole.CUSTOMER
+                || customer.getStatus() != com.housekeeping.management.domain.UserStatus.ACTIVE) {
+            throw new AccessDeniedException("Tài khoản Customer không còn hợp lệ.");
+        }
+        if (favorite) {
+            jdbc.update("""
+                    IF NOT EXISTS (SELECT 1 FROM dbo.Staff_Follows WITH (UPDLOCK, HOLDLOCK)
+                                   WHERE customer_id=? AND staff_id=?)
+                        INSERT INTO dbo.Staff_Follows (customer_id, staff_id) VALUES (?, ?)
+                    """, customerId, staffId, customerId, staffId);
+        } else {
+            jdbc.update("DELETE FROM dbo.Staff_Follows WHERE customer_id=? AND staff_id=?", customerId, staffId);
+        }
     }
 
     public void createStaff(StaffCreateForm form) {
         String hash = encoder.encode(form.password());
         emailUniqueness.executeWithUniqueEmail(form.email(), canonical -> {
-            Staff item = new Staff(); item.setDisplayName(form.name().trim()); item.setEmail(canonical);
-            item.setPasswordHash(hash); item.setPhoneNumber(form.phone()); return staff.saveAndFlush(item);
+            com.housekeeping.management.entity.User user = newUser(form.name(), canonical, hash, form.phone(),
+                    com.housekeeping.management.domain.UserRole.STAFF);
+            em.persist(user);
+            em.flush();
+            com.housekeeping.management.entity.Staff item = new com.housekeeping.management.entity.Staff();
+            item.setUser(user);
+            item.setStaffType(form.staffType());
+            em.persist(item);
+            em.flush();
+            return item;
         });
+    }
+
+    private com.housekeeping.management.entity.User newUser(String name, String email, String passwordHash,
+            String phone, com.housekeeping.management.domain.UserRole role) {
+        com.housekeeping.management.entity.User user = new com.housekeeping.management.entity.User();
+        user.setFullName(name.trim());
+        user.setEmail(email);
+        user.setPasswordHash(passwordHash);
+        user.setPhone(phone.trim());
+        user.setRole(role);
+        user.setStatus(com.housekeeping.management.domain.UserStatus.ACTIVE);
+        return user;
     }
 
     @Transactional
     public void updateStaff(Long id, StaffUpdateForm form) {
-        Staff item = staff.findById(id).orElseThrow(() -> new IllegalArgumentException("Nhân viên không tồn tại."));
-        item.setDisplayName(form.name().trim()); item.setPhoneNumber(form.phone());
+        com.housekeeping.management.entity.Staff item = staffAccounts.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Nhân viên không tồn tại."));
+        item.getUser().setFullName(form.name().trim());
+        if (form.phone() != null && !form.phone().isBlank()) {
+            item.getUser().setPhone(form.phone().trim());
+        }
     }
 
     @Transactional
     public void saveService(Long id, ServiceForm form) {
-        Services item = id == null ? new Services() : services.findById(id).orElseThrow(() -> new IllegalArgumentException("Dịch vụ không tồn tại."));
-        item.setServiceName(form.name().trim()); item.setDescription(form.description());
-        item.setDurationMinutes(form.duration()); item.setBasePrice(form.price()); services.saveAndFlush(item);
+        Services item = id == null ? new Services()
+                : services.findById(id).orElseThrow(() -> new IllegalArgumentException("Dịch vụ không tồn tại."));
+        item.setServiceName(form.name().trim());
+        item.setDescription(form.description());
+        item.setDurationMinutes(form.duration());
+        item.setPrice(form.price());
+        if (item.getStatus() == null) item.setStatus(Services.Status.ACTIVE);
+        services.saveAndFlush(item);
     }
 
     @Transactional
@@ -137,14 +174,30 @@ public class PortalActionsService {
 
     @Transactional
     public void deleteStaff(Long id) {
-        Staff item = staff.findByIdForUpdate(id).orElseThrow(() -> new IllegalArgumentException("Nhân viên không tồn tại."));
-        staff.delete(item); staff.flush(); // NO ACTION foreign keys reject dependent data; no cascading delete.
+        com.housekeeping.management.entity.Staff item = staffAccounts.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Nhân viên không tồn tại."));
+        item.getUser().setStatus(com.housekeeping.management.domain.UserStatus.INACTIVE);
+    }
+
+    @Transactional
+    public void activateStaff(Long id) {
+        com.housekeeping.management.entity.Staff item = staffAccounts.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Nhân viên không tồn tại."));
+        item.getUser().setStatus(com.housekeeping.management.domain.UserStatus.ACTIVE);
     }
 
     @Transactional
     public void deleteService(Long id) {
-        Services item = services.findById(id).orElseThrow(() -> new IllegalArgumentException("Dịch vụ không tồn tại."));
-        services.delete(item); services.flush();
+        Services item = services.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Dịch vụ không tồn tại."));
+        item.setStatus(Services.Status.INACTIVE);
+    }
+
+    @Transactional
+    public void activateService(Long id) {
+        Services item = services.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Dịch vụ không tồn tại."));
+        item.setStatus(Services.Status.ACTIVE);
     }
 
     private Booking ownedBooking(Long id, Long customerId) {

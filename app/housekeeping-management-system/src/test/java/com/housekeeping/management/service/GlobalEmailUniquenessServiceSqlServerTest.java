@@ -27,7 +27,7 @@ class GlobalEmailUniquenessServiceSqlServerTest extends SqlServerIntegrationTest
     }
 
     @Test
-    void concurrentCrossRoleInsertAllowsAtMostOneCanonicalEmail() throws Exception {
+    void concurrentRoleRegistrationAllowsOnlyOneSharedUserEmail() throws Exception {
         String canonicalEmail = "race-" + UUID.randomUUID() + "@example.com";
         CountDownLatch ready = new CountDownLatch(3);
         CountDownLatch start = new CountDownLatch(1);
@@ -35,17 +35,17 @@ class GlobalEmailUniquenessServiceSqlServerTest extends SqlServerIntegrationTest
         try (var executor = Executors.newFixedThreadPool(3)) {
             var customerAttempt = executor.submit(() -> tryInsert(
                     "  " + canonicalEmail.toUpperCase() + " ",
-                    "Customer",
+                    "CUSTOMER",
                     ready,
                     start));
             var staffAttempt = executor.submit(() -> tryInsert(
                     canonicalEmail,
-                    "Staff",
+                    "STAFF",
                     ready,
                     start));
             var adminAttempt = executor.submit(() -> tryInsert(
                     " " + canonicalEmail.toUpperCase() + " ",
-                    "Admin",
+                    "ADMIN",
                     ready,
                     start));
 
@@ -57,12 +57,8 @@ class GlobalEmailUniquenessServiceSqlServerTest extends SqlServerIntegrationTest
 
             assertThat((customerCreated ? 1 : 0) + (staffCreated ? 1 : 0) + (adminCreated ? 1 : 0))
                     .isEqualTo(1);
-            Integer total = jdbcTemplate.queryForObject("""
-                    SELECT
-                        (SELECT COUNT(*) FROM Customer WHERE email = ?)
-                      + (SELECT COUNT(*) FROM Staff WHERE email = ?)
-                      + (SELECT COUNT(*) FROM Admin WHERE email = ?)
-                    """, Integer.class, canonicalEmail, canonicalEmail, canonicalEmail);
+            Integer total = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM dbo.Users WHERE email = ?", Integer.class, canonicalEmail);
             assertThat(total).isEqualTo(1);
         }
     }
@@ -78,24 +74,13 @@ class GlobalEmailUniquenessServiceSqlServerTest extends SqlServerIntegrationTest
         }
         try {
             emailUniquenessService.executeWithUniqueEmail(submittedEmail, canonicalEmail -> {
-                if ("Customer".equals(targetTable)) {
-                    jdbcTemplate.update(
-                            "INSERT INTO Customer (display_name, email, password_hash) VALUES (?, ?, ?)",
-                            "Integration customer",
-                            canonicalEmail,
-                            "test-hash");
-                } else if ("Staff".equals(targetTable)) {
-                    jdbcTemplate.update(
-                            "INSERT INTO Staff (display_name, email, password_hash) VALUES (?, ?, ?)",
-                            "Integration staff",
-                            canonicalEmail,
-                            "test-hash");
-                } else {
-                    jdbcTemplate.update(
-                            "INSERT INTO Admin (display_name, email, password_hash) VALUES (?, ?, ?)",
-                            "Integration admin",
-                            canonicalEmail,
-                            "test-hash");
+                Long userId = jdbcTemplate.queryForObject("""
+                        INSERT INTO dbo.Users (full_name, email, password_hash, phone, role)
+                        OUTPUT INSERTED.user_id VALUES (?, ?, ?, ?, ?)
+                        """, Long.class, "Integration " + targetTable.toLowerCase(), canonicalEmail,
+                        "test-hash", "0000000000", targetTable);
+                if ("STAFF".equals(targetTable)) {
+                    jdbcTemplate.update("INSERT INTO dbo.Staff (user_id, staff_type) VALUES (?, 'PART_TIME')", userId);
                 }
                 return true;
             });

@@ -1,6 +1,7 @@
-package com.housekeeping.management.web;
+package com.housekeeping.management.dto.request;
 
 import jakarta.validation.constraints.*;
+import com.housekeeping.management.domain.StaffType;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -13,12 +14,13 @@ public final class PortalForms {
             @NotEmpty @Size(max = 20) List<@NotNull @Positive Long> serviceIds) { }
     public record FeedbackForm(@Min(1) @Max(5) int rating, @NotBlank @Size(max = 2000) String comment) { }
     public record CustomerRegistrationForm(@NotBlank @Size(max = 150) String name,
-            @NotBlank @Email @Size(max = 254) String email, @Size(max = 20) String phone,
+            @NotBlank @Email @Size(max = 255) String email, @NotBlank @Size(max = 20) String phone,
             @NotBlank @Size(min = 8, max = 72) String password, @NotBlank @Size(max = 72) String confirmPassword) { }
     public record ServiceForm(@NotBlank @Size(max = 150) String name, @Size(max = 1000) String description,
-            @Min(1) int duration, @NotNull @DecimalMin("0") @Digits(integer = 18, fraction = 0) BigDecimal price) { }
-    public record StaffCreateForm(@NotBlank @Size(max = 150) String name, @NotBlank @Email @Size(max = 254) String email,
-            @NotBlank @Size(min = 8, max = 72) String password, @Size(max = 20) String phone) { }
+            @Min(1) int duration, @NotNull @DecimalMin("0") @Digits(integer = 10, fraction = 2) BigDecimal price) { }
+    public record StaffCreateForm(@NotBlank @Size(max = 150) String name, @NotBlank @Email @Size(max = 255) String email,
+            @NotBlank @Size(min = 8, max = 72) String password, @NotBlank @Size(max = 20) String phone,
+            @NotNull StaffType staffType) { }
     public record StaffUpdateForm(@NotBlank @Size(max = 150) String name, @Size(max = 20) String phone) { }
     public record ScheduleForm(@NotNull @Positive Long staffId,
             @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startAt,

@@ -1,6 +1,10 @@
-package com.housekeeping.management.web;
+package com.housekeeping.management.controller;
 
-import static com.housekeeping.management.web.PortalForms.*;
+import static com.housekeeping.management.dto.request.PortalForms.*;
+import com.housekeeping.management.dto.response.PortalViews;
+import com.housekeeping.management.service.PortalActionsService;
+import com.housekeeping.management.service.PortalQueryService;
+import com.housekeeping.management.web.PortalUser;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -17,7 +21,7 @@ public class PortalAdminController {
     public PortalAdminController(PortalQueryService query, PortalActionsService actions) { this.query = query; this.actions = actions; }
 
     @GetMapping("/services")
-    String services(Model model) { model.addAttribute("services", query.services()); return "admin/services"; }
+    String services(Model model, @AuthenticationPrincipal PortalUser user) { model.addAttribute("services", query.services(user)); return "admin/services"; }
 
     @GetMapping("/staff")
     String staff(@AuthenticationPrincipal PortalUser user, Model model) { model.addAttribute("staff", query.staff(user)); return "admin/staff"; }
@@ -41,7 +45,12 @@ public class PortalAdminController {
 
     @PostMapping("/services/{id}/delete")
     String deleteService(@PathVariable Long id, RedirectAttributes flash) {
-        actions.deleteService(id); flash.addFlashAttribute("success", "Đã xóa dịch vụ không có dữ liệu phụ thuộc."); return "redirect:/admin/services";
+        actions.deleteService(id); flash.addFlashAttribute("success", "Đã ngừng cung cấp dịch vụ; lịch sử đặt dịch vụ được giữ nguyên."); return "redirect:/admin/services";
+    }
+
+    @PostMapping("/services/{id}/activate")
+    String activateService(@PathVariable Long id, RedirectAttributes flash) {
+        actions.activateService(id); flash.addFlashAttribute("success", "Đã kích hoạt lại dịch vụ."); return "redirect:/admin/services";
     }
 
     @PostMapping("/staff")
@@ -58,7 +67,12 @@ public class PortalAdminController {
 
     @PostMapping("/staff/{id}/delete")
     String deleteStaff(@PathVariable Long id, RedirectAttributes flash) {
-        actions.deleteStaff(id); flash.addFlashAttribute("success", "Đã xóa nhân viên không có dữ liệu phụ thuộc."); return "redirect:/admin/staff";
+        actions.deleteStaff(id); flash.addFlashAttribute("success", "Đã ngừng hoạt động tài khoản; dữ liệu lịch sử được giữ nguyên."); return "redirect:/admin/staff";
+    }
+
+    @PostMapping("/staff/{id}/activate")
+    String activateStaff(@PathVariable Long id, RedirectAttributes flash) {
+        actions.activateStaff(id); flash.addFlashAttribute("success", "Đã kích hoạt lại tài khoản nhân viên."); return "redirect:/admin/staff";
     }
 
     @PostMapping("/schedules")

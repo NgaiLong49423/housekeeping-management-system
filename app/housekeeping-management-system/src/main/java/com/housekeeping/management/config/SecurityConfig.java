@@ -1,6 +1,7 @@
-package com.housekeeping.management.web;
+package com.housekeeping.management.config;
 
 import jakarta.servlet.DispatcherType;
+import com.housekeeping.management.service.AuthService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -10,19 +11,20 @@ import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import com.housekeeping.management.service.AuthService;
 
 @Configuration
 @EnableWebSecurity
-public class PortalSecurityConfiguration {
+public class SecurityConfig {
     @Bean
-    DaoAuthenticationProvider portalAuthenticationProvider(PortalIdentityService identities, PasswordEncoder encoder) {
+    DaoAuthenticationProvider portalAuthenticationProvider(AuthService identities, PasswordEncoder encoder) {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider(identities);
         provider.setPasswordEncoder(encoder);
         return provider;
     }
 
     @Bean
-    PasswordEncoder passwordEncoder() {
+    public PasswordEncoder passwordEncoder() {
         BCryptPasswordEncoder bcrypt = new BCryptPasswordEncoder();
         DelegatingPasswordEncoder encoder = new DelegatingPasswordEncoder("bcrypt", java.util.Map.of("bcrypt", bcrypt));
         encoder.setDefaultPasswordEncoderForMatches(bcrypt);

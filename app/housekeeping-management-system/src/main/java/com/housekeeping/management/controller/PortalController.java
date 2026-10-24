@@ -1,7 +1,12 @@
-package com.housekeeping.management.web;
+package com.housekeeping.management.controller;
 
-import static com.housekeeping.management.web.PortalForms.*;
-import static com.housekeeping.management.web.PortalViews.*;
+import static com.housekeeping.management.dto.request.PortalForms.*;
+import static com.housekeeping.management.dto.response.PortalViews.*;
+import com.housekeeping.management.dto.response.PortalViews;
+import com.housekeeping.management.service.PortalActionsService;
+import com.housekeeping.management.service.PortalQueryService;
+import com.housekeeping.management.web.PortalUser;
+import com.housekeeping.management.web.PortalMessages;
 import com.housekeeping.management.domain.PaymentMethod;
 import com.housekeeping.management.service.PayosPaymentService;
 import com.housekeeping.management.service.PayosWebhookRequest;

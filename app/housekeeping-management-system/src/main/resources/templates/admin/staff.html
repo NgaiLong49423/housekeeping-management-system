@@ -15,7 +15,7 @@
           Quản lý nhân viên
         </h1>
         <p class="lead">
-          Danh sách đội ngũ nhân viên part-time của công ty. Thao tác xóa an toàn chỉ được chấp thuận khi không còn lịch hẹn liên quan.
+          Quản lý tài khoản nhân viên toàn thời gian và bán thời gian. Ngừng hoạt động giữ nguyên lịch sử đặt dịch vụ.
         </p>
       </div>
 
@@ -56,7 +56,15 @@
                 <label class="form-label" for="add-staff-phone">
                   Số điện thoại
                 </label>
-                <input id="add-staff-phone" name="phone" type="tel" class="form-control" maxlength="20" placeholder="0912 345 678">
+                <input id="add-staff-phone" name="phone" type="tel" class="form-control" maxlength="20" placeholder="0912 345 678" required>
+              </div>
+              <div>
+                <label class="form-label" for="add-staff-type">Loại nhân viên</label>
+                <select id="add-staff-type" name="staffType" class="form-select" required>
+                  <option value="" selected disabled>Chọn loại nhân viên</option>
+                  <option value="FULL_TIME">Toàn thời gian</option>
+                  <option value="PART_TIME">Bán thời gian</option>
+                </select>
               </div>
               <button class="btn btn-primary w-100 mt-2" type="submit">
                 + Thêm nhân viên
@@ -85,15 +93,17 @@
                     <span class="badge bg-light text-secondary border small" th:text="${person.phone != null and !person.phone.isEmpty() ? '📞 ' + person.phone : 'Chưa có SĐT'}">
                       SĐT
                     </span>
-                    <span class="badge rounded-pill bg-light text-secondary border small">Nhân viên part-time</span>
+                    <span class="badge rounded-pill bg-light text-secondary border small" th:text="${person.staffType == 'FULL_TIME' ? 'Toàn thời gian' : 'Bán thời gian'}">Loại nhân viên</span>
+                    <span class="badge rounded-pill" th:classappend="${person.active ? 'bg-primary-subtle text-primary border border-primary-subtle' : 'bg-secondary-subtle text-secondary border'}" th:text="${person.active ? 'Đang hoạt động' : 'Ngừng hoạt động'}">Trạng thái</span>
                   </div>
                 </div>
               </div>
               <div>
-                <form method="post" th:action="@{/admin/staff/{id}/delete(id=${person.id})}" data-confirm="Xác nhận xóa nhân viên này? Nếu nhân viên đã có lịch hoặc dữ liệu liên quan, hệ thống sẽ từ chối để bảo vệ toàn vẹn dữ liệu.">
-                  <button class="btn btn-outline-danger btn-sm" type="submit">
-                    Xóa nhân viên
-                  </button>
+                <form th:if="${person.active}" method="post" th:action="@{/admin/staff/{id}/delete(id=${person.id})}" data-confirm="Ngừng hoạt động tài khoản nhân viên này? Lịch sử và dữ liệu liên quan vẫn được giữ.">
+                  <button class="btn btn-outline-danger btn-sm" type="submit">Ngừng hoạt động</button>
+                </form>
+                <form th:unless="${person.active}" method="post" th:action="@{/admin/staff/{id}/activate(id=${person.id})}">
+                  <button class="btn btn-outline-success btn-sm" type="submit">Kích hoạt lại</button>
                 </form>
               </div>
             </div>

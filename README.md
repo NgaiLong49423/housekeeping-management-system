@@ -33,14 +33,14 @@ Ba role là `CUSTOMER`, `STAFF`, `ADMIN`. Database có đúng 15 bảng nghiệp
 Yêu cầu JDK 21 và SQL Server 2022+ bật TCP/IP, Mixed Mode, cổng 1433.
 
 1. Mở SSMS và chạy [`database/setup-demo.sql`](database/setup-demo.sql). Script chỉ tạo database demo mới `home_cleaning_demo` nếu chưa tồn tại; không tạo login, nhúng password, xóa hay reset database khác.
-2. Tạo SQL login riêng, chỉ cấp quyền vào database demo mới. Lưu `DB_USERNAME` và `DB_PASSWORD` trong `.env` tại `app/housekeeping-management-system/`; không commit `.env`.
+2. Tạo SQL login riêng, chỉ cấp quyền vào database demo mới. Sao chép `.env.example` thành `.env`, rồi đặt `DB_USERNAME`, `DB_PASSWORD` và `DEMO_ACCOUNT_PASSWORD`; không commit `.env`.
 3. Từ `app/housekeeping-management-system/`, chạy:
 
    ```powershell
    mvn "-Dspring-boot.run.profiles=demo" spring-boot:run
    ```
 
-4. Mở [http://localhost:8080/login](http://localhost:8080/login). Bộ tài khoản website và dữ liệu seed chỉ được công bố sau khi seeder khớp schema mới và được kiểm chứng trên SQL Server.
+4. Mở [http://localhost:8080/login](http://localhost:8080/login). Seeder dùng `DEMO_ACCOUNT_PASSWORD` để tạo ba tài khoản `customer@demo.gonnha.local`, `staff@demo.gonnha.local` và `admin@demo.gonnha.local`; không có mật khẩu mặc định trong source.
 
 Demo profile dùng riêng database demo. Không bật thao tác Flyway `clean` hoặc trỏ URL demo sang database có dữ liệu cần giữ. Nếu migration báo schema/history không phù hợp, dừng lại và tạo một database development mới thay vì reset. Tài khoản đăng nhập và dữ liệu demo chỉ được công bố sau khi seeder được chuyển sang schema mới và xác minh trên SQL Server.
 

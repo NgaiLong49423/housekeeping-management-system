@@ -4,6 +4,9 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import com.housekeeping.management.domain.BookingStatus;
 import com.housekeeping.management.domain.entity.*;
+import com.housekeeping.management.dto.response.PortalViews;
+import com.housekeeping.management.service.PortalActionsService;
+import com.housekeeping.management.service.PortalQueryService;
 import com.housekeeping.management.repository.*;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -29,7 +32,7 @@ class PortalOwnershipTest {
     @Test
     void cancellationCannotChangeAnotherCustomersBookingOrCompletedBooking() {
         BookingRepository repository = mock(BookingRepository.class);
-        PortalActionsService actions = new PortalActionsService(null, repository, null, null, null, null, null, null);
+        PortalActionsService actions = new PortalActionsService(null, repository, null, null, null, null, null, null, null);
         Customer owner = new Customer(); owner.setCustomerId(1L);
         Booking booking = new Booking(); booking.setCustomer(owner); booking.setBookingStatus(BookingStatus.CONFIRMED);
         booking.setStartAt(PortalActionsService.now().plusHours(3));

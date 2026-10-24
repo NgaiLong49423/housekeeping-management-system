@@ -1,6 +1,6 @@
 package com.housekeeping.management.web;
 
-import static com.housekeeping.management.web.PortalViews.*;
+import static com.housekeeping.management.dto.response.PortalViews.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -9,6 +9,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import com.housekeeping.management.domain.entity.Booking;
+import com.housekeeping.management.config.SecurityConfig;
+import com.housekeeping.management.dto.response.PortalViews;
+import com.housekeeping.management.controller.PortalAdminController;
+import com.housekeeping.management.controller.PortalController;
+import com.housekeeping.management.service.PortalActionsService;
+import com.housekeeping.management.service.PortalQueryService;
 import com.housekeeping.management.service.*;
 import java.math.BigDecimal;
 import java.nio.file.Files;
@@ -30,13 +36,13 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.mock.web.MockMultipartFile;
 
 @WebMvcTest({PortalController.class, PortalAdminController.class})
-@Import(PortalSecurityConfiguration.class)
+@Import(SecurityConfig.class)
 class PortalMvcTest {
     @Autowired MockMvc mvc;
     @Autowired PasswordEncoder encoder;
     @MockitoBean PortalQueryService query;
     @MockitoBean PortalActionsService actions;
-    @MockitoBean PortalIdentityService identity;
+    @MockitoBean AuthService identity;
     @MockitoBean BookingReservationService reservations;
     @MockitoBean BookingCompletionService completion;
     @MockitoBean PaymentLifecycleService payments;
@@ -55,10 +61,10 @@ class PortalMvcTest {
     @BeforeEach
     void data() {
         when(query.services()).thenReturn(List.of(
-            new ServiceCard(10L, "Dọn dẹp nhà theo giờ", "Làm sạch không gian sống, chăm chút từng góc nhỏ.", 120, new BigDecimal("140000")),
-            new ServiceCard(11L, "Tổng vệ sinh nhà cửa", "Làm sạch kỹ lưỡng để tổ ấm thêm trong lành.", 180, new BigDecimal("350000")),
-            new ServiceCard(12L, "Vệ sinh sofa", "Chăm sóc khu vực sinh hoạt của gia đình.", 60, new BigDecimal("200000"))));
-        when(query.staff(any())).thenReturn(List.of(new StaffCard(2L, "Nhân viên kiểm thử", "", true), new StaffCard(4L, "Nhân viên thứ hai", "", false)));
+            new ServiceCard(10L, "Dọn dẹp nhà theo giờ", "Làm sạch không gian sống, chăm chút từng góc nhỏ.", 120, new BigDecimal("140000"), true),
+            new ServiceCard(11L, "Tổng vệ sinh nhà cửa", "Làm sạch kỹ lưỡng để tổ ấm thêm trong lành.", 180, new BigDecimal("350000"), true),
+            new ServiceCard(12L, "Vệ sinh sofa", "Chăm sóc khu vực sinh hoạt của gia đình.", 60, new BigDecimal("200000"), true)));
+        when(query.staff(any())).thenReturn(List.of(new StaffCard(2L, "Nhân viên kiểm thử", "", true, "PART_TIME", true), new StaffCard(4L, "Nhân viên thứ hai", "", false, "FULL_TIME", true)));
         when(query.schedules(any())).thenReturn(List.of(new ScheduleCard(20L, 2L, "Nhân viên kiểm thử", start, start.plusHours(8))));
         when(query.busyIntervals()).thenReturn(List.of(new PortalQueryService.BusyInterval(2L, start.plusHours(4), start.plusHours(5))));
         when(query.bookings(any())).thenReturn(List.of(card("CONFIRMED", null, null), card("COMPLETED", "UNPAID", null)));

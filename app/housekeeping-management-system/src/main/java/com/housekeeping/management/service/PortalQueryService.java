@@ -1,6 +1,6 @@
-package com.housekeeping.management.web;
+package com.housekeeping.management.service;
 
-import static com.housekeeping.management.web.PortalViews.*;
+import static com.housekeeping.management.dto.response.PortalViews.*;
 import java.time.OffsetDateTime;
 import java.util.List;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
+import com.housekeeping.management.web.PortalUser;
 
 @Service
 @Transactional(readOnly = true)
@@ -17,19 +18,30 @@ public class PortalQueryService {
     public PortalQueryService(JdbcTemplate jdbc) { this.jdbc = jdbc; }
 
     public List<ServiceCard> services() {
-        return jdbc.query("SELECT * FROM Services ORDER BY service_id", (rs, row) -> new ServiceCard(
+        return services(null);
+    }
+
+    public List<ServiceCard> services(PortalUser user) {
+        boolean includeInactive = user != null && user.getRole().equals("ADMIN");
+        return jdbc.query("SELECT * FROM dbo.Services WHERE (?=1 OR status='ACTIVE') ORDER BY service_name", (rs, row) -> new ServiceCard(
                 rs.getLong("service_id"), rs.getString("service_name"), rs.getString("description"),
-                rs.getInt("duration_minutes"), rs.getBigDecimal("base_price")));
+                rs.getInt("duration_minutes"), rs.getBigDecimal("price"), "ACTIVE".equals(rs.getString("status"))),
+                includeInactive ? 1 : 0);
     }
 
     public List<StaffCard> staff(PortalUser user) {
-        Long customerId = user != null && user.getRole().equals("CUSTOMER") ? user.getAccountId() : -1L;
+        Long customerId = user != null && user.getRole().equals("CUSTOMER") ? user.getUserId() : -1L;
+        boolean includeInactive = user != null && user.getRole().equals("ADMIN");
         return jdbc.query("""
-                SELECT s.staff_id, s.display_name, s.phone_number,
-                       CASE WHEN f.staff_id IS NULL THEN 0 ELSE 1 END AS favorite
-                FROM Staff s LEFT JOIN Favorite_Staff f ON f.staff_id=s.staff_id AND f.customer_id=?
-                ORDER BY s.display_name
-                """, (rs, row) -> new StaffCard(rs.getLong(1), rs.getString(2), rs.getString(3), rs.getBoolean(4)), customerId);
+                SELECT s.staff_id, u.full_name, u.phone,
+                       CASE WHEN f.staff_id IS NULL THEN 0 ELSE 1 END AS favorite,
+                       s.staff_type, u.status
+                FROM dbo.Staff s JOIN dbo.Users u ON u.user_id=s.user_id
+                LEFT JOIN dbo.Staff_Follows f ON f.staff_id=s.staff_id AND f.customer_id=?
+                WHERE (? = 1 OR u.status='ACTIVE')
+                ORDER BY u.full_name
+                """, (rs, row) -> new StaffCard(rs.getLong(1), rs.getString(2), rs.getString(3),
+                        rs.getBoolean(4), rs.getString(5), "ACTIVE".equals(rs.getString(6))), customerId, includeInactive ? 1 : 0);
     }
 
     public List<ScheduleCard> schedules(PortalUser user) {

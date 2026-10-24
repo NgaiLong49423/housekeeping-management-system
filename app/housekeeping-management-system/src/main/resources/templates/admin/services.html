@@ -55,7 +55,7 @@
                 <label class="form-label" for="add-service-price">
                   Giá dịch vụ (₫)
                 </label>
-                <input id="add-service-price" class="form-control" name="price" type="number" min="0" step="1" required placeholder="150000">
+                <input id="add-service-price" class="form-control" name="price" type="number" min="0" step="0.01" required placeholder="150000">
               </div>
               <button class="btn btn-primary w-100 mt-2" type="submit">
                 + Thêm dịch vụ
@@ -91,10 +91,12 @@
                 </p>
               </div>
               <div>
-                <form method="post" th:action="@{/admin/services/{id}/delete(id=${service.id})}" data-confirm="Xác nhận xóa dịch vụ này? Chỉ xóa được khi chưa có lịch hẹn nào sử dụng dịch vụ này.">
-                  <button class="btn btn-outline-danger btn-sm" type="submit">
-                    Xóa dịch vụ
-                  </button>
+                <span class="badge rounded-pill" th:classappend="${service.active ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-secondary-subtle text-secondary border'}" th:text="${service.active ? 'Đang cung cấp' : 'Ngừng cung cấp'}">Trạng thái</span>
+                <form th:if="${service.active}" method="post" th:action="@{/admin/services/{id}/delete(id=${service.id})}" data-confirm="Ngừng cung cấp dịch vụ này? Lịch sử booking sẽ được giữ nguyên.">
+                  <button class="btn btn-outline-danger btn-sm mt-2" type="submit">Ngừng cung cấp</button>
+                </form>
+                <form th:unless="${service.active}" method="post" th:action="@{/admin/services/{id}/activate(id=${service.id})}">
+                  <button class="btn btn-outline-success btn-sm mt-2" type="submit">Kích hoạt lại</button>
                 </form>
               </div>
             </div>
@@ -120,7 +122,7 @@
                   </div>
                   <div class="col-sm-6">
                     <label class="form-label small">Giá (₫)</label>
-                    <input name="price" class="form-control" type="number" min="0" step="1" th:value="${service.price}" required>
+                    <input name="price" class="form-control" type="number" min="0" step="0.01" th:value="${service.price}" required>
                   </div>
                 </div>
                 <div class="d-flex justify-content-end">

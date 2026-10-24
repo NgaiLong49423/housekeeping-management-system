@@ -13,7 +13,7 @@ Tài liệu này mô tả cách chạy ứng dụng trên SQL Server local. Prof
 
 1. Cài JDK 21, Maven và SQL Server local có TCP/IP tại cổng 1433.
 2. Mở `database/setup-demo.sql` trong SSMS và chạy trên instance demo/dev. Script chỉ tạo database `home_cleaning_demo` nếu chưa tồn tại; không tạo login hay chứa password.
-3. Tạo SQL login riêng, map vào database demo và cấp quyền DDL để Flyway tạo schema. Sao chép `.env.example` thành `.env` trong thư mục Maven module rồi điền `DB_USERNAME` và `DB_PASSWORD` của bạn. Không commit `.env`.
+3. Tạo SQL login riêng, map vào database demo và cấp quyền DDL để Flyway tạo schema. Sao chép `.env.example` thành `.env` trong thư mục Maven module rồi tự đặt `DB_USERNAME`, `DB_PASSWORD` và `DEMO_ACCOUNT_PASSWORD`. Không commit `.env`.
 4. Mở `app/housekeeping-management-system/pom.xml` bằng IntelliJ, chọn JDK 21 và đợi Maven import.
 5. Chạy cấu hình IntelliJ `Housekeeping Demo` hoặc chạy:
 
@@ -33,7 +33,7 @@ Thông tin database dành cho môi trường demo local:
 | Database | `home_cleaning_demo` |
 | Website | `http://localhost:8080` |
 
-Tài khoản đăng nhập website và dữ liệu seed hiện cần được đồng bộ với schema/seed mới trước khi xác nhận có thể đăng nhập. Không lấy kết quả xác minh của mô hình cũ làm bằng chứng cho baseline mới.
+Seeder tạo tài khoản website trong bảng `Users` và Staff tương ứng trong bảng `Staff`. Mật khẩu được cấu hình qua `DEMO_ACCOUNT_PASSWORD`; ứng dụng không dùng mật khẩu mẫu mặc định. Khả năng chạy trên SQL Server cần được xác minh riêng.
 
 ## Cấu hình database development
 

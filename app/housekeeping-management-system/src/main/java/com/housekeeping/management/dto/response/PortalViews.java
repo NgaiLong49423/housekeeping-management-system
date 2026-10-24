@@ -1,4 +1,4 @@
-package com.housekeeping.management.web;
+package com.housekeeping.management.dto.response;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -12,8 +12,8 @@ public final class PortalViews {
     public static String time(OffsetDateTime value) {
         return value.withOffsetSameInstant(ZoneOffset.ofHours(7)).format(DateTimeFormatter.ofPattern("HH:mm · dd/MM/yyyy"));
     }
-    public record ServiceCard(Long id, String name, String description, int duration, BigDecimal price) { }
-    public record StaffCard(Long id, String name, String phone, boolean favorite) { }
+    public record ServiceCard(Long id, String name, String description, int duration, BigDecimal price, boolean active) { }
+    public record StaffCard(Long id, String name, String phone, boolean favorite, String staffType, boolean active) { }
     public record ScheduleCard(Long id, Long staffId, String staffName, OffsetDateTime start, OffsetDateTime end) {
         public String getStartLabel() { return time(start); }
         public String getEndLabel() { return time(end); }
