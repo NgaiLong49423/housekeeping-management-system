@@ -33,7 +33,7 @@ import org.testcontainers.mssqlserver.MSSQLServerContainer;
 @SpringBootTest(properties = "app.demo.account-password=Demo-Only-Integration-Password-42!")
 @AutoConfigureMockMvc
 class DemoProfileSqlServerTest {
-    private static final String TEST_DATABASE = "home_cleaning_demo_acceptance";
+    private static final String TEST_DATABASE = "home_cleaning_demo";
     private static final String DEMO_PASSWORD = "Demo-Only-Integration-Password-42!";
     private static final MSSQLServerContainer SQL_SERVER = new MSSQLServerContainer(
             "mcr.microsoft.com/mssql/server:2022-CU20-ubuntu-22.04").acceptLicense();
