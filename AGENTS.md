@@ -1,6 +1,6 @@
 > **Document:** Agent Instructions\
 > **File:** `AGENTS.md`\
-> **Version:** v2.0.0\
+> **Version:** v2.1.0\
 > **Created:** 2026-06-29\
 > **Last Updated:** 2026-10-24\
 > **Status:** Template\
@@ -14,6 +14,7 @@ Read `.agents/POLICY.md` before repository work. Then inspect the relevant proje
 - Repository overview and project-specific usage: `README.md`
 - Contribution and branch workflow: `CONTRIBUTING.md`
 - Requirements: `docs/requirements/PRD.md` and `docs/requirements/SRS.md`
+- Approved SQL Server schema contract: `docs/requirements/SQL_SERVER_DATA_DICTIONARY.md`
 - Database starter: `database/README.md` and the scripts that apply to the selected database
 - Machine-readable repository contract: `.agents/repo-contract.yml`
 - Reusable Agent procedures: `.agents/skills/` and `.agents/workflows/`
@@ -21,9 +22,11 @@ Read `.agents/POLICY.md` before repository work. Then inspect the relevant proje
 
 `AGENTS.md` is the entry point. `.agents/POLICY.md` owns agent permissions and safety rules. `CONTRIBUTING.md` owns the contributor workflow. The repository contract summarizes paths and machine-checkable rules; it does not override these sources.
 
+The approved application baseline is Java 21, Spring Boot, Spring MVC/Thymeleaf, Spring Data JPA, SQL Server and Flyway. Preserve the single Maven project and the approved 15-table dictionary. Do not apply the legacy MySQL reference DDL or rewrite applied Flyway migrations.
+
 ## Java Application Structure
 
-For Java application work, read [`docs/architecture/java-package-structure.md`](docs/architecture/java-package-structure.md) and use its package layout as the default target. Keep new code in the corresponding layer, preserve the existing MVC application boundaries, and make only task-scoped structural changes. The layout is a strong convention, not a requirement to rename every existing class or package in a feature change.
+For Java application work, read [`docs/architecture/java-package-structure.md`](docs/architecture/java-package-structure.md) and follow its package layout for all new code and migrated slices: `config/`, `controller/`, `dto/request/`, `dto/response/`, `entity/`, `repository/`, and `service/`; use `domain/` for suitable enums/value types. Keep layer responsibilities and the existing MVC boundary. This is the team's strong default, not a blanket instruction to rename untouched legacy classes. If a new class must sit outside the layout, keep the exception narrow and explain the reason in the change description.
 
 ## Repository Layout
 

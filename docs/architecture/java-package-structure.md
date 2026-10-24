@@ -1,96 +1,83 @@
-> **Tài liệu:** Hướng dẫn cấu trúc package Java\
-> **Tệp:** `docs/architecture/java-package-structure.md`\
-> **Phiên bản:** v1.0.1\
-> **Ngày tạo:** 2026-10-24\
-> **Cập nhật lần cuối:** 2026-10-24\
-> **Trạng thái:** Đang áp dụng\
+> **Document:** Java Package Structure Guide\
+> **File:** `docs/architecture/java-package-structure.md`\
+> **Version:** v2.0.0\
+> **Created:** 2026-10-24\
+> **Last Updated:** 2026-10-24\
+> **Status:** Active\
 
 # Hướng dẫn cấu trúc package Java
 
-Tài liệu này giúp thành viên trong nhóm biết nên đặt code Java ở đâu và mỗi phần chịu trách nhiệm gì. Đây là cấu trúc định hướng mạnh cho code mới hoặc phần được chỉnh sửa đáng kể; không yêu cầu tên file phải giống hệt ví dụ. Hãy giữ thay đổi trong phạm vi công việc và đừng chuyển toàn bộ code cũ chỉ để cây thư mục trông giống mẫu.
+Tài liệu này quy định cách tổ chức code Java mục tiêu trong ứng dụng. Agent và thành viên nhóm phải ưu tiên cấu trúc dưới đây khi xây mới hoặc tái cấu trúc từng luồng nghiệp vụ. Đây là quy ước linh hoạt: tên class có thể khác ví dụ nếu vẫn diễn đạt đúng domain và trách nhiệm.
 
-## Cấu trúc đề xuất
+## Cây thư mục mục tiêu
 
 ```text
 app/housekeeping-management-system/
-└── src/main/java/com/housekeeping/management/
-    ├── config/
-    │   ├── SecurityConfig.java
-    │   └── ...
-    ├── controller/
-    │   ├── AuthController.java
-    │   ├── BookingController.java
-    │   ├── StaffController.java
-    │   ├── PaymentController.java
-    │   └── ...
-    ├── dto/
-    │   ├── request/
-    │   └── response/
-    ├── entity/
-    │   ├── User.java
-    │   ├── Staff.java
-    │   ├── House.java
-    │   ├── Booking.java
-    │   └── ...
-    ├── repository/
-    │   ├── UserRepository.java
-    │   ├── BookingRepository.java
-    │   └── ...
-    ├── service/
-    │   ├── AuthService.java
-    │   ├── BookingService.java
-    │   ├── PaymentService.java
-    │   └── ...
-    └── HousekeepingManagementSystemApplication.java
+├── pom.xml
+└── src/
+    ├── main/
+    │   ├── java/com/housekeeping/management/
+    │   │   ├── config/
+    │   │   │   ├── SecurityConfig.java
+    │   │   │   └── ...
+    │   │   ├── controller/
+    │   │   │   ├── AuthController.java
+    │   │   │   ├── BookingController.java
+    │   │   │   ├── StaffController.java
+    │   │   │   ├── PaymentController.java
+    │   │   │   └── ...
+    │   │   ├── dto/
+    │   │   │   ├── request/
+    │   │   │   └── response/
+    │   │   ├── entity/
+    │   │   │   ├── User.java
+    │   │   │   ├── Staff.java
+    │   │   │   ├── House.java
+    │   │   │   ├── Booking.java
+    │   │   │   └── ...
+    │   │   ├── repository/
+    │   │   ├── service/
+    │   │   ├── domain/       # enum/value types khi hữu ích
+    │   │   └── HousekeepingManagementSystemApplication.java
+    │   └── resources/
+    │       ├── templates/    # Thymeleaf
+    │       ├── static/       # Bootstrap/CSS/JS/images
+    │       └── db/migration/ # SQL Server + Flyway
+    └── test/java/...
 ```
 
-Tên trong ví dụ thể hiện vai trò phổ biến. Khi tên miền hoặc quy ước Spring MVC hiện tại của dự án khác đi, hãy ưu tiên tính nhất quán với code đang có.
+## Trách nhiệm các layer
 
-## Mỗi package dùng để làm gì?
+- `config/`: cấu hình Spring Security, datasource/Flyway, session và tích hợp hạ tầng. Không chứa quy tắc nghiệp vụ.
+- `controller/`: tiếp nhận request MVC, binding/validation cấu trúc, gọi service rồi trả view/redirect/response. Controller mỏng, không truy cập repository trực tiếp.
+- `dto/request/`: dữ liệu form/request và validation ở ranh giới ứng dụng.
+- `dto/response/`: view model hoặc response chỉ khi cần. Không đưa password hash hay toàn bộ entity graph ra ngoài.
+- `entity/`: ánh xạ JPA cho đúng 15 bảng nghiệp vụ trong Data Dictionary; enum/domain types có thể giữ ở `domain/`.
+- `repository/`: truy vấn SQL Server, projections và khóa/lock dữ liệu; không điều phối luồng nghiệp vụ.
+- `service/`: use case, business rules, ownership checks và `@Transactional` boundaries.
 
-- `config/`: cấu hình ứng dụng và bảo mật. Không đặt quy tắc nghiệp vụ vào đây.
-- `controller/`: nhận request HTTP/MVC, đọc dữ liệu form, gọi service, rồi chọn response hoặc view cần trả về. Controller nên mỏng; không tự xử lý nghiệp vụ đặt lịch hay thanh toán.
-- `dto/request/` và `dto/response/`: các đối tượng dữ liệu đi vào và đi ra ở ranh giới web/API. Mặc định không dùng entity làm dữ liệu trả trực tiếp cho API.
-- `entity/`: các JPA entity và quan hệ lưu trữ. Không để luồng xử lý nhiều bước hoặc logic trình bày trong entity.
-- `repository/`: truy vấn và thao tác dữ liệu. Quy trình nghiệp vụ có transaction nên nằm trong service.
-- `service/`: xử lý nghiệp vụ, phối hợp nhiều repository, kiểm tra điều kiện liên quan nhiều entity và xác định ranh giới transaction.
-
-Dự án hiện có package `domain/` cho enum và kiểu miền nghiệp vụ; có thể tiếp tục dùng package này. Không cần chuyển các kiểu đó sang `entity/`. Chỉ thêm package dùng chung khi có nhu cầu cụ thể và trách nhiệm rõ ràng.
-
-## Áp dụng vào ứng dụng MVC hiện tại
-
-Ứng dụng hiện dùng Spring MVC với Thymeleaf và đã có các package `web/`, `domain/`, `repository/`, `service/`. Hãy xem các package này là cách tổ chức hiện có cho những trách nhiệm tương ứng:
-
-| Vai trò trong cấu trúc đề xuất | Package/quy ước đang dùng |
-|---|---|
-| Controller MVC và kết nối với view | `web/` |
-| JPA entity | `domain/entity/` |
-| Enum và kiểu miền nghiệp vụ | `domain/` |
-| Dữ liệu form và view | Các kiểu form/view model trong `web/` |
-| Truy vấn và lưu dữ liệu | `repository/` |
-| Luồng nghiệp vụ | `service/`; một số application service trong `web/` theo cách tổ chức đã có |
-
-Khi thêm tính năng, trước tiên hãy xem một tính năng gần giống để làm theo cách đặt tên, validation, transaction và xử lý lỗi đang dùng. Không đổi `web/` thành `controller/`, không chuyển `domain/entity/` thành `entity/`, và không chuyển class giữa các package như một phần dọn dẹp ngoài phạm vi.
-
-Nếu một nhiệm vụ yêu cầu chuyển đổi package rõ ràng, hãy lập kế hoạch riêng cho việc di chuyển class, cập nhật import, cấu hình, kiểm tra và tài liệu; bảo đảm ứng dụng MVC/Thymeleaf vẫn hoạt động.
-
-## Hướng gọi giữa các layer
+Luồng phụ thuộc chính:
 
 ```text
-controller -> service -> repository -> database
-                 |
-                 +-> entity và kiểu domain
-
-DTO dùng ở ranh giới web; entity là dữ liệu miền/lưu trữ.
+controller -> service -> repository -> SQL Server
+                 └----> entity/domain types
 ```
 
-Repository có thể dùng entity hoặc projection chuyên cho truy vấn. Controller không nên chứa quy tắc đặt lịch, thanh toán, kiểm tra quyền sở hữu hay xếp lịch; các quy tắc này thuộc service. Đừng thêm layer, package, framework hoặc abstraction mới nếu chưa có nhu cầu thực tế.
+Provider PayOS phải nằm sau lớp tích hợp rõ ràng. Chỉ tạo `PaymentGateway` interface nếu nó giúp kiểm thử hoặc cô lập vendor thực tế; DTO/SDK và exception PayOS không được rò vào business contract. Không thêm `IService` cho mọi service, generic repository, fake implementation, hoặc module Maven mới.
 
-## Quy tắc khi thay đổi code
+## Áp dụng với code hiện tại
 
-1. Xem phần code gần nhất trước khi tạo class mới; làm theo quy ước đang dùng.
-2. Đặt code vào package phù hợp với trách nhiệm, kể cả khi tên class khác ví dụ.
-3. Tách dữ liệu request/response khỏi entity khi dữ liệu đi qua ranh giới web.
-4. Giữ Spring MVC/Thymeleaf và các quyết định backend/database hiện tại, trừ khi người dùng duyệt một thay đổi kiến trúc rộng hơn.
-5. Không chuyển toàn bộ package trong repo chỉ để cây thư mục giống hoàn toàn mẫu đề xuất.
-6. Nếu có lý do cần tổ chức khác mẫu, giữ ngoại lệ trong phạm vi nhỏ và nêu lý do trong phần tóm tắt thay đổi.
+Repo hiện còn package cũ `web/`, `domain/entity/` và các lớp tổng hợp `PortalController`, `PortalActionsService`, `PortalQueryService`. Goal này đã duyệt việc tổ chức lại theo layout mục tiêu. Khi sửa một vertical slice, hãy chuyển các class liên quan vào `controller/`, `dto/`, `entity/` hoặc `service/`, cập nhật wiring/imports và kiểm tra cùng slice. Không để thêm nghiệp vụ mới vào `Portal*` chỉ để tránh migration; giữ lớp tương thích cũ tạm thời chỉ khi lát cắt chưa được chuyển.
+
+Không đổi framework hoặc giao thức: đây vẫn là một ứng dụng Java 21/Spring Boot, Spring MVC + Thymeleaf + Bootstrap trong một Maven project, dùng Spring Data JPA/Hibernate, SQL Server, Flyway và Spring Security HTTP Session. Đây không phải REST API riêng hay React SPA; route MVC hiện có chỉ đổi khi use case yêu cầu.
+
+## Quy tắc thiết kế và review
+
+1. Trước feature đáng kể, tự rà soát Responsibility, Coupling, Naming, Extensibility, Simplicity, Consistency và Testability.
+2. Ưu tiên class/method có tên theo domain/hành vi như `BookingService`, `createBooking`, `confirmCashReceived`, `isActive`; tránh `CommonService`, `Utils`, `processData`.
+3. Mỗi class/method có một trách nhiệm mạch lạc; không tách nhỏ máy móc theo số dòng hoặc tạo abstraction nếu chưa có lợi ích cụ thể.
+4. Service sở hữu transaction và invariants. Repository chỉ truy cập dữ liệu. Controller không chứa SQL/BR/vendor workflow.
+5. Bảo toàn lỗi và ngữ cảnh hữu ích; không nuốt exception, không log hoặc trả secret.
+6. Tái cấu trúc từng lát cắt đầy đủ, giữ templates và CSS hữu ích, không sửa code ngoài phạm vi.
+7. Test hành vi: boundary, ownership, trạng thái, lỗi và concurrency tương ứng. Chỉ báo test đã đạt sau khi chạy thật.
+8. Không sửa V1/V2/V3 migration đã áp dụng. Schema mới phát triển theo baseline/location Flyway riêng như tài liệu database; tuyệt đối không reset hoặc drop database người dùng.

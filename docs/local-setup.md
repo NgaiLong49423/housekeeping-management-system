@@ -1,11 +1,13 @@
 > **Document:** Local Runtime Setup\
 > **File:** `docs/local-setup.md`\
-> **Version:** v1.6.0\
+> **Version:** v1.7.0\
 > **Created:** 2026-10-16\
-> **Last Updated:** 2026-10-17\
-> **Status:** Draft
+> **Last Updated:** 2026-10-24\
+> **Status:** Deprecated
 
 # Chạy Project Trên Máy Đã Setup
+
+> **Tài liệu lịch sử:** các cấu hình, database `hsf302`, `.runtime/` và kết quả xác minh bên dưới thuộc mô hình cũ ngày 2026-10-17. Baseline ứng dụng hiện tại đã chuyển sang schema 15 bảng SQL Server riêng trong `db/refactor`. Không chạy cấu hình cũ, script seed cũ, hoặc thao tác Flyway lên database `hsf302`. Xem [hướng dẫn demo hiện tại](demo-setup.md) và [hướng dẫn database](../database/README.md); chỉ dùng database mới, dùng riêng cho dev/demo.
 
 **Kết nối hiện tại:** SQL Server `SQLEXPRESS` tại `127.0.0.1:1433`, database **`hsf302`**. Database `hsf302_housekeeping_local` của lần setup trước không còn hiện diện khi kiểm tra lại; cấu hình local đã chuyển sang database `hsf302` được tạo bằng SQL thủ công. SQL login riêng vẫn giữ tên `hsf302_housekeeping_local`; tên login không cần giống tên database.
 

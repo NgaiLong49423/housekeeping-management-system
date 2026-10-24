@@ -1,97 +1,79 @@
-> **Document:** Housekeeping Management System\
+> **Document:** Housekeeping Management System README\
 > **File:** `README.md`\
-> **Version:** v1.3.0\
+> **Version:** v2.0.0\
 > **Created:** 2026-06-14\
-> **Last Updated:** 2026-10-17\
-> **Status:** Draft
+> **Last Updated:** 2026-10-24\
+> **Status:** Draft\
 
 # Housekeeping Management System
 
-Ứng dụng HSF302 cho một công ty giúp việc: Customer tự chọn Staff part-time và đặt dịch vụ; Staff lưu bằng chứng, hoàn thành công việc; Admin quản lý danh mục/khoảng sẵn sàng và xác minh thanh toán thủ công. Khách hàng cũng có thể thanh toán trực tuyến qua PayOS.
+Ứng dụng web đặt dịch vụ dọn dẹp nhà cho một công ty. Customer quản lý nhà và đặt lịch; Staff thực hiện công việc; Admin quản lý nhân viên, dịch vụ, giờ hoạt động và vận hành. Tài liệu chuẩn gồm [PRD](docs/requirements/PRD.md), [SRS](docs/requirements/SRS.md) và [Từ điển dữ liệu SQL Server](docs/requirements/SQL_SERVER_DATA_DICTIONARY.md).
 
-**Mới clone project từ GitHub?** Bắt đầu tại [hướng dẫn setup và tài khoản demo](docs/demo-setup.md): có email/mật khẩu cho cả ba vai trò, cách kết nối SQL Server và cách chạy full stack trong IntelliJ. Xem [vị trí các file cấu hình](docs/demo-setup.md#thông-tin-nằm-ở-đâu) khi cần chỉnh lại.
+## Công nghệ và kiến trúc
 
-| Hạng mục | Công nghệ đã chốt |
+| Phần | Công nghệ |
 |---|---|
-| Nền tảng | Java 21, Spring Boot 4.1.1, Maven |
-| Giao diện | Spring MVC, Thymeleaf, Bootstrap 5.3.8 |
-| Dữ liệu | SQL Server, Spring Data JPA/Hibernate, Flyway |
+| Backend | Java 21, Spring Boot 4.1.1, Spring MVC |
+| Giao diện | Thymeleaf, Bootstrap |
+| Lưu trữ | Spring Data JPA/Hibernate, Microsoft SQL Server |
+| Migration | Flyway |
 | Xác thực | Spring Security, HTTP Session, BCrypt |
+| Cấu trúc | Một Maven project, MVC/N-Layer đơn giản |
 
-## Chạy ứng dụng
+Agent và thành viên nhóm cần theo [hướng dẫn cấu trúc package Java](docs/architecture/java-package-structure.md): `controller -> service -> repository -> SQL Server`, với DTO ở ranh giới ứng dụng và Entity ánh xạ dữ liệu.
 
-**Người mới clone — chạy demo nhanh:**
+## Các module
 
-1. Chuẩn bị JDK 21 và SQL Server bật Mixed Mode, TCP cổng **1433**.
-2. Trong SSMS, dùng tài khoản quản trị chạy toàn bộ [database/setup-demo.sql](database/setup-demo.sql). Script tạo database `housekeeping_demo` và SQL login dùng sẵn.
-3. Mở root repository trong IntelliJ, chọn SDK 21 và bảo đảm Maven module từ [pom.xml](app/housekeeping-management-system/pom.xml) đã được import.
-4. Chọn **Housekeeping Demo - Reset DB** trên thanh Run rồi bấm Run. Cấu hình này bật profile `demo`, nạp `.env` trong module, reset schema và dữ liệu mỗi lần chạy, rồi tự mở trang chủ sau khi build.
-5. Mở [trang đăng nhập](http://localhost:8080/login) và dùng tài khoản ở bảng bên dưới. Flyway tự tạo bảng và nạp dữ liệu demo; migration seed chỉ hoạt động trong profile `demo`.
+Authentication; Service Management; Staff Profile; Follow Staff; House Management; Booking Management; Staff Availability; Leave Management; Job Execution; Payment; Feedback; System Configuration.
 
-Mặc định ứng dụng giữ dữ liệu giữa các lần chạy. Cấu hình IntelliJ **Housekeeping Demo - Reset DB** bật reset riêng cho lần chạy đó. Khi chạy bằng cấu hình khác, đặt `DB_RESET_ON_STARTUP=true` trong `.env` của module nếu muốn reset. Tính năng này xóa toàn bộ dữ liệu trong schema đã cấu hình; chỉ dùng với database local dành riêng cho demo.
+Ba role là `CUSTOMER`, `STAFF`, `ADMIN`. Database có đúng 15 bảng nghiệp vụ theo Data Dictionary. Booking dùng các trạng thái `CONFIRMED`, `AWAITING_PAYMENT`, `COMPLETED`, `CANCELLED`. Payment `CASH` do Staff được giao xác nhận; Payment `ONLINE` qua PayOS được xác nhận bằng webhook hợp lệ.
 
-Không cần tạo `.env` với cách chạy này. Nếu SQL dùng cổng khác hoặc chưa bật Mixed Mode/TCP, xem [hướng dẫn chi tiết và xử lý lỗi](docs/demo-setup.md). Cấu hình **Housekeeping Full Stack** bên dưới dành cho máy local đã setup riêng.
+## Chạy môi trường demo mới
 
-**Máy đã được setup:** xem [hướng dẫn chạy local](docs/local-setup.md). Mở [ứng dụng](http://localhost:8080/) hoặc chạy `run-local.cmd` để dùng JDK 21 và database riêng đã cấu hình.
+Yêu cầu JDK 21 và SQL Server 2022+ bật TCP/IP, Mixed Mode, cổng 1433.
 
-1. Dùng JDK 21 và Maven; kiểm tra `java -version` và `mvn -version`. Máy mặc định trỏ JDK 17 cần đổi `JAVA_HOME` trước khi chạy.
-2. Chuẩn bị SQL Server và database rỗng hoặc database đã áp dụng migration tương ứng. Flyway quản lý migration; `ddl-auto=validate` không tự thay đổi schema.
-3. Thiết lập biến môi trường `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` theo môi trường của bạn; không ghi mật khẩu thật vào mã nguồn.
-4. Mở thư mục `app/housekeeping-management-system/`, chạy `mvn spring-boot:run`.
-5. Truy cập [trang chủ](http://localhost:8080/). Tài khoản Customer/Staff/Admin dùng chung [trang đăng nhập](http://localhost:8080/login).
+1. Mở SSMS và chạy [`database/setup-demo.sql`](database/setup-demo.sql). Script chỉ tạo database demo mới `home_cleaning_demo` nếu chưa tồn tại; không tạo login, nhúng password, xóa hay reset database khác.
+2. Tạo SQL login riêng, chỉ cấp quyền vào database demo mới. Lưu `DB_USERNAME` và `DB_PASSWORD` trong `.env` tại `app/housekeeping-management-system/`; không commit `.env`.
+3. Từ `app/housekeeping-management-system/`, chạy:
 
-Giao diện sử dụng dữ liệu thật từ database. Không nhập dữ liệu mock, lịch định kỳ, tự phân công nhân viên hoặc thanh toán tự động từ thiết kế tham khảo. Không cần npm/Vite hay cấu hình CORS cho frontend riêng.
+   ```powershell
+   mvn "-Dspring-boot.run.profiles=demo" spring-boot:run
+   ```
 
-## Tài khoản demo cho người clone từ GitHub
+4. Mở [http://localhost:8080/login](http://localhost:8080/login). Bộ tài khoản website và dữ liệu seed chỉ được công bố sau khi seeder khớp schema mới và được kiểm chứng trên SQL Server.
 
-Chạy [setup-demo.sql](database/setup-demo.sql), chọn JDK 21 rồi Run **Housekeeping Demo** theo [hướng dẫn demo](docs/demo-setup.md). Kết nối SQL mẫu đã có sẵn trong profile `demo`; `.env` chỉ cần khi muốn đổi kết nối. Ứng dụng tự tạo các tài khoản dưới đây nếu còn thiếu, lưu mật khẩu BCrypt và giữ nguyên tài khoản đã tồn tại.
+Demo profile dùng riêng database demo. Không bật thao tác Flyway `clean` hoặc trỏ URL demo sang database có dữ liệu cần giữ. Nếu migration báo schema/history không phù hợp, dừng lại và tạo một database development mới thay vì reset. Tài khoản đăng nhập và dữ liệu demo chỉ được công bố sau khi seeder được chuyển sang schema mới và xác minh trên SQL Server.
 
-| Vai trò | Email | Mật khẩu demo |
-|---|---|---|
-| Admin | `admin@demo.gonnha.local` | `Demo@123456` |
-| Customer chính | `customer@demo.gonnha.local` | `Demo@123456` |
-| Customer bổ sung | `customer01@demo.gonnha.local` đến `customer07@demo.gonnha.local` | `Demo@123456` |
-| Staff chính | `staff@demo.gonnha.local` | `Demo@123456` |
-| Staff bổ sung | `staff01@demo.gonnha.local` đến `staff07@demo.gonnha.local` | `Demo@123456` |
-
-Flyway nạp tổng cộng 8 Customer, 8 Staff, 8 dịch vụ và 20 booking để trình bày các trạng thái nghiệp vụ. Xem [danh sách tài khoản và hướng dẫn demo](docs/demo-setup.md) để dùng các tài khoản bổ sung.
-
-Đây là tài khoản ứng dụng mẫu công khai, chỉ bật cho môi trường demo. SQL login mẫu là `housekeeping_demo_app` / `HousekeepingDemo@2026`, database `housekeeping_demo`; đây là tài khoản kết nối database, khác ba tài khoản website. Người clone vẫn cần SQL Server trên máy của họ; không chia sẻ `.env` hoặc `.runtime/` chứa thông tin kết nối riêng.
-
-## Cấu trúc
-
-```text
-app/housekeeping-management-system/
-  src/main/java/com/housekeeping/management/
-    domain/       # Entity và trạng thái đã có
-    repository/   # Repository đã có
-    service/      # Nghiệp vụ đã có
-    web/          # MVC, session, view model và lớp nối giao diện
-  src/main/resources/
-    templates/    # Giao diện Thymeleaf
-    static/       # CSS, JavaScript, ảnh và Bootstrap cục bộ
-    db/migration/ # Migration hiện có
-```
+Muốn tự cấu hình SQL Server, sao chép [`.env.example`](app/housekeeping-management-system/.env.example) thành `.env` trong thư mục Maven module và đặt `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` cho một database development riêng. Không đưa `.env` hay thông tin kết nối riêng lên Git.
 
 ## Kiểm tra
 
 Từ thư mục chứa `pom.xml`:
 
 ```powershell
-# Render, form, session và phân quyền; không cần SQL Server
+# Unit/MVC tests; không cần Docker hoặc SQL Server
 mvn "-DexcludedGroups=sqlserver" verify
 
-# Toàn bộ, bao gồm Testcontainers SQL Server; cần Docker
+# Bao gồm migration, mapping và concurrency tests trên SQL Server Testcontainers; cần Docker
 mvn verify
 ```
 
-Test web dùng fixture trong test, không thay thế nghiệm thu với SQL Server thật. Xem [hướng dẫn tích hợp](docs/frontend-integration.md) để cấu hình tài khoản và kiểm tra luồng đầy đủ.
+Test bằng fixture không thay thế xác minh trên SQL Server thật. Kết quả cần ghi rõ test SQL Server nào chạy được.
 
-## Tài liệu
+## Cấu trúc source
 
-- [Clone và đăng nhập bằng ba tài khoản demo](docs/demo-setup.md)
-- [Môi trường local đã setup và tài khoản demo](docs/local-setup.md)
-- [Kết nối frontend–backend và nghiệm thu](docs/frontend-integration.md)
-- [PRD](docs/requirements/PRD.md) và [SRS](docs/requirements/SRS.md)
-- [Ứng dụng](app/README.md) và [database](database/README.md)
-- [Quy trình đóng góp](CONTRIBUTING.md) và [changelog](CHANGELOG.md)
+```text
+app/housekeeping-management-system/
+  src/main/java/com/housekeeping/management/
+    config/ controller/ dto/request/ dto/response/
+    entity/ repository/ service/ domain/
+  src/main/resources/
+    templates/ static/ db/refactor/
+```
+
+## Tài liệu liên quan
+
+- [PRD](docs/requirements/PRD.md), [SRS](docs/requirements/SRS.md), [SQL Server Data Dictionary](docs/requirements/SQL_SERVER_DATA_DICTIONARY.md)
+- [Kiến trúc package](docs/architecture/java-package-structure.md)
+- [Hướng dẫn cài đặt/demo](docs/demo-setup.md), [hướng dẫn database](database/README.md), [hướng dẫn PayOS](docs/payos-payment.md)
+- [Quy trình đóng góp](CONTRIBUTING.md)

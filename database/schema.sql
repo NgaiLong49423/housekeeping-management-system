@@ -1,4 +1,5 @@
--- Snapshot/reference only. Flyway migrations under app/housekeeping-management-system/src/main/resources/db/migration are authoritative.
+-- LEGACY SNAPSHOT ONLY: this file describes the old schema and is not the approved 15-table baseline.
+-- Do not execute it. The fresh SQL Server baseline is app/housekeeping-management-system/src/main/resources/db/refactor/V1__create_home_cleaning_schema.sql.
 
 CREATE TABLE Customer (
     customer_id BIGINT IDENTITY(1,1) NOT NULL,

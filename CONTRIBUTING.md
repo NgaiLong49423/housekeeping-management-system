@@ -1,9 +1,9 @@
 > **Document:** Hướng Dẫn Đóng Góp\
 > **File:** `CONTRIBUTING.md`\
-> **Version:** v1.1.0\
+> **Version:** v2.0.0\
 > **Created:** 2026-06-14\
-> **Last Updated:** 2026-10-09\
-> **Status:** Template\
+> **Last Updated:** 2026-10-24\
+> **Status:** Active\
 
 # Hướng Dẫn Đóng Góp
 
@@ -21,7 +21,7 @@ Tài liệu này cung cấp các quy định và hướng dẫn chi tiết về 
 * **Cập nhật tài liệu đầy đủ:** Nếu thay đổi của bạn ảnh hưởng đến cách cài đặt, cấu hình hoặc sử dụng dự án, hãy cập nhật lại tài liệu hướng dẫn liên quan.
 * **Kiểm tra kỹ trước khi push code:** Hãy chắc chắn rằng mã nguồn được biên dịch thành công và chạy thử không gặp lỗi trước khi đẩy lên GitHub.
 
-Các lệnh build và kiểm thử phụ thuộc vào lựa chọn của từng dự án; hãy ghi rõ kiểm tra nào phù hợp hoặc không áp dụng. Không mặc định framework, DBMS hoặc công cụ migration. Không commit secret, dữ liệu riêng tư, cấu hình local, file build, log hoặc `.agents/outputs/`. Tuân thủ ranh giới bảo vệ tài liệu trong `AGENTS.md` và `.agents/POLICY.md`.
+Các lệnh build và kiểm thử phụ thuộc vào lựa chọn của dự án; ghi rõ kiểm tra nào phù hợp hoặc không áp dụng. Stack chuẩn của dự án nằm trong README và `.agents/repo-contract.yml`; không tự đổi framework, DBMS hoặc công cụ migration. Không commit secret, dữ liệu riêng tư, cấu hình local, file build, log hoặc `.agents/outputs/`. Tuân thủ ranh giới bảo vệ tài liệu trong `AGENTS.md` và `.agents/POLICY.md`.
 
 **Giải thích thuật ngữ:**
 * **Commit** (lần lưu): Hành động lưu lại trạng thái thay đổi của các file mã nguồn vào lịch sử Git tại máy cá nhân.
@@ -32,9 +32,9 @@ Các lệnh build và kiểm thử phụ thuộc vào lựa chọn của từng 
 
 ## Quy Tắc Đặt Tên Branch
 
-**Branch** (nhánh) là một nhánh mã nguồn độc lập. Trong quy trình dùng chung của template, `main` là nhánh ổn định, `develop` là nhánh tích hợp; nhánh công việc được tạo từ `develop` mới nhất.
+**Branch** (nhánh) là một nhánh mã nguồn độc lập. `main` là nhánh chính hiện có. Khi nhiệm vụ chỉ định nhánh nền, hãy cập nhật từ nhánh đó trước khi tạo nhánh công việc; không giả định repo có `develop` nếu remote không có.
 
-Khi làm việc, bạn cần tạo nhánh mới và đặt tên theo cấu trúc:
+Khi nhiệm vụ cần nhánh làm việc, dùng một nhánh chung theo cấu trúc:
 `[loại-nhánh]/[tên-ngắn-gọn]` (kebab-case)
 
 ### Các tiền tố nhánh thông dụng:
@@ -43,6 +43,8 @@ Khi làm việc, bạn cần tạo nhánh mới và đặt tên theo cấu trúc
 * **`docs/`**: Sử dụng khi cập nhật, sửa đổi tài liệu hướng dẫn hoặc tài liệu dự án.
 * **`refactor/`**: Sử dụng khi tối ưu hóa, tái cấu trúc mã nguồn nhưng không làm thay đổi tính năng hệ thống.
 * **`chore/`**: Sử dụng cho các công việc phụ trợ như thiết lập (setup) ban đầu, cấu hình dự án, cập nhật thư viện.
+
+Với goal lớn có nhiều phần liên quan, dùng một nhánh triển khai chung; không tạo GitHub Issue, milestone hoặc một nhánh cho mỗi task/issue trừ khi người dùng yêu cầu rõ.
 
 ### Ví dụ cụ thể:
 ```text
