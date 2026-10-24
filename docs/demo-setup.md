@@ -34,7 +34,16 @@ Thông tin database dành cho môi trường demo local:
 | Database | `home_cleaning_demo` |
 | Website | `http://localhost:8080` |
 
-Seeder tạo tài khoản website trong bảng `Users` và Staff tương ứng trong bảng `Staff`. Mật khẩu được cấu hình qua `DEMO_ACCOUNT_PASSWORD`; ứng dụng không dùng mật khẩu mẫu mặc định. Khả năng chạy trên SQL Server cần được xác minh riêng.
+Seeder tạo bốn tài khoản website trong bảng `Users`; hai tài khoản nhân viên có bản ghi Staff với loại part-time và full-time tương ứng. Mật khẩu được cấu hình qua `DEMO_ACCOUNT_PASSWORD`; ứng dụng không dùng mật khẩu mẫu mặc định. Khi thiếu dữ liệu nền, seeder bổ sung một cấu hình công ty mô phỏng, giờ hoạt động 08:00–18:00, ba dịch vụ, một nhà mẫu của customer và một lịch rảnh part-time vào ngày kế tiếp. Các bản ghi cấu hình/dịch vụ/nhà/lịch đã tồn tại được giữ nguyên; chỉ bổ sung những mục còn thiếu. Seeder không thay thế quy trình xác minh trên SQL Server.
+
+| Vai trò | Email |
+|---|---|
+| Customer | `customer@demo.gonnha.local` |
+| Staff part-time | `staff@demo.gonnha.local` |
+| Staff full-time | `staff.fulltime@demo.gonnha.local` |
+| Admin | `admin@demo.gonnha.local` |
+
+Lịch part-time được tạo cho ngày mai theo múi giờ Việt Nam. Đặt lịch cần trước ít nhất 120 phút và trong vòng 30 ngày; nếu lịch được tạo sau giờ hoạt động ngày mai, hãy chọn ngày kế tiếp còn nằm trong cửa sổ cho phép hoặc cập nhật availability qua giao diện Staff.
 
 ## Cấu hình database development
 

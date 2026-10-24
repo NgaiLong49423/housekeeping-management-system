@@ -40,9 +40,9 @@ Yêu cầu JDK 21 và SQL Server 2022+ bật TCP/IP, Mixed Mode, cổng 1433.
    mvn "-Dspring-boot.run.profiles=demo" spring-boot:run
    ```
 
-4. Mở [http://localhost:8080/login](http://localhost:8080/login). Seeder dùng `DEMO_ACCOUNT_PASSWORD` để tạo ba tài khoản `customer@demo.gonnha.local`, `staff@demo.gonnha.local` và `admin@demo.gonnha.local`; không có mật khẩu mặc định trong source.
+4. Mở [http://localhost:8080/login](http://localhost:8080/login). Seeder dùng `DEMO_ACCOUNT_PASSWORD` để tạo bốn tài khoản: `customer@demo.gonnha.local`, `staff@demo.gonnha.local` (part-time), `staff.fulltime@demo.gonnha.local` (full-time) và `admin@demo.gonnha.local`; không có mật khẩu mặc định trong source. Seeder chỉ bổ sung cấu hình công ty, giờ hoạt động, dịch vụ, nhà mẫu và lịch rảnh còn thiếu; dữ liệu đã tồn tại được giữ nguyên.
 
-Demo profile dùng riêng database demo. Không bật thao tác Flyway `clean` hoặc trỏ URL demo sang database có dữ liệu cần giữ. Nếu migration báo schema/history không phù hợp, dừng lại và tạo một database development mới thay vì reset. Tài khoản đăng nhập và dữ liệu demo chỉ được công bố sau khi seeder được chuyển sang schema mới và xác minh trên SQL Server.
+Demo profile dùng riêng database demo. Không bật thao tác Flyway `clean` hoặc trỏ URL demo sang database có dữ liệu cần giữ. Nếu migration báo schema/history không phù hợp, dừng lại và tạo một database development mới thay vì reset. Tài khoản đăng nhập và dữ liệu demo cần được xác minh trên SQL Server local trước buổi trình diễn.
 
 Muốn tự cấu hình SQL Server, sao chép [`.env.example`](app/housekeeping-management-system/.env.example) thành `.env` trong thư mục Maven module và đặt `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` cho một database development riêng. Không đưa `.env` hay thông tin kết nối riêng lên Git.
 

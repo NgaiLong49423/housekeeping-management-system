@@ -16,7 +16,7 @@ import lombok.Setter;
 import org.hibernate.annotations.Nationalized;
 
 @Entity
-@Table(name = "Users")
+@Table(name = "Users", schema = "dbo")
 @Getter
 @Setter
 @NoArgsConstructor

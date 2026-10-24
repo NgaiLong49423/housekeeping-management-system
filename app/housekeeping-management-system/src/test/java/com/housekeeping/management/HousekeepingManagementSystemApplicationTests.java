@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
+import jakarta.persistence.EntityManagerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -12,6 +13,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 class HousekeepingManagementSystemApplicationTests extends SqlServerIntegrationTest {
     @Autowired private Flyway flyway;
     @Autowired private JdbcTemplate jdbc;
+    @Autowired private EntityManagerFactory entityManagerFactory;
 
     @Test
     void freshSqlServerSchemaContainsExactlyTheApprovedBusinessTables() {
@@ -33,5 +35,14 @@ class HousekeepingManagementSystemApplicationTests extends SqlServerIntegrationT
                   AND TABLE_NAME IN ('Customer', 'Admin', 'Work_Schedule', 'Payment_Attempt', 'Feedback')
                 """, Integer.class);
         assertThat(obsoleteTables).isZero();
+    }
+
+    @Test
+    void hibernateScansExactlyTheFifteenApprovedBusinessEntities() {
+        assertThat(entityManagerFactory.getMetamodel().getEntities())
+                .extracting(entityType -> entityType.getJavaType().getSimpleName())
+                .containsExactlyInAnyOrder("User", "Staff", "StaffProfile", "Services", "CompanySettings",
+                        "CompanyOperatingHour", "House", "StaffAvailability", "StaffLeave", "Booking",
+                        "BookingDetail", "BookingImage", "Payment", "Feedback", "StaffFollow");
     }
 }
