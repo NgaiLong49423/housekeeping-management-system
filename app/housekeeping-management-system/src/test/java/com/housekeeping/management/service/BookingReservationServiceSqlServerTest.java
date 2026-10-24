@@ -12,6 +12,7 @@ import com.housekeeping.management.entity.Services;
 import com.housekeeping.management.entity.House;
 import com.housekeeping.management.entity.Staff;
 import com.housekeeping.management.entity.User;
+import com.housekeeping.management.repository.BookingPersistenceRepository;
 import com.housekeeping.management.repository.HouseRepository;
 import com.housekeeping.management.repository.ServicesRepository;
 import com.housekeeping.management.repository.StaffAccountRepository;
@@ -41,6 +42,7 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
     @Autowired private StaffLeaveRepository leaves;
     @Autowired private LeaveManagementService leaveManagement;
     @Autowired private AdminBookingManagementService adminBookingManagement;
+    @Autowired private BookingPersistenceRepository bookingPersistence;
     @Autowired private JdbcTemplate jdbc;
 
     @BeforeEach
@@ -96,6 +98,36 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
             boolean secondCreated = second.get(30, TimeUnit.SECONDS);
             assertThat((firstCreated ? 1 : 0) + (secondCreated ? 1 : 0)).isEqualTo(1);
         }
+    }
+
+    @Test
+    void sqlServerConflictQueryRejectsOverlapAnd59MinuteGapButAllowsExact60MinuteGap() {
+        String suffix = UUID.randomUUID().toString();
+        User customer = users.saveAndFlush(user("buffer-customer-" + suffix, UserRole.CUSTOMER));
+        User staffUser = users.saveAndFlush(user("buffer-staff-" + suffix, UserRole.STAFF));
+        Staff staff = new Staff();
+        staff.setUser(staffUser);
+        staff.setStaffType(StaffType.FULL_TIME);
+        Staff savedStaff = staffAccounts.saveAndFlush(staff);
+        House house = houses.saveAndFlush(house(customer.getUserId(), "Buffer " + suffix));
+        Services service = services.saveAndFlush(service());
+        LocalDateTime existingStart = LocalDateTime.now(ZoneOffset.ofHours(7)).plusDays(4)
+                .withHour(10).withMinute(0).withSecond(0).withNano(0);
+
+        Long bookingId = reservationService.createBooking(customer.getUserId(), savedStaff.getStaffId(), house.getHouseId(),
+                existingStart, List.of(service.getServiceId()), null);
+
+        assertThat(bookingPersistence.hasConflictingBooking(savedStaff.getStaffId(),
+                existingStart.plusMinutes(30), existingStart.plusMinutes(90))).isTrue();
+
+        LocalDateTime nextSlot = existingStart.plusHours(2);
+        jdbc.update("UPDATE dbo.Bookings SET end_time=? WHERE booking_id=?", existingStart.plusMinutes(61), bookingId);
+        assertThat(bookingPersistence.hasConflictingBooking(savedStaff.getStaffId(),
+                nextSlot, nextSlot.plusMinutes(60))).isTrue();
+
+        jdbc.update("UPDATE dbo.Bookings SET end_time=? WHERE booking_id=?", existingStart.plusMinutes(60), bookingId);
+        assertThat(bookingPersistence.hasConflictingBooking(savedStaff.getStaffId(),
+                nextSlot, nextSlot.plusMinutes(60))).isFalse();
     }
 
     @Test
