@@ -1,8 +1,8 @@
 > **Document:** Frontend–Backend Integration Guide\
 > **File:** `docs/frontend-integration.md`\
-> **Version:** v1.1.0\
+> **Version:** v1.2.0\
 > **Created:** 2026-10-16\
-> **Last Updated:** 2026-10-17\
+> **Last Updated:** 2026-10-25\
 > **Status:** Draft
 
 # Kết Nối Giao Diện Gọn Nhà Với Backend
@@ -15,7 +15,7 @@ Giữ tông xanh ngọc, ảnh, thẻ dịch vụ, khu vực giới thiệu, for
 
 Không chuyển các chức năng lệch baseline từ mẫu: chuyển vai trò trên giao diện, dữ liệu localStorage/mock, đặt lịch định kỳ, bán kính phục vụ, tự điều phối nhân viên, trạng thái pending/assigned/in_progress và Admin kiểm duyệt feedback.
 
-Theo xác nhận của người dùng, bổ sung lớp MVC và đăng nhập còn thiếu để giao diện sử dụng backend. Không chỉnh sửa Entity, Repository, Service nghiệp vụ cũ, schema hoặc migration. Các thao tác chưa có điểm vào (hủy, feedback, yêu thích, CRUD danh mục/lịch) được đặt trong `web/PortalActionsService`, không viết nghiệp vụ trong template hoặc Controller.
+Ứng dụng hiện tổ chức theo MVC–N-Layer: Controller nhận request và dựng view model; Service xử lý use case, phân quyền sở hữu và transaction; Repository/JDBC truy vấn SQL Server; Entity ánh xạ 15 bảng của baseline mới. Các luồng được chia theo nghiệp vụ (Booking, Payment, Staff, House, Feedback, Company Settings); không đặt quy tắc nghiệp vụ trong template hoặc Controller. Cấu trúc package mặc định được mô tả trong [hướng dẫn Java](architecture/java-package-structure.md).
 
 ## Cách kết nối
 
@@ -79,7 +79,7 @@ Staff PART_TIME chỉ được tạo/xóa khoảng của chính mình. Không th
 
 ## Cấu hình chạy thật
 
-Môi trường trên máy hiện tại đã được setup và nghiệm thu luồng HTTP với SQL Server ngày 2026-10-16; xem [hướng dẫn local và kết quả thực tế](local-setup.md). Các ghi chú chưa xác minh ở cuối tài liệu mô tả thời điểm trước lần setup này.
+`local-setup.md` là tài liệu lịch sử của schema cũ 11 bảng và được đánh dấu Deprecated. Các kết quả SQL Server/HTTP trong đó không phải bằng chứng cho baseline refactor hiện tại (15 bảng trong `db/refactor`). Chỉ xem [hướng dẫn demo hiện tại](demo-setup.md) và kết quả kiểm tra được thực hiện trực tiếp trên baseline này khi nghiệm thu.
 
 Từ `app/housekeeping-management-system/`, dùng JDK 21 và Maven. Cấu hình theo `application.properties`:
 
@@ -129,6 +129,6 @@ Quy trình nghiệm thu với SQL Server:
 
 Admin quản lý Booking tại trang chi tiết `/admin/bookings/{id}`. Chỉ Booking `CONFIRMED` có nút hủy/đổi nhân viên; hủy yêu cầu lý do và lưu người hủy/thời gian. Đổi nhân viên chỉ cập nhật `staff_id`, giữ `original_staff_id`; nhân viên thay thế phải đang hoạt động, không nghỉ đã duyệt, có availability nếu PART_TIME và không trùng/vi phạm đệm 60 phút. Booking `AWAITING_PAYMENT`/`COMPLETED` không được hủy hoặc chuyển nhân viên vì quy tắc hoàn tiền/xử lý sau hoàn thành chưa được chốt trong SRS.
 
-Bằng chứng ban đầu ngày 2026-10-16: build/test web chạy bằng JDK 26.0.1, biên dịch `release 21`; khi đó SQL Server local chưa khả dụng. Sau đó đã setup JDK 21, migrate SQL Server thật, Hibernate validate và kiểm tra thành công luồng MVC/Evidence/Payment/Feedback. Chi tiết và giới hạn tại [kết quả local](local-setup.md); concurrency dùng Docker/Testcontainers vẫn chưa nghiệm thu.
+Các ghi nhận runtime trong [tài liệu local lịch sử](local-setup.md) thuộc schema cũ và không xác nhận Flyway, Hibernate mapping hoặc luồng giao dịch của baseline 15 bảng hiện tại. Với baseline hiện tại, cần chạy `mvn verify` trên SQL Server Testcontainers hoặc SQL Server development riêng; nếu không có runtime đó, báo rõ các test SQL Server chưa được xác minh. Không dùng kết quả của database `hsf302` cũ làm bằng chứng cho schema mới.
 
 Tham khảo: [Spring Security Form Login](https://docs.spring.io/spring-security/reference/servlet/authentication/passwords/form.html) và [Bootstrap 5.3](https://getbootstrap.com/docs/5.3/getting-started/introduction/).
