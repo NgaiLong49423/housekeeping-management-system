@@ -1,8 +1,8 @@
 > **Document:** Database Guide\
 > **File:** `database/README.md`\
-> **Version:** v2.0.0\
+> **Version:** v2.1.0\
 > **Created:** 2026-06-14\
-> **Last Updated:** 2026-10-24\
+> **Last Updated:** 2026-10-25\
 > **Status:** Draft\
 
 # Hướng dẫn database
@@ -22,7 +22,7 @@ Tạo SQL login riêng và map vào database demo; cấp quyền DDL cần thi�
 - `app/housekeeping-management-system/src/main/resources/db/refactor/` là migration baseline được ứng dụng hiện tại sử dụng cho mô hình 15 bảng SQL Server.
 - `db/migration/V1__create_initial_schema.sql`, `V2__add_momo_payment_attempts.sql`, `V3__replace_momo_with_payos.sql` là lịch sử của mô hình cũ. Giữ nguyên để bảo toàn lịch sử; không chỉnh nội dung migration đã áp dụng.
 - Database cũ dùng schema/model trước đây không tự động chuyển đổi. Chiến lược bảo toàn/migration dữ liệu cũ vẫn là TBD. Ứng dụng không được reset hoặc migrate database đó trong quá trình triển khai baseline mới.
-- `database/schema.sql` là snapshot của mô hình cũ, chỉ để tra cứu và không được chạy. Migration Flyway tại `db/refactor` là nguồn DDL mới chính thức.
+- `database/schema.sql` chỉ còn guard báo lỗi cho đường dẫn schema cũ; không dùng làm DDL. Migration Flyway tại `db/refactor` là nguồn DDL mới chính thức.
 - Flyway `flyway_schema_history` là bảng tooling, không nằm trong 15 bảng nghiệp vụ.
 
 ## Cấu hình riêng
