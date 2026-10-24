@@ -1,5 +1,7 @@
 package com.housekeeping.management.repository;
 
+
+import org.springframework.data.repository.NoRepositoryBean;
 import com.housekeeping.management.domain.entity.Booking;
 import java.time.OffsetDateTime;
 import jakarta.persistence.LockModeType;
@@ -9,6 +11,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+@NoRepositoryBean
 public interface BookingRepository extends JpaRepository<Booking, Long> {
     @Query("""
             select case when count(distinct booking.bookingId) > 0 then true else false end

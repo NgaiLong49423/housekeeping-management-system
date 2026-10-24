@@ -12,6 +12,30 @@
     <link rel="stylesheet" th:href="@{/css/portal.css}">
     <script defer th:src="@{/vendor/bootstrap/bootstrap.bundle.min.js}"></script>
     <script defer th:src="@{/js/portal.js}"></script>
+    <script th:if="${mapsBrowserKey != null and !#strings.isEmpty(mapsBrowserKey)}">
+      function initHouseAddressPicker() {
+        const address = document.getElementById('houseAddress');
+        const latitude = document.getElementById('latitude');
+        const longitude = document.getElementById('longitude');
+        const pickerHost = document.getElementById('houseAddressPicker');
+        if (!address || !latitude || !longitude || !pickerHost) return;
+        address.addEventListener('input', () => { latitude.value = ''; longitude.value = ''; });
+        google.maps.importLibrary('places').then(({PlaceAutocompleteElement}) => {
+          const picker = new PlaceAutocompleteElement({includedRegionCodes: ['vn']});
+          pickerHost.append(picker);
+          picker.addEventListener('gmp-select', async ({placePrediction}) => {
+            const place = placePrediction.toPlace();
+            await place.fetchFields({fields: ['formattedAddress', 'location']});
+            if (!place.location) return;
+            address.value = place.formattedAddress || '';
+            latitude.value = place.location.lat().toFixed(7);
+            longitude.value = place.location.lng().toFixed(7);
+          });
+        });
+      }
+    </script>
+    <script th:if="${mapsBrowserKey != null and !#strings.isEmpty(mapsBrowserKey)}"
+            th:src="@{https://maps.googleapis.com/maps/api/js(key=${mapsBrowserKey},libraries='places',callback='initHouseAddressPicker',v='weekly')}" async defer></script>
   </head>
   <body>
     <header class="site-header" th:fragment="header(active)">
@@ -33,16 +57,22 @@
             <a class="nav-link" th:classappend="${active == 'services'} ? 'active'" th:href="@{/services}">Dịch vụ</a>
             <a class="nav-link" th:if="${currentUser != null}" th:classappend="${active == 'staff'} ? 'active'" th:href="@{/customer/staff}">Nhân viên</a>
             <a class="nav-link" th:if="${currentUser != null}" th:classappend="${active == 'bookings'} ? 'active'" th:href="@{/customer/bookings}">Lịch của tôi</a>
+            <a class="nav-link" th:if="${currentUser != null}" th:href="@{/customer/houses}">Nhà của tôi</a>
           </div>
           <div class="navbar-nav mx-auto gap-lg-1" th:if="${currentUser != null and currentUser.role == 'STAFF'}">
             <a class="nav-link" th:classappend="${active == 'bookings'} ? 'active'" th:href="@{/staff/bookings}">Công việc của tôi</a>
             <a class="nav-link" th:classappend="${active == 'schedules'} ? 'active'" th:href="@{/staff/schedules}">Lịch sẵn sàng</a>
+            <a class="nav-link" th:classappend="${active == 'leaves'} ? 'active'" th:href="@{/staff/leaves}">Đơn nghỉ</a>
+            <a class="nav-link" th:classappend="${active == 'profile'} ? 'active'" th:href="@{/staff/profile}">Hồ sơ của tôi</a>
           </div>
           <div class="navbar-nav mx-auto gap-lg-1" th:if="${currentUser != null and currentUser.role == 'ADMIN'}">
             <a class="nav-link" th:classappend="${active == 'bookings'} ? 'active'" th:href="@{/admin/bookings}">Tổng quan</a>
             <a class="nav-link" th:classappend="${active == 'staff'} ? 'active'" th:href="@{/admin/staff}">Nhân viên</a>
             <a class="nav-link" th:classappend="${active == 'services'} ? 'active'" th:href="@{/admin/services}">Dịch vụ</a>
             <a class="nav-link" th:classappend="${active == 'schedules'} ? 'active'" th:href="@{/admin/schedules}">Lịch sẵn sàng</a>
+            <a class="nav-link" th:classappend="${active == 'leaves'} ? 'active'" th:href="@{/admin/leaves}">Duyệt nghỉ</a>
+            <a class="nav-link" th:classappend="${active == 'settings'} ? 'active'" th:href="@{/admin/settings}">Cấu hình công ty</a>
+            <a class="nav-link" th:classappend="${active == 'feedback'} ? 'active'" th:href="@{/admin/feedback}">Phản hồi</a>
           </div>
           <div class="header-actions">
             <a th:if="${currentUser == null}" class="btn btn-outline-primary" th:href="@{/login}">

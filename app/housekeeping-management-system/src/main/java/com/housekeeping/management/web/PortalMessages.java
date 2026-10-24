@@ -2,7 +2,7 @@ package com.housekeeping.management.web;
 
 import java.util.Map;
 
-final class PortalMessages {
+public final class PortalMessages {
     private PortalMessages() { }
     private static final Map<String, String> MESSAGES = Map.ofEntries(
         Map.entry("The selected Staff is already booked in this interval", "Nhân viên vừa có lịch trùng giờ. Vui lòng chọn khoảng khác."),
@@ -22,7 +22,7 @@ final class PortalMessages {
         Map.entry("Receipt must be verified before confirming payment", "Hãy xác minh thực tế đã nhận tiền trước khi đánh dấu đã trả."),
         Map.entry("A method can only be selected for an unpaid completed booking", "Chỉ chọn phương thức cho lịch hoàn thành và chưa thanh toán.")
     );
-    static String business(RuntimeException failure) {
+    public static String business(RuntimeException failure) {
         String message = failure.getMessage();
         if (message != null && (message.startsWith("Chỉ ") || message.startsWith("Lịch ") || message.startsWith("Bạn ")
                 || message.startsWith("Khoảng ") || message.startsWith("Hãy ") || message.startsWith("Giờ ")

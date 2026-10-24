@@ -108,7 +108,7 @@
       }
     },
     {
-      "name": "Signed but mismatched amount is rejected",
+      "name": "Signed fractional amount is rejected exactly",
       "event": [
         {
           "listen": "prerequest",
@@ -117,7 +117,7 @@
             "exec": [
               "const raw = pm.variables.replaceIn(pm.request.body.raw);",
               "const body = JSON.parse(raw);",
-              "body.data.amount += 1;",
+              "body.data.amount += 0.5;",
               "const key = pm.environment.get('PAYOS_CHECKSUM_KEY');",
               "if (!key) throw new Error('Set PAYOS_CHECKSUM_KEY as a local Postman secret variable.');",
               "const canonical = Object.keys(body.data).sort().map(k => k + '=' + (body.data[k] == null ? '' : String(body.data[k]))).join('&');",
@@ -130,7 +130,7 @@
           "listen": "test",
           "script": {
             "type": "text/javascript",
-            "exec": ["pm.test('Mismatched amount is rejected', () => pm.response.to.have.status(400));"]
+            "exec": ["pm.test('Fractional amount mismatch is rejected', () => pm.response.to.have.status(400));"]
           }
         }
       ],

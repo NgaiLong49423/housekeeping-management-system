@@ -124,7 +124,7 @@
                   <span class="status-pill" th:classappend="${booking.statusClass}" th:text="${booking.statusLabel}">Trạng thái</span>
                 </td>
                 <td>
-                  <span class="small font-monospace" th:classappend="${booking.paymentStatus == 'PAID' ? 'text-success font-weight-bold' : (booking.paymentStatus == 'UNPAID' ? 'text-warning' : 'text-muted')}" th:text="${booking.paymentStatus == null ? 'Chưa phát sinh' : (booking.paymentStatus == 'PAID' ? '✓ Đã thanh toán' : '⏳ Chưa thanh toán')}">
+                  <span class="small font-monospace" th:classappend="${booking.paymentStatus == 'SUCCESS' ? 'text-success font-weight-bold' : (booking.paymentStatus == 'FAILED' ? 'text-danger' : (booking.paymentStatus == 'PENDING' ? 'text-warning' : 'text-muted'))}" th:text="${booking.paymentStatus == null ? (booking.status == 'AWAITING_PAYMENT' ? '⏳ Chờ thanh toán' : 'Chưa phát sinh') : (booking.paymentStatus == 'SUCCESS' ? '✓ Đã thanh toán' : (booking.paymentStatus == 'FAILED' ? '✕ Lần trước thất bại' : '⏳ Đang xử lý'))}">
                   </span>
                 </td>
                 <td class="text-end">

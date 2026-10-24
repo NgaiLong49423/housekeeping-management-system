@@ -42,7 +42,7 @@ document.querySelectorAll("[data-upload-form]").forEach(form => {
 const bookingForm = document.querySelector("[data-booking-form]");
 if (bookingForm) {
   const staff = bookingForm.elements.staffId;
-  const schedule = bookingForm.elements.scheduleId;
+  const house = bookingForm.elements.houseId;
   const start = bookingForm.elements.startAt;
   const services = [...bookingForm.querySelectorAll("input[name=serviceIds]")];
   const intervals = [...bookingForm.querySelectorAll("[data-busy-interval]")];
@@ -55,13 +55,6 @@ if (bookingForm) {
   if (!services.some(input => input.checked)) services.forEach(input => { input.checked = input.value === params.get("serviceId"); });
 
   function refresh() {
-    [...schedule.options].forEach(option => {
-      if (!option.value) return;
-      const excluded = option.dataset.staff !== staff.value;
-      option.hidden = excluded;
-      option.disabled = excluded;
-      if (excluded && option.selected) schedule.value = "";
-    });
     intervals.forEach(interval => { interval.hidden = interval.dataset.staff !== staff.value; });
     const selected = services.filter(input => input.checked);
     const minutes = selected.reduce((sum, input) => sum + Number(input.dataset.duration), 0);
@@ -77,19 +70,23 @@ if (bookingForm) {
     }
     bookingForm.querySelector("[data-summary-duration]").textContent = `${minutes} phút`;
     bookingForm.querySelector("[data-summary-price]").textContent = currency.format(price);
-    const option = schedule.selectedOptions[0];
-    start.min = option?.dataset.start || "";
-    start.max = option?.dataset.end || "";
     let error = "";
     if (!selected.length) error = "Chọn ít nhất một dịch vụ.";
-    if (schedule.value && start.value && selected.length) {
+    if (!house.value) error = "Chọn địa chỉ nhà cần dọn.";
+    if (!staff.value) error = "Chọn nhân viên phụ trách.";
+    if (start.value && selected.length && staff.value) {
       const begin = asVietnamTime(start.value);
       const finish = begin + minutes * 60000;
-      if (begin < asVietnamTime(option.dataset.start) || finish > asVietnamTime(option.dataset.end)) {
-        error = "Tổng thời lượng phải nằm trọn trong khoảng sẵn sàng đã chọn.";
+      const selectedDate = new Date(begin);
+      if (![0, 30].includes(selectedDate.getUTCMinutes())) {
+        error = "Giờ bắt đầu phải trùng mốc 30 phút.";
+      } else if (begin - Date.now() < 120 * 60000) {
+        error = "Lịch phải được đặt trước giờ bắt đầu ít nhất 120 phút.";
+      } else if (begin - Date.now() > 30 * 24 * 60 * 60000) {
+        error = "Chỉ có thể đặt lịch trong 30 ngày tới.";
       } else if (intervals.some(interval => interval.dataset.staff === staff.value &&
-          begin < Date.parse(interval.dataset.end) && finish > Date.parse(interval.dataset.start))) {
-        error = "Khoảng thời gian này đã có lịch hẹn. Vui lòng chọn giờ khác.";
+          begin < Date.parse(interval.dataset.end) + 60 * 60000 && finish > Date.parse(interval.dataset.start) - 60 * 60000)) {
+        error = "Thời gian này trùng lịch nhân viên hoặc cách lịch khác dưới 60 phút.";
       }
     }
     // Attach the cross-field error to a visible required field, while allowing the server to recheck concurrent changes.
@@ -97,10 +94,7 @@ if (bookingForm) {
     message.textContent = error;
   }
   staff.addEventListener("change", refresh);
-  schedule.addEventListener("change", () => {
-    if (schedule.value) start.value = schedule.selectedOptions[0].dataset.start;
-    refresh();
-  });
+  house.addEventListener("change", refresh);
   services.forEach(input => input.addEventListener("change", refresh));
   start.addEventListener("input", refresh);
   bookingForm.addEventListener("submit", event => {

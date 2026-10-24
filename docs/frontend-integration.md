@@ -1,8 +1,8 @@
 > **Document:** Frontend–Backend Integration Guide\
 > **File:** `docs/frontend-integration.md`\
-> **Version:** v1.1.0\
+> **Version:** v1.3.0\
 > **Created:** 2026-10-16\
-> **Last Updated:** 2026-10-17\
+> **Last Updated:** 2026-10-25\
 > **Status:** Draft
 
 # Kết Nối Giao Diện Gọn Nhà Với Backend
@@ -13,9 +13,9 @@ Giao diện được chuyển từ `UI_UX Design Refinement.zip` sang nền tả
 
 Giữ tông xanh ngọc, ảnh, thẻ dịch vụ, khu vực giới thiệu, form và bố cục dashboard; dùng tiếng Việt, trạng thái rỗng, thông báo lỗi và bố cục responsive. Ảnh dịch vụ chỉ là minh họa, không phải thuộc tính mới trong database.
 
-Không chuyển các chức năng lệch baseline từ mẫu: chuyển vai trò trên giao diện, dữ liệu localStorage/mock, đặt lịch định kỳ, bán kính phục vụ, tự điều phối nhân viên, trạng thái pending/assigned/in_progress và Admin kiểm duyệt feedback.
+Không sao chép các chức năng ngoài baseline từ mẫu: tự chuyển vai trò trên giao diện, dữ liệu localStorage/mock, đặt lịch định kỳ, tự điều phối nhân viên và các trạng thái pending/assigned/in_progress. Kiểm tra bán kính phục vụ là yêu cầu của baseline. Admin được trả lời và giải quyết Feedback dạng văn bản; không dùng quy trình kiểm duyệt Feedback của mẫu.
 
-Theo xác nhận của người dùng, bổ sung lớp MVC và đăng nhập còn thiếu để giao diện sử dụng backend. Không chỉnh sửa Entity, Repository, Service nghiệp vụ cũ, schema hoặc migration. Các thao tác chưa có điểm vào (hủy, feedback, yêu thích, CRUD danh mục/lịch) được đặt trong `web/PortalActionsService`, không viết nghiệp vụ trong template hoặc Controller.
+Ứng dụng hiện tổ chức theo MVC–N-Layer: Controller nhận request và dựng view model; Service xử lý use case, phân quyền sở hữu và transaction; Repository/JDBC truy vấn SQL Server; Entity ánh xạ 15 bảng của baseline mới. Các luồng được chia theo nghiệp vụ (Booking, Payment, Staff, House, Feedback, Company Settings); không đặt quy tắc nghiệp vụ trong template hoặc Controller. Cấu trúc package mặc định được mô tả trong [hướng dẫn Java](architecture/java-package-structure.md).
 
 ## Cách kết nối
 
@@ -37,13 +37,14 @@ Các route dưới đây là điểm vào MVC được thêm trong lần tích h
 
 | Vai trò | GET | Nội dung |
 |---|---|---|
-| Công khai | `/`, `/services`, `/login` | Trang chủ, dịch vụ, đăng nhập chung |
+| Công khai | `/`, `/services`, `/login`, `/register` | Trang chủ, dịch vụ, đăng nhập và đăng ký Customer |
 | Đã đăng nhập | `/portal` | Điều hướng theo vai trò từ database |
 | Customer | `/customer/bookings` | Lịch của chính khách và thanh toán |
 | Customer | `/customer/bookings/new` | Nhiều dịch vụ nối tiếp, một nhân viên, một khoảng sẵn sàng |
+| Customer | `/customer/houses` | Danh sách, tạo, sửa và ẩn địa chỉ nhà của chính khách |
 | Customer | `/customer/staff`, `/customer/schedules` | Nhân viên/yêu thích, khoảng sẵn sàng |
-| Staff | `/staff/bookings`, `/staff/schedules` | Công việc và khoảng sẵn sàng của chính Staff |
-| Admin | `/admin/bookings`, `/admin/staff`, `/admin/services`, `/admin/schedules` | Tổng quan và quản lý danh mục/lịch |
+| Staff | `/staff/bookings`, `/staff/schedules`, `/staff/leaves`, `/staff/profile` | Công việc, khoảng sẵn sàng, đơn nghỉ và hồ sơ của chính Staff |
+| Admin | `/admin/bookings`, `/admin/staff`, `/admin/services`, `/admin/schedules`, `/admin/leaves`, `/admin/settings`, `/admin/feedback` | Quản lý lịch, nhân viên, dịch vụ, giờ hoạt động, đơn nghỉ và phản hồi |
 | Từng vai trò | `/{customer,staff,admin}/bookings/{id}` | Chi tiết, Evidence và hành động đúng vai trò |
 | Người được phép xem Booking | `/evidence/{id}` | Ảnh sau kiểm tra ownership, không public thư mục lưu ảnh |
 
@@ -51,33 +52,46 @@ Các route dưới đây là điểm vào MVC được thêm trong lần tích h
 
 | POST | Dữ liệu gửi | Xử lý |
 |---|---|---|
-| `/login` | `email`, `password`, CSRF | Đọc ba bảng Customer/Staff/Admin; tạo session đúng role |
+| `/login` | `email`, `password`, CSRF | Xác thực tài khoản dùng chung trong `Users`; tạo session theo role |
+| `/register` | `name`, `email`, `phone`, `password`, `confirmPassword`, CSRF | Đăng ký Customer; chuẩn hóa và kiểm tra email duy nhất toàn hệ thống |
 | `/logout` | CSRF | Spring Security hủy session |
-| `/customer/bookings` | `staffId`, `scheduleId`, `startAt`, `serviceIds` lặp | `BookingReservationService.createBooking` |
+| `/customer/houses` | `houseName`, `address`, `latitude`, `longitude`, `addressNote` | Tạo House thuộc Customer đang đăng nhập |
+| `/customer/houses/{id}` | Các trường House như trên | Cập nhật House thuộc Customer; tọa độ phải hợp lệ |
+| `/customer/houses/{id}/delete` | CSRF | Ẩn House nếu không có Booking CONFIRMED/AWAITING_PAYMENT; giữ bản ghi lịch sử |
+| `/customer/bookings` | `staffId`, `houseId`, `startAt`, `serviceIds` lặp, `areaNote` | `BookingReservationService.createBooking`; kiểm tra giờ khả dụng và lưu snapshot dịch vụ |
 | `/customer/bookings/{id}/cancel` | CSRF | Owner, CONFIRMED, còn ít nhất 2 giờ |
-| `/customer/bookings/{id}/payment` | `method=CASH`, `BANK_TRANSFER` hoặc `PAYOS` | Owner; thủ công qua `PaymentLifecycleService`, PayOS tạo payment link rồi redirect |
-| `/customer/bookings/{id}/feedback` | `rating=1..5`, `comment` tối đa 2.000 ký tự | Owner, COMPLETED, tối đa một Feedback |
+| `/customer/bookings/{id}/payment` | CSRF | Owner; tạo hoặc mở lại checkout ONLINE qua PayOS |
+| `/customer/bookings/{id}/feedback` | `content` dạng văn bản | Customer sở hữu Booking đã hoàn thành, tối đa một Feedback; không có chấm điểm |
 | `/customer/staff/{id}/favorite` | `favorite=true/false` | Thêm/bỏ cặp Customer–Staff, không thêm trùng |
-| `/staff/details/{id}/evidence` | Multipart `image` | Ownership rồi `EvidenceStorageService.upload` |
+| `/staff/bookings/{id}/evidence` | Multipart `image` | Ownership rồi `EvidenceStorageService.upload` |
 | `/staff/bookings/{id}/complete` | CSRF | `BookingCompletionService.completeBooking` |
-| `/admin/bookings/{id}/paid` | `receiptVerified=true` | `PaymentLifecycleService.confirmReceivedByAdmin` |
+| `/staff/bookings/{id}/cash-payment` | CSRF | Nhân viên được phân công xác nhận đã nhận CASH |
 | `/payments/payos/webhook` | JSON webhook từ PayOS; không dùng session/CSRF | Public callback, kiểm tra HMAC và order/amount/payment-link, xử lý idempotent; chỉ trả 204 khi hợp lệ |
 | `/payments/payos/return`, `/payments/payos/cancel` | Browser redirect từ PayOS | Chỉ thông báo/điều hướng; không xác nhận trạng thái thanh toán |
 | `/admin/services`, `/admin/services/{id}` | `name`, `description`, `duration`, `price` | Tạo/cập nhật theo Entity hiện có |
+| `/admin/services/{id}/activate`, `/admin/staff/{id}/activate` | CSRF | Kích hoạt lại dịch vụ hoặc tài khoản Staff đã ngừng hoạt động |
 | `/admin/staff` | `name`, `email`, `password`, `phone` | `GlobalEmailUniquenessService`, BCrypt trước khi lưu |
 | `/admin/staff/{id}` | `name`, `phone` | Sửa thông tin; email/mật khẩu không trong form sửa |
-| `/admin/{services,staff}/{id}/delete` | CSRF | Hard delete; FK NO ACTION từ chối khi có phụ thuộc |
-| `/admin/schedules`, `/admin/schedules/{id}` | `staffId`, `startAt`, `endAt` | Khoảng linh hoạt, kết thúc sau bắt đầu |
+| `/admin/{services,staff}/{id}/delete` | CSRF | Ngừng hoạt động (soft delete); giữ lịch sử đặt dịch vụ |
+| `/admin/settings` | Địa chỉ, tọa độ, bán kính và 7 mục giờ hoạt động | Lưu cấu hình công ty; ngày đóng không có giờ, ngày mở cần khoảng giờ hợp lệ |
+| `/admin/feedback/{id}/reply` | `reply`, CSRF | Admin lưu nội dung trả lời Feedback |
+| `/admin/feedback/{id}/resolve` | CSRF | Admin đánh dấu Feedback đã giải quyết |
+| `/admin/bookings/{id}/cancel` | `reason`, CSRF | Admin hủy Booking CONFIRMED, lưu người hủy/thời điểm/lý do |
+| `/admin/bookings/{id}/reassign` | `staffId`, CSRF | Đổi Staff cho Booking CONFIRMED sau khi kiểm tra availability, nghỉ và xung đột |
+| `/staff/schedules`, `/staff/schedules/{id}/delete` | `workDate`, `startTime`, `endTime` | Staff PART_TIME tự đăng ký/xóa khoảng sẵn sàng; giờ bắt đầu/kết thúc cùng ngày |
+| `/staff/profile` | `avatarUrl`, `bio`, CSRF | Staff tự cập nhật hồ sơ; chỉ nhận URL avatar HTTPS |
+| `/staff/leaves` | `startDate`, `endDate`, `reason` | Staff gửi đơn nghỉ theo ngày nguyên; trạng thái ban đầu PENDING |
+| `/admin/leaves/{id}/approve`, `/admin/leaves/{id}/reject` | CSRF | Admin chỉ xét đơn PENDING; ghi reviewer và thời điểm xét duyệt |
 
-Customer ID, Staff thực hiện và Admin quản lý lấy từ session tương ứng. Giá và thời lượng do Service đọc từ database. `startAt`/`endAt` trong form là local datetime theo UTC+7, chuyển sang `OffsetDateTime` trước khi gọi Service. Các dịch vụ được thực hiện theo thứ tự trong danh mục form.
+Customer ID và Staff ID lấy từ session, không tin ID vai trò do trình duyệt gửi. Giá và thời lượng do Service đọc từ SQL Server. `startAt` là local datetime theo UTC+7. Backend lưu snapshot cho từng dịch vụ và tổng hợp giá/thời lượng; schema không lưu thứ tự thực hiện dịch vụ.
 
-Form chọn một khoảng sẵn sàng đủ dài cho toàn bộ dịch vụ. Service cũ vẫn có khả năng gán `workScheduleId` riêng từng detail; UI hiện chưa chỉnh từng detail qua nhiều khoảng sẵn sàng. Không thêm địa chỉ, phụ phí hoặc ghi chú đặt lịch từ mẫu vì Entity Booking hiện tại không có các trường này.
+Booking chọn một Staff, một House thuộc Customer và một thời điểm bắt đầu. Backend tự tính thời lượng/giá từ Services, kiểm tra khoảng làm việc (Company Operating Hours cho FULL_TIME, Staff Availability theo ngày cho PART_TIME), lead time, booking horizon, buffer và xung đột trước khi lưu snapshot. Không dùng `Work_Schedule` hoặc ID lịch do client quyết định.
 
-Khi cập nhật khoảng sẵn sàng, nhân viên được giữ nguyên và khoảng mới phải tiếp tục bao phủ từng Booking_Detail đã tham chiếu đến nó. Có thể mở rộng hoặc thu hẹp nếu không làm sai thời gian đã đặt; không triển khai di chuyển lịch hẹn sang nhân viên khác. Kiểm tra này dùng cùng khóa Staff với Service đặt lịch để tránh chạy đua giữa cập nhật lịch và đặt mới; hành vi transaction cần nghiệm thu trên SQL Server.
+Staff PART_TIME chỉ được tạo/xóa khoảng của chính mình. Không thể xóa khoảng nếu đã có Booking bắt đầu bên trong. Các thao tác lịch và đặt chỗ khóa cùng Staff để tuần tự hóa; cần nghiệm thu cạnh tranh trên SQL Server.
 
 ## Cấu hình chạy thật
 
-Môi trường trên máy hiện tại đã được setup và nghiệm thu luồng HTTP với SQL Server ngày 2026-10-16; xem [hướng dẫn local và kết quả thực tế](local-setup.md). Các ghi chú chưa xác minh ở cuối tài liệu mô tả thời điểm trước lần setup này.
+`local-setup.md` là tài liệu lịch sử của schema cũ 11 bảng và được đánh dấu Deprecated. Các kết quả SQL Server/HTTP trong đó không phải bằng chứng cho baseline refactor hiện tại (15 bảng trong `db/refactor`). Chỉ xem [hướng dẫn demo hiện tại](demo-setup.md) và kết quả kiểm tra được thực hiện trực tiếp trên baseline này khi nghiệm thu.
 
 Từ `app/housekeeping-management-system/`, dùng JDK 21 và Maven. Cấu hình theo `application.properties`:
 
@@ -119,12 +133,14 @@ Surefire dùng Mockito javaagent từ dependency Maven, không phụ thuộc kh�
 Quy trình nghiệm thu với SQL Server:
 
 1. Chuẩn bị tài khoản ba vai trò; kiểm tra đăng nhập/đăng xuất và route sai role bị từ chối.
-2. Admin tạo Staff, Service và khoảng sẵn sàng; email trùng bị từ chối; xóa bản ghi có phụ thuộc không làm mất lịch sử.
+2. Admin cấu hình địa chỉ/tọa độ/bán kính và đủ 7 ngày giờ hoạt động tại `/admin/settings` trước khi nhận lịch; ngày nghỉ không có giờ, ngày mở phải có giờ bắt đầu/kết thúc hợp lệ. Admin tạo Staff và Service; email trùng bị từ chối. Staff tự cập nhật bio/URL avatar HTTPS tại `/staff/profile`; Customer/Admin không truy cập được trang sửa này. Staff PART_TIME đăng ký khoảng sẵn sàng của mình; Staff FULL_TIME theo khung giờ công ty. Staff gửi đơn nghỉ theo ngày, Admin duyệt/từ chối; chỉ đơn APPROVED chặn Booking mới.
 3. Customer đặt lịch thành `CONFIRMED`; đặt trùng bị từ chối kể cả hai cửa sổ đồng thời; hủy theo mốc 2 giờ và kiểm tra giải phóng lịch.
 4. Staff chỉ thấy việc của mình; tải JPEG/PNG vào từng detail; file hỏng, quá 5 MB và vượt 5 ảnh bị từ chối. Không hoàn thành khi thiếu ảnh hoặc chưa tới giờ bắt đầu.
-5. Hoàn thành tạo một Payment `UNPAID`; Customer chọn phương thức; Admin xác minh thực tế trước khi đổi `PAID`.
+5. Hoàn thành chuyển Booking sang `AWAITING_PAYMENT`; Staff được phân công xác nhận CASH hoặc Customer thanh toán ONLINE qua PayOS webhook; Payment thành `SUCCESS` thì Booking mới thành `COMPLETED`.
 6. Kiểm tra feedback một lần, yêu thích và sửa URL sang Booking/Evidence của tài khoản khác bị từ chối.
 
-Bằng chứng ban đầu ngày 2026-10-16: build/test web chạy bằng JDK 26.0.1, biên dịch `release 21`; khi đó SQL Server local chưa khả dụng. Sau đó đã setup JDK 21, migrate SQL Server thật, Hibernate validate và kiểm tra thành công luồng MVC/Evidence/Payment/Feedback. Chi tiết và giới hạn tại [kết quả local](local-setup.md); concurrency dùng Docker/Testcontainers vẫn chưa nghiệm thu.
+Admin quản lý Booking tại trang chi tiết `/admin/bookings/{id}`. Chỉ Booking `CONFIRMED` có nút hủy/đổi nhân viên; hủy yêu cầu lý do và lưu người hủy/thời gian. Đổi nhân viên chỉ cập nhật `staff_id`, giữ `original_staff_id`; nhân viên thay thế phải đang hoạt động, không nghỉ đã duyệt, có availability nếu PART_TIME và không trùng/vi phạm đệm 60 phút. Booking `AWAITING_PAYMENT`/`COMPLETED` không được hủy hoặc chuyển nhân viên vì quy tắc hoàn tiền/xử lý sau hoàn thành chưa được chốt trong SRS.
+
+Các ghi nhận runtime trong [tài liệu local lịch sử](local-setup.md) thuộc schema cũ và không xác nhận Flyway, Hibernate mapping hoặc luồng giao dịch của baseline 15 bảng hiện tại. Với baseline hiện tại, cần chạy `mvn verify` trên SQL Server Testcontainers hoặc SQL Server development riêng; nếu không có runtime đó, báo rõ các test SQL Server chưa được xác minh. Không dùng kết quả của database `hsf302` cũ làm bằng chứng cho schema mới.
 
 Tham khảo: [Spring Security Form Login](https://docs.spring.io/spring-security/reference/servlet/authentication/passwords/form.html) và [Bootstrap 5.3](https://getbootstrap.com/docs/5.3/getting-started/introduction/).

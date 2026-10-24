@@ -1,44 +1,23 @@
 > **Document:** Application Directory Guide\
 > **File:** `app/README.md`\
-> **Version:** v1.3.0\
+> **Version:** v2.0.0\
 > **Created:** 2026-06-14\
-> **Last Updated:** 2026-10-17\
-> **Status:** Draft
+> **Last Updated:** 2026-10-24\
+> **Status:** Draft\
 
-# Ứng Dụng Housekeeping
+# Ứng dụng Housekeeping
 
-Trên máy đã setup, dùng `run-local.cmd` ở thư mục gốc repository để tự nạp JDK 21 và cấu hình SQL Server riêng. Xem [hướng dẫn chạy local](../docs/local-setup.md).
+Mã nguồn ứng dụng nằm tại [`housekeeping-management-system/`](housekeeping-management-system/). Ứng dụng dùng Java 21, Spring Boot, Spring MVC, Thymeleaf, Bootstrap, JPA/Hibernate, SQL Server và Flyway trong một Maven project.
 
-Mã ứng dụng nằm trong [`housekeeping-management-system/`](housekeeping-management-system/). Dự án dùng Java 21, Spring Boot MVC, Thymeleaf và Bootstrap; không cần frontend React hoặc npm riêng.
+## Package Java
 
-- `src/main/resources/templates/`: trang và fragment Thymeleaf.
-- `src/main/resources/static/css/portal.css`: giao diện chuyển từ thiết kế ZIP.
-- `src/main/resources/static/js/portal.js`: tạm tính, lọc danh sách và hỗ trợ nhập form.
-- `src/main/resources/static/images/`: ảnh minh họa từ ZIP người dùng cung cấp.
-- `src/main/resources/static/vendor/bootstrap/`: Bootstrap 5.3.8 và giấy phép MIT, phục vụ cục bộ.
-- `src/main/java/com/housekeeping/management/web/`: MVC, view model, truy vấn hiển thị và lớp kết nối/xác thực.
-- `src/main/java/com/housekeeping/management/service/`: các Service nghiệp vụ hiện có, được giữ nguyên.
+Theo [hướng dẫn package](../docs/architecture/java-package-structure.md), code mới được tổ chức theo `config/`, `controller/`, `dto/request/`, `dto/response/`, `entity/`, `repository/`, `service/`; giữ `domain/` cho enum/value type khi phù hợp. Không phát triển thêm nghiệp vụ trong các lớp `Portal*` cũ khi lát cắt tương ứng đã được chuyển.
 
-Từ thư mục chứa `pom.xml`, cấu hình `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` cho SQL Server rồi chạy:
+## Tài nguyên giao diện
 
-```powershell
-mvn spring-boot:run
-```
+- `src/main/resources/templates/`: view Thymeleaf.
+- `src/main/resources/static/`: CSS, JavaScript, ảnh và thư viện giao diện cục bộ.
+- `src/main/resources/db/refactor/`: Flyway baseline của schema SQL Server mới.
+- `src/main/resources/db/migration/`: migration lịch sử; không sửa V1/V2/V3 đã áp dụng.
 
-Mở [trang chủ](http://localhost:8080/) hoặc [đăng nhập](http://localhost:8080/login). Chạy thông thường cần tài khoản đã tồn tại trong database. Người mới clone muốn có sẵn ba vai trò: dùng SSMS chạy [setup-demo.sql](../database/setup-demo.sql), rồi Run **Housekeeping Demo** với JDK 21 hoặc thêm `-Dspring-boot.run.profiles=demo` vào lệnh Maven. Kết nối demo tới `localhost:1433/housekeeping_demo` đã cấu hình sẵn; không cần `.env` trừ khi đổi kết nối. Xem [tài khoản mẫu và cách clone](../docs/demo-setup.md).
-
-**Làm mới database mỗi lần chạy (tùy chọn local):** đặt `DB_RESET_ON_STARTUP=true` trong `.env`. Ứng dụng sẽ tạo database từ `DB_URL` nếu chưa có, rồi Flyway xóa các object trong schema cấu hình và chạy lại migration. Toàn bộ dữ liệu trong schema sẽ mất mỗi lần chạy. Chỉ bật với database local dành riêng cho phát triển; tài khoản SQL cần quyền `CREATE DATABASE` nếu database chưa tồn tại. Mặc định tính năng này tắt.
-
-Kiểm tra giao diện, đăng nhập và phân quyền không cần database:
-
-```powershell
-mvn "-DexcludedGroups=sqlserver" verify
-```
-
-Chạy toàn bộ kiểm thử tích hợp khi có Docker hoạt động:
-
-```powershell
-mvn verify
-```
-
-Xem [hướng dẫn kết nối frontend–backend](../docs/frontend-integration.md) để biết route, form, giới hạn và nghiệm thu với dữ liệu thật.
+Chạy demo theo [README ở repo root](../README.md). Chỉ cấu hình `.env` cho database development riêng; không commit hoặc chia sẻ thông tin kết nối.

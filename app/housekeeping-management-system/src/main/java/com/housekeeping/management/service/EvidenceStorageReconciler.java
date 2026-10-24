@@ -1,6 +1,6 @@
 package com.housekeeping.management.service;
 
-import com.housekeeping.management.repository.EvidencesRepository;
+import com.housekeeping.management.repository.BookingImageRepository;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -19,13 +19,13 @@ import org.springframework.stereotype.Component;
 public class EvidenceStorageReconciler implements ApplicationRunner {
     private static final Logger LOGGER = LoggerFactory.getLogger(EvidenceStorageReconciler.class);
     private static final Duration STALE_FILE_AGE = Duration.ofHours(24);
-    private final EvidencesRepository evidencesRepository;
+    private final BookingImageRepository bookingImages;
     private final Path storageRoot;
 
     public EvidenceStorageReconciler(
-            EvidencesRepository evidencesRepository,
+            BookingImageRepository bookingImages,
             @Value("${app.evidence.storage-root:./var/evidence}") String storageRoot) {
-        this.evidencesRepository = evidencesRepository;
+        this.bookingImages = bookingImages;
         this.storageRoot = Path.of(storageRoot).toAbsolutePath().normalize();
     }
 
@@ -33,7 +33,7 @@ public class EvidenceStorageReconciler implements ApplicationRunner {
     public void run(ApplicationArguments args) throws IOException {
         Files.createDirectories(storageRoot);
         Set<String> referencedFiles = new HashSet<>();
-        evidencesRepository.findAll().forEach(evidence -> referencedFiles.add(evidence.getStoragePath()));
+        referencedFiles.addAll(bookingImages.findAllImageUrls());
         Instant staleBefore = Instant.now().minus(STALE_FILE_AGE);
 
         try (var files = Files.list(storageRoot)) {

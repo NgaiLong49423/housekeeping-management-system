@@ -1,5 +1,7 @@
 package com.housekeeping.management.repository;
 
+
+import org.springframework.data.repository.NoRepositoryBean;
 import com.housekeeping.management.domain.entity.BookingDetail;
 import jakarta.persistence.LockModeType;
 import java.util.List;
@@ -9,6 +11,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+@NoRepositoryBean
 public interface BookingDetailRepository extends JpaRepository<BookingDetail, Long> {
     List<BookingDetail> findAllByBooking_BookingIdOrderBySequenceNo(Long bookingId);
 
