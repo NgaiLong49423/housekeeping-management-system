@@ -1,8 +1,8 @@
 > **Document:** Application Directory Guide\
 > **File:** `app/README.md`\
-> **Version:** v1.3.0\
+> **Version:** v1.4.0\
 > **Created:** 2026-06-14\
-> **Last Updated:** 2026-10-17\
+> **Last Updated:** 2026-10-24\
 > **Status:** Draft
 
 # Ứng Dụng Housekeeping
@@ -10,6 +10,8 @@
 Trên máy đã setup, dùng `run-local.cmd` ở thư mục gốc repository để tự nạp JDK 21 và cấu hình SQL Server riêng. Xem [hướng dẫn chạy local](../docs/local-setup.md).
 
 Mã ứng dụng nằm trong [`housekeeping-management-system/`](housekeeping-management-system/). Dự án dùng Java 21, Spring Boot MVC, Thymeleaf và Bootstrap; không cần frontend React hoặc npm riêng.
+
+Quy ước package Java và trách nhiệm từng layer được mô tả tại [Java Package Structure Guide](../docs/architecture/java-package-structure.md). Đây là cấu trúc định hướng cho code mới; xem hướng dẫn để hiểu cách áp dụng với các package `web/`, `domain/` đang tồn tại.
 
 - `src/main/resources/templates/`: trang và fragment Thymeleaf.
 - `src/main/resources/static/css/portal.css`: giao diện chuyển từ thiết kế ZIP.
