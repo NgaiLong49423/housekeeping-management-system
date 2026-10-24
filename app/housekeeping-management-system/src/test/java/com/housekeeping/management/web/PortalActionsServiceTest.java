@@ -125,7 +125,7 @@ class PortalActionsServiceTest {
 
     private PortalActionsService actions(EntityManager em, GlobalEmailUniquenessService emails, PasswordEncoder encoder,
             StaffAccountRepository staffAccounts, ServicesRepository services) {
-        return new PortalActionsService(em, mock(BookingRepository.class), mock(com.housekeeping.management.repository.BookingPersistenceRepository.class), mock(StaffRepository.class),
+        return new PortalActionsService(em, mock(com.housekeeping.management.repository.BookingPersistenceRepository.class), mock(StaffRepository.class),
                 mock(WorkScheduleRepository.class), mock(JdbcTemplate.class), emails, encoder,
                 staffAccounts == null ? mock(StaffAccountRepository.class) : staffAccounts,
                 services == null ? mock(ServicesRepository.class) : services);

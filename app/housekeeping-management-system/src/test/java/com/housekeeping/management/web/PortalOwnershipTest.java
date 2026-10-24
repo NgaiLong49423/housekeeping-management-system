@@ -19,10 +19,10 @@ import org.springframework.security.access.AccessDeniedException;
 class PortalOwnershipTest {
     @Test
     void roleAndIdMustBothMatchToReadBookingOrEvidence() {
-        PortalQueryService query = new PortalQueryService(mock(JdbcTemplate.class));
+        PortalQueryService query = new PortalQueryService(mock(JdbcTemplate.class), mock(FeedbackRepository.class));
         var now = OffsetDateTime.now();
         var card = new PortalViews.BookingCard(42L, 1L, 2L, "Customer", "Staff", now, now.plusHours(1), "CONFIRMED", BigDecimal.TEN,
-                null, null, null, null, null);
+                null, null, null, null, null, null, null);
         assertThatCode(() -> query.authorize(card, PortalMvcTest.account(1L, "CUSTOMER", "Owner"))).doesNotThrowAnyException();
         assertThatCode(() -> query.authorize(card, PortalMvcTest.account(2L, "STAFF", "Assigned"))).doesNotThrowAnyException();
         assertThatCode(() -> query.authorize(card, PortalMvcTest.account(3L, "ADMIN", "Admin"))).doesNotThrowAnyException();
@@ -32,9 +32,8 @@ class PortalOwnershipTest {
 
     @Test
     void cancellationCannotChangeAnotherCustomersBookingOrCompletedBooking() {
-        BookingRepository repository = mock(BookingRepository.class);
         BookingPersistenceRepository persistence = mock(BookingPersistenceRepository.class);
-        PortalActionsService actions = new PortalActionsService(null, repository, persistence, null, null, null, null, null, null, null);
+        PortalActionsService actions = new PortalActionsService(null, persistence, null, null, null, null, null, null, null);
         var booking = new BookingPersistenceRepository.BookingState(42L, 1L, 2L, 3L,
                 LocalDateTime.now().plusHours(3), LocalDateTime.now().plusHours(4), "CONFIRMED");
         when(persistence.lockBooking(42L)).thenReturn(Optional.of(booking));

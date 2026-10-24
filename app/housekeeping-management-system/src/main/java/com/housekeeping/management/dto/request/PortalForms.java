@@ -13,7 +13,8 @@ public final class PortalForms {
             @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startAt,
             @NotEmpty List<@NotNull @Positive Long> serviceIds,
             @Size(max = 2000) String areaNote) { }
-    public record FeedbackForm(@Min(1) @Max(5) int rating, @NotBlank @Size(max = 2000) String comment) { }
+    public record FeedbackForm(@NotBlank String content) { }
+    public record FeedbackReplyForm(@NotBlank String reply) { }
     public record CustomerRegistrationForm(@NotBlank @Size(max = 150) String name,
             @NotBlank @Email @Size(max = 255) String email, @NotBlank @Size(max = 20) String phone,
             @NotBlank @Size(min = 8, max = 72) String password, @NotBlank @Size(max = 72) String confirmPassword) { }

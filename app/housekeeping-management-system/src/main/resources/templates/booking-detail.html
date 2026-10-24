@@ -106,46 +106,22 @@
             </form>
           </section>
 
-          <!-- Customer Feedback Section -->
+          <!-- Customer feedback is text-only; no rating is part of the business schema. -->
           <section th:if="${booking.status == 'COMPLETED' and currentUser.role == 'CUSTOMER'}" class="surface p-4">
-            <h2 class="h5 mb-3 border-bottom pb-2">
-              Đánh giá trải nghiệm dịch vụ
-            </h2>
-            <div th:if="${booking.rating != null}">
-              <div class="d-flex align-items-center gap-2">
-                <span class="rating-stars" th:text="${booking.rating} + '/5 ★'">5/5 ★</span>
-                <span class="badge bg-success-subtle text-success border border-success-subtle">Đã ghi nhận</span>
-              </div>
-              <p class="mb-0 mt-2 text-secondary">
-                Bạn đã gửi đánh giá cho lịch hẹn này. Sự hài lòng của bạn là động lực lớn nhất của Gọn Nhà!
+            <h2 class="h5 mb-3 border-bottom pb-2">Phản hồi về dịch vụ</h2>
+            <div th:if="${booking.feedbackStatus != null}">
+              <p class="mb-2" th:text="${booking.feedbackContent}">Nội dung phản hồi</p>
+              <p class="small text-secondary mb-0" th:if="${booking.adminReply != null}">
+                <strong>Phản hồi từ công ty:</strong> <span th:text="${booking.adminReply}"></span>
               </p>
+              <span class="badge mt-2" th:classappend="${booking.feedbackStatus == 'RESOLVED'} ? 'text-bg-success' : 'text-bg-secondary'"
+                    th:text="${booking.feedbackStatus == 'RESOLVED'} ? 'Đã giải quyết' : 'Đã tiếp nhận'">Đã tiếp nhận</span>
             </div>
-            <form th:if="${booking.rating == null}" method="post" th:action="@{/customer/bookings/{id}/feedback(id=${booking.id})}">
-              <div>
-                <label class="form-label" for="rating">
-                  Mức độ hài lòng của bạn
-                </label>
-                <select id="rating" name="rating" class="form-select" required>
-                  <option value="">Chọn số sao đánh giá</option>
-                  <option value="5">★★★★★ · Rất hài lòng</option>
-                  <option value="4">★★★★ · Hài lòng</option>
-                  <option value="3">★★★ · Bình thường</option>
-                  <option value="2">★★ · Chưa hài lòng</option>
-                  <option value="1">★ · Không hài lòng</option>
-                </select>
-              </div>
-              <div class="mt-3">
-                <label class="form-label" for="comment">
-                  Nhận xét &amp; Góp ý
-                </label>
-                <textarea id="comment" name="comment" class="form-control" rows="3" maxlength="2000" placeholder="Chia sẻ cảm nhận về thái độ phục vụ và độ sạch của ngôi nhà..." required></textarea>
-              </div>
-              <button type="submit" class="btn btn-primary mt-3">
-                Gửi đánh giá dịch vụ
-              </button>
-              <p class="small text-secondary mt-2 mb-0">
-                Mỗi lịch hẹn được gửi đánh giá một lần duy nhất.
-              </p>
+            <form th:if="${booking.feedbackStatus == null}" method="post" th:action="@{/customer/bookings/{id}/feedback(id=${booking.id})}">
+              <label class="form-label" for="feedback-content">Nội dung phản hồi</label>
+              <textarea id="feedback-content" name="content" class="form-control" rows="4" required></textarea>
+              <button type="submit" class="btn btn-primary mt-3">Gửi phản hồi</button>
+              <p class="small text-secondary mt-2 mb-0">Mỗi lịch hẹn chỉ gửi phản hồi một lần.</p>
             </form>
           </section>
         </div>

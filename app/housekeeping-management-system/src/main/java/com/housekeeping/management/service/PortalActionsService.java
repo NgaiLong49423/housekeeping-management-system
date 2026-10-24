@@ -1,7 +1,6 @@
 package com.housekeeping.management.service;
 
 import static com.housekeeping.management.dto.request.PortalForms.*;
-import com.housekeeping.management.domain.BookingStatus;
 import com.housekeeping.management.domain.entity.*;
 import com.housekeeping.management.repository.*;
 import com.housekeeping.management.repository.BookingPersistenceRepository;
@@ -21,7 +20,6 @@ import com.housekeeping.management.service.DuplicateEmailException;
 @Service
 public class PortalActionsService {
     private final EntityManager em;
-    private final BookingRepository bookings;
     private final BookingPersistenceRepository bookingPersistence;
     private final StaffRepository staff;
     private final StaffAccountRepository staffAccounts;
@@ -31,12 +29,12 @@ public class PortalActionsService {
     private final GlobalEmailUniquenessService emailUniqueness;
     private final PasswordEncoder encoder;
 
-    public PortalActionsService(EntityManager em, BookingRepository bookings, BookingPersistenceRepository bookingPersistence,
+    public PortalActionsService(EntityManager em, BookingPersistenceRepository bookingPersistence,
             StaffRepository staff,
             WorkScheduleRepository schedules, JdbcTemplate jdbc,
             GlobalEmailUniquenessService emailUniqueness, PasswordEncoder encoder,
             StaffAccountRepository staffAccounts, ServicesRepository services) {
-        this.em = em; this.bookings = bookings; this.bookingPersistence = bookingPersistence;
+        this.em = em; this.bookingPersistence = bookingPersistence;
         this.staff = staff; this.staffAccounts = staffAccounts;
         this.services = services;
         this.schedules = schedules; this.jdbc = jdbc; this.emailUniqueness = emailUniqueness; this.encoder = encoder;
@@ -66,18 +64,6 @@ public class PortalActionsService {
         if (bookingPersistence.cancel(bookingId, customerId, "Khách hàng yêu cầu hủy lịch.", now().toLocalDateTime()) != 1) {
             throw new IllegalStateException("Trạng thái lịch hẹn vừa thay đổi. Hãy tải lại trang.");
         }
-    }
-
-    @Transactional
-    public void feedback(Long bookingId, Long customerId, FeedbackForm form) {
-        Booking booking = ownedBooking(bookingId, customerId);
-        if (booking.getBookingStatus() != BookingStatus.COMPLETED) { throw new IllegalStateException("Chỉ đánh giá sau khi công việc hoàn thành."); }
-        if (jdbc.queryForObject("SELECT COUNT(*) FROM Feedback WHERE booking_id=?", Integer.class, bookingId) != 0) {
-            throw new IllegalStateException("Bạn đã đánh giá lịch hẹn này.");
-        }
-        Feedback feedback = new Feedback();
-        feedback.setBooking(booking); feedback.setRating((byte) form.rating());
-        feedback.setComment(form.comment().trim()); feedback.setCreatedAt(now()); em.persist(feedback);
     }
 
     @Transactional
@@ -210,9 +196,4 @@ public class PortalActionsService {
         item.setStatus(Services.Status.ACTIVE);
     }
 
-    private Booking ownedBooking(Long id, Long customerId) {
-        Booking booking = bookings.findByIdForUpdate(id).orElseThrow(() -> new IllegalArgumentException("Lịch hẹn không tồn tại."));
-        if (!booking.getCustomer().getCustomerId().equals(customerId)) { throw new AccessDeniedException("Lịch hẹn không thuộc tài khoản của bạn."); }
-        return booking;
-    }
 }

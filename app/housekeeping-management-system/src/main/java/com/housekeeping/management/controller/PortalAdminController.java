@@ -2,6 +2,7 @@ package com.housekeeping.management.controller;
 
 import static com.housekeeping.management.dto.request.PortalForms.*;
 import com.housekeeping.management.dto.response.PortalViews;
+import com.housekeeping.management.service.FeedbackService;
 import com.housekeeping.management.service.PortalActionsService;
 import com.housekeeping.management.service.PortalQueryService;
 import com.housekeeping.management.web.PortalUser;
@@ -18,7 +19,10 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 public class PortalAdminController {
     private final PortalQueryService query;
     private final PortalActionsService actions;
-    public PortalAdminController(PortalQueryService query, PortalActionsService actions) { this.query = query; this.actions = actions; }
+    private final FeedbackService feedbackService;
+    public PortalAdminController(PortalQueryService query, PortalActionsService actions, FeedbackService feedbackService) {
+        this.query = query; this.actions = actions; this.feedbackService = feedbackService;
+    }
 
     @GetMapping("/services")
     String services(Model model, @AuthenticationPrincipal PortalUser user) { model.addAttribute("services", query.services(user)); return "admin/services"; }
@@ -29,6 +33,26 @@ public class PortalAdminController {
     @GetMapping("/schedules")
     String schedules(@AuthenticationPrincipal PortalUser user, Model model) {
         model.addAttribute("schedules", query.schedules(user)); model.addAttribute("staff", query.staff(user)); return "admin/schedules";
+    }
+
+    @GetMapping("/feedback")
+    String feedback(Model model) { model.addAttribute("feedback", query.feedback()); return "admin/feedback"; }
+
+    @PostMapping("/feedback/{id}/reply")
+    String reply(@PathVariable Long id, @Valid @ModelAttribute FeedbackReplyForm form,
+            BindingResult errors, RedirectAttributes flash) {
+        if (!invalid(errors, flash)) {
+            feedbackService.reply(id, form.reply());
+            flash.addFlashAttribute("success", "Đã lưu phản hồi cho khách hàng.");
+        }
+        return "redirect:/admin/feedback";
+    }
+
+    @PostMapping("/feedback/{id}/resolve")
+    String resolve(@PathVariable Long id, RedirectAttributes flash) {
+        feedbackService.resolve(id);
+        flash.addFlashAttribute("success", "Đã đánh dấu phản hồi là đã giải quyết.");
+        return "redirect:/admin/feedback";
     }
 
     @PostMapping("/services")

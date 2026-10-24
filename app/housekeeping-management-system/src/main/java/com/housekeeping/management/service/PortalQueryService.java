@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import org.springframework.jdbc.core.JdbcTemplate;
+import com.housekeeping.management.repository.FeedbackRepository;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,7 +18,10 @@ import com.housekeeping.management.web.PortalUser;
 @Transactional(readOnly = true)
 public class PortalQueryService {
     private final JdbcTemplate jdbc;
-    public PortalQueryService(JdbcTemplate jdbc) { this.jdbc = jdbc; }
+    private final FeedbackRepository feedback;
+    public PortalQueryService(JdbcTemplate jdbc, FeedbackRepository feedback) { this.jdbc = jdbc; this.feedback = feedback; }
+
+    public List<FeedbackCard> feedback() { return feedback.findAll(); }
 
     public List<ServiceCard> services() {
         return services(null);
@@ -140,11 +144,13 @@ public class PortalQueryService {
                        CASE WHEN payment.status='SUCCESS' THEN 'PAID'
                             WHEN payment.payment_id IS NOT NULL THEN 'UNPAID' ELSE NULL END AS payment_status,
                        payment.payment_method, CAST(NULL AS VARCHAR(20)) AS attempt_status,
-                       CAST(NULL AS NVARCHAR(500)) AS checkout_url, CAST(NULL AS INT) AS rating
+                       CAST(NULL AS NVARCHAR(500)) AS checkout_url, f.content AS feedback_content,
+                       f.admin_reply, f.status AS feedback_status
                 FROM dbo.Bookings b
                 JOIN dbo.Users customer ON customer.user_id=b.customer_id
                 JOIN dbo.Staff selected_staff ON selected_staff.staff_id=b.staff_id
                 JOIN dbo.Users staff_user ON staff_user.user_id=selected_staff.user_id
+                LEFT JOIN dbo.Feedbacks f ON f.booking_id=b.booking_id
                 OUTER APPLY (SELECT TOP (1) p.payment_id, p.status, p.payment_method
                              FROM dbo.Payments p WHERE p.booking_id=b.booking_id
                              ORDER BY p.created_at DESC, p.payment_id DESC) payment
@@ -153,6 +159,7 @@ public class PortalQueryService {
                     rs.getObject("start_time", LocalDateTime.class).atOffset(ZoneOffset.ofHours(7)),
                     rs.getObject("end_time", LocalDateTime.class).atOffset(ZoneOffset.ofHours(7)), rs.getString("status"),
                     rs.getBigDecimal("total_amount"), rs.getString("payment_status"), rs.getString("payment_method"),
-                    rs.getString("attempt_status"), rs.getString("checkout_url"), (Integer) rs.getObject("rating", Integer.class)), params);
+                    rs.getString("attempt_status"), rs.getString("checkout_url"), rs.getString("feedback_content"),
+                    rs.getString("admin_reply"), rs.getString("feedback_status")), params);
     }
 }

@@ -47,6 +47,7 @@ class PortalMvcTest {
     @MockitoBean BookingCompletionService completion;
     @MockitoBean PaymentLifecycleService payments;
     @MockitoBean PayosPaymentService payosPayments;
+    @MockitoBean FeedbackService feedbackService;
     @MockitoBean EvidenceStorageService storage;
     @MockitoBean HouseService houses;
 
@@ -69,13 +70,14 @@ class PortalMvcTest {
         when(query.schedules(any())).thenReturn(List.of(new ScheduleCard(20L, 2L, "Nhân viên kiểm thử", start, start.plusHours(8))));
         when(query.busyIntervals()).thenReturn(List.of(new PortalQueryService.BusyInterval(2L, start.plusHours(4), start.plusHours(5))));
         when(query.bookings(any())).thenReturn(List.of(card("CONFIRMED", null, null), card("COMPLETED", "UNPAID", null)));
+        when(query.feedback()).thenReturn(List.of());
         when(query.booking(eq(42L), any())).thenReturn(card("CONFIRMED", null, null));
         when(query.details(eq(42L), any())).thenReturn(List.of(new DetailCard(30L, "Dọn dẹp nhà theo giờ", 1, 120, new BigDecimal("140000"), List.of())));
     }
 
     BookingCard card(String status, String payment, String method) {
         return new BookingCard(42L, 1L, 2L, "Khách hàng kiểm thử", "Nhân viên kiểm thử", start, start.plusHours(2), status,
-                new BigDecimal("140000"), payment, method, null, null, null);
+                new BigDecimal("140000"), payment, method, null, null, null, null, null);
     }
 
     @Test
@@ -89,6 +91,7 @@ class PortalMvcTest {
         render("/staff/bookings", staff, "staff-bookings"); render("/staff/schedules", staff, "staff-schedules");
         render("/admin/bookings", admin, "admin-bookings"); render("/admin/services", admin, "admin-services");
         render("/admin/staff", admin, "admin-staff"); render("/admin/schedules", admin, "admin-schedules");
+        render("/admin/feedback", admin, "admin-feedback");
         for (PortalUser user : List.of(customer, staff, admin)) {
             render("/" + user.getRole().toLowerCase() + "/bookings/42", user, user.getRole().toLowerCase() + "-detail-confirmed");
         }
@@ -124,10 +127,30 @@ class PortalMvcTest {
     }
 
     @Test
+    void customerFeedbackAcceptsTextWithoutRatingAndAdminCanOpenFeedbackInbox() throws Exception {
+        mvc.perform(post("/customer/bookings/42/feedback").with(user(customer)).with(csrf())
+                        .param("content", "Nhân viên làm việc cẩn thận."))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/customer/bookings/42"));
+        verify(feedbackService).submit(42L, 1L, "Nhân viên làm việc cẩn thận.");
+
+        mvc.perform(get("/admin/feedback").with(user(admin)))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Phản hồi khách hàng")));
+
+        mvc.perform(post("/admin/feedback/90/reply").with(user(admin)).with(csrf()).param("reply", "Cảm ơn bạn đã góp ý."))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/admin/feedback"));
+        verify(feedbackService).reply(90L, "Cảm ơn bạn đã góp ý.");
+        mvc.perform(post("/admin/feedback/90/resolve").with(user(admin)).with(csrf()))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/admin/feedback"));
+        verify(feedbackService).resolve(90L);
+    }
+
+    @Test
     void payosPendingCheckoutIsReopenableByCustomerAndNotAdminVerified() throws Exception {
         BookingCard payos = new BookingCard(42L, 1L, 2L, "Khách hàng kiểm thử", "Nhân viên kiểm thử", start,
                 start.plusHours(2), "COMPLETED", new BigDecimal("140000"), "UNPAID", "PAYOS", "PENDING",
-                "https://pay.payos.vn/web/payment-link", null);
+                "https://pay.payos.vn/web/payment-link", null, null, null);
         when(query.booking(eq(42L), any())).thenReturn(payos);
         when(query.details(eq(42L), any())).thenReturn(List.of());
 

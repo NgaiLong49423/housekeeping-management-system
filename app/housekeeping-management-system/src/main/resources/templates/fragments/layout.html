@@ -68,6 +68,7 @@
             <a class="nav-link" th:classappend="${active == 'staff'} ? 'active'" th:href="@{/admin/staff}">Nhân viên</a>
             <a class="nav-link" th:classappend="${active == 'services'} ? 'active'" th:href="@{/admin/services}">Dịch vụ</a>
             <a class="nav-link" th:classappend="${active == 'schedules'} ? 'active'" th:href="@{/admin/schedules}">Lịch sẵn sàng</a>
+            <a class="nav-link" th:classappend="${active == 'feedback'} ? 'active'" th:href="@{/admin/feedback}">Phản hồi</a>
           </div>
           <div class="header-actions">
             <a th:if="${currentUser == null}" class="btn btn-outline-primary" th:href="@{/login}">

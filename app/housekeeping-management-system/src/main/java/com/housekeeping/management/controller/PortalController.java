@@ -39,17 +39,20 @@ public class PortalController {
     private final BookingCompletionService completion;
     private final PaymentLifecycleService payments;
     private final PayosPaymentService payosPayments;
+    private final FeedbackService feedbackService;
     private final EvidenceStorageService storage;
     private final HouseService houses;
     private final String mapsBrowserKey;
     private final Path evidenceRoot;
 
     public PortalController(PortalQueryService query, PortalActionsService actions, BookingReservationService reservations,
-            BookingCompletionService completion, PaymentLifecycleService payments, PayosPaymentService payosPayments, EvidenceStorageService storage,
+            BookingCompletionService completion, PaymentLifecycleService payments, PayosPaymentService payosPayments,
+            FeedbackService feedbackService, EvidenceStorageService storage,
             HouseService houses, @Value("${app.evidence.storage-root:./var/evidence}") String evidenceRoot,
             @Value("${app.maps.browser-key:}") String mapsBrowserKey) {
         this.query = query; this.actions = actions; this.reservations = reservations; this.completion = completion;
-        this.payments = payments; this.payosPayments = payosPayments; this.storage = storage; this.houses = houses;
+        this.payments = payments; this.payosPayments = payosPayments; this.feedbackService = feedbackService;
+        this.storage = storage; this.houses = houses;
         this.evidenceRoot = Path.of(evidenceRoot).toAbsolutePath().normalize();
         this.mapsBrowserKey = mapsBrowserKey;
     }
@@ -200,6 +203,9 @@ public class PortalController {
         List<DetailCard> details = query.details(id, user);
         model.addAttribute("booking", booking); model.addAttribute("details", details);
         model.addAttribute("bookingImages", query.bookingImages(id, user));
+        if ("CUSTOMER".equals(user.getRole()) && booking.feedbackStatus() == null) {
+            model.addAttribute("feedbackForm", new FeedbackForm(""));
+        }
         return "booking-detail";
     }
 
@@ -233,8 +239,8 @@ public class PortalController {
     @PostMapping("/customer/bookings/{id}/feedback")
     String feedback(@PathVariable Long id, @AuthenticationPrincipal PortalUser user, @Valid @ModelAttribute FeedbackForm form,
             BindingResult errors, RedirectAttributes flash) {
-        if (errors.hasErrors()) { flash.addFlashAttribute("error", "Chọn 1–5 sao và nhập nhận xét tối đa 2.000 ký tự."); }
-        else { actions.feedback(id, user.getAccountId(), form); flash.addFlashAttribute("success", "Cảm ơn bạn đã gửi đánh giá."); }
+        if (errors.hasErrors()) { flash.addFlashAttribute("error", "Nội dung phản hồi không được để trống."); }
+        else { feedbackService.submit(id, user.getAccountId(), form.content()); flash.addFlashAttribute("success", "Đã gửi phản hồi cho công ty."); }
         return "redirect:/customer/bookings/" + id;
     }
 
