@@ -17,6 +17,7 @@ import com.housekeeping.management.entity.Services;
 import com.housekeeping.management.entity.Staff;
 import com.housekeeping.management.entity.User;
 import com.housekeeping.management.repository.ServicesRepository;
+import com.housekeeping.management.repository.BookingPersistenceRepository;
 import com.housekeeping.management.repository.StaffAccountRepository;
 import com.housekeeping.management.repository.StaffAvailabilityRepository;
 import jakarta.persistence.EntityManager;
@@ -53,6 +54,7 @@ class ManagementServicesTest {
         PasswordEncoder passwords = mock(PasswordEncoder.class);
         when(passwords.encode("staff-secret")).thenReturn("staff-hash");
         StaffManagementService service = new StaffManagementService(entities, mock(StaffAccountRepository.class),
+                mock(BookingPersistenceRepository.class),
                 unlockedEmails(), passwords, mock(AccountAuthorizationService.class));
         service.create(99L, new PortalForms.StaffCreateForm("Staff Name", "staff@example.test", "staff-secret",
                 "0900000001", StaffType.PART_TIME));
@@ -68,13 +70,15 @@ class ManagementServicesTest {
     @Test
     void deactivationRetainsStaffAndServiceRowsAndAllowsReactivation() {
         StaffAccountRepository staffAccounts = mock(StaffAccountRepository.class);
+        BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
         ServicesRepository services = mock(ServicesRepository.class);
         User user = new User(); user.setStatus(UserStatus.ACTIVE);
         Staff staff = new Staff(); staff.setUser(user);
         Services service = new Services(); service.setStatus(Services.Status.ACTIVE);
+        when(staffAccounts.findByStaffIdForUpdate(9L)).thenReturn(Optional.of(staff));
         when(staffAccounts.findById(9L)).thenReturn(Optional.of(staff));
         when(services.findById(4L)).thenReturn(Optional.of(service));
-        StaffManagementService staffManagement = new StaffManagementService(mock(EntityManager.class), staffAccounts,
+        StaffManagementService staffManagement = new StaffManagementService(mock(EntityManager.class), staffAccounts, bookings,
                 mock(GlobalEmailUniquenessService.class), mock(PasswordEncoder.class), mock(AccountAuthorizationService.class));
         ServiceManagementService serviceManagement = new ServiceManagementService(services, mock(AccountAuthorizationService.class));
         staffManagement.deactivate(99L, 9L); serviceManagement.deactivate(99L, 4L);
@@ -83,6 +87,24 @@ class ManagementServicesTest {
         staffManagement.activate(99L, 9L); serviceManagement.activate(99L, 4L);
         assertThat(user.getStatus()).isEqualTo(UserStatus.ACTIVE);
         assertThat(service.getStatus()).isEqualTo(Services.Status.ACTIVE);
+    }
+
+    @Test
+    void staffCannotBeDeactivatedWhileUnfinishedBookingsRemain() {
+        StaffAccountRepository staffAccounts = mock(StaffAccountRepository.class);
+        BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
+        User user = new User(); user.setStatus(UserStatus.ACTIVE);
+        Staff staff = new Staff(); staff.setUser(user);
+        when(staffAccounts.findByStaffIdForUpdate(9L)).thenReturn(Optional.of(staff));
+        when(bookings.hasUnfinishedBookingForStaff(9L)).thenReturn(true);
+        StaffManagementService service = new StaffManagementService(mock(EntityManager.class), staffAccounts, bookings,
+                mock(GlobalEmailUniquenessService.class), mock(PasswordEncoder.class), mock(AccountAuthorizationService.class));
+
+        assertThatThrownBy(() -> service.deactivate(99L, 9L))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("chưa hoàn tất");
+
+        assertThat(user.getStatus()).isEqualTo(UserStatus.ACTIVE);
+        verify(staffAccounts).findByStaffIdForUpdate(9L);
     }
 
     @Test

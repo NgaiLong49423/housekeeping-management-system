@@ -44,6 +44,14 @@ public class BookingPersistenceRepository {
                 newStatus, bookingId, expectedStatus);
     }
 
+    public boolean hasUnfinishedBookingForStaff(Long staffId) {
+        Integer matches = jdbc.queryForObject("""
+                SELECT COUNT(*) FROM dbo.Bookings
+                WHERE staff_id=? AND status IN ('CONFIRMED', 'AWAITING_PAYMENT')
+                """, Integer.class, staffId);
+        return matches != null && matches > 0;
+    }
+
     public BigDecimal bookingAmount(Long bookingId) {
         return jdbc.queryForObject("SELECT total_amount FROM dbo.Bookings WHERE booking_id=?", BigDecimal.class, bookingId);
     }

@@ -6,6 +6,7 @@ import com.housekeeping.management.dto.request.PortalForms.StaffCreateForm;
 import com.housekeeping.management.dto.request.PortalForms.StaffUpdateForm;
 import com.housekeeping.management.entity.Staff;
 import com.housekeeping.management.entity.User;
+import com.housekeeping.management.repository.BookingPersistenceRepository;
 import com.housekeeping.management.repository.StaffAccountRepository;
 import jakarta.persistence.EntityManager;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -16,15 +17,18 @@ import org.springframework.transaction.annotation.Transactional;
 public class StaffManagementService {
     private final EntityManager entities;
     private final StaffAccountRepository staffAccounts;
+    private final BookingPersistenceRepository bookings;
     private final GlobalEmailUniquenessService emails;
     private final PasswordEncoder passwords;
     private final AccountAuthorizationService authorization;
 
     public StaffManagementService(EntityManager entities, StaffAccountRepository staffAccounts,
+            BookingPersistenceRepository bookings,
             GlobalEmailUniquenessService emails, PasswordEncoder passwords,
             AccountAuthorizationService authorization) {
         this.entities = entities;
         this.staffAccounts = staffAccounts;
+        this.bookings = bookings;
         this.emails = emails;
         this.passwords = passwords;
         this.authorization = authorization;
@@ -64,7 +68,12 @@ public class StaffManagementService {
     @Transactional
     public void deactivate(Long adminId, Long staffId) {
         authorization.requireActiveAdmin(adminId);
-        findStaff(staffId).getUser().setStatus(UserStatus.INACTIVE);
+        Staff staff = staffAccounts.findByStaffIdForUpdate(staffId)
+                .orElseThrow(() -> new IllegalArgumentException("Nhân viên không tồn tại."));
+        if (bookings.hasUnfinishedBookingForStaff(staffId)) {
+            throw new IllegalStateException("Không thể ngừng hoạt động khi nhân viên còn lịch hẹn chưa hoàn tất.");
+        }
+        staff.getUser().setStatus(UserStatus.INACTIVE);
     }
 
     @Transactional
