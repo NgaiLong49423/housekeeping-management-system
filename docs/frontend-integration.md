@@ -13,7 +13,7 @@ Giao diện được chuyển từ `UI_UX Design Refinement.zip` sang nền tả
 
 Giữ tông xanh ngọc, ảnh, thẻ dịch vụ, khu vực giới thiệu, form và bố cục dashboard; dùng tiếng Việt, trạng thái rỗng, thông báo lỗi và bố cục responsive. Ảnh dịch vụ chỉ là minh họa, không phải thuộc tính mới trong database.
 
-Không sao chép các chức năng ngoài baseline từ mẫu: tự chuyển vai trò trên giao diện, dữ liệu localStorage/mock, đặt lịch định kỳ, tự điều phối nhân viên và các trạng thái pending/assigned/in_progress. Kiểm tra bán kính phục vụ là yêu cầu của baseline. Admin được trả lời và giải quyết Feedback dạng văn bản; không dùng quy trình kiểm duyệt Feedback của mẫu.
+Không sao chép các chức năng ngoài baseline từ mẫu: tự chuyển vai trò trên giao diện, dữ liệu localStorage/mock, đặt lịch định kỳ, tự điều phối nhân viên và các trạng thái pending/assigned/in_progress. Địa chỉ được nhập thủ công, không dùng bản đồ hoặc kiểm tra bán kính theo tọa độ. Admin được trả lời và giải quyết Feedback dạng văn bản; không dùng quy trình kiểm duyệt Feedback của mẫu.
 
 Ứng dụng hiện tổ chức theo MVC–N-Layer: Controller nhận request và dựng view model; Service xử lý use case, phân quyền sở hữu và transaction; Repository/JDBC truy vấn SQL Server; Entity ánh xạ 15 bảng của baseline mới. Các luồng được chia theo nghiệp vụ (Booking, Payment, Staff, House, Feedback, Company Settings); không đặt quy tắc nghiệp vụ trong template hoặc Controller. Cấu trúc package mặc định được mô tả trong [hướng dẫn Java](architecture/java-package-structure.md).
 
@@ -55,7 +55,7 @@ Các route dưới đây là điểm vào MVC được thêm trong lần tích h
 | `/login` | `email`, `password`, CSRF | Xác thực tài khoản dùng chung trong `Users`; tạo session theo role |
 | `/register` | `name`, `email`, `phone`, `password`, `confirmPassword`, CSRF | Đăng ký Customer; chuẩn hóa và kiểm tra email duy nhất toàn hệ thống |
 | `/logout` | CSRF | Spring Security hủy session |
-| `/customer/houses` | `houseName`, `address`, `latitude`, `longitude`, `addressNote` | Tạo House thuộc Customer đang đăng nhập |
+| `/customer/houses` | `recipientName`, `recipientPhone`, `provinceCity`, `wardCommune`, `addressDetail`, `addressType`, `defaultAddress`, `addressNote` | Tạo địa chỉ nhập tay thuộc Customer đang đăng nhập; không cần Google Maps hoặc tọa độ |
 | `/customer/houses/{id}` | Các trường House như trên | Cập nhật House thuộc Customer; tọa độ phải hợp lệ |
 | `/customer/houses/{id}/delete` | CSRF | Ẩn House nếu không có Booking CONFIRMED/AWAITING_PAYMENT; giữ bản ghi lịch sử |
 | `/customer/bookings` | `staffId`, `houseId`, `startAt`, `serviceIds` lặp, `areaNote` | `BookingReservationService.createBooking`; kiểm tra giờ khả dụng và lưu snapshot dịch vụ |
@@ -73,7 +73,7 @@ Các route dưới đây là điểm vào MVC được thêm trong lần tích h
 | `/admin/staff` | `name`, `email`, `password`, `phone` | `GlobalEmailUniquenessService`, BCrypt trước khi lưu |
 | `/admin/staff/{id}` | `name`, `phone` | Sửa thông tin; email/mật khẩu không trong form sửa |
 | `/admin/{services,staff}/{id}/delete` | CSRF | Ngừng hoạt động (soft delete); giữ lịch sử đặt dịch vụ |
-| `/admin/settings` | Địa chỉ, tọa độ, bán kính và 7 mục giờ hoạt động | Lưu cấu hình công ty; ngày đóng không có giờ, ngày mở cần khoảng giờ hợp lệ |
+| `/admin/settings` | Thông tin địa điểm công ty và 7 mục giờ hoạt động | Lưu cấu hình công ty; tọa độ/bán kính cũ không còn được dùng để kiểm tra booking |
 | `/admin/feedback/{id}/reply` | `reply`, CSRF | Admin lưu nội dung trả lời Feedback |
 | `/admin/feedback/{id}/resolve` | CSRF | Admin đánh dấu Feedback đã giải quyết |
 | `/admin/bookings/{id}/cancel` | `reason`, CSRF | Admin hủy Booking CONFIRMED, lưu người hủy/thời điểm/lý do |
@@ -133,7 +133,7 @@ Surefire dùng Mockito javaagent từ dependency Maven, không phụ thuộc kh�
 Quy trình nghiệm thu với SQL Server:
 
 1. Chuẩn bị tài khoản ba vai trò; kiểm tra đăng nhập/đăng xuất và route sai role bị từ chối.
-2. Admin cấu hình địa chỉ/tọa độ/bán kính và đủ 7 ngày giờ hoạt động tại `/admin/settings` trước khi nhận lịch; ngày nghỉ không có giờ, ngày mở phải có giờ bắt đầu/kết thúc hợp lệ. Admin tạo Staff và Service; email trùng bị từ chối. Staff tự cập nhật bio/URL avatar HTTPS tại `/staff/profile`; Customer/Admin không truy cập được trang sửa này. Staff PART_TIME đăng ký khoảng sẵn sàng của mình; Staff FULL_TIME theo khung giờ công ty. Staff gửi đơn nghỉ theo ngày, Admin duyệt/từ chối; chỉ đơn APPROVED chặn Booking mới.
+2. Admin cấu hình thông tin công ty và đủ 7 ngày giờ hoạt động tại `/admin/settings` trước khi nhận lịch; ngày nghỉ không có giờ, ngày mở phải có giờ bắt đầu/kết thúc hợp lệ. Admin tạo Staff và Service; email trùng bị từ chối. Staff tự cập nhật bio/URL avatar HTTPS tại `/staff/profile`; Customer/Admin không truy cập được trang sửa này. Staff PART_TIME đăng ký khoảng sẵn sàng của mình; Staff FULL_TIME theo khung giờ công ty. Staff gửi đơn nghỉ theo ngày, Admin duyệt/từ chối; chỉ đơn APPROVED chặn Booking mới.
 3. Customer đặt lịch thành `CONFIRMED`; đặt trùng bị từ chối kể cả hai cửa sổ đồng thời; hủy theo mốc 2 giờ và kiểm tra giải phóng lịch.
 4. Staff chỉ thấy việc của mình; tải JPEG/PNG vào từng detail; file hỏng, quá 5 MB và vượt 5 ảnh bị từ chối. Không hoàn thành khi thiếu ảnh hoặc chưa tới giờ bắt đầu.
 5. Hoàn thành chuyển Booking sang `AWAITING_PAYMENT`; Staff được phân công xác nhận CASH hoặc Customer thanh toán ONLINE qua PayOS webhook; Payment thành `SUCCESS` thì Booking mới thành `COMPLETED`.

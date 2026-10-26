@@ -46,13 +46,14 @@ One server-rendered Java Spring MVC web application, single company, SQL Server.
 - AC-PROFILE-01: STAFF chỉ sửa profile của mình; Customer không thể mutate profile.
 - AC-FOLLOW-01: Follow trùng không có dòng lặp; unfollow mất dòng.
 
-### FR-HOUSE — Houses and service radius
-- Customer quản lý nhiều House gồm house_name, address, latitude, longitude, optional address_note; chọn địa chỉ từ Google Maps; mỗi Booking đúng một House thuộc Customer.
-- Haversine khoảng cách thẳng km từ Company_Settings tọa độ -> House; không dùng route driving distance.
+### FR-HOUSE — Houses and manually entered addresses
+- Customer quản lý nhiều House gồm người nhận, số điện thoại, tỉnh/thành, phường/xã, địa chỉ chi tiết, loại địa chỉ, tùy chọn mặc định và optional address_note; không tích hợp Google Maps và không yêu cầu tọa độ.
+- Mỗi Booking dùng đúng một House thuộc Customer; lưu snapshot địa chỉ văn bản. Tọa độ House/Booking có thể NULL và không được dùng để từ chối booking.
 - Soft delete House `is_deleted=1` chỉ khi không có Booking CONFIRMED hoặc AWAITING_PAYMENT; giữ FK/snapshots lịch sử; House deleted không thể được chọn trong Booking mới.
-- AC-HOUSE-01: Không thể đặt House không thuộc Customer, bị soft-delete, hoặc ngoài service_radius_km.
+- AC-HOUSE-01: Không thể đặt House không thuộc Customer hoặc bị soft-delete; hệ thống không kiểm tra bán kính theo tọa độ.
 - AC-HOUSE-02: Soft delete với Booking chưa xong bị từ chối; COMPLETED/CANCELLED không ngăn xóa mềm; lịch sử giữ nguyên.
 - AC-HOUSE-03: Sửa House không sửa Booking address snapshots.
+- AC-HOUSE-04: Mỗi Customer có tối đa một House đang hoạt động được đặt làm mặc định; địa chỉ cũ được backfill người nhận/điện thoại và giữ nguyên chuỗi địa chỉ.
 
 ### FR-CONFIG — Company settings/opening hours
 - Một Company_Settings bản ghi; 7 dòng Company_Operating_Hours (Mon=1..Sun=7), closed day NULL times; open day opening<closing.
@@ -120,4 +121,4 @@ One server-rendered Java Spring MVC web application, single company, SQL Server.
 - Unit tests for business decisions; integration tests with SQL Server/Testcontainers if runtime available; MVC/security tests for ownership/status. Report checks exactly and do not claim SLA numbers or performance targets unapproved by user.
 
 ## 6. Explicit open points
-- ARCH-03 live-data strategy, payment refunds/cancel-after-success, exact PayOS callback persistence needs while DB has only transaction_code, time zone/currency policy, failure timeout, detailed image constraints, cross-midnight, feedback editing, admin booking reassignment eligibility details, final Google Maps keys/API interface. Technical defaults must be documented as implementation choices, not approved BR.
+- ARCH-03 live-data strategy, payment refunds/cancel-after-success, exact PayOS callback persistence needs while DB has only transaction_code, time zone/currency policy, failure timeout, detailed image constraints, cross-midnight, feedback editing, admin booking reassignment eligibility details. Technical defaults must be documented as implementation choices, not approved BR.

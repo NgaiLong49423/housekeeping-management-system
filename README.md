@@ -1,8 +1,8 @@
 > **Document:** Housekeeping Management System README\
 > **File:** `README.md`\
-> **Version:** v2.0.0\
+> **Version:** v2.2.0\
 > **Created:** 2026-06-14\
-> **Last Updated:** 2026-10-24\
+> **Last Updated:** 2026-10-25\
 > **Status:** Draft\
 
 # Housekeeping Management System
@@ -28,23 +28,21 @@ Authentication; Service Management; Staff Profile; Follow Staff; House Managemen
 
 Ba role là `CUSTOMER`, `STAFF`, `ADMIN`. Database có đúng 15 bảng nghiệp vụ theo Data Dictionary. Booking dùng các trạng thái `CONFIRMED`, `AWAITING_PAYMENT`, `COMPLETED`, `CANCELLED`. Payment `CASH` do Staff được giao xác nhận; Payment `ONLINE` qua PayOS được xác nhận bằng webhook hợp lệ.
 
-## Chạy môi trường demo mới
+## Chạy database chính
 
 Yêu cầu JDK 21 và SQL Server 2022+ bật TCP/IP, Mixed Mode, cổng 1433.
 
-1. Mở SSMS và chạy [`database/setup-demo.sql`](database/setup-demo.sql). Script chỉ tạo database demo mới `home_cleaning_demo` nếu chưa tồn tại; không tạo login, nhúng password, xóa hay reset database khác.
-2. Tạo SQL login riêng, chỉ cấp quyền vào database demo mới. Sao chép `.env.example` thành `.env`, rồi đặt `DB_USERNAME`, `DB_PASSWORD` và `DEMO_ACCOUNT_PASSWORD`; không commit `.env`.
+1. Đảm bảo SQL Server có database `Housekeeping_Database`. Nếu đó là database cũ và bạn đã xác nhận có thể bỏ dữ liệu, chạy [`database/recreate-primary-schema.sql`](database/recreate-primary-schema.sql) trong SSMS khi đang kết nối trực tiếp database này. Script xóa toàn bộ bảng ứng dụng và dữ liệu, giữ nguyên lịch sử Flyway cũ, và từ chối chạy ở database khác.
+2. Sao chép [`.env.example`](app/housekeeping-management-system/.env.example) thành `.env` trong thư mục Maven module, rồi đặt `DB_URL`, `DB_USERNAME` và `DB_PASSWORD` cho SQL Server chính. Địa chỉ nhà được nhập trực tiếp, không cần Google Maps API key. Không commit `.env`.
 3. Từ `app/housekeeping-management-system/`, chạy:
 
    ```powershell
-   mvn "-Dspring-boot.run.profiles=demo" spring-boot:run
+   mvn spring-boot:run
    ```
 
-4. Mở [http://localhost:8080/login](http://localhost:8080/login). Seeder dùng `DEMO_ACCOUNT_PASSWORD` để tạo bốn tài khoản: `customer@demo.gonnha.local`, `staff@demo.gonnha.local` (part-time), `staff.fulltime@demo.gonnha.local` (full-time) và `admin@demo.gonnha.local`; không có mật khẩu mặc định trong source. Seeder chỉ bổ sung cấu hình công ty, giờ hoạt động, dịch vụ, nhà mẫu và lịch rảnh còn thiếu; dữ liệu đã tồn tại được giữ nguyên.
+4. Mặc định ứng dụng kết nối `Housekeeping_Database`; Flyway tạo schema SQL Server 15 bảng bằng bảng lịch sử riêng `flyway_primary_schema_history`. Lịch sử cũ `flyway_schema_history` không bị sửa.
 
-Demo profile dùng riêng database demo. Không bật thao tác Flyway `clean` hoặc trỏ URL demo sang database có dữ liệu cần giữ. Nếu migration báo schema/history không phù hợp, dừng lại và tạo một database development mới thay vì reset. Tài khoản đăng nhập và dữ liệu demo cần được xác minh trên SQL Server local trước buổi trình diễn.
-
-Muốn tự cấu hình SQL Server, sao chép [`.env.example`](app/housekeeping-management-system/.env.example) thành `.env` trong thư mục Maven module và đặt `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` cho một database development riêng. Không đưa `.env` hay thông tin kết nối riêng lên Git.
+Không bật Flyway `clean`. Đừng chạy script reset ở database có dữ liệu cần giữ hoặc môi trường dùng chung.
 
 ## Kiểm tra
 
@@ -68,7 +66,7 @@ app/housekeeping-management-system/
     config/ controller/ dto/request/ dto/response/
     entity/ repository/ service/ domain/
   src/main/resources/
-    templates/ static/ db/refactor/
+    templates/ static/ db/primary/ db/refactor/
 ```
 
 ## Tài liệu liên quan

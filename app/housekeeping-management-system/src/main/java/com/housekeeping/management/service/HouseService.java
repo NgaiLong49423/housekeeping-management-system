@@ -1,6 +1,7 @@
 package com.housekeeping.management.service;
 
 import com.housekeeping.management.dto.request.PortalForms.HouseForm;
+import com.housekeeping.management.domain.HouseAddressType;
 import com.housekeeping.management.entity.House;
 import com.housekeeping.management.repository.HouseRepository;
 import java.math.BigDecimal;
@@ -22,7 +23,7 @@ public class HouseService {
 
     @Transactional(readOnly = true)
     public List<House> findCustomerHouses(Long customerId) {
-        return houses.findAllByCustomerIdAndDeletedFalseOrderByHouseName(customerId);
+        return houses.findAllByCustomerIdAndDeletedFalseOrderByDefaultAddressDescHouseNameAsc(customerId);
     }
 
     @Transactional(readOnly = true)
@@ -40,11 +41,25 @@ public class HouseService {
         if (houseId == null) {
             house.setCustomerId(customerId);
         }
-        house.setHouseName(form.houseName().trim());
-        house.setAddress(form.address().trim());
-        house.setLatitude(form.latitude());
-        house.setLongitude(form.longitude());
+        house.setHouseName(form.addressType().getLabel());
+        house.setRecipientName(form.recipientName().trim());
+        house.setRecipientPhone(form.recipientPhone().trim());
+        house.setProvinceCity(form.provinceCity().trim());
+        house.setWardCommune(form.wardCommune().trim());
+        house.setAddressDetail(form.addressDetail().trim());
+        house.setAddress(String.join(", ", form.addressDetail().trim(), form.wardCommune().trim(), form.provinceCity().trim()));
+        house.setAddressType(form.addressType());
+        house.setDefaultAddress(form.defaultAddress());
         house.setAddressNote(form.addressNote() == null || form.addressNote().isBlank() ? null : form.addressNote().trim());
+        if (form.defaultAddress()) {
+            if (houseId == null) {
+                jdbc.update("UPDATE dbo.Houses SET is_default=0 WHERE customer_id=? AND is_deleted=0 AND is_default=1",
+                        customerId);
+            } else {
+                jdbc.update("UPDATE dbo.Houses SET is_default=0 WHERE customer_id=? AND is_deleted=0 AND is_default=1 AND house_id<>?",
+                        customerId, houseId);
+            }
+        }
         return houses.save(house);
     }
 
@@ -89,4 +104,5 @@ public class HouseService {
     }
 
     private record CompanyLocation(BigDecimal latitude, BigDecimal longitude, BigDecimal radiusKm) { }
+
 }

@@ -21,12 +21,15 @@ public class EvidenceStorageReconciler implements ApplicationRunner {
     private static final Duration STALE_FILE_AGE = Duration.ofHours(24);
     private final BookingImageRepository bookingImages;
     private final Path storageRoot;
+    private final boolean cleanupEnabled;
 
     public EvidenceStorageReconciler(
             BookingImageRepository bookingImages,
-            @Value("${app.evidence.storage-root:./var/evidence}") String storageRoot) {
+            @Value("${app.evidence.storage-root:./var/evidence}") String storageRoot,
+            @Value("${app.evidence.cleanup-enabled:false}") boolean cleanupEnabled) {
         this.bookingImages = bookingImages;
         this.storageRoot = Path.of(storageRoot).toAbsolutePath().normalize();
+        this.cleanupEnabled = cleanupEnabled;
     }
 
     @Override
@@ -43,7 +46,7 @@ public class EvidenceStorageReconciler implements ApplicationRunner {
                 }
                 String filename = file.getFileName().toString();
                 Instant modifiedAt = Files.getLastModifiedTime(file).toInstant();
-                if (!referencedFiles.contains(filename) && modifiedAt.isBefore(staleBefore)) {
+                if (cleanupEnabled && !referencedFiles.contains(filename) && modifiedAt.isBefore(staleBefore)) {
                     Files.deleteIfExists(file);
                     LOGGER.info("Removed stale unreferenced evidence file {}", filename);
                 }
@@ -54,7 +57,7 @@ public class EvidenceStorageReconciler implements ApplicationRunner {
         if (Files.isDirectory(temporaryDirectory)) {
             try (var temporaryFiles = Files.list(temporaryDirectory)) {
                 for (Path file : temporaryFiles.toList()) {
-                    if (Files.isRegularFile(file)
+                    if (cleanupEnabled && Files.isRegularFile(file)
                             && Files.getLastModifiedTime(file).toInstant().isBefore(staleBefore)) {
                         Files.deleteIfExists(file);
                     }

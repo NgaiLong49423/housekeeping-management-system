@@ -145,20 +145,23 @@ class PortalMvcTest {
     }
 
     @Test
-    void customerHouseFormUsesAuthenticatedUserAndValidCoordinates() throws Exception {
+    void customerHouseFormUsesAuthenticatedUserAndManualAddressFields() throws Exception {
         mvc.perform(post("/customer/houses").with(user(customer)).with(csrf())
-                        .param("houseName", "Nhà chính")
-                        .param("address", "Quận 1, TP. Hồ Chí Minh")
-                        .param("latitude", "10.1234567")
-                        .param("longitude", "106.1234567")
+                        .param("recipientName", "Khách Demo")
+                        .param("recipientPhone", "0900000000")
+                        .param("provinceCity", "TP. Hồ Chí Minh")
+                        .param("wardCommune", "Phường Bến Nghé")
+                        .param("addressDetail", "12 Đường Mẫu")
+                        .param("addressType", "HOME")
+                        .param("defaultAddress", "true")
                         .param("addressNote", "Cổng màu xanh"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/customer/houses?saved"));
 
         org.mockito.ArgumentCaptor<HouseForm> form = org.mockito.ArgumentCaptor.forClass(HouseForm.class);
         verify(houses).save(eq(customer.getUserId()), isNull(), form.capture());
-        assertThat(form.getValue().houseName()).isEqualTo("Nhà chính");
-        assertThat(form.getValue().latitude()).isEqualByComparingTo("10.1234567");
+        assertThat(form.getValue().recipientName()).isEqualTo("Khách Demo");
+        assertThat(form.getValue().provinceCity()).isEqualTo("TP. Hồ Chí Minh");
     }
 
     @Test

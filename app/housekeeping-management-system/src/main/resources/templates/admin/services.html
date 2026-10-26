@@ -46,6 +46,11 @@
                 <textarea id="add-service-desc" class="form-control" name="description" maxlength="1000" rows="3" placeholder="Mô tả công việc và phạm vi thực hiện..."></textarea>
               </div>
               <div>
+                <label class="form-label" for="add-service-image">URL ảnh (không bắt buộc)</label>
+                <input id="add-service-image" class="form-control" name="imageUrl" type="url" maxlength="500" pattern="https://.*" placeholder="https://example.com/service.jpg" aria-describedby="add-service-image-help">
+                <small id="add-service-image-help" class="form-text">Dùng địa chỉ HTTPS. Để trống nếu muốn dùng ảnh minh họa mặc định.</small>
+              </div>
+              <div>
                 <label class="form-label" for="add-service-duration">
                   Thời lượng thực hiện (phút)
                 </label>
@@ -89,6 +94,7 @@
                 <p class="small text-secondary mt-2 mb-0" th:text="${service.description}">
                   Mô tả dịch vụ
                 </p>
+                <img th:if="${service.imageUrl != null and !#strings.isEmpty(service.imageUrl)}" class="service-cover mt-3" th:src="${service.imageUrl}" th:alt="|Hình ảnh ${service.name}|" loading="lazy" width="512" height="180">
               </div>
               <div>
                 <span class="badge rounded-pill" th:classappend="${service.active ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-secondary-subtle text-secondary border'}" th:text="${service.active ? 'Đang cung cấp' : 'Ngừng cung cấp'}">Trạng thái</span>
@@ -114,6 +120,11 @@
                 <div>
                   <label class="form-label small" for="service-description" th:for="|service-description-${service.id}|">Mô tả</label>
                   <textarea id="service-description" th:id="|service-description-${service.id}|" name="description" class="form-control" th:text="${service.description}" maxlength="1000" rows="2"></textarea>
+                </div>
+                <div>
+                  <label class="form-label small" for="service-image" th:for="|service-image-${service.id}|">URL ảnh (không bắt buộc)</label>
+                  <input id="service-image" th:id="|service-image-${service.id}|" name="imageUrl" class="form-control" type="url" maxlength="500" pattern="https://.*" th:value="${service.imageUrl}" placeholder="https://example.com/service.jpg">
+                  <small class="form-text">Dùng HTTPS; xóa nội dung để trở về ảnh minh họa mặc định.</small>
                 </div>
                 <div class="row g-3">
                   <div class="col-sm-6">

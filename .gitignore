@@ -38,3 +38,6 @@ app/housekeeping-management-system/.run/Housekeeping Full Stack.run.xml
 
 # Maven wrapper generated files
 .mvn/wrapper/maven-wrapper.jar
+
+# Local demo credentials; never commit
+demo-accounts.local.txt

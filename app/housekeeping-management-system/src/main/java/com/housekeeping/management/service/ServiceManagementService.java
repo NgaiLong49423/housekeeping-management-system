@@ -23,6 +23,7 @@ public class ServiceManagementService {
                 : findService(serviceId);
         service.setServiceName(form.name().trim());
         service.setDescription(form.description());
+        service.setImageUrl(form.imageUrl() == null || form.imageUrl().isBlank() ? null : form.imageUrl().trim());
         service.setDurationMinutes(form.duration());
         service.setPrice(form.price());
         if (service.getStatus() == null) service.setStatus(Services.Status.ACTIVE);

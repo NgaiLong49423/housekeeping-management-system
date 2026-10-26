@@ -60,8 +60,10 @@ class PaymentConcurrencySqlServerTest extends SqlServerIntegrationTest {
         jdbc.update("INSERT INTO dbo.Staff (user_id, staff_type) VALUES (?, 'FULL_TIME')", staffUserId);
         Long staffId = jdbc.queryForObject("SELECT staff_id FROM dbo.Staff WHERE user_id=?", Long.class, staffUserId);
         jdbc.update("""
-                INSERT INTO dbo.Houses (customer_id, house_name, address, latitude, longitude)
-                VALUES (?, 'Nhà kiểm thử', 'Địa chỉ kiểm thử', 10.0000000, 106.0000000)
+                INSERT INTO dbo.Houses (customer_id, house_name, address, latitude, longitude,
+                    recipient_name, recipient_phone, address_detail)
+                VALUES (?, 'Nhà kiểm thử', 'Địa chỉ kiểm thử', 10.0000000, 106.0000000,
+                    'Khách kiểm thử', '0900000000', 'Địa chỉ kiểm thử')
                 """, customerId);
         Long houseId = jdbc.queryForObject("SELECT house_id FROM dbo.Houses WHERE customer_id=?", Long.class, customerId);
         jdbc.update("""

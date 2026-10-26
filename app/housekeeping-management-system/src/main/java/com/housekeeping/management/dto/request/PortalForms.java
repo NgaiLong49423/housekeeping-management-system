@@ -3,6 +3,7 @@ package com.housekeeping.management.dto.request;
 import jakarta.validation.constraints.*;
 import jakarta.validation.Valid;
 import com.housekeeping.management.domain.StaffType;
+import com.housekeeping.management.domain.HouseAddressType;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
@@ -22,7 +23,12 @@ public final class PortalForms {
             @NotBlank @Email @Size(max = 255) String email, @NotBlank @Size(max = 20) String phone,
             @NotBlank @Size(min = 8, max = 72) String password, @NotBlank @Size(max = 72) String confirmPassword) { }
     public record ServiceForm(@NotBlank @Size(max = 150) String name, @Size(max = 1000) String description,
-            @Min(1) int duration, @NotNull @DecimalMin("0") @Digits(integer = 10, fraction = 2) BigDecimal price) { }
+            @Min(1) int duration, @NotNull @DecimalMin("0") @Digits(integer = 10, fraction = 2) BigDecimal price,
+            @Size(max = 500) @Pattern(regexp = "^$|https://\\S+$", message = "URL ảnh phải bắt đầu bằng https://.") String imageUrl) {
+        public ServiceForm(String name, String description, int duration, BigDecimal price) {
+            this(name, description, duration, price, null);
+        }
+    }
     public record StaffCreateForm(@NotBlank @Size(max = 150) String name, @NotBlank @Email @Size(max = 255) String email,
             @NotBlank @Size(min = 8, max = 72) String password, @NotBlank @Size(max = 20) String phone,
             @NotNull StaffType staffType) { }
@@ -36,10 +42,12 @@ public final class PortalForms {
     public record LeaveRequestForm(@NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @NotBlank @Size(max = 500) String reason) { }
-    public record HouseForm(@NotBlank @Size(max = 100) String houseName,
-            @NotBlank @Size(max = 500) String address,
-            @NotNull @DecimalMin("-90.0") @DecimalMax("90.0") @Digits(integer = 3, fraction = 7) BigDecimal latitude,
-            @NotNull @DecimalMin("-180.0") @DecimalMax("180.0") @Digits(integer = 3, fraction = 7) BigDecimal longitude,
+    public record HouseForm(@NotBlank @Size(max = 150) String recipientName,
+            @NotBlank @Size(min = 7, max = 20) @Pattern(regexp = "[+0-9() .-]+", message = "Số điện thoại không hợp lệ.") String recipientPhone,
+            @NotBlank @Size(max = 100) String provinceCity,
+            @NotBlank @Size(max = 100) String wardCommune,
+            @NotBlank @Size(max = 290) String addressDetail,
+            @NotNull HouseAddressType addressType, boolean defaultAddress,
             @Size(max = 500) String addressNote) { }
     public record CompanySettingsForm(@NotBlank @Size(max = 500) String companyAddress,
             @NotNull @DecimalMin("-90.0") @DecimalMax("90.0") @Digits(integer = 3, fraction = 7) BigDecimal latitude,

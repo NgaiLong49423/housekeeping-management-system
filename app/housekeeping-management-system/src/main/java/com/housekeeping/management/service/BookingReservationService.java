@@ -30,17 +30,15 @@ public class BookingReservationService {
     private final StaffAccountRepository staffAccounts;
     private final HouseRepository houses;
     private final ServicesRepository services;
-    private final HouseService houseService;
     private final BookingPersistenceRepository bookings;
 
     public BookingReservationService(UserRepository users, StaffAccountRepository staffAccounts,
-            HouseRepository houses, ServicesRepository services, HouseService houseService,
+            HouseRepository houses, ServicesRepository services,
             BookingPersistenceRepository bookings) {
         this.users = users;
         this.staffAccounts = staffAccounts;
         this.houses = houses;
         this.services = services;
-        this.houseService = houseService;
         this.bookings = bookings;
     }
 
@@ -55,9 +53,6 @@ public class BookingReservationService {
         // Lock order is always House then Staff. The Staff lock serializes overlap checks, including empty ranges.
         House house = houses.findLockedByHouseIdAndCustomerIdAndDeletedFalse(houseId, customerId)
                 .orElseThrow(() -> new IllegalArgumentException("Nhà không tồn tại, đã ẩn hoặc không thuộc tài khoản của bạn."));
-        if (!houseService.isWithinServiceRadius(house.getLatitude(), house.getLongitude())) {
-            throw new IllegalArgumentException("Địa chỉ nhà nằm ngoài bán kính phục vụ của công ty.");
-        }
         Staff staff = staffAccounts.findActiveByStaffIdForUpdate(staffId)
                 .orElseThrow(() -> new IllegalArgumentException("Nhân viên không tồn tại hoặc không hoạt động."));
         if (!bookings.companyAcceptsStart(start.toLocalDate(), start.toLocalTime())) {

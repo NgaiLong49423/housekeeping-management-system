@@ -33,7 +33,8 @@ public class PortalQueryService {
         boolean includeInactive = user != null && user.getRole().equals("ADMIN");
         return jdbc.query("SELECT * FROM dbo.Services WHERE (?=1 OR status='ACTIVE') ORDER BY service_name", (rs, row) -> new ServiceCard(
                 rs.getLong("service_id"), rs.getString("service_name"), rs.getString("description"),
-                rs.getInt("duration_minutes"), rs.getBigDecimal("price"), "ACTIVE".equals(rs.getString("status"))),
+                rs.getInt("duration_minutes"), rs.getBigDecimal("price"), rs.getString("image_url"),
+                "ACTIVE".equals(rs.getString("status"))),
                 includeInactive ? 1 : 0);
     }
 

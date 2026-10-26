@@ -139,15 +139,18 @@ public class DemoAccountSeeder implements ApplicationRunner {
 
     private void seedCustomerHouse(Long customerId, Long companyId) {
         Integer count = jdbc.queryForObject("""
-                SELECT COUNT(*) FROM dbo.Houses WHERE customer_id=? AND house_name=N'Nhà Demo'
+                SELECT COUNT(*) FROM dbo.Houses WHERE customer_id=? AND is_deleted=0
                 """, Integer.class, customerId);
         if (count == null || count == 0) {
             BigDecimal latitude = jdbc.queryForObject("SELECT latitude FROM dbo.Company_Settings WHERE company_id=?", BigDecimal.class, companyId);
             BigDecimal longitude = jdbc.queryForObject("SELECT longitude FROM dbo.Company_Settings WHERE company_id=?", BigDecimal.class, companyId);
             jdbc.update("""
-                    INSERT INTO dbo.Houses (customer_id, house_name, address, latitude, longitude, address_note)
-                    VALUES (?, N'Nhà Demo', N'Địa chỉ mô phỏng trong phạm vi phục vụ', ?, ?, NULL)
-                    """, customerId, latitude, longitude);
+                    INSERT INTO dbo.Houses (customer_id, house_name, address, latitude, longitude,
+                        recipient_name, recipient_phone, address_detail, address_type, is_default)
+                    SELECT ?, N'Nhà riêng', N'Địa chỉ mô phỏng', ?, ?, full_name, phone,
+                        N'Địa chỉ mô phỏng', 'HOME', 1
+                    FROM dbo.Users WHERE user_id=?
+                    """, customerId, latitude, longitude, customerId);
         }
     }
 

@@ -14,7 +14,8 @@
       <div th:each="service, loop : ${services}" class="col-md-6 col-lg-4">
         <article class="service-card h-100">
           <div class="service-cover-wrap">
-            <img class="service-cover" th:src="@{/images/{file}(file=${#strings.arraySplit('b501c.png,a4ca0.png,19db6.png,2b96d.png,858ff.png,a7642.png', ',')[loop.index % 6]})}" alt="Minh họa dịch vụ vệ sinh" loading="lazy" width="512" height="286">
+            <img th:if="${service.imageUrl != null and !#strings.isEmpty(service.imageUrl)}" class="service-cover" th:src="${service.imageUrl}" th:alt="|Hình ảnh ${service.name}|" loading="lazy" width="512" height="286">
+            <img th:unless="${service.imageUrl != null and !#strings.isEmpty(service.imageUrl)}" class="service-cover" th:src="@{/images/{file}(file=${#strings.arraySplit('b501c.png,a4ca0.png,19db6.png,2b96d.png,858ff.png,a7642.png', ',')[loop.index % 6]})}" alt="Minh họa dịch vụ vệ sinh" loading="lazy" width="512" height="286">
           </div>
           <div class="p-4 d-flex flex-column flex-grow-1">
             <span class="eyebrow mb-2">

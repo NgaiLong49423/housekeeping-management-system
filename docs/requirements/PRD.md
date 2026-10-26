@@ -22,14 +22,14 @@ Hệ thống web cho một công ty dịch vụ dọn dẹp nhà: khách chọn 
 2. **Service Management:** Danh mục Service, ảnh/giá/thời lượng, ACTIVE/INACTIVE.
 3. **Staff Profile:** Staff profile avatar_url, bio; Staff self-edit.
 4. **Follow Staff:** Customer follow/unfollow.
-5. **House Management:** Nhiều Houses, Google Maps geocoding/place selection, tọa độ, ghi chú; soft-delete có kiểm tra booking chưa xong.
-6. **Booking Management:** Tạo Booking từ 1+ Service, 1 Staff, 1 House; 30-min starts, lead time 2h/30d horizon, Haversine, lịch nghỉ, đệm 60min, snapshots, cancel, reassignment.
+5. **House Management:** Nhiều địa chỉ nhập tay gồm người nhận, số điện thoại, tỉnh/thành, phường/xã, chi tiết, loại và địa chỉ mặc định; không cần Google Maps hoặc tọa độ; soft-delete có kiểm tra booking chưa xong.
+6. **Booking Management:** Tạo Booking từ 1+ Service, 1 Staff, 1 House; 30-min starts, lead time 2h/30d horizon, lịch nghỉ, đệm 60min, snapshot địa chỉ văn bản, cancel, reassignment.
 7. **Staff Availability:** FULL_TIME tự động theo công ty; PART_TIME tự đăng ký ngày-khoảng cụ thể, không đè booking.
 8. **Leave Management:** Staff xin nghỉ nguyên ngày; Admin duyệt/từ chối, xử lý booking xung đột.
 9. **Job Execution:** Staff xem việc được giao, tải nhiều ảnh theo Booking, xác nhận hoàn thành -> AWAITING_PAYMENT.
 10. **Payment:** CASH/ONLINE sau khi xong việc; Staff xác nhận CASH; cổng ONLINE xác minh server; attempts và SUCCESS duy nhất; COMPLETED khi đã trả.
 11. **Feedback:** Customer gửi 1 feedback dạng text/Completed Booking; Admin reply và resolve.
-12. **System Configuration:** Địa điểm công ty, bán kính, 7 ngày giờ hoạt động.
+12. **System Configuration:** Thông tin địa điểm công ty và 7 ngày giờ hoạt động. Bán kính/tọa độ cũ được giữ trong database để tương thích nhưng không dùng để chặn booking.
 
 ## D. Critical journey
 - Cấu hình công ty và Service/Staff -> Customer lưu House -> chọn Nhà/Staff/Services/start -> hệ thống kiểm tra đầy đủ -> Booking CONFIRMED -> Staff làm và upload ảnh -> AWAITING_PAYMENT -> CASH được Staff xác nhận hoặc ONLINE server verified -> Payment SUCCESS & Booking COMPLETED -> Customer feedback -> Admin reply/resolve.
@@ -45,7 +45,7 @@ Hệ thống web cho một công ty dịch vụ dọn dẹp nhà: khách chọn 
 Microservices, React SPA, JWT, admin-approve-job, rating, staff skills, salary, promos, recurring schedules, monthly plans, multi-company, separate Admin/Customer tables, status history, payment gateway table, custom notification platform.
 
 ## G. Constraints and dependencies
-Java 21, Spring Boot 4.1.1 (verify repository actual), Maven, Thymeleaf, Bootstrap, Spring Security/session, SQL Server, JPA, Flyway, PayOS reused if viable, Google Maps addressing (credentials configured securely). Avoid hard-coded production secrets. Database/data migration strategy remains pending approval; implementation starts with disposable dev DB without destructive operations.
+Java 21, Spring Boot, Maven, Thymeleaf, Bootstrap, Spring Security/session, SQL Server, JPA, Flyway, PayOS reused if viable. House addresses are entered manually and do not require Google Maps credentials. Avoid hard-coded production secrets. Apply schema changes only through the append-only SQL Server Flyway migrations; never reset the user's database on startup.
 
 ## H. Success criteria
 - Demo 3 roles through user journeys described above; guards and edge conditions enforced by Backend.

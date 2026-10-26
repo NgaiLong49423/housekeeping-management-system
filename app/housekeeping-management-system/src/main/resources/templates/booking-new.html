@@ -74,7 +74,7 @@
                 <select class="form-select" id="houseId" th:field="*{houseId}" required>
                   <option value="">Chọn nhà</option>
                   <option th:each="house : ${houses}" th:value="${house.houseId}"
-                          th:text="${house.houseName} + ' · ' + ${house.address}">Nhà</option>
+                          th:text="${house.recipientName} + ' · ' + ${house.addressType.label} + (${house.defaultAddress} ? ' (Mặc định)' : '') + ' · ' + ${house.address}">Nhà</option>
                 </select>
                 <a class="small text-link d-inline-block mt-2" th:href="@{/customer/houses}">Quản lý địa chỉ nhà →</a>
               </div>
@@ -191,7 +191,7 @@
             </div>
             <noscript>
               <p class="alert alert-info mt-3 small">
-                Bạn vẫn có thể gửi form khi tắt JavaScript; giá, giờ hoạt động, bán kính và lịch bận luôn được kiểm tra ở máy chủ.
+                Bạn vẫn có thể gửi form khi tắt JavaScript; giá, giờ hoạt động và lịch bận luôn được kiểm tra ở máy chủ.
               </p>
             </noscript>
           </aside>

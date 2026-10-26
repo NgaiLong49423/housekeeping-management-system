@@ -8,7 +8,7 @@ import org.springframework.data.jpa.repository.Lock;
 import jakarta.persistence.LockModeType;
 
 public interface HouseRepository extends JpaRepository<House, Long> {
-    List<House> findAllByCustomerIdAndDeletedFalseOrderByHouseName(Long customerId);
+    List<House> findAllByCustomerIdAndDeletedFalseOrderByDefaultAddressDescHouseNameAsc(Long customerId);
     Optional<House> findByHouseIdAndCustomerIdAndDeletedFalse(Long houseId, Long customerId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

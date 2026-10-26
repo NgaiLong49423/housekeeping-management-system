@@ -30,12 +30,12 @@ public class AdminCompanySettingsController {
             Model model, RedirectAttributes flash) {
         if (errors.hasErrors()) {
             model.addAttribute("dayNames", new String[] {"Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ nhật"});
-            model.addAttribute("error", "Vui lòng kiểm tra các trường bắt buộc và giá trị tọa độ, bán kính.");
+            model.addAttribute("error", "Vui lòng kiểm tra các trường bắt buộc và giá trị cấu hình.");
             return "admin/settings";
         }
         try {
             settings.save(form);
-            flash.addFlashAttribute("success", "Đã lưu địa chỉ, bán kính phục vụ và giờ hoạt động.");
+            flash.addFlashAttribute("success", "Đã lưu thông tin công ty và giờ hoạt động.");
         } catch (IllegalArgumentException | IllegalStateException exception) {
             flash.addFlashAttribute("error", exception.getMessage());
             return "redirect:/admin/settings";

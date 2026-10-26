@@ -4,6 +4,7 @@ import com.housekeeping.management.dto.request.PortalForms.BookingForm;
 import com.housekeeping.management.dto.request.PortalForms.FeedbackForm;
 import com.housekeeping.management.dto.response.PortalViews.BookingCard;
 import com.housekeeping.management.dto.response.PortalViews.DetailCard;
+import com.housekeeping.management.entity.House;
 import com.housekeeping.management.service.BookingReservationService;
 import com.housekeeping.management.service.FeedbackService;
 import com.housekeeping.management.service.HouseService;
@@ -55,9 +56,12 @@ public class BookingController {
     String newBooking(@AuthenticationPrincipal PortalUser user, Model model) {
         model.addAttribute("services", query.services());
         model.addAttribute("staff", query.staff(user));
-        model.addAttribute("houses", houses.findCustomerHouses(user.getUserId()));
+        var customerHouses = houses.findCustomerHouses(user.getUserId());
+        model.addAttribute("houses", customerHouses);
         if (!model.containsAttribute("bookingForm")) {
-            model.addAttribute("bookingForm", new BookingForm(null, null, null, List.of(), ""));
+            Long defaultHouseId = customerHouses.stream().filter(House::isDefaultAddress)
+                    .map(House::getHouseId).findFirst().orElse(null);
+            model.addAttribute("bookingForm", new BookingForm(null, defaultHouseId, null, List.of(), ""));
         }
         // Busy intervals are only a display hint; the reservation service rechecks atomically on submit.
         model.addAttribute("busy", query.busyIntervals());

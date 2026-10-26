@@ -34,10 +34,9 @@ class BookingReservationServiceTest {
     private final StaffAccountRepository staffAccounts = mock(StaffAccountRepository.class);
     private final HouseRepository houses = mock(HouseRepository.class);
     private final ServicesRepository services = mock(ServicesRepository.class);
-    private final HouseService houseService = mock(HouseService.class);
     private final BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
     private final BookingReservationService service = new BookingReservationService(users, staffAccounts, houses,
-            services, houseService, bookings);
+            services, bookings);
 
     @Test
     void acceptsExactMinimumLeadTimeAndMaximumHorizon() {
@@ -58,28 +57,6 @@ class BookingReservationServiceTest {
     }
 
     @Test
-    void rejectsBookingOutsideCompanyRadiusBeforeLoadingStaffOrServices() {
-        User customer = new User();
-        customer.setRole(UserRole.CUSTOMER);
-        customer.setStatus(UserStatus.ACTIVE);
-        when(users.findById(12L)).thenReturn(Optional.of(customer));
-
-        House house = new House();
-        house.setLatitude(new BigDecimal("10.0000000"));
-        house.setLongitude(new BigDecimal("106.0000000"));
-        when(houses.findLockedByHouseIdAndCustomerIdAndDeletedFalse(31L, 12L)).thenReturn(Optional.of(house));
-        when(houseService.isWithinServiceRadius(house.getLatitude(), house.getLongitude())).thenReturn(false);
-        LocalDateTime futureSlot = LocalDateTime.now(ZoneOffset.ofHours(7)).plusHours(4)
-                .withMinute(0).withSecond(0).withNano(0);
-
-        assertThatThrownBy(() -> service.createBooking(12L, 7L, 31L, futureSlot, java.util.List.of(5L), null))
-                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("ngoài bán kính");
-
-        verify(houseService).isWithinServiceRadius(house.getLatitude(), house.getLongitude());
-        verifyNoInteractions(staffAccounts, services, bookings);
-    }
-
-    @Test
     void rejectsBookingWhenCompanyIsClosedAtRequestedStart() {
         User customer = new User();
         customer.setRole(UserRole.CUSTOMER);
@@ -90,7 +67,6 @@ class BookingReservationServiceTest {
         house.setLatitude(new BigDecimal("10.0000000"));
         house.setLongitude(new BigDecimal("106.0000000"));
         when(houses.findLockedByHouseIdAndCustomerIdAndDeletedFalse(31L, 12L)).thenReturn(Optional.of(house));
-        when(houseService.isWithinServiceRadius(house.getLatitude(), house.getLongitude())).thenReturn(true);
 
         Staff staff = new Staff();
         staff.setStaffId(7L);
@@ -120,7 +96,6 @@ class BookingReservationServiceTest {
         house.setLatitude(new BigDecimal("10.0000000"));
         house.setLongitude(new BigDecimal("106.0000000"));
         when(houses.findLockedByHouseIdAndCustomerIdAndDeletedFalse(31L, 12L)).thenReturn(Optional.of(house));
-        when(houseService.isWithinServiceRadius(house.getLatitude(), house.getLongitude())).thenReturn(true);
 
         Staff staff = new Staff();
         staff.setStaffId(7L);
@@ -163,7 +138,6 @@ class BookingReservationServiceTest {
         house.setLatitude(new BigDecimal("10.0000000"));
         house.setLongitude(new BigDecimal("106.0000000"));
         when(houses.findLockedByHouseIdAndCustomerIdAndDeletedFalse(31L, 12L)).thenReturn(Optional.of(house));
-        when(houseService.isWithinServiceRadius(house.getLatitude(), house.getLongitude())).thenReturn(true);
 
         Staff staff = new Staff();
         staff.setStaffId(7L);
@@ -219,7 +193,6 @@ class BookingReservationServiceTest {
         house.setLatitude(new BigDecimal("10.0000000"));
         house.setLongitude(new BigDecimal("106.0000000"));
         when(houses.findLockedByHouseIdAndCustomerIdAndDeletedFalse(31L, 12L)).thenReturn(Optional.of(house));
-        when(houseService.isWithinServiceRadius(house.getLatitude(), house.getLongitude())).thenReturn(true);
 
         Staff staff = new Staff();
         staff.setStaffId(7L);

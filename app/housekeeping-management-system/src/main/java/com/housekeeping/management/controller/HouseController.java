@@ -1,10 +1,10 @@
 package com.housekeeping.management.controller;
 
 import com.housekeeping.management.dto.request.PortalForms.HouseForm;
+import com.housekeeping.management.domain.HouseAddressType;
 import com.housekeeping.management.service.HouseService;
 import com.housekeeping.management.web.PortalUser;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -21,24 +21,26 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 @RequestMapping("/customer/houses")
 public class HouseController {
     private final HouseService houses;
-    private final String mapsBrowserKey;
 
-    public HouseController(HouseService houses, @Value("${app.maps.browser-key:}") String mapsBrowserKey) {
+    public HouseController(HouseService houses) {
         this.houses = houses;
-        this.mapsBrowserKey = mapsBrowserKey;
     }
 
     @GetMapping
     String houses(@AuthenticationPrincipal PortalUser user, @RequestParam(required = false) Long editId, Model model) {
         model.addAttribute("houses", houses.findCustomerHouses(user.getUserId()));
-        model.addAttribute("mapsBrowserKey", mapsBrowserKey);
+        model.addAttribute("addressTypes", HouseAddressType.values());
         if (!model.containsAttribute("houseForm")) {
             if (editId == null) {
-                model.addAttribute("houseForm", new HouseForm("", "", null, null, ""));
+                model.addAttribute("houseForm", new HouseForm(user.getDisplayName(), "", "", "", "",
+                        HouseAddressType.HOME, false, ""));
             } else {
                 var house = houses.findCustomerHouse(user.getUserId(), editId);
-                model.addAttribute("houseForm", new HouseForm(house.getHouseName(), house.getAddress(),
-                        house.getLatitude(), house.getLongitude(), house.getAddressNote()));
+                model.addAttribute("houseForm", new HouseForm(house.getRecipientName(), house.getRecipientPhone(),
+                        house.getProvinceCity() == null ? "" : house.getProvinceCity(),
+                        house.getWardCommune() == null ? "" : house.getWardCommune(),
+                        house.getAddressDetail() == null ? house.getAddress() : house.getAddressDetail(),
+                        house.getAddressType(), house.isDefaultAddress(), house.getAddressNote()));
                 model.addAttribute("editHouseId", editId);
             }
         } else if (editId != null) {

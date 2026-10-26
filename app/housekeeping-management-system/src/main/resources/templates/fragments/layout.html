@@ -12,30 +12,6 @@
     <link rel="stylesheet" th:href="@{/css/portal.css}">
     <script defer th:src="@{/vendor/bootstrap/bootstrap.bundle.min.js}"></script>
     <script defer th:src="@{/js/portal.js}"></script>
-    <script th:if="${mapsBrowserKey != null and !#strings.isEmpty(mapsBrowserKey)}">
-      function initHouseAddressPicker() {
-        const address = document.getElementById('houseAddress');
-        const latitude = document.getElementById('latitude');
-        const longitude = document.getElementById('longitude');
-        const pickerHost = document.getElementById('houseAddressPicker');
-        if (!address || !latitude || !longitude || !pickerHost) return;
-        address.addEventListener('input', () => { latitude.value = ''; longitude.value = ''; });
-        google.maps.importLibrary('places').then(({PlaceAutocompleteElement}) => {
-          const picker = new PlaceAutocompleteElement({includedRegionCodes: ['vn']});
-          pickerHost.append(picker);
-          picker.addEventListener('gmp-select', async ({placePrediction}) => {
-            const place = placePrediction.toPlace();
-            await place.fetchFields({fields: ['formattedAddress', 'location']});
-            if (!place.location) return;
-            address.value = place.formattedAddress || '';
-            latitude.value = place.location.lat().toFixed(7);
-            longitude.value = place.location.lng().toFixed(7);
-          });
-        });
-      }
-    </script>
-    <script th:if="${mapsBrowserKey != null and !#strings.isEmpty(mapsBrowserKey)}"
-            th:src="@{https://maps.googleapis.com/maps/api/js(key=${mapsBrowserKey},libraries='places',callback='initHouseAddressPicker',v='weekly')}" async defer></script>
   </head>
   <body>
     <header class="site-header" th:fragment="header(active)">

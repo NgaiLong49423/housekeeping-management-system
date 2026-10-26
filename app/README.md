@@ -1,8 +1,8 @@
 > **Document:** Application Directory Guide\
 > **File:** `app/README.md`\
-> **Version:** v2.0.0\
+> **Version:** v2.1.0\
 > **Created:** 2026-06-14\
-> **Last Updated:** 2026-10-24\
+> **Last Updated:** 2026-10-25\
 > **Status:** Draft\
 
 # Ứng dụng Housekeeping
@@ -17,7 +17,8 @@ Theo [hướng dẫn package](../docs/architecture/java-package-structure.md), c
 
 - `src/main/resources/templates/`: view Thymeleaf.
 - `src/main/resources/static/`: CSS, JavaScript, ảnh và thư viện giao diện cục bộ.
-- `src/main/resources/db/refactor/`: Flyway baseline của schema SQL Server mới.
+- `src/main/resources/db/primary/`: Flyway baseline dành cho database chính `Housekeeping_Database`, dùng bảng lịch sử riêng để giữ nguyên lịch sử migration cũ.
+- `src/main/resources/db/refactor/`: Flyway baseline dành cho profile demo và kiểm thử tương ứng.
 - `src/main/resources/db/migration/`: migration lịch sử; không sửa V1/V2/V3 đã áp dụng.
 
-Chạy demo theo [README ở repo root](../README.md). Chỉ cấu hình `.env` cho database development riêng; không commit hoặc chia sẻ thông tin kết nối.
+Chạy ứng dụng mặc định theo [README ở repo root](../README.md); mặc định ứng dụng dùng `Housekeeping_Database`. Cấu hình `.env` cục bộ cho SQL Server; không commit hoặc chia sẻ thông tin kết nối.

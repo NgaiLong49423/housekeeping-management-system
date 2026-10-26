@@ -39,10 +39,10 @@ public class Booking {
     @Nationalized @Column(name = "address_snapshot", length = 500, nullable = false)
     private String addressSnapshot;
 
-    @Column(name = "latitude_snapshot", precision = 10, scale = 7, nullable = false)
+    @Column(name = "latitude_snapshot", precision = 10, scale = 7)
     private BigDecimal latitudeSnapshot;
 
-    @Column(name = "longitude_snapshot", precision = 10, scale = 7, nullable = false)
+    @Column(name = "longitude_snapshot", precision = 10, scale = 7)
     private BigDecimal longitudeSnapshot;
 
     @Nationalized @Column(name = "address_note_snapshot", length = 500)

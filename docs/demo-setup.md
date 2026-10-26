@@ -1,8 +1,8 @@
 > **Document:** Hướng dẫn môi trường demo\
 > **File:** `docs/demo-setup.md`\
-> **Version:** v2.0.0\
+> **Version:** v2.1.0\
 > **Created:** 2026-10-17\
-> **Last Updated:** 2026-10-24\
+> **Last Updated:** 2026-10-25\
 > **Status:** Draft\
 
 # Chạy môi trường demo
@@ -14,7 +14,7 @@ Tài liệu này mô tả cách chạy ứng dụng trên SQL Server local. Prof
 1. Cài JDK 21, Maven và SQL Server local có TCP/IP tại cổng 1433.
 2. Mở `database/setup-demo.sql` trong SSMS và chạy trên instance demo/dev. Script chỉ tạo database `home_cleaning_demo` nếu chưa tồn tại; không tạo login hay chứa password.
 3. Tạo SQL login riêng, map vào database demo và cấp quyền DDL để Flyway tạo schema. Sao chép `.env.example` thành `.env` trong thư mục Maven module rồi tự đặt `DB_USERNAME`, `DB_PASSWORD` và `DEMO_ACCOUNT_PASSWORD`. Không commit `.env`.
-4. Nếu muốn chọn địa chỉ trên Google Maps, cấu hình `GOOGLE_MAPS_BROWSER_KEY` trong `.env` bằng browser key đã giới hạn HTTP referrer và bật Maps JavaScript API/Places API (New) theo dự án Google Cloud của nhóm. Không dùng server key trong trình duyệt. Khi chưa có key, form cho phép nhập tọa độ thủ công. Xem [hướng dẫn tạo Maps JavaScript API key](https://developers.google.com/maps/documentation/javascript/get-api-key) và [Place Autocomplete widget](https://developers.google.com/maps/documentation/javascript/place-autocomplete-new).
+4. Địa chỉ nhà được nhập trực tiếp qua biểu mẫu người nhận và địa chỉ; demo không cần Google Maps API key.
 5. Mở `app/housekeeping-management-system/pom.xml` bằng IntelliJ, chọn JDK 21 và đợi Maven import.
 6. Chạy cấu hình IntelliJ `Housekeeping Demo` hoặc chạy:
 
