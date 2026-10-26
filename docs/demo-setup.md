@@ -13,7 +13,7 @@ Tài liệu này mô tả cách chạy ứng dụng trên SQL Server local. Prof
 
 1. Cài JDK 21, Maven và SQL Server local có TCP/IP tại cổng 1433.
 2. Mở `database/setup-demo.sql` trong SSMS và chạy trên instance demo/dev. Script chỉ tạo database `home_cleaning_demo` nếu chưa tồn tại; không tạo login hay chứa password.
-3. Tạo SQL login riêng, map vào database demo và cấp quyền DDL để Flyway tạo schema. Sao chép `.env.example` thành `.env` trong thư mục Maven module rồi tự đặt `DB_USERNAME`, `DB_PASSWORD` và `DEMO_ACCOUNT_PASSWORD`. Không commit `.env`.
+3. Tạo SQL login riêng, map vào database demo và cấp quyền DDL để Flyway tạo schema. Sao chép `.env.example` thành `.env` trong thư mục Maven module rồi tự đặt `DB_USERNAME` và `DB_PASSWORD`. Không commit `.env`.
 4. Địa chỉ nhà được nhập trực tiếp qua biểu mẫu người nhận và địa chỉ; demo không cần Google Maps API key.
 5. Mở `app/housekeeping-management-system/pom.xml` bằng IntelliJ, chọn JDK 21 và đợi Maven import.
 6. Chạy cấu hình IntelliJ `Housekeeping Demo` hoặc chạy:
@@ -34,7 +34,7 @@ Thông tin database dành cho môi trường demo local:
 | Database | `home_cleaning_demo` |
 | Website | `http://localhost:8080` |
 
-Seeder tạo bốn tài khoản website trong bảng `Users`; hai tài khoản nhân viên có bản ghi Staff với loại part-time và full-time tương ứng. Mật khẩu được cấu hình qua `DEMO_ACCOUNT_PASSWORD`; ứng dụng không dùng mật khẩu mẫu mặc định. Khi thiếu dữ liệu nền, seeder bổ sung một cấu hình công ty mô phỏng, giờ hoạt động 08:00–18:00, ba dịch vụ, một nhà mẫu của customer và một lịch rảnh part-time vào ngày kế tiếp. Các bản ghi cấu hình/dịch vụ/nhà/lịch đã tồn tại được giữ nguyên; chỉ bổ sung những mục còn thiếu. Seeder không thay thế quy trình xác minh trên SQL Server.
+Flyway migration `V3__seed_demo_data.sql` ghi dữ liệu mẫu trực tiếp vào database `home_cleaning_demo`; ứng dụng không còn lớp Java tự chèn dữ liệu mẫu khi khởi động. Migration thêm bốn tài khoản website, hai hồ sơ nhân viên, cấu hình công ty, giờ hoạt động, ba dịch vụ, một địa chỉ nhà và lịch rảnh cho nhân viên part-time. Dữ liệu và mật khẩu của tài khoản đã có không bị ghi đè. Tài khoản mới do migration tạo có mật khẩu ban đầu `Demo@12345`; chỉ dùng trên database demo local. Migration không thay thế quy trình xác minh trên SQL Server.
 
 | Vai trò | Email |
 |---|---|

@@ -30,11 +30,11 @@ import org.testcontainers.mssqlserver.MSSQLServerContainer;
 
 @Tag("sqlserver")
 @ActiveProfiles("demo")
-@SpringBootTest(properties = "app.demo.account-password=Demo-Only-Integration-Password-42!")
+@SpringBootTest
 @AutoConfigureMockMvc
 class DemoProfileSqlServerTest {
     private static final String TEST_DATABASE = "home_cleaning_demo";
-    private static final String DEMO_PASSWORD = "Demo-Only-Integration-Password-42!";
+    private static final String DEMO_PASSWORD = "Demo@12345";
     private static final MSSQLServerContainer SQL_SERVER = new MSSQLServerContainer(
             "mcr.microsoft.com/mssql/server:2022-CU20-ubuntu-22.04").acceptLicense();
 

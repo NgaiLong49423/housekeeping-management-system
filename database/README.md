@@ -13,7 +13,7 @@ Microsoft SQL Server là database chính thức. Schema đích gồm đúng 15 b
 
 1. Chỉ dùng môi trường SQL Server local dành cho demo/dev.
 2. Chạy [`setup-demo.sql`](setup-demo.sql) bằng SSMS để tạo database mới `home_cleaning_demo` nếu chưa tồn tại. Script không tạo login hoặc chứa password.
-3. Chạy ứng dụng với profile `demo`; Flyway áp dụng baseline mới trong `classpath:db/refactor`.
+3. Chạy ứng dụng với profile `demo`; Flyway áp dụng baseline và migration dữ liệu mẫu trong `classpath:db/refactor`. Dữ liệu mẫu được ghi vào database demo bởi migration V3, không được tạo bởi lớp Java lúc khởi động.
 
 Tạo SQL login riêng và map vào database demo; cấp quyền DDL cần thiết để Flyway tạo schema. Lưu credentials trong `.env` cục bộ, không commit. Script không xóa database, không tạo hoặc reset login, không tạo schema history thủ công và không sửa database cũ. Nếu `home_cleaning_demo` đã có schema hoặc Flyway history không phù hợp, dừng lại và dùng database dev mới; không chạy `clean`, không drop và không sửa thủ công history.
 
