@@ -1,6 +1,7 @@
 package com.housekeeping.management.domain;
 
 public enum PaymentStatus {
-    UNPAID,
-    PAID
+    PENDING,
+    SUCCESS,
+    FAILED
 }

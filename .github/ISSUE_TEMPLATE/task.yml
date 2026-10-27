@@ -62,7 +62,8 @@ body:
         Ví dụ:
         - README.md
         - docs/
-        - database/schema.sql
+        - docs/requirements/SQL_SERVER_DATA_DICTIONARY.md
+        - app/housekeeping-management-system/src/main/resources/db/refactor/
         - app/
     validations:
       required: false

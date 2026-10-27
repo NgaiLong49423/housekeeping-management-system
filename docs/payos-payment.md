@@ -1,12 +1,8 @@
-# PayOS Checkout and Webhook
+# Thanh toán PayOS và xác nhận tiền mặt
 
-## Environment and credentials
+## Cấu hình
 
-PayOS currently provides a Production API and no separate sandbox/staging environment. Creating links and paying them use the real service and can move real money. The project does not send live transactions during automated checks.
-
-Create and verify a PayOS account, create a payment channel, and copy its **Client ID**, **API Key**, and **Checksum Key** into the local `.env` as `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, and `PAYOS_CHECKSUM_KEY`. Keep these secrets out of source, screenshots, exported Postman files, and Git.
-
-Set these public HTTPS URLs in the same `.env`:
+Đặt `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, `PAYOS_CHECKSUM_KEY` cùng các URL callback vào `.env` ở máy chạy ứng dụng. Không lưu bí mật trong source, ảnh chụp, collection Postman hoặc Git. PayOS sử dụng dịch vụ thật; không tạo giao dịch thật trong kiểm thử tự động.
 
 ```dotenv
 PAYOS_RETURN_URL=https://YOUR_PUBLIC_HOST/payments/payos/return
@@ -14,24 +10,21 @@ PAYOS_CANCEL_URL=https://YOUR_PUBLIC_HOST/payments/payos/cancel
 PAYOS_WEBHOOK_URL=https://YOUR_PUBLIC_HOST/payments/payos/webhook
 ```
 
-Configure `PAYOS_WEBHOOK_URL` in the PayOS payment channel so PayOS can reach the local app through a public HTTPS tunnel. Return and cancel URLs only display an informational message; neither can mark a Payment paid. Do not use a tunnel URL as a credential.
+Khai báo webhook URL trong kênh PayOS để PayOS gọi được ứng dụng qua HTTPS công khai. URL return/cancel chỉ hiển thị thông báo; chỉ webhook có chữ ký hợp lệ mới được cập nhật kết quả thanh toán.
 
-## Payment flow
+## Luồng nghiệp vụ
 
-1. Staff completes a Booking, and the application creates its single `UNPAID` Payment.
-2. The owning Customer selects `PAYOS`. The backend locks the Payment, allocates a unique integer `orderCode`, stores a `Payment_Attempt`, signs the payment-link request with HMAC-SHA256, and calls `POST /v2/payment-requests` with `x-client-id` and `x-api-key`.
-3. The application validates PayOS's signed response and exact order/amount/currency before redirecting to the HTTPS checkout URL. A pending checkout can be reopened; an uncertain create is recovered by querying PayOS with its order code.
-4. PayOS sends `POST /payments/payos/webhook`. The application checks the signature and matches order code, amount, currency, and payment-link ID with the stored attempt. Only a signed successful transaction (`data.code=00`) marks the Payment `PAID`. Repeated webhooks are idempotent.
-5. `/payments/payos/return` and `/payments/payos/cancel` never update payment state. A webhook is the payment confirmation source.
+1. Nhân viên được phân công hoàn tất công việc. Booking chuyển sang `AWAITING_PAYMENT`.
+2. Khách hàng có thể yêu cầu thanh toán trực tuyến. Backend khóa Booking, tạo một dòng `Payments` có `payment_method=ONLINE`, `status=PENDING` và mã `orderCode` duy nhất được lưu tại `transaction_code`.
+3. Backend tạo hoặc truy xuất checkout PayOS cho mã đơn đó. Nếu yêu cầu được gửi lại khi lần trước còn pending, hệ thống dùng lại giao dịch đang chờ.
+4. PayOS gọi `POST /payments/payos/webhook`. Ứng dụng kiểm tra chữ ký, `orderCode`, số tiền và đơn vị tiền. Khi PayOS xác nhận thành công, Payment thành `SUCCESS` và Booking thành `COMPLETED`. Webhook lặp lại được xử lý idempotent.
+5. Nếu khách trả tiền mặt, chỉ nhân viên được phân công mới có thể xác nhận. Backend ghi Payment `CASH/SUCCESS` và hoàn tất Booking trong cùng transaction.
+6. Mỗi Booking có thể có nhiều lần thử thanh toán trực tuyến trong bảng `Payments`, nhưng tối đa một Payment thành công. Khi xác nhận tiền mặt, các lần thử ONLINE đang pending được đánh dấu `FAILED`.
 
-Cash and manual bank transfer remain available and continue to require Admin verification. Historical `MOMO` Payment values remain readable but the MoMo checkout flow is removed.
+Các trạng thái Booking là `CONFIRMED`, `AWAITING_PAYMENT`, `COMPLETED`, `CANCELLED`. `COMPLETED` chỉ được đặt sau khi có Payment thành công. Ứng dụng không dùng bảng `Payment_Attempt` và không yêu cầu Admin xác nhận giao dịch.
 
-## Postman webhook collection
+## Kiểm thử và bảo mật
 
-`postman/PayOS-webhook.postman_collection.json` contains valid, duplicate, invalid-signature, and mismatched-amount callback cases. Set `PAYOS_CHECKSUM_KEY` as a local Postman secret variable and use the order code, amount, and payment-link ID of a pending attempt. Never export the secret with the collection.
+Kiểm thử tự động không gọi PayOS thật. Chỉ kiểm tra chữ ký/webhook bằng fixture giả lập; không đưa checksum key vào collection đã export. Thử nghiệm checkout thủ công có thể chuyển tiền thật.
 
-## References
-
-- [PayOS API: payment links and webhook](https://payos.vn/docs/api/)
-- [PayOS signature verification](https://payos.vn/docs/tich-hop-webhook/kiem-tra-du-lieu-voi-signature/)
-- [PayOS test environment notice](https://payos.vn/docs/moi-truong-test/)
+Tham khảo: [PayOS API](https://payos.vn/docs/api/), [xác minh chữ ký webhook](https://payos.vn/docs/tich-hop-webhook/kiem-tra-du-lieu-voi-signature/), [môi trường kiểm thử PayOS](https://payos.vn/docs/moi-truong-test/).

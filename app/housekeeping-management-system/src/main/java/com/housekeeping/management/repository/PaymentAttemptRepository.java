@@ -1,5 +1,7 @@
 package com.housekeeping.management.repository;
 
+
+import org.springframework.data.repository.NoRepositoryBean;
 import com.housekeeping.management.domain.entity.PaymentAttempt;
 import jakarta.persistence.LockModeType;
 import java.util.List;
@@ -9,6 +11,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+@NoRepositoryBean
 public interface PaymentAttemptRepository extends JpaRepository<PaymentAttempt, Long> {
     @Query(value = "SELECT NEXT VALUE FOR dbo.PayOS_Order_Code_Seq", nativeQuery = true)
     Long nextPayosOrderCode();

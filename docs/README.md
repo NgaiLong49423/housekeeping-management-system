@@ -1,22 +1,27 @@
 > **Document:** Documentation Guide\
 > **File:** `docs/README.md`\
-> **Version:** v1.0.0\
+> **Version:** v2.0.0\
 > **Created:** 2026-06-14\
-> **Last Updated:** 2026-10-16\
-> **Status:** Template\
+> **Last Updated:** 2026-10-24\
+> **Status:** Active\
 
 # Tài Liệu Dự Án
 
-Lưu tài liệu dự án được duy trì tại đây và liên kết tới nguồn chính thức cho từng chủ đề. Không sao chép yêu cầu hoặc quyết định giữa nhiều tài liệu.
+Lưu tài liệu dự án được duy trì tại đây và liên kết tới nguồn chuẩn cho từng chủ đề. Yêu cầu sản phẩm ở PRD; điều kiện kiểm chứng ở SRS; cấu trúc bảng SQL Server ở Data Dictionary. Không để các bản sao mô tả những quyết định khác nhau.
 
-## Cấu Trúc Gợi Ý
+## Tài liệu chuẩn
 
-- [Hướng dẫn kết nối frontend–backend](frontend-integration.md): giao diện Thymeleaf, route/form, cấu hình chạy và nghiệm thu với SQL Server.
+- [PRD](requirements/PRD.md): phạm vi sản phẩm, vai trò và 12 module.
+- [SRS](requirements/SRS.md): quy tắc và acceptance criteria có thể kiểm thử.
+- [Từ điển dữ liệu SQL Server](requirements/SQL_SERVER_DATA_DICTIONARY.md): 15 bảng nghiệp vụ và quy tắc mapping.
+- [Cấu trúc package Java](architecture/java-package-structure.md): MVC/N-Layer và trách nhiệm package.
+- [Hướng dẫn kết nối giao diện và backend](frontend-integration.md): các route/form MVC sau khi đồng bộ với SRS.
 
-- `requirements/`: vấn đề, phạm vi, yêu cầu chức năng và yêu cầu chất lượng của dự án.
+- `requirements/`: yêu cầu sản phẩm, SRS và data dictionary.
+- `architecture/`: cấu trúc package và quyết định kiến trúc.
 - `reports/`: các báo cáo dự án dự định duy trì trong repository.
 
-Chỉ thêm khu vực tài liệu khác khi dự án có nhu cầu. Mỗi dự án tự quyết định kiến trúc, framework, cơ sở dữ liệu và quy trình phát triển.
+Chỉ thêm khu vực tài liệu khác khi dự án có nhu cầu. Với repository này, hãy theo stack SQL Server và cấu trúc ứng dụng đã chốt trong README, Data Dictionary và hướng dẫn package; không áp dụng lựa chọn công nghệ chung của template cũ.
 
 ## Quy Tắc Tài Liệu
 

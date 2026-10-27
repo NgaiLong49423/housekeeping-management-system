@@ -26,7 +26,7 @@ class PayosSignatureTest {
         data.put("counterAccountNumber", "");
         data.put("virtualAccountName", "");
         data.put("virtualAccountNumber", "");
-        String documentedSignature = "8d8640d802576397a1ce45ebda7f835055768ac7ad2e0bfb77f9b8f12cca4c7f";
+        String documentedSignature = "412e915d2871504ed31be63c8f62a149a4410d34c4c42affc9006ef9917eaa03";
         String checksumKey = "1a54716c8f0efb2744fb28b6e38b25da7f67a925d98bc1c18bd8faaecadd7675";
 
         assertThat(PayosSignature.isValid(documentedSignature,

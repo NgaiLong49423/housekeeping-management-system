@@ -1,6 +1,6 @@
 package com.housekeeping.management.web;
 
-import static com.housekeeping.management.web.PortalViews.*;
+import static com.housekeeping.management.dto.response.PortalViews.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -8,7 +8,26 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-import com.housekeeping.management.domain.entity.Booking;
+import com.housekeeping.management.config.SecurityConfig;
+import com.housekeeping.management.dto.response.PortalViews;
+import com.housekeeping.management.dto.request.PortalForms.HouseForm;
+import com.housekeeping.management.dto.request.PortalForms.AvailabilityForm;
+import com.housekeeping.management.controller.PortalAdminController;
+import com.housekeeping.management.controller.PortalController;
+import com.housekeeping.management.controller.AuthController;
+import com.housekeeping.management.controller.BookingController;
+import com.housekeeping.management.controller.PaymentController;
+import com.housekeeping.management.controller.HouseController;
+import com.housekeeping.management.controller.StaffController;
+import com.housekeeping.management.controller.StaffLeaveController;
+import com.housekeeping.management.controller.AdminLeaveController;
+import com.housekeeping.management.controller.AdminCompanySettingsController;
+import com.housekeeping.management.controller.StaffProfileController;
+import com.housekeeping.management.service.AdminBookingManagementService;
+import com.housekeeping.management.dto.request.PortalForms.CompanySettingsForm;
+import com.housekeeping.management.dto.request.PortalForms.OperatingHoursForm;
+import com.housekeeping.management.dto.request.PortalForms.StaffProfileForm;
+import com.housekeeping.management.service.PortalQueryService;
 import com.housekeeping.management.service.*;
 import java.math.BigDecimal;
 import java.nio.file.Files;
@@ -29,22 +48,33 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.mock.web.MockMultipartFile;
 
-@WebMvcTest({PortalController.class, PortalAdminController.class})
-@Import(PortalSecurityConfiguration.class)
+@WebMvcTest({PortalController.class, AuthController.class, BookingController.class, PaymentController.class, HouseController.class, StaffController.class, PortalAdminController.class, StaffLeaveController.class, AdminLeaveController.class, AdminCompanySettingsController.class, StaffProfileController.class})
+@Import(SecurityConfig.class)
 class PortalMvcTest {
     @Autowired MockMvc mvc;
     @Autowired PasswordEncoder encoder;
     @MockitoBean PortalQueryService query;
-    @MockitoBean PortalActionsService actions;
-    @MockitoBean PortalIdentityService identity;
+    @MockitoBean RegistrationService registration;
+    @MockitoBean BookingCancellationService cancellation;
+    @MockitoBean StaffAvailabilityService availability;
+    @MockitoBean StaffFollowService follows;
+    @MockitoBean ServiceManagementService serviceManagement;
+    @MockitoBean StaffManagementService staffManagement;
+    @MockitoBean AuthService identity;
     @MockitoBean BookingReservationService reservations;
     @MockitoBean BookingCompletionService completion;
-    @MockitoBean PaymentLifecycleService payments;
+    @MockitoBean PaymentService payments;
     @MockitoBean PayosPaymentService payosPayments;
+    @MockitoBean FeedbackService feedbackService;
     @MockitoBean EvidenceStorageService storage;
+    @MockitoBean HouseService houses;
+    @MockitoBean LeaveManagementService leaveManagement;
+    @MockitoBean CompanySettingsService companySettings;
+    @MockitoBean StaffProfileService staffProfiles;
+    @MockitoBean AdminBookingManagementService adminBookingManagement;
 
     private final PortalUser customer = account(1L, "CUSTOMER", "Khách hàng kiểm thử");
-    private final PortalUser staff = account(2L, "STAFF", "Nhân viên kiểm thử");
+    private final PortalUser staff = new PortalUser(2L, 22L, "staff@example.test", "unused-hash", "Nhân viên kiểm thử", "STAFF");
     private final PortalUser admin = account(3L, "ADMIN", "Quản trị kiểm thử");
     private final OffsetDateTime start = OffsetDateTime.now(ZoneOffset.ofHours(7)).plusDays(2).withHour(8).withMinute(0).withSecond(0).withNano(0);
 
@@ -55,13 +85,23 @@ class PortalMvcTest {
     @BeforeEach
     void data() {
         when(query.services()).thenReturn(List.of(
-            new ServiceCard(10L, "Dọn dẹp nhà theo giờ", "Làm sạch không gian sống, chăm chút từng góc nhỏ.", 120, new BigDecimal("140000")),
-            new ServiceCard(11L, "Tổng vệ sinh nhà cửa", "Làm sạch kỹ lưỡng để tổ ấm thêm trong lành.", 180, new BigDecimal("350000")),
-            new ServiceCard(12L, "Vệ sinh sofa", "Chăm sóc khu vực sinh hoạt của gia đình.", 60, new BigDecimal("200000"))));
-        when(query.staff(any())).thenReturn(List.of(new StaffCard(2L, "Nhân viên kiểm thử", "", true), new StaffCard(4L, "Nhân viên thứ hai", "", false)));
+            new ServiceCard(10L, "Dọn dẹp nhà theo giờ", "Làm sạch không gian sống, chăm chút từng góc nhỏ.", 120, new BigDecimal("140000"), true),
+            new ServiceCard(11L, "Tổng vệ sinh nhà cửa", "Làm sạch kỹ lưỡng để tổ ấm thêm trong lành.", 180, new BigDecimal("350000"), true),
+            new ServiceCard(12L, "Vệ sinh sofa", "Chăm sóc khu vực sinh hoạt của gia đình.", 60, new BigDecimal("200000"), true)));
+        when(query.staff(any())).thenReturn(List.of(new StaffCard(2L, "Nhân viên kiểm thử", "", true, "PART_TIME", true, null, "Tận tâm"), new StaffCard(4L, "Nhân viên thứ hai", "", false, "FULL_TIME", true, null, null)));
+        when(query.staff(isNull())).thenReturn(List.of(new StaffCard(2L, "Nhân viên kiểm thử", "", false, "PART_TIME", true, null, null)));
         when(query.schedules(any())).thenReturn(List.of(new ScheduleCard(20L, 2L, "Nhân viên kiểm thử", start, start.plusHours(8))));
         when(query.busyIntervals()).thenReturn(List.of(new PortalQueryService.BusyInterval(2L, start.plusHours(4), start.plusHours(5))));
-        when(query.bookings(any())).thenReturn(List.of(card("CONFIRMED", null, null), card("COMPLETED", "UNPAID", null)));
+        when(query.bookings(any())).thenReturn(List.of(card("CONFIRMED", null, null), card("AWAITING_PAYMENT", "PENDING", "ONLINE")));
+        when(query.feedback()).thenReturn(List.of());
+        when(leaveManagement.findForStaff(2L)).thenReturn(List.of());
+        when(leaveManagement.findAllForAdmin(3L)).thenReturn(List.of());
+        when(companySettings.get()).thenReturn(new CompanySettingsForm("Địa chỉ kiểm thử", BigDecimal.ZERO,
+                BigDecimal.ZERO, BigDecimal.ONE, java.util.stream.IntStream.rangeClosed(1, 7)
+                .mapToObj(day -> new OperatingHoursForm(day, day == 7,
+                        day == 7 ? null : java.time.LocalTime.of(8, 0),
+                        day == 7 ? null : java.time.LocalTime.of(17, 0))).toList()));
+        when(staffProfiles.findOwnProfile(22L)).thenReturn(new StaffProfileForm(null, "Giới thiệu nhân viên"));
         when(query.booking(eq(42L), any())).thenReturn(card("CONFIRMED", null, null));
         when(query.details(eq(42L), any())).thenReturn(List.of(new DetailCard(30L, "Dọn dẹp nhà theo giờ", 1, 120, new BigDecimal("140000"), List.of())));
     }
@@ -77,10 +117,16 @@ class PortalMvcTest {
         render("/customer/bookings", customer, "customer-bookings");
         render("/customer/bookings/new", customer, "booking-new");
         render("/customer/staff", customer, "customer-staff");
+        render("/customer/houses", customer, "customer/houses");
         render("/customer/schedules", customer, "customer-schedules");
         render("/staff/bookings", staff, "staff-bookings"); render("/staff/schedules", staff, "staff-schedules");
+        render("/staff/leaves", staff, "staff-leaves");
+        render("/staff/profile", staff, "staff-profile");
         render("/admin/bookings", admin, "admin-bookings"); render("/admin/services", admin, "admin-services");
         render("/admin/staff", admin, "admin-staff"); render("/admin/schedules", admin, "admin-schedules");
+        render("/admin/feedback", admin, "admin-feedback");
+        render("/admin/leaves", admin, "admin-leaves");
+        render("/admin/settings", admin, "admin-settings");
         for (PortalUser user : List.of(customer, staff, admin)) {
             render("/" + user.getRole().toLowerCase() + "/bookings/42", user, user.getRole().toLowerCase() + "-detail-confirmed");
         }
@@ -88,31 +134,69 @@ class PortalMvcTest {
 
     @Test
     void rendersCompletedBookingActionsAndEvidenceForEachRole() throws Exception {
-        when(query.booking(eq(42L), any())).thenReturn(card("COMPLETED", "UNPAID", "CASH"));
+        when(query.booking(eq(42L), any())).thenReturn(card("AWAITING_PAYMENT", "PENDING", "CASH"));
         when(query.details(eq(42L), any())).thenReturn(List.of(new DetailCard(30L, "Dọn dẹp nhà theo giờ", 1, 120,
                 new BigDecimal("140000"), List.of(new EvidenceCard(50L, "10:00 · 16/10/2026")))));
         for (PortalUser user : List.of(customer, staff, admin)) {
             render("/" + user.getRole().toLowerCase() + "/bookings/42", user, user.getRole().toLowerCase() + "-detail-completed");
         }
         mvc.perform(get("/customer/bookings/42").with(user(customer))).andExpect(content().string(org.hamcrest.Matchers.containsString("/customer/bookings/42/payment")));
-        mvc.perform(get("/admin/bookings/42").with(user(admin))).andExpect(content().string(org.hamcrest.Matchers.containsString("receiptVerified")));
+        mvc.perform(get("/staff/bookings/42").with(user(staff))).andExpect(content().string(org.hamcrest.Matchers.containsString("cash-payment")));
     }
 
     @Test
-    void payosPendingCheckoutIsReopenableByCustomerAndNotAdminVerified() throws Exception {
+    void customerHouseFormUsesAuthenticatedUserAndManualAddressFields() throws Exception {
+        mvc.perform(post("/customer/houses").with(user(customer)).with(csrf())
+                        .param("recipientName", "Khách Demo")
+                        .param("recipientPhone", "0900000000")
+                        .param("provinceCity", "TP. Hồ Chí Minh")
+                        .param("wardCommune", "Phường Bến Nghé")
+                        .param("addressDetail", "12 Đường Mẫu")
+                        .param("addressType", "HOME")
+                        .param("defaultAddress", "true")
+                        .param("addressNote", "Cổng màu xanh"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/customer/houses?saved"));
+
+        org.mockito.ArgumentCaptor<HouseForm> form = org.mockito.ArgumentCaptor.forClass(HouseForm.class);
+        verify(houses).save(eq(customer.getUserId()), isNull(), form.capture());
+        assertThat(form.getValue().recipientName()).isEqualTo("Khách Demo");
+        assertThat(form.getValue().provinceCity()).isEqualTo("TP. Hồ Chí Minh");
+    }
+
+    @Test
+    void customerFeedbackAcceptsTextWithoutRatingAndAdminCanOpenFeedbackInbox() throws Exception {
+        mvc.perform(post("/customer/bookings/42/feedback").with(user(customer)).with(csrf())
+                        .param("content", "Nhân viên làm việc cẩn thận."))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/customer/bookings/42"));
+        verify(feedbackService).submit(42L, 1L, "Nhân viên làm việc cẩn thận.");
+
+        mvc.perform(get("/admin/feedback").with(user(admin)))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Phản hồi khách hàng")));
+
+        mvc.perform(post("/admin/feedback/90/reply").with(user(admin)).with(csrf()).param("reply", "Cảm ơn bạn đã góp ý."))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/admin/feedback"));
+        verify(feedbackService).reply(90L, 3L, "Cảm ơn bạn đã góp ý.");
+        mvc.perform(post("/admin/feedback/90/resolve").with(user(admin)).with(csrf()))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/admin/feedback"));
+        verify(feedbackService).resolve(90L, 3L);
+    }
+
+    @Test
+    void awaitingPaymentOffersOnlineCheckoutAndAssignedStaffCashConfirmation() throws Exception {
         BookingCard payos = new BookingCard(42L, 1L, 2L, "Khách hàng kiểm thử", "Nhân viên kiểm thử", start,
-                start.plusHours(2), "COMPLETED", new BigDecimal("140000"), "UNPAID", "PAYOS", "PENDING",
-                "https://pay.payos.vn/web/payment-link", null);
+                start.plusHours(2), "AWAITING_PAYMENT", new BigDecimal("140000"), "PENDING", "ONLINE", null, null, null);
         when(query.booking(eq(42L), any())).thenReturn(payos);
         when(query.details(eq(42L), any())).thenReturn(List.of());
 
         mvc.perform(get("/customer/bookings/42").with(user(customer)))
                 .andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Mở lại trang thanh toán PayOS")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("https://pay.payos.vn/web/payment-link")));
-        mvc.perform(get("/admin/bookings/42").with(user(admin)))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Thanh toán trực tuyến qua PayOS")));
+        mvc.perform(get("/staff/bookings/42").with(user(staff)))
                 .andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("receiptVerified"))));
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("cash-payment")));
     }
 
     @Test
@@ -141,10 +225,26 @@ class PortalMvcTest {
     @Test
     void guestAndWrongRoleCannotUseProtectedPages() throws Exception {
         mvc.perform(get("/customer/bookings")).andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/login"));
+        mvc.perform(get("/customer/houses").with(user(admin))).andExpect(status().isForbidden());
         mvc.perform(get("/admin/bookings").with(user(customer))).andExpect(status().isForbidden());
         mvc.perform(get("/staff/bookings").with(user(customer))).andExpect(status().isForbidden());
         mvc.perform(post("/admin/services").with(user(customer)).with(csrf())).andExpect(status().isForbidden());
-        verifyNoInteractions(actions, reservations, payments, storage);
+        verifyNoInteractions(registration, cancellation, availability, follows, serviceManagement, staffManagement,
+                reservations, payments, storage, houses);
+    }
+
+    @Test
+    void staffSelfServicePassesUsersIdentityInsteadOfStaffAccountId() throws Exception {
+        AvailabilityForm form = new AvailabilityForm(java.time.LocalDate.of(2026, 11, 3),
+                java.time.LocalTime.of(9, 0), java.time.LocalTime.of(12, 0));
+        mvc.perform(post("/staff/schedules").with(user(staff)).with(csrf())
+                        .param("workDate", "2026-11-03").param("startTime", "09:00").param("endTime", "12:00"))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/staff/schedules"));
+        verify(availability).save(22L, null, form);
+
+        mvc.perform(post("/staff/schedules/20/delete").with(user(staff)).with(csrf()))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/staff/schedules"));
+        verify(availability).delete(22L, 20L);
     }
 
     @Test
@@ -172,24 +272,23 @@ class PortalMvcTest {
     void csrfIsRequiredForMutationsAndLogout() throws Exception {
         mvc.perform(post("/customer/bookings/42/cancel").with(user(customer))).andExpect(status().isForbidden());
         mvc.perform(post("/logout").with(user(customer))).andExpect(status().isForbidden());
-        verifyNoInteractions(actions);
+        verifyNoInteractions(cancellation);
     }
 
     @Test
     void bookingUsesSessionCustomerServerServiceSelectionAndVietnamOffset() throws Exception {
-        Booking saved = new Booking(); saved.setBookingId(42L);
-        when(reservations.createBooking(anyLong(), anyLong(), any(), anyList())).thenReturn(saved);
+        when(reservations.createBooking(anyLong(), anyLong(), anyLong(), any(), anyList(), any())).thenReturn(42L);
         mvc.perform(post("/customer/bookings").with(user(customer)).with(csrf())
-                .param("customerId", "999").param("totalPrice", "1").param("staffId", "2").param("scheduleId", "20")
-                .param("startAt", "2026-11-01T08:00").param("serviceIds", "10", "11"))
+                .param("customerId", "999").param("totalPrice", "1").param("staffId", "2").param("houseId", "30")
+                .param("startAt", "2026-11-01T08:00").param("serviceIds", "10", "11").param("areaNote", "Entryway"))
             .andExpect(redirectedUrl("/customer/bookings/42"));
-        verify(reservations).createBooking(eq(1L), eq(2L), eq(OffsetDateTime.parse("2026-11-01T08:00:00+07:00")), eq(List.of(
-                new BookingReservationService.ServiceSelection(20L, 10L, 1), new BookingReservationService.ServiceSelection(20L, 11L, 2))));
+        verify(reservations).createBooking(eq(1L), eq(2L), eq(30L), eq(java.time.LocalDateTime.parse("2026-11-01T08:00")),
+                eq(List.of(10L, 11L)), eq("Entryway"));
     }
 
     @Test
     void invalidBookingRedisplaysInputsWithoutCallingReservation() throws Exception {
-        mvc.perform(post("/customer/bookings").with(user(customer)).with(csrf()).param("staffId", "2").param("scheduleId", "20")
+        mvc.perform(post("/customer/bookings").with(user(customer)).with(csrf()).param("staffId", "2").param("houseId", "20")
                 .param("startAt", "2026-11-01T08:00")).andExpect(status().isOk()).andExpect(view().name("booking-new"));
         verifyNoInteractions(reservations);
     }
@@ -197,17 +296,17 @@ class PortalMvcTest {
     @Test
     void ownershipFailureStopsPaymentBeforeExistingServiceIsCalled() throws Exception {
         when(query.booking(42L, customer)).thenThrow(new AccessDeniedException("Forbidden"));
-        mvc.perform(post("/customer/bookings/42/payment").with(user(customer)).with(csrf()).param("method", "CASH"))
+        mvc.perform(post("/customer/bookings/42/payment").with(user(customer)).with(csrf()))
                 .andExpect(status().isForbidden());
-        verifyNoInteractions(payments);
+        verifyNoInteractions(payosPayments);
     }
 
     @Test
     void customerPayosChoiceRedirectsToProviderCheckout() throws Exception {
-        when(query.booking(eq(42L), any())).thenReturn(card("COMPLETED", "UNPAID", null));
+        when(query.booking(eq(42L), any())).thenReturn(card("AWAITING_PAYMENT", "PENDING", "ONLINE"));
         when(payosPayments.checkout(42L, customer.getAccountId())).thenReturn("https://pay.payos.vn/web/payment-link");
 
-        mvc.perform(post("/customer/bookings/42/payment").with(user(customer)).with(csrf()).param("method", "PAYOS"))
+        mvc.perform(post("/customer/bookings/42/payment").with(user(customer)).with(csrf()))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("https://pay.payos.vn/web/payment-link"));
         verify(payosPayments).checkout(42L, customer.getAccountId());
@@ -224,18 +323,35 @@ class PortalMvcTest {
     }
 
     @Test
-    void adminMustSubmitExplicitReceiptVerification() throws Exception {
-        doThrow(new IllegalArgumentException("Receipt must be verified before confirming payment"))
-                .when(payments).confirmReceivedByAdmin(eq(42L), eq(false), any());
-        mvc.perform(post("/admin/bookings/42/paid").with(user(admin)).with(csrf()))
-                .andExpect(status().isBadRequest()).andExpect(view().name("error"));
+    void assignedStaffConfirmsCashPayment() throws Exception {
+        mvc.perform(post("/staff/bookings/42/cash-payment").with(user(staff)).with(csrf()))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/staff/bookings/42"));
+        verify(payments).confirmCashReceived(42L, staff.getAccountId());
+    }
+
+    @Test
+    void staffCanSubmitOwnLeaveAndAdminCanReviewIt() throws Exception {
+        mvc.perform(post("/staff/leaves").with(user(staff)).with(csrf())
+                        .param("startDate", "2026-11-03").param("endDate", "2026-11-04")
+                        .param("reason", "Việc cá nhân"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/staff/leaves"));
+        verify(leaveManagement).submitLeaveRequest(eq(staff.getAccountId()), any());
+
+        mvc.perform(post("/admin/leaves/21/approve").with(user(admin)).with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/leaves"));
+        verify(leaveManagement).reviewLeaveRequest(21L, admin.getUserId(), com.housekeeping.management.domain.LeaveStatus.APPROVED);
+
+        mvc.perform(post("/admin/leaves/21/reject").with(user(staff)).with(csrf()))
+                .andExpect(status().isForbidden());
     }
 
     @Test
     void evidenceUploadChecksOwnershipBeforeWritingAFile() throws Exception {
-        when(query.bookingIdForDetail(30L, staff)).thenThrow(new AccessDeniedException("Other staff"));
+        when(query.booking(42L, staff)).thenThrow(new AccessDeniedException("Other staff"));
         MockMultipartFile image = new MockMultipartFile("image", "proof.png", "image/png", new byte[]{1, 2, 3});
-        mvc.perform(multipart("/staff/details/30/evidence").file(image).with(user(staff)).with(csrf()))
+        mvc.perform(multipart("/staff/bookings/42/evidence").file(image).with(user(staff)).with(csrf()))
                 .andExpect(status().isForbidden());
         verifyNoInteractions(storage);
     }
@@ -246,6 +362,28 @@ class PortalMvcTest {
         mvc.perform(get("/evidence/50").with(user(customer))).andExpect(status().isNotFound());
     }
 
+    @Test
+    void onlyStaffCanReadAndUpdateTheirOwnProfile() throws Exception {
+        mvc.perform(get("/staff/profile").with(user(customer))).andExpect(status().isForbidden());
+        mvc.perform(get("/staff/profile").with(user(admin))).andExpect(status().isForbidden());
+        mvc.perform(post("/staff/profile").with(user(staff)).with(csrf())
+                        .param("avatarUrl", "https://example.test/staff.png").param("bio", "Giới thiệu"))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/staff/profile"));
+        verify(staffProfiles).updateOwnProfile(22L, new StaffProfileForm("https://example.test/staff.png", "Giới thiệu"));
+        verify(staffProfiles, never()).findOwnProfile(1L);
+    }
+
+    @Test
+    void adminCanRequestCancellationAndReassignmentWithCsrf() throws Exception {
+        mvc.perform(post("/admin/bookings/42/cancel").with(user(admin)).with(csrf()).param("reason", "Điều phối nhân sự"))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/admin/bookings/42"));
+        verify(adminBookingManagement).cancelConfirmedBooking(42L, 3L, "Điều phối nhân sự");
+
+        mvc.perform(post("/admin/bookings/42/reassign").with(user(admin)).with(csrf()).param("staffId", "2"))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/admin/bookings/42"));
+        verify(adminBookingManagement).reassignConfirmedBooking(42L, 3L, 2L);
+    }
+
     private void render(String url, PortalUser principal, String name) throws Exception {
         var request = get(url);
         if (principal != null) request.with(user(principal));
@@ -253,7 +391,9 @@ class PortalMvcTest {
         assertThat(html).contains("lang=\"vi\"", "/css/portal.css").doesNotContain("unused-hash", "password_hash");
         if (Boolean.getBoolean("portal.preview")) {
             Path directory = Path.of("target", "ui-preview"); Files.createDirectories(directory);
-            Files.writeString(directory.resolve(name + ".html"), html);
+            Path preview = directory.resolve(name + ".html");
+            Files.createDirectories(preview.getParent());
+            Files.writeString(preview, html);
         }
     }
 }

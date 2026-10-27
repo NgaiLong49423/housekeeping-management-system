@@ -9,24 +9,14 @@ import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Serializes cross-table email checks and the caller's insert in one SQL Server transaction.
+ * Serializes the unique email check and the caller's insert in one SQL Server transaction.
  * Callers must persist the canonical email supplied to the callback.
  */
 @Service
 public class GlobalEmailUniquenessService {
-    private static final String CUSTOMER_EMAIL_LOCK = """
-            SELECT TOP (1) customer_id FROM Customer
-            WITH (UPDLOCK, HOLDLOCK, INDEX(UQ_Customer_Email))
-            WHERE email = ?
-            """;
-    private static final String STAFF_EMAIL_LOCK = """
-            SELECT TOP (1) staff_id FROM Staff
-            WITH (UPDLOCK, HOLDLOCK, INDEX(UQ_Staff_Email))
-            WHERE email = ?
-            """;
-    private static final String ADMIN_EMAIL_LOCK = """
-            SELECT TOP (1) admin_id FROM Admin
-            WITH (UPDLOCK, HOLDLOCK, INDEX(UQ_Admin_Email))
+    private static final String USER_EMAIL_LOCK = """
+            SELECT TOP (1) user_id FROM dbo.Users
+            WITH (UPDLOCK, HOLDLOCK, INDEX(UQ_Users_Email))
             WHERE email = ?
             """;
 
@@ -40,11 +30,8 @@ public class GlobalEmailUniquenessService {
     public <T> T executeWithUniqueEmail(String submittedEmail, Function<String, T> persistCanonicalEmail) {
         String canonicalEmail = canonicalize(submittedEmail);
 
-        // Always lock each table in the same order, including empty key ranges, before inserting.
-        boolean customerExists = exists(CUSTOMER_EMAIL_LOCK, canonicalEmail);
-        boolean staffExists = exists(STAFF_EMAIL_LOCK, canonicalEmail);
-        boolean adminExists = exists(ADMIN_EMAIL_LOCK, canonicalEmail);
-        if (customerExists || staffExists || adminExists) {
+        // Lock the unique index key range so concurrent role registrations cannot duplicate the email.
+        if (exists(USER_EMAIL_LOCK, canonicalEmail)) {
             throw new DuplicateEmailException(canonicalEmail);
         }
 

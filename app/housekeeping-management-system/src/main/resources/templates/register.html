@@ -29,8 +29,8 @@
               <div th:if="${#fields.hasErrors('email')}" th:errors="*{email}" class="invalid-feedback d-block"></div>
             </div>
             <div>
-              <label class="form-label" for="phone">Số điện thoại <span class="text-secondary">(không bắt buộc)</span></label>
-              <input id="phone" type="tel" th:field="*{phone}" class="form-control" maxlength="20" autocomplete="tel">
+              <label class="form-label" for="phone">Số điện thoại</label>
+              <input id="phone" type="tel" th:field="*{phone}" class="form-control" maxlength="20" autocomplete="tel" required>
               <div th:if="${#fields.hasErrors('phone')}" th:errors="*{phone}" class="invalid-feedback d-block"></div>
             </div>
             <div>

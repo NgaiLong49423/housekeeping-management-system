@@ -27,7 +27,7 @@
           <div class="col-lg-8 vstack gap-4">
             <div th:if="${#fields.hasAnyErrors()}" class="alert alert-danger d-flex align-items-center gap-2 border-0 shadow-sm" role="alert" style="background-color: var(--status-cancelled-bg); color: var(--status-cancelled-text); border-left: 4px solid #ef4444 !important;">
               <span aria-hidden="true">⚠</span>
-              <span>Hãy chọn dịch vụ, nhân viên, khoảng sẵn sàng và giờ bắt đầu hợp lệ.</span>
+              <span>Hãy chọn dịch vụ, địa chỉ, nhân viên và giờ bắt đầu hợp lệ.</span>
             </div>
 
             <!-- Step 1: Choose Services -->
@@ -60,10 +60,34 @@
               </div>
             </section>
 
-            <!-- Step 2: Choose Staff -->
+            <!-- Step 2: Choose House -->
             <section class="surface p-4">
               <div class="step-heading">
                 <span>02</span>
+                <div>
+                  <h2 class="h5 mb-1">Chọn nhà cần dọn</h2>
+                  <p class="mb-0 small text-secondary">Chỉ địa chỉ thuộc tài khoản của bạn và chưa bị ẩn mới dùng để đặt lịch.</p>
+                </div>
+              </div>
+              <div class="mt-3">
+                <label class="form-label" for="houseId">Địa chỉ nhà</label>
+                <select class="form-select" id="houseId" th:field="*{houseId}" required>
+                  <option value="">Chọn nhà</option>
+                  <option th:each="house : ${houses}" th:value="${house.houseId}"
+                          th:text="${house.recipientName} + ' · ' + ${house.addressType.label} + (${house.defaultAddress} ? ' (Mặc định)' : '') + ' · ' + ${house.address}">Nhà</option>
+                </select>
+                <a class="small text-link d-inline-block mt-2" th:href="@{/customer/houses}">Quản lý địa chỉ nhà →</a>
+              </div>
+              <div class="mt-3">
+                <label class="form-label" for="areaNote">Ghi chú khu vực cần ưu tiên (không bắt buộc)</label>
+                <textarea class="form-control" id="areaNote" th:field="*{areaNote}" rows="2" maxlength="2000"></textarea>
+              </div>
+            </section>
+
+            <!-- Step 3: Choose Staff -->
+            <section class="surface p-4">
+              <div class="step-heading">
+                <span>03</span>
                 <div>
                   <h2 class="h5 mb-1">
                     Chọn người chăm sóc tổ ấm
@@ -89,35 +113,26 @@
               </div>
             </section>
 
-            <!-- Step 3: Choose Time & Slot -->
+            <!-- Step 4: Choose Time -->
             <section class="surface p-4">
               <div class="step-heading">
-                <span>03</span>
+                <span>04</span>
                 <div>
                   <h2 class="h5 mb-1">
                     Chọn thời gian phù hợp
                   </h2>
                   <p class="mb-0 small text-secondary">
-                    Theo giờ Việt Nam (UTC+7). Tổng thời lượng phải nằm trọn trong khoảng sẵn sàng của nhân viên.
+                    Theo giờ Việt Nam (UTC+7). Giờ bắt đầu theo mốc 30 phút, đặt trước ít nhất 120 phút và trong giờ công ty.
                   </p>
                 </div>
-              </div>
-              <div class="mt-3">
-                <label class="form-label" for="scheduleId">
-                  Khoảng sẵn sàng
-                </label>
-                <select class="form-select" th:field="*{scheduleId}" required>
-                  <option value="">Chọn khoảng sẵn sàng của nhân viên</option>
-                  <option th:each="slot : ${schedules}" th:value="${slot.id}" th:data-staff="${slot.staffId}" th:data-start="${slot.startInput}" th:data-end="${slot.endInput}" th:text="${slot.staffName} + ' · ' + ${slot.startLabel} + ' → ' + ${slot.endLabel}"></option>
-                </select>
               </div>
               <div class="mt-3">
                 <label class="form-label" for="startAt">
                   Giờ bắt đầu mong muốn
                 </label>
-                <input type="datetime-local" class="form-control" th:field="*{startAt}" step="60" required aria-describedby="availability-note">
+                <input id="startAt" type="datetime-local" class="form-control" th:field="*{startAt}" step="1800" required aria-describedby="availability-note">
                 <p class="small text-secondary mt-2 mb-0" id="availability-note">
-                  Khoảng sẵn sàng có thể đã có lịch hẹn khác. Vui lòng chọn giờ tránh các khoảng bận.
+                  Nhân viên part-time phải có khoảng sẵn sàng bao gồm giờ bắt đầu. Thời lượng có thể vượt giờ đóng cửa hoặc cuối khoảng sẵn sàng.
                 </p>
               </div>
               <details class="availability-list mt-3">
@@ -166,7 +181,7 @@
               </div>
               <p data-booking-validation class="small text-danger fw-semibold" role="status">
               </p>
-              <button class="btn btn-primary w-100 btn-lg" type="submit" th:disabled="${#lists.isEmpty(services) or #lists.isEmpty(staff) or #lists.isEmpty(schedules)}">
+              <button class="btn btn-primary w-100 btn-lg" type="submit" th:disabled="${#lists.isEmpty(services) or #lists.isEmpty(staff) or #lists.isEmpty(houses)}">
                 Xác nhận đặt lịch
                 <span aria-hidden="true">→</span>
               </button>
@@ -176,7 +191,7 @@
             </div>
             <noscript>
               <p class="alert alert-info mt-3 small">
-                Bạn vẫn có thể gửi form khi tắt JavaScript. Hãy chọn khoảng thuộc đúng nhân viên; tổng tiền và lịch sẽ được kiểm tra ở máy chủ.
+                Bạn vẫn có thể gửi form khi tắt JavaScript; giá, giờ hoạt động và lịch bận luôn được kiểm tra ở máy chủ.
               </p>
             </noscript>
           </aside>

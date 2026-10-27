@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+  <head th:replace="~{fragments/layout :: head('Cấu hình công ty')}"><title>Cấu hình công ty · Gọn Nhà</title></head>
+  <body>
+    <header th:replace="~{fragments/layout :: header('settings')}"></header>
+    <main id="main" class="container py-4 py-md-5">
+      <div class="page-heading"><span class="eyebrow">Vận hành</span><h1>Cấu hình công ty</h1>
+        <p class="lead">Thiết lập thông tin công ty và giờ nhận lịch trong tuần.</p></div>
+      <div th:replace="~{fragments/layout :: alerts}"></div>
+      <form method="post" th:action="@{/admin/settings}" th:object="${settingsForm}" class="surface p-4">
+        <h2 class="h4">Thông tin địa điểm công ty</h2>
+        <div class="row g-3 mb-4">
+          <div class="col-12"><label class="form-label" for="companyAddress">Địa chỉ công ty</label><input id="companyAddress" class="form-control" th:field="*{companyAddress}" maxlength="500" required></div>
+          <div class="col-md-4"><label class="form-label" for="latitude">Vĩ độ</label><input id="latitude" class="form-control" type="number" step="0.0000001" min="-90" max="90" th:field="*{latitude}" required></div>
+          <div class="col-md-4"><label class="form-label" for="longitude">Kinh độ</label><input id="longitude" class="form-control" type="number" step="0.0000001" min="-180" max="180" th:field="*{longitude}" required></div>
+          <input type="hidden" th:field="*{serviceRadiusKm}">
+        </div>
+        <h2 class="h4">Giờ hoạt động</h2>
+        <p class="small text-secondary">Địa chỉ của khách được nhập trực tiếp; hệ thống hiện không kiểm tra bán kính theo tọa độ.</p>
+        <div class="table-responsive"><table class="table align-middle">
+          <thead><tr><th>Ngày</th><th>Nghỉ</th><th>Mở cửa</th><th>Đóng cửa</th></tr></thead>
+          <tbody><tr th:each="day, stat : ${dayNames}">
+            <td th:text="${day}">Thứ Hai</td>
+            <td><label for="closed" th:for="|closed-${stat.index}|" class="visually-hidden">Ngày nghỉ <span th:text="${day}">Thứ Hai</span></label><input id="closed" th:id="|closed-${stat.index}|" class="form-check-input" type="checkbox" th:field="*{operatingHours[__${stat.index}__].closed}"><input type="hidden" th:field="*{operatingHours[__${stat.index}__].dayOfWeek}"></td>
+            <td><label for="openingTime" th:for="|openingTime-${stat.index}|" class="visually-hidden">Giờ mở cửa <span th:text="${day}">Thứ Hai</span></label><input id="openingTime" th:id="|openingTime-${stat.index}|" class="form-control" type="time" th:field="*{operatingHours[__${stat.index}__].openingTime}"></td>
+            <td><label for="closingTime" th:for="|closingTime-${stat.index}|" class="visually-hidden">Giờ đóng cửa <span th:text="${day}">Thứ Hai</span></label><input id="closingTime" th:id="|closingTime-${stat.index}|" class="form-control" type="time" th:field="*{operatingHours[__${stat.index}__].closingTime}"></td>
+          </tr></tbody>
+        </table></div>
+        <p class="small text-secondary">Đánh dấu “Nghỉ” để đóng cửa cả ngày. Ngày mở cửa cần có đủ giờ bắt đầu và kết thúc; giờ kết thúc phải sau giờ bắt đầu. Không có giờ mặc định được tự áp dụng.</p>
+        <button class="btn btn-primary" type="submit">Lưu cấu hình</button>
+      </form>
+    </main>
+    <footer th:replace="~{fragments/layout :: footer}"></footer>
+  </body>
+</html>

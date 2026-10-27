@@ -1,5 +1,7 @@
 package com.housekeeping.management.repository;
 
+
+import org.springframework.data.repository.NoRepositoryBean;
 import com.housekeeping.management.domain.entity.Payment;
 import jakarta.persistence.LockModeType;
 import java.util.Optional;
@@ -8,6 +10,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+@NoRepositoryBean
 public interface PaymentRepository extends JpaRepository<Payment, Long> {
     Optional<Payment> findByBooking_BookingId(Long bookingId);
 

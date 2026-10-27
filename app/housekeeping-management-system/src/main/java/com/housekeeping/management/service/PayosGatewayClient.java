@@ -1,6 +1,7 @@
 package com.housekeeping.management.service;
 
 import com.housekeeping.management.config.PayosPaymentProperties;
+import java.math.BigDecimal;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.time.Duration;
@@ -113,8 +114,14 @@ public class PayosGatewayClient {
     }
 
     private static long number(Object value) {
-        if (value instanceof Number number) return number.longValue();
-        if (value instanceof String string) return Long.parseLong(string);
+        try {
+            if (value instanceof Number number) {
+                return new BigDecimal(number.toString()).longValueExact();
+            }
+            if (value instanceof String string) return Long.parseLong(string);
+        } catch (ArithmeticException | NumberFormatException invalidNumber) {
+            return Long.MIN_VALUE;
+        }
         return Long.MIN_VALUE;
     }
 

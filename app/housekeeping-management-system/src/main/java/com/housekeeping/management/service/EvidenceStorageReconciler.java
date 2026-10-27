@@ -1,6 +1,6 @@
 package com.housekeeping.management.service;
 
-import com.housekeeping.management.repository.EvidencesRepository;
+import com.housekeeping.management.repository.BookingImageRepository;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -19,21 +19,24 @@ import org.springframework.stereotype.Component;
 public class EvidenceStorageReconciler implements ApplicationRunner {
     private static final Logger LOGGER = LoggerFactory.getLogger(EvidenceStorageReconciler.class);
     private static final Duration STALE_FILE_AGE = Duration.ofHours(24);
-    private final EvidencesRepository evidencesRepository;
+    private final BookingImageRepository bookingImages;
     private final Path storageRoot;
+    private final boolean cleanupEnabled;
 
     public EvidenceStorageReconciler(
-            EvidencesRepository evidencesRepository,
-            @Value("${app.evidence.storage-root:./var/evidence}") String storageRoot) {
-        this.evidencesRepository = evidencesRepository;
+            BookingImageRepository bookingImages,
+            @Value("${app.evidence.storage-root:./var/evidence}") String storageRoot,
+            @Value("${app.evidence.cleanup-enabled:false}") boolean cleanupEnabled) {
+        this.bookingImages = bookingImages;
         this.storageRoot = Path.of(storageRoot).toAbsolutePath().normalize();
+        this.cleanupEnabled = cleanupEnabled;
     }
 
     @Override
     public void run(ApplicationArguments args) throws IOException {
         Files.createDirectories(storageRoot);
         Set<String> referencedFiles = new HashSet<>();
-        evidencesRepository.findAll().forEach(evidence -> referencedFiles.add(evidence.getStoragePath()));
+        referencedFiles.addAll(bookingImages.findAllImageUrls());
         Instant staleBefore = Instant.now().minus(STALE_FILE_AGE);
 
         try (var files = Files.list(storageRoot)) {
@@ -43,7 +46,7 @@ public class EvidenceStorageReconciler implements ApplicationRunner {
                 }
                 String filename = file.getFileName().toString();
                 Instant modifiedAt = Files.getLastModifiedTime(file).toInstant();
-                if (!referencedFiles.contains(filename) && modifiedAt.isBefore(staleBefore)) {
+                if (cleanupEnabled && !referencedFiles.contains(filename) && modifiedAt.isBefore(staleBefore)) {
                     Files.deleteIfExists(file);
                     LOGGER.info("Removed stale unreferenced evidence file {}", filename);
                 }
@@ -54,7 +57,7 @@ public class EvidenceStorageReconciler implements ApplicationRunner {
         if (Files.isDirectory(temporaryDirectory)) {
             try (var temporaryFiles = Files.list(temporaryDirectory)) {
                 for (Path file : temporaryFiles.toList()) {
-                    if (Files.isRegularFile(file)
+                    if (cleanupEnabled && Files.isRegularFile(file)
                             && Files.getLastModifiedTime(file).toInstant().isBefore(staleBefore)) {
                         Files.deleteIfExists(file);
                     }

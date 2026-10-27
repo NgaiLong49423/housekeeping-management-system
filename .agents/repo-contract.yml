@@ -1,10 +1,18 @@
 contract_version: 1
 repository:
-  purpose: reusable-java-web-project-template
+  purpose: housekeeping-management-web-application
   application_directory: app/
   database_directory: database/
   documentation_directory: docs/
   agent_directory: .agents/
+technology:
+  language: Java 21
+  framework: Spring Boot 4.1.1
+  web: Spring MVC, Thymeleaf, Bootstrap
+  persistence: Spring Data JPA and Hibernate
+  database: Microsoft SQL Server
+  migrations: Flyway
+  architecture: single Maven project with MVC and N-Layer packages
 canonical_docs:
   overview: README.md
   contribution: CONTRIBUTING.md
@@ -12,6 +20,7 @@ canonical_docs:
   requirements:
     - docs/requirements/PRD.md
     - docs/requirements/SRS.md
+  data_dictionary: docs/requirements/SQL_SERVER_DATA_DICTIONARY.md
   database_guide: database/README.md
 agent_assets:
   policy: .agents/POLICY.md
@@ -34,6 +43,7 @@ validation_inputs:
     - .agents/repo-contract.yml
     - docs/README.md
     - docs/template-maintenance.md
+    - docs/requirements/SQL_SERVER_DATA_DICTIONARY.md
     - database/README.md
   directories:
     - app/
@@ -46,7 +56,7 @@ validation_inputs:
     - docs/requirements/
     - docs/reports/
 rules:
-  no_framework_or_dbms_default: true
+  no_framework_or_dbms_default: false
   skill_folder_must_match_frontmatter_name: true
   use_relative_document_links: true
   github_required_checks_are_not_configured_by_workflow_files: true

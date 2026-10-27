@@ -11,7 +11,7 @@ import java.sql.Statement;
 
 @Tag("sqlserver")
 public abstract class SqlServerIntegrationTest {
-    private static final String TEST_DATABASE = "hsf302_acceptance";
+    private static final String TEST_DATABASE = "home_cleaning_acceptance";
     static final MSSQLServerContainer SQL_SERVER = new MSSQLServerContainer(
             "mcr.microsoft.com/mssql/server:2022-CU20-ubuntu-22.04")
             .acceptLicense();

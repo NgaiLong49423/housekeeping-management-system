@@ -1731,12 +1731,6 @@ summary:hover {
   margin-top: 14px;
 }
 
-.rating-stars {
-  color: #d97706;
-  font-size: 1.4rem;
-  letter-spacing: 2px;
-}
-
 .avatar {
   display: grid;
   place-items: center;
