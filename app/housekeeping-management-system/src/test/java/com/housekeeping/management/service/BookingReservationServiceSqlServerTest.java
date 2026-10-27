@@ -420,6 +420,9 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
         house.setCustomerId(customerId);
         house.setHouseName(name);
         house.setAddress(name + " address");
+        house.setAddressDetail(name + " address");
+        house.setRecipientName("Test Recipient");
+        house.setRecipientPhone("0900000000");
         house.setLatitude(new BigDecimal("10.0000000"));
         house.setLongitude(new BigDecimal("106.0000000"));
         return house;
