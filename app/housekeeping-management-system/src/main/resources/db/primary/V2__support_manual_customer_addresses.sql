@@ -19,6 +19,7 @@ ALTER TABLE dbo.Houses ADD
     address_detail NVARCHAR(500) NULL,
     address_type VARCHAR(20) NOT NULL CONSTRAINT DF_Houses_Address_Type DEFAULT ('HOME'),
     is_default BIT NOT NULL CONSTRAINT DF_Houses_Is_Default DEFAULT (0);
+GO
 
 UPDATE house
 SET recipient_name = customer.full_name,
@@ -26,6 +27,7 @@ SET recipient_name = customer.full_name,
     address_detail = house.address
 FROM dbo.Houses house
 JOIN dbo.Users customer ON customer.user_id = house.customer_id;
+GO
 
 ALTER TABLE dbo.Houses ALTER COLUMN recipient_name NVARCHAR(150) NOT NULL;
 ALTER TABLE dbo.Houses ALTER COLUMN recipient_phone NVARCHAR(20) NOT NULL;

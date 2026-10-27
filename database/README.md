@@ -1,13 +1,19 @@
 > **Document:** Database Guide\
 > **File:** `database/README.md`\
-> **Version:** v2.3.0\
+> **Version:** v2.4.0\
 > **Created:** 2026-06-14\
-> **Last Updated:** 2026-10-25\
+> **Last Updated:** 2026-10-27\
 > **Status:** Draft\
 
 # Hướng dẫn database
 
 Microsoft SQL Server là database chính thức. Schema đích gồm đúng 15 bảng nghiệp vụ theo [Từ điển dữ liệu SQL Server](../docs/requirements/SQL_SERVER_DATA_DICTIONARY.md). Hibernate dùng `ddl-auto=validate`; chỉ Flyway quản lý DDL.
+
+## Automatic local reset on every application launch
+
+`DB_RESET_ON_STARTUP` defaults to `true`. Before creating the datasource, the application connects to `master`, disconnects existing users from the selected local database, drops it if present and creates it again. Flyway then rebuilds the schema. **All previous data and both old and new Flyway history tables in that database are deleted.** A failed migration does not restore the database deleted by the initializer.
+
+Only `Housekeeping_Database` and `home_cleaning_demo` on `localhost`, `127.0.0.1` or `[::1]` can be reset. The SQL login needs ALTER/DROP/CREATE DATABASE permissions. Set `DB_RESET_ON_STARTUP=false` in the module `.env` to preserve data or connect to a remote/shared database. The historical setup and manual recovery instructions below apply when automatic reset is disabled; no manual setup/reset script is required when it is enabled.
 
 ## Database demo tách biệt
 

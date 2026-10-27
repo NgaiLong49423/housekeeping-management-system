@@ -1,8 +1,8 @@
 > **Document:** Housekeeping Management System README\
 > **File:** `README.md`\
-> **Version:** v2.2.0\
+> **Version:** v2.3.0\
 > **Created:** 2026-06-14\
-> **Last Updated:** 2026-10-25\
+> **Last Updated:** 2026-10-27\
 > **Status:** Draft\
 
 # Housekeeping Management System
@@ -32,7 +32,7 @@ Ba role là `CUSTOMER`, `STAFF`, `ADMIN`. Database có đúng 15 bảng nghiệp
 
 Yêu cầu JDK 21 và SQL Server 2022+ bật TCP/IP, Mixed Mode, cổng 1433.
 
-1. Đảm bảo SQL Server có database `Housekeeping_Database`. Nếu đó là database cũ và bạn đã xác nhận có thể bỏ dữ liệu, chạy [`database/recreate-primary-schema.sql`](database/recreate-primary-schema.sql) trong SSMS khi đang kết nối trực tiếp database này. Script xóa toàn bộ bảng ứng dụng và dữ liệu, giữ nguyên lịch sử Flyway cũ, và từ chối chạy ở database khác.
+1. Start local SQL Server. **Every application launch deletes and recreates `Housekeeping_Database` by default, including all data and Flyway history.** The SQL login needs permission to alter, drop and create this database. No manual reset script is required. Set `DB_RESET_ON_STARTUP=false` in the module `.env` to preserve existing data.
 2. Sao chép [`.env.example`](app/housekeeping-management-system/.env.example) thành `.env` trong thư mục Maven module, rồi đặt `DB_URL`, `DB_USERNAME` và `DB_PASSWORD` cho SQL Server chính. Địa chỉ nhà được nhập trực tiếp, không cần Google Maps API key. Không commit `.env`.
 3. Từ `app/housekeeping-management-system/`, chạy:
 
@@ -40,9 +40,9 @@ Yêu cầu JDK 21 và SQL Server 2022+ bật TCP/IP, Mixed Mode, cổng 1433.
    mvn spring-boot:run
    ```
 
-4. Mặc định ứng dụng kết nối `Housekeeping_Database`; Flyway tạo schema SQL Server 15 bảng bằng bảng lịch sử riêng `flyway_primary_schema_history`. Lịch sử cũ `flyway_schema_history` không bị sửa.
+4. Before the application datasource starts, the startup initializer recreates the local database; Flyway then applies V1 and V2 to create the 15-table schema with manual customer addresses. The `demo` profile similarly recreates `home_cleaning_demo` using its own migration location.
 
-Không bật Flyway `clean`. Đừng chạy script reset ở database có dữ liệu cần giữ hoặc môi trường dùng chung.
+Flyway `clean` remains disabled. Automatic reset only accepts `localhost`, `127.0.0.1` or `[::1]` and the database names `Housekeeping_Database` or `home_cleaning_demo`. For shared or remote databases, set `DB_RESET_ON_STARTUP=false`. This behavior applies to application launches through `main` (IntelliJ, Maven and the executable JAR), not ordinary unit tests.
 
 ## Kiểm tra
 

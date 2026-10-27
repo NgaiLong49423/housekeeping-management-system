@@ -1,8 +1,8 @@
 > **Document:** Changelog\
 > **File:** `CHANGELOG.md`\
-> **Version:** v1.0.0\
+> **Version:** v1.0.1\
 > **Created:** 2026-06-14\
-> **Last Updated:** 2026-10-17\
+> **Last Updated:** 2026-10-27\
 > **Status:** Template\
 
 # Changelog
@@ -27,12 +27,14 @@ Ghi các thay đổi đáng chú ý theo thứ tự mới nhất trước. File 
 - Bổ sung kiểm tra repository trung lập với framework bằng GitHub Actions.
 
 ### Changed
+- Recreate the approved local SQL Server database on every application launch by default, with an explicit data-loss warning, local database restrictions and a `DB_RESET_ON_STARTUP=false` opt-out.
 - Chuyển tài khoản và dữ liệu mẫu khỏi Java seeder sang Flyway migration chỉ áp dụng cho database `home_cleaning_demo`.
 - Chuẩn hóa thư mục ứng dụng thành `app/` và cập nhật các mẫu dự án.
 - Tổng quát hóa tài liệu và hướng dẫn repository để tái sử dụng cho các dự án Java web.
 - Staff có thể hoàn thành Booking `CONFIRMED` bất cứ lúc nào khi đủ Evidence, kể cả trước giờ bắt đầu dự kiến; booking mẫu đang xác nhận chưa tạo Payment cho tới khi hoàn thành.
 
 ### Fixed
+- Separate SQL Server batches in the manual customer address migration so newly added columns are available during backfill; register the database initializer before datasource startup and cover reset safeguards with unit tests.
 - Đồng bộ các bản Run Configuration dùng SDK `ms-21` và thư mục làm việc theo module Maven, sửa lỗi không tìm thấy `file:./.runtime/` khi chạy từ thư mục project khác.
 - Sửa lỗi IntelliJ không tìm thấy main class: import đúng module Maven, chọn classpath `housekeeping-management-system`, đặt SDK 21 và bật annotation processing Lombok. Đã chạy trực tiếp trong IDE và kiểm tra đăng nhập ba vai trò cùng trang dịch vụ qua SQL Server.
 - Sửa cấu hình local trỏ tới database `hsf302` hiện có, map SQL login riêng vào database, baseline schema thủ công V1 và xác minh đăng nhập đủ ba vai trò qua SQL Server thật.
