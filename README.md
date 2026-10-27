@@ -66,7 +66,7 @@ app/housekeeping-management-system/
     config/ controller/ dto/request/ dto/response/
     entity/ repository/ service/ domain/
   src/main/resources/
-    templates/ static/ db/primary/ db/refactor/
+    templates/ static/ db/primary/ db/refactor/ db/shared/
 ```
 
 ## Tài liệu liên quan

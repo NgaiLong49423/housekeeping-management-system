@@ -27,6 +27,7 @@ Ghi các thay đổi đáng chú ý theo thứ tự mới nhất trước. File 
 - Bổ sung kiểm tra repository trung lập với framework bằng GitHub Actions.
 
 ### Changed
+- Share the post-baseline address migration between primary and demo Flyway locations to avoid maintaining duplicate DDL.
 - Recreate the approved local SQL Server database on every application launch by default, with an explicit data-loss warning, local database restrictions and a `DB_RESET_ON_STARTUP=false` opt-out.
 - Chuyển tài khoản và dữ liệu mẫu khỏi Java seeder sang Flyway migration chỉ áp dụng cho database `home_cleaning_demo`.
 - Chuẩn hóa thư mục ứng dụng thành `app/` và cập nhật các mẫu dự án.

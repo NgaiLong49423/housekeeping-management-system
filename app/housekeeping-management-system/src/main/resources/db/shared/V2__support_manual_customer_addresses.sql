@@ -10,6 +10,7 @@ ALTER TABLE dbo.Houses ADD
 ALTER TABLE dbo.Bookings ADD
     CONSTRAINT CK_Bookings_Latitude CHECK (latitude_snapshot BETWEEN -90 AND 90),
     CONSTRAINT CK_Bookings_Longitude CHECK (longitude_snapshot BETWEEN -180 AND 180);
+GO
 
 ALTER TABLE dbo.Houses ADD
     recipient_name NVARCHAR(150) NULL,
