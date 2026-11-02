@@ -36,6 +36,15 @@
       <div th:replace="~{fragments/layout :: alerts}">
       </div>
 
+      <!-- Cancelled Status Banner -->
+      <div th:if="${booking.status == 'CANCELLED'}" class="alert alert-danger d-flex align-items-start gap-2 border-0 shadow-sm mb-4" role="alert" style="background-color: var(--status-cancelled-bg); color: var(--status-cancelled-text); border-left: 4px solid #ef4444 !important;">
+        <span aria-hidden="true" class="fs-5">✕</span>
+        <div>
+          <strong class="d-block">Lịch hẹn này đã bị hủy.</strong>
+          <span th:if="${booking.cancellationReason != null and !booking.cancellationReason.isBlank()}" th:text="'Lý do hủy: ' + ${booking.cancellationReason}"></span>
+        </div>
+      </div>
+
       <div class="row g-4 align-items-start">
         <!-- Main Content -->
         <div class="col-lg-8 vstack gap-4">
@@ -60,6 +69,18 @@
               <div>
                 <dt>Kết thúc dự kiến</dt>
                 <dd th:text="${booking.endLabel}">Kết thúc</dd>
+              </div>
+              <div style="grid-column: 1 / -1;" th:if="${booking.addressSnapshot != null and !booking.addressSnapshot.isBlank()}">
+                <dt>Địa chỉ dọn dẹp</dt>
+                <dd th:text="${booking.addressSnapshot}">Địa chỉ</dd>
+              </div>
+              <div style="grid-column: 1 / -1;" th:if="${booking.addressNoteSnapshot != null and !booking.addressNoteSnapshot.isBlank()}">
+                <dt>Ghi chú giao nhận / vào nhà</dt>
+                <dd th:text="${booking.addressNoteSnapshot}">Ghi chú địa chỉ</dd>
+              </div>
+              <div style="grid-column: 1 / -1;" th:if="${booking.areaNote != null and !booking.areaNote.isBlank()}">
+                <dt>Khu vực ưu tiên</dt>
+                <dd th:text="${booking.areaNote}">Khu vực ưu tiên</dd>
               </div>
             </dl>
           </section>

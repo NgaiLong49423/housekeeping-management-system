@@ -76,7 +76,7 @@
             <h2 class="h5"><span th:text="${house.recipientName}">Người nhận</span><span class="badge text-bg-light ms-2" th:text="${house.addressType.label}">Nhà riêng</span><span class="badge text-bg-primary ms-2" th:if="${house.defaultAddress}">Mặc định</span></h2>
             <p class="small text-secondary mb-2"><span th:text="${house.recipientPhone}">Số điện thoại</span></p>
             <p class="mb-2" th:text="${house.address}">Địa chỉ</p>
-            <p class="small text-secondary mb-2" th:text="${house.addressNote}">Ghi chú</p>
+            <p class="small text-secondary mb-2" th:if="${house.addressNote != null and !house.addressNote.isBlank()}" th:text="${house.addressNote}">Ghi chú</p>
             <div class="d-flex gap-2">
               <a class="btn btn-outline-primary btn-sm" th:href="@{/customer/houses(editId=${house.houseId})}">Sửa</a>
               <form method="post" th:action="@{/customer/houses/{id}/delete(id=${house.houseId})}">
@@ -90,5 +90,6 @@
         </div>
       </section>
     </main>
+    <footer th:replace="~{fragments/layout :: footer}"></footer>
   </body>
 </html>
