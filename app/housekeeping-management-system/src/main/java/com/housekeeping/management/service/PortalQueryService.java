@@ -162,7 +162,8 @@ public class PortalQueryService {
                        staff_user.full_name AS staff_name, b.start_time, b.end_time, b.status,
                        b.total_amount,
                        payment.status AS payment_status, payment.payment_method, f.content AS feedback_content,
-                       f.admin_reply, f.status AS feedback_status
+                       f.admin_reply, f.status AS feedback_status,
+                       b.address_snapshot, b.address_note_snapshot, b.area_note, b.cancellation_reason
                 FROM dbo.Bookings b
                 JOIN dbo.Users customer ON customer.user_id=b.customer_id
                 JOIN dbo.Staff selected_staff ON selected_staff.staff_id=b.staff_id
@@ -177,6 +178,8 @@ public class PortalQueryService {
                     rs.getObject("end_time", LocalDateTime.class).atOffset(ZoneOffset.ofHours(7)), rs.getString("status"),
                     rs.getBigDecimal("total_amount"), rs.getString("payment_status"), rs.getString("payment_method"),
                     rs.getString("feedback_content"),
-                    rs.getString("admin_reply"), rs.getString("feedback_status")), params);
+                    rs.getString("admin_reply"), rs.getString("feedback_status"),
+                    rs.getString("address_snapshot"), rs.getString("address_note_snapshot"),
+                    rs.getString("area_note"), rs.getString("cancellation_reason")), params);
     }
 }
