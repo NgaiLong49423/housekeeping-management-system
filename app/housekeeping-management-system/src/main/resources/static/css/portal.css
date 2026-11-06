@@ -279,9 +279,10 @@ button, input, select, textarea {
 }
 
 .navbar .nav-link {
-  font-size: 0.92rem;
+  font-size: 0.88rem;
   font-weight: 550;
-  padding: 0.45rem 0.95rem;
+  padding: 0.4rem 0.75rem;
+  white-space: nowrap;
   color: rgba(241, 245, 249, 0.85);
   border-radius: var(--radius-pill);
   transition: all var(--motion-fast);
