@@ -1666,3 +1666,104 @@ summary:hover {
     animation: none !important;
   }
 }
+
+
+/* --------------------------------------------------------------------------
+   21. ADMIN LEFT SIDEBAR DASHBOARD
+   -------------------------------------------------------------------------- */
+.admin-mobile-header {
+  background: rgba(15, 23, 42, 0.98);
+  border-bottom: 1px solid #1e293b;
+  padding: 0.75rem 1.25rem;
+  position: sticky;
+  top: 0;
+  z-index: 1030;
+}
+
+.admin-sidebar {
+  background: #0f172a;
+  color: #f8fafc;
+}
+
+.admin-sidebar .brand span {
+  color: #ffffff;
+}
+
+.sidebar-group-title {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #94a3b8;
+  padding: 0 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0.6rem 0.85rem;
+  color: rgba(241, 245, 249, 0.8);
+  font-size: 0.88rem;
+  font-weight: 550;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  transition: all var(--motion-fast);
+  white-space: nowrap;
+}
+
+.sidebar-nav-item:hover {
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-nav-item.active {
+  color: #5eead4 !important;
+  background-color: rgba(94, 234, 212, 0.12);
+  font-weight: 650;
+  border-left: 3px solid #5eead4;
+}
+
+.sidebar-icon {
+  font-size: 1.05rem;
+  width: 22px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+@media (min-width: 992px) {
+  body.has-admin-sidebar,
+  body:has(.admin-sidebar) {
+    padding-left: 260px !important;
+  }
+
+  body.has-admin-sidebar .admin-sidebar,
+  body:has(.admin-sidebar) .admin-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 260px;
+    height: 100vh;
+    z-index: 1040;
+    border-right: 1px solid #1e293b;
+    box-shadow: 4px 0 16px rgba(0, 0, 0, 0.15);
+  }
+
+  body.has-admin-sidebar .admin-mobile-header,
+  body:has(.admin-sidebar) .admin-mobile-header {
+    display: none !important;
+  }
+}
+
+@media (max-width: 991.98px) {
+  .admin-sidebar {
+    border-bottom: 1px solid #1e293b;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  }
+
+  .admin-sidebar:not(.show) {
+    display: none !important;
+  }
+}

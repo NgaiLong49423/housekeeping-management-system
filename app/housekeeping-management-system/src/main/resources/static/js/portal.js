@@ -103,3 +103,8 @@ if (bookingForm) {
   });
   refresh();
 }
+
+
+if (document.querySelector(".admin-sidebar")) {
+  document.body.classList.add("has-admin-sidebar");
+}
