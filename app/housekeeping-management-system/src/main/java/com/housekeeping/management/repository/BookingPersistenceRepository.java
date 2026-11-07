@@ -25,6 +25,18 @@ public class BookingPersistenceRepository {
         return findBooking(bookingId, true);
     }
 
+    public void lockCompanySettings() {
+        List<Long> companyIds = jdbc.query("SELECT company_id FROM dbo.Company_Settings WITH (HOLDLOCK, INDEX(0)) ORDER BY company_id", (rs,row) -> rs.getLong(1));
+        if (companyIds.size() != 1) throw new IllegalStateException("Cần cấu hình chính xác một vị trí và giờ hoạt động của công ty.");
+    }
+
+    public void validateStillOpen(LocalDateTime requestedStart, LocalDateTime currentTime) {
+        lockCompanySettings();
+        if (requestedStart.isBefore(currentTime.plusMinutes(120)) || requestedStart.isAfter(currentTime.plusDays(30))) {
+            throw new IllegalArgumentException("Giờ đặt không còn nằm trong khoảng cho phép (tối thiểu 120 phút, tối đa 30 ngày). Hãy tải lại giờ.");
+        }
+    }
+
     public Optional<BookingState> findBooking(Long bookingId) {
         return findBooking(bookingId, false);
     }
@@ -32,10 +44,10 @@ public class BookingPersistenceRepository {
     private Optional<BookingState> findBooking(Long bookingId, boolean lock) {
         String lockHint = lock ? " WITH (UPDLOCK, HOLDLOCK)" : "";
         List<BookingState> rows = jdbc.query("""
-                SELECT booking_id, customer_id, staff_id, house_id, start_time, end_time, status
+                SELECT booking_id, customer_id, staff_id, house_id, start_time, end_time, status, latitude_snapshot, longitude_snapshot
                 FROM dbo.Bookings""" + lockHint + " WHERE booking_id=?", (rs, row) -> new BookingState(rs.getLong("booking_id"), rs.getLong("customer_id"),
                     rs.getLong("staff_id"), rs.getLong("house_id"), rs.getObject("start_time", LocalDateTime.class),
-                    rs.getObject("end_time", LocalDateTime.class), rs.getString("status")), bookingId);
+                    rs.getObject("end_time", LocalDateTime.class), rs.getString("status"), rs.getBigDecimal("latitude_snapshot"), rs.getBigDecimal("longitude_snapshot")), bookingId);
         return rows.stream().findFirst();
     }
 
@@ -75,16 +87,37 @@ public class BookingPersistenceRepository {
         Integer matches = jdbc.queryForObject("""
                 SELECT COUNT(*) FROM dbo.Company_Operating_Hours h
                 JOIN dbo.Company_Settings c ON c.company_id=h.company_id
-                WHERE h.day_of_week=? AND h.is_closed=0
+                WHERE h.effective_from=(SELECT MAX(v.effective_from) FROM dbo.Company_Operating_Hours v WHERE v.company_id=h.company_id AND v.effective_from<=?)
+                  AND h.day_of_week=? AND h.is_closed=0
                   AND CAST(? AS TIME(0)) >= h.opening_time AND CAST(? AS TIME(0)) < h.closing_time
-                """, Integer.class, dayOfWeek, startTime, startTime);
+                """, Integer.class, date, dayOfWeek, startTime, startTime);
         return matches != null && matches == 1;
+    }
+
+    public boolean companyAcceptsInterval(LocalDate date, LocalTime startTime, LocalTime endTime) {
+        Integer matches = jdbc.queryForObject("""
+                SELECT COUNT(*) FROM dbo.Company_Operating_Hours h
+                JOIN dbo.Company_Settings c ON c.company_id=h.company_id
+                WHERE h.effective_from=(SELECT MAX(v.effective_from) FROM dbo.Company_Operating_Hours v WHERE v.company_id=h.company_id AND v.effective_from<=?)
+                  AND h.day_of_week=? AND h.is_closed=0
+                  AND CAST(? AS TIME(0)) >= h.opening_time AND CAST(? AS TIME(0)) <= h.closing_time
+                """, Integer.class, date, date.getDayOfWeek().getValue(), startTime, endTime);
+        return matches != null && matches == 1;
+    }
+
+    public boolean partTimeAcceptsInterval(Long staffId, LocalDate date, LocalTime startTime, LocalTime endTime) {
+        Integer matches = jdbc.queryForObject("""
+                SELECT COUNT(*) FROM dbo.Staff_Availability
+                WHERE staff_id=? AND work_date=? AND is_active=1
+                  AND start_time<=CAST(? AS TIME(0)) AND end_time>=CAST(? AS TIME(0))
+                """, Integer.class, staffId, date, startTime, endTime);
+        return matches != null && matches > 0;
     }
 
     public boolean hasPartTimeAvailability(Long staffId, LocalDate date, LocalTime startTime) {
         Integer matches = jdbc.queryForObject("""
                 SELECT COUNT(*) FROM dbo.Staff_Availability
-                WHERE staff_id=? AND work_date=?
+                WHERE staff_id=? AND work_date=? AND is_active=1
                   AND start_time<=CAST(? AS TIME(0)) AND end_time>CAST(? AS TIME(0))
                 """, Integer.class, staffId, date, startTime, startTime);
         return matches != null && matches > 0;
@@ -98,24 +131,53 @@ public class BookingPersistenceRepository {
         return matches != null && matches > 0;
     }
 
-    public boolean hasConflictingBooking(Long staffId, LocalDateTime start, LocalDateTime end) {
+    public boolean hasConflictingBooking(Long staffId, LocalDateTime start, LocalDateTime end, int gapMinutes) {
         Integer matches = jdbc.queryForObject("""
                 SELECT COUNT(*) FROM dbo.Bookings
                 WHERE staff_id=? AND status IN ('CONFIRMED', 'AWAITING_PAYMENT', 'COMPLETED')
-                  AND start_time < DATEADD(MINUTE, 60, ?)
-                  AND end_time > DATEADD(MINUTE, -60, ?)
-                """, Integer.class, staffId, end, start);
+                  AND start_time < DATEADD(MINUTE, ?, ?)
+                  AND end_time > DATEADD(MINUTE, -?, ?)
+                """, Integer.class, staffId, gapMinutes, end, gapMinutes, start);
         return matches != null && matches > 0;
     }
 
-    public boolean hasConflictingBookingExcept(Long staffId, LocalDateTime start, LocalDateTime end, Long excludedBookingId) {
+    public boolean hasConflictingBookingExcept(Long staffId, LocalDateTime start, LocalDateTime end, Long excludedBookingId, int gapMinutes) {
         Integer matches = jdbc.queryForObject("""
                 SELECT COUNT(*) FROM dbo.Bookings
                 WHERE staff_id=? AND booking_id<>? AND status IN ('CONFIRMED', 'AWAITING_PAYMENT', 'COMPLETED')
-                  AND start_time < DATEADD(MINUTE, 60, ?)
-                  AND end_time > DATEADD(MINUTE, -60, ?)
-                """, Integer.class, staffId, excludedBookingId, end, start);
+                  AND start_time < DATEADD(MINUTE, ?, ?)
+                  AND end_time > DATEADD(MINUTE, -?, ?)
+                """, Integer.class, staffId, excludedBookingId, gapMinutes, end, gapMinutes, start);
         return matches != null && matches > 0;
+    }
+
+    public List<AppointmentPoint> adjacentAppointments(Long staffId, LocalDateTime start, LocalDateTime end, Long exceptId) {
+        List<AppointmentPoint> previous = jdbc.query("""
+                SELECT TOP (1) booking_id, start_time, end_time, latitude_snapshot, longitude_snapshot
+                FROM dbo.Bookings WHERE staff_id=? AND booking_id<>? AND status IN ('CONFIRMED','AWAITING_PAYMENT','COMPLETED')
+                  AND end_time<=? ORDER BY end_time DESC
+                """, (rs, row) -> new AppointmentPoint(rs.getLong(1), rs.getObject(2, LocalDateTime.class),
+                rs.getObject(3, LocalDateTime.class), rs.getBigDecimal(4), rs.getBigDecimal(5)),
+                staffId, exceptId == null ? -1L : exceptId, start);
+        List<AppointmentPoint> next = jdbc.query("""
+                SELECT TOP (1) booking_id, start_time, end_time, latitude_snapshot, longitude_snapshot
+                FROM dbo.Bookings WHERE staff_id=? AND booking_id<>? AND status IN ('CONFIRMED','AWAITING_PAYMENT','COMPLETED')
+                  AND start_time>=? ORDER BY start_time ASC
+                """, (rs, row) -> new AppointmentPoint(rs.getLong(1), rs.getObject(2, LocalDateTime.class),
+                rs.getObject(3, LocalDateTime.class), rs.getBigDecimal(4), rs.getBigDecimal(5)),
+                staffId, exceptId == null ? -1L : exceptId, end);
+        java.util.ArrayList<AppointmentPoint> result = new java.util.ArrayList<>(previous);
+        result.addAll(next);
+        return List.copyOf(result);
+    }
+
+    public record AppointmentPoint(Long bookingId, LocalDateTime start, LocalDateTime end, BigDecimal latitude, BigDecimal longitude) { }
+
+    public int confirmCustomerArrival(Long bookingId, Long customerId, LocalDateTime now) {
+        return jdbc.update("""
+                UPDATE dbo.Bookings SET customer_arrived_at=?
+                WHERE booking_id=? AND customer_id=? AND status='CONFIRMED' AND start_time<=? AND customer_arrived_at IS NULL
+                """, now, bookingId, customerId, now);
     }
 
     public Long insertBooking(Long customerId, Long staffId, Long houseId, String address,
@@ -168,5 +230,9 @@ public class BookingPersistenceRepository {
 
     public record ServiceSnapshot(Long id, String name, BigDecimal price, int durationMinutes) { }
     public record BookingState(Long id, Long customerId, Long staffId, Long houseId,
-            LocalDateTime startTime, LocalDateTime endTime, String status) { }
+            LocalDateTime startTime, LocalDateTime endTime, String status, BigDecimal latitude, BigDecimal longitude) {
+        public BookingState(Long id, Long customerId, Long staffId, Long houseId, LocalDateTime startTime, LocalDateTime endTime, String status) {
+            this(id,customerId,staffId,houseId,startTime,endTime,status,null,null);
+        }
+    }
 }

@@ -16,12 +16,13 @@
         </div>
         <div class="table-responsive" th:unless="${#lists.isEmpty(leaveRequests)}">
           <table class="table align-middle">
-            <thead><tr><th>Nhân viên</th><th>Thời gian nghỉ</th><th>Lý do</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+            <thead><tr><th>Nhân viên</th><th>Thời gian nghỉ</th><th>Lý do</th><th>Booking bị ảnh hưởng</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
             <tbody>
               <tr th:each="item : ${leaveRequests}">
                 <td th:text="${item.staffName}">Nhân viên</td>
                 <td><span th:text="${#temporals.format(item.startDate, 'dd/MM/yyyy')}"></span> – <span th:text="${#temporals.format(item.endDate, 'dd/MM/yyyy')}"></span></td>
                 <td class="text-break" th:text="${item.reason}">Lý do</td>
+                <td><span th:if="${!#lists.isEmpty(item.conflictingBookingIds)}" class="text-danger small">Booking cần xử lý: <span th:each="bookingId, stat : ${item.conflictingBookingIds}"><a th:href="@{/admin/bookings/{id}(id=${bookingId})}" th:text="${'#' + bookingId}">#1</a><span th:if="${!stat.last}">, </span></span></span></td>
                 <td><span class="badge" th:classappend="${item.status == 'APPROVED' ? 'text-bg-success' : (item.status == 'REJECTED' ? 'text-bg-danger' : 'text-bg-warning')}" th:text="${item.status}">PENDING</span></td>
                 <td>
                   <div th:if="${item.status == 'PENDING'}" class="d-flex gap-2">
@@ -34,7 +35,7 @@
             </tbody>
           </table>
         </div>
-        <p class="small text-secondary mb-0">Đơn được duyệt chặn Booking mới theo ngày bắt đầu trong thời gian nghỉ. Hệ thống không tự hủy hoặc đổi nhân viên cho Booking đã xác nhận; Admin cần xử lý riêng.</p>
+        <p class="small text-secondary mb-0">Đơn chỉ được duyệt khi không còn Booking CONFIRMED tương lai trong các ngày nghỉ. Mở từng Booking để đổi nhân viên hoặc hủy trước.</p>
       </section>
     </main>
     <footer th:replace="~{fragments/layout :: footer}"></footer>

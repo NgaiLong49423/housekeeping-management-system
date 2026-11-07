@@ -15,12 +15,17 @@ public class AdminBookingManagementService {
     private final BookingPersistenceRepository bookings;
     private final StaffAccountRepository staffAccounts;
     private final AccountAuthorizationService authorization;
+    private final BookingReservationService reservations;
+    private final HouseService houses;
 
     public AdminBookingManagementService(BookingPersistenceRepository bookings,
-            StaffAccountRepository staffAccounts, AccountAuthorizationService authorization) {
+            StaffAccountRepository staffAccounts, AccountAuthorizationService authorization,
+            BookingReservationService reservations, HouseService houses) {
         this.bookings = bookings;
         this.staffAccounts = staffAccounts;
         this.authorization = authorization;
+        this.reservations = reservations;
+        this.houses = houses;
     }
 
     @Transactional
@@ -53,19 +58,22 @@ public class AdminBookingManagementService {
             throw new IllegalStateException("Chỉ có thể đổi nhân viên cho lịch đang CONFIRMED.");
         }
         if (booking.staffId().equals(replacementStaffId)) return;
+        bookings.lockCompanySettings();
         var start = booking.startTime();
-        if (!bookings.companyAcceptsStart(start.toLocalDate(), start.toLocalTime())) {
-            throw new IllegalStateException("Giờ bắt đầu của lịch không nằm trong giờ hoạt động hiện được cấu hình.");
+        if (!bookings.companyAcceptsInterval(start.toLocalDate(), start.toLocalTime(), booking.endTime().toLocalTime())
+                || booking.endTime().toLocalDate().isAfter(start.toLocalDate())) {
+            throw new IllegalStateException("Lịch không nằm trọn trong cùng một khung giờ hoạt động hiện được cấu hình.");
         }
         if (bookings.isOnApprovedLeave(replacementStaffId, start.toLocalDate())) {
             throw new IllegalArgumentException("Nhân viên thay thế đã được duyệt nghỉ trong ngày này.");
         }
         if (replacement.getStaffType() == StaffType.PART_TIME
-                && !bookings.hasPartTimeAvailability(replacementStaffId, start.toLocalDate(), start.toLocalTime())) {
-            throw new IllegalArgumentException("Nhân viên bán thời gian chưa đăng ký sẵn sàng ở giờ bắt đầu này.");
+                && !bookings.partTimeAcceptsInterval(replacementStaffId, start.toLocalDate(), start.toLocalTime(), booking.endTime().toLocalTime())) {
+            throw new IllegalArgumentException("Toàn bộ lịch phải nằm trong khoảng sẵn sàng của nhân viên bán thời gian.");
         }
-        if (bookings.hasConflictingBookingExcept(replacementStaffId, start, booking.endTime(), bookingId)) {
-            throw new IllegalArgumentException("Nhân viên thay thế bị trùng lịch hoặc không đủ khoảng đệm 60 phút.");
+        if (booking.latitude() == null || booking.longitude() == null || !houses.isWithinServiceRadius(booking.latitude(), booking.longitude())) throw new IllegalArgumentException("Địa chỉ Booking nằm ngoài vùng phục vụ hoặc thiếu tọa độ.");
+        if (reservations.hasInsufficientTravelGap(replacementStaffId, start, booking.endTime(), booking.latitude(), booking.longitude(), bookingId)) {
+            throw new IllegalArgumentException("Nhân viên thay thế bị trùng lịch hoặc chưa đủ khoảng nghỉ/tuyến đường.");
         }
         if (bookings.assignStaff(bookingId, booking.staffId(), replacementStaffId) != 1) {
             throw new IllegalStateException("Lịch hẹn vừa thay đổi. Hãy tải lại trang.");

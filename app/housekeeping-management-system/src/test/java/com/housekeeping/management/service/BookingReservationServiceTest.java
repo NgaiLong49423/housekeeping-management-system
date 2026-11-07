@@ -35,8 +35,10 @@ class BookingReservationServiceTest {
     private final HouseRepository houses = mock(HouseRepository.class);
     private final ServicesRepository services = mock(ServicesRepository.class);
     private final BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
+    private final HouseService houseService = mock(HouseService.class);
+    private final VietmapClient vietmap = mock(VietmapClient.class);
     private final BookingReservationService service = new BookingReservationService(users, staffAccounts, houses,
-            services, bookings);
+            services, bookings, houseService, vietmap);
 
     @Test
     void acceptsExactMinimumLeadTimeAndMaximumHorizon() {
@@ -50,10 +52,17 @@ class BookingReservationServiceTest {
     void rejectsShortLeadTimeOffSlotAndBeyondHorizon() {
         assertThatThrownBy(() -> BookingReservationService.validateRequestedStart(now.plusMinutes(119), now))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("120 phút");
-        assertThatThrownBy(() -> BookingReservationService.validateRequestedStart(now.plusMinutes(135), now))
-                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("30 phút");
+        assertThatThrownBy(() -> BookingReservationService.validateRequestedStart(now.plusMinutes(136), now))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("00, 15, 30 hoặc 45");
         assertThatThrownBy(() -> BookingReservationService.validateRequestedStart(now.plusDays(30).plusMinutes(30), now))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("30 ngày");
+    }
+
+    @Test
+    void acceptsOnlyQuarterHourStartMinutes() {
+        assertThatCode(() -> BookingReservationService.validateRequestedStart(now.plusHours(2).withMinute(15), now)).doesNotThrowAnyException();
+        assertThatThrownBy(() -> BookingReservationService.validateRequestedStart(now.plusHours(2).withMinute(1), now))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("00, 15, 30 hoặc 45");
     }
 
     @Test
@@ -73,13 +82,15 @@ class BookingReservationServiceTest {
         staff.setStaffType(StaffType.FULL_TIME);
         when(staffAccounts.findActiveByStaffIdForUpdate(7L)).thenReturn(Optional.of(staff));
         LocalDateTime closedStart = LocalDate.now(ZoneOffset.ofHours(7)).plusDays(1).atTime(20, 0);
-        when(bookings.companyAcceptsStart(closedStart.toLocalDate(), closedStart.toLocalTime())).thenReturn(false);
+        when(bookings.companyAcceptsInterval(org.mockito.ArgumentMatchers.eq(closedStart.toLocalDate()),
+                org.mockito.ArgumentMatchers.eq(closedStart.toLocalTime()), org.mockito.ArgumentMatchers.any())).thenReturn(false);
+        Services active = service(5L, "Dọn", "10.00", 60);
+        when(services.findAllById(java.util.List.of(5L))).thenReturn(java.util.List.of(active));
 
         assertThatThrownBy(() -> service.createBooking(12L, 7L, 31L, closedStart, java.util.List.of(5L), null))
-                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("ngoài giờ hoạt động");
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("khung giờ hoạt động");
 
-        verify(bookings).companyAcceptsStart(closedStart.toLocalDate(), closedStart.toLocalTime());
-        verifyNoInteractions(services);
+        verify(bookings).companyAcceptsInterval(org.mockito.ArgumentMatchers.eq(closedStart.toLocalDate()), org.mockito.ArgumentMatchers.eq(closedStart.toLocalTime()), org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -104,7 +115,8 @@ class BookingReservationServiceTest {
 
         LocalDateTime start = LocalDateTime.now(ZoneOffset.ofHours(7)).plusDays(3)
                 .withHour(10).withMinute(0).withSecond(0).withNano(0);
-        when(bookings.companyAcceptsStart(start.toLocalDate(), start.toLocalTime())).thenReturn(true);
+        when(bookings.companyAcceptsInterval(start.toLocalDate(), start.toLocalTime(), start.plusMinutes(60).toLocalTime())).thenReturn(true);
+        when(houseService.isWithinServiceRadius(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
         when(bookings.isOnApprovedLeave(7L, start.toLocalDate())).thenReturn(false);
         Services inactive = service(5L, "Dọn phòng", "100.00", 60);
         inactive.setStatus(Services.Status.INACTIVE);
@@ -114,7 +126,8 @@ class BookingReservationServiceTest {
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("ngừng hoạt động");
 
         verify(bookings, org.mockito.Mockito.never()).hasConflictingBooking(
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt());
+        verify(bookings, org.mockito.Mockito.never()).validateStillOpen(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
         verify(bookings, org.mockito.Mockito.never()).insertBooking(org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
@@ -125,7 +138,7 @@ class BookingReservationServiceTest {
     }
 
     @Test
-    void sumsServiceSnapshotsAndAllowsWorkToEndAfterCompanyClosingTime() {
+    void sumsServiceSnapshotsOnlyWhenWorkEndsInsideCompanyWindow() {
         User customer = new User();
         customer.setUserId(12L);
         customer.setRole(UserRole.CUSTOMER);
@@ -151,11 +164,10 @@ class BookingReservationServiceTest {
         assertThat(start.toLocalTime()).isBefore(companyClosingTime);
         assertThat(start.plusMinutes(180).toLocalTime()).isAfter(companyClosingTime);
         when(services.findAllById(java.util.List.of(5L, 6L))).thenReturn(java.util.List.of(first, second));
-        when(bookings.companyAcceptsStart(org.mockito.ArgumentMatchers.eq(start.toLocalDate()),
-                org.mockito.ArgumentMatchers.eq(LocalTime.of(17, 30)))).thenReturn(true);
+        when(bookings.companyAcceptsInterval(start.toLocalDate(), LocalTime.of(17, 30), LocalTime.of(20, 30))).thenReturn(false);
         when(bookings.isOnApprovedLeave(7L, start.toLocalDate())).thenReturn(false);
         when(bookings.hasConflictingBooking(org.mockito.ArgumentMatchers.eq(7L), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any())).thenReturn(false);
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt())).thenReturn(false);
         when(bookings.insertBooking(org.mockito.ArgumentMatchers.eq(12L), org.mockito.ArgumentMatchers.eq(7L),
                 org.mockito.ArgumentMatchers.eq(31L), org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.isNull(),
@@ -163,24 +175,14 @@ class BookingReservationServiceTest {
                 org.mockito.ArgumentMatchers.eq(new BigDecimal("300.00")), org.mockito.ArgumentMatchers.isNull(),
                 org.mockito.ArgumentMatchers.any())).thenReturn(77L);
 
-        assertThat(service.createBooking(12L, 7L, 31L, start, java.util.List.of(5L, 6L), null)).isEqualTo(77L);
-
-        verify(bookings).insertBooking(org.mockito.ArgumentMatchers.eq(12L), org.mockito.ArgumentMatchers.eq(7L),
-                org.mockito.ArgumentMatchers.eq(31L), org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.eq(house.getLatitude()), org.mockito.ArgumentMatchers.eq(house.getLongitude()),
-                org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.eq(start),
-                org.mockito.ArgumentMatchers.eq(start.plusMinutes(180)), org.mockito.ArgumentMatchers.eq(180),
-                org.mockito.ArgumentMatchers.eq(new BigDecimal("300.00")), org.mockito.ArgumentMatchers.isNull(),
-                org.mockito.ArgumentMatchers.any());
-        verify(bookings).insertDetails(77L, java.util.List.of(
-                new BookingPersistenceRepository.ServiceSnapshot(5L, "Dọn phòng", new BigDecimal("100.00"), 90),
-                new BookingPersistenceRepository.ServiceSnapshot(6L, "Lau bếp", new BigDecimal("200.00"), 90)));
+        assertThatThrownBy(() -> service.createBooking(12L, 7L, 31L, start, java.util.List.of(5L, 6L), null))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("kết thúc trong cùng");
         verify(bookings, org.mockito.Mockito.never())
                 .hasPartTimeAvailability(7L, start.toLocalDate(), start.toLocalTime());
     }
 
     @Test
-    void partTimeStaffNeedsAvailabilityAtStartButNotForTheEntireServiceDuration() {
+    void partTimeStaffMustBeAvailableForTheEntireServiceDuration() {
         User customer = new User();
         customer.setUserId(12L);
         customer.setRole(UserRole.CUSTOMER);
@@ -203,17 +205,18 @@ class BookingReservationServiceTest {
         LocalTime availabilityEnd = LocalTime.of(18, 0);
         assertThat(start.toLocalTime()).isBefore(availabilityEnd);
         assertThat(start.plusMinutes(180).toLocalTime()).isAfter(availabilityEnd);
-        when(bookings.companyAcceptsStart(start.toLocalDate(), start.toLocalTime())).thenReturn(true);
+        when(bookings.companyAcceptsInterval(start.toLocalDate(), start.toLocalTime(), start.plusMinutes(180).toLocalTime())).thenReturn(true);
+        when(houseService.isWithinServiceRadius(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
         when(bookings.isOnApprovedLeave(7L, start.toLocalDate())).thenReturn(false);
-        when(bookings.hasPartTimeAvailability(7L, start.toLocalDate(), start.toLocalTime())).thenReturn(false);
-
-        assertThatThrownBy(() -> service.createBooking(12L, 7L, 31L, start, java.util.List.of(5L), null))
-                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("chưa đăng ký khoảng sẵn sàng");
-
-        when(bookings.hasPartTimeAvailability(7L, start.toLocalDate(), start.toLocalTime())).thenReturn(true);
+        when(bookings.partTimeAcceptsInterval(7L, start.toLocalDate(), start.toLocalTime(), start.plusMinutes(180).toLocalTime())).thenReturn(false);
         Services cleaning = service(5L, "Dọn phòng", "100.00", 180);
         when(services.findAllById(java.util.List.of(5L))).thenReturn(java.util.List.of(cleaning));
-        when(bookings.hasConflictingBooking(7L, start, start.plusMinutes(180))).thenReturn(false);
+
+        assertThatThrownBy(() -> service.createBooking(12L, 7L, 31L, start, java.util.List.of(5L), null))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("khoảng sẵn sàng đang hiệu lực");
+
+        when(bookings.partTimeAcceptsInterval(7L, start.toLocalDate(), start.toLocalTime(), start.plusMinutes(180).toLocalTime())).thenReturn(true);
+        when(bookings.adjacentAppointments(7L, start, start.plusMinutes(180), null)).thenReturn(java.util.List.of());
         when(bookings.insertBooking(org.mockito.ArgumentMatchers.eq(12L), org.mockito.ArgumentMatchers.eq(7L),
                 org.mockito.ArgumentMatchers.eq(31L), org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.isNull(),
@@ -222,14 +225,6 @@ class BookingReservationServiceTest {
                 org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.any())).thenReturn(78L);
 
         assertThat(service.createBooking(12L, 7L, 31L, start, java.util.List.of(5L), null)).isEqualTo(78L);
-        verify(bookings, org.mockito.Mockito.times(2))
-                .hasPartTimeAvailability(7L, start.toLocalDate(), start.toLocalTime());
-        verify(bookings).insertBooking(org.mockito.ArgumentMatchers.eq(12L), org.mockito.ArgumentMatchers.eq(7L),
-                org.mockito.ArgumentMatchers.eq(31L), org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.isNull(),
-                org.mockito.ArgumentMatchers.eq(start), org.mockito.ArgumentMatchers.eq(start.plusMinutes(180)),
-                org.mockito.ArgumentMatchers.eq(180), org.mockito.ArgumentMatchers.eq(new BigDecimal("100.00")),
-                org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.any());
     }
 
     private Services service(Long id, String name, String price, int durationMinutes) {

@@ -1,8 +1,8 @@
 > **Document:** Software Requirements Specification\
 > **File:** `docs/requirements/SRS.md`\
-> **Version:** v2.0.0\
+> **Version:** v3.2.0\
 > **Created:** 2026-06-14\
-> **Last Updated:** 2026-10-24\
+> **Last Updated:** 2026-11-07\
 > **Status:** Active\
 # SRS — SOFTWARE REQUIREMENTS SPECIFICATION
 
@@ -46,42 +46,51 @@ One server-rendered Java Spring MVC web application, single company, SQL Server.
 - AC-PROFILE-01: STAFF chỉ sửa profile của mình; Customer không thể mutate profile.
 - AC-FOLLOW-01: Follow trùng không có dòng lặp; unfollow mất dòng.
 
-### FR-HOUSE — Houses and manually entered addresses
-- Customer quản lý nhiều House gồm người nhận, số điện thoại, tỉnh/thành, phường/xã, địa chỉ chi tiết, loại địa chỉ, tùy chọn mặc định và optional address_note; không tích hợp Google Maps và không yêu cầu tọa độ.
-- Mỗi Booking dùng đúng một House thuộc Customer; lưu snapshot địa chỉ văn bản. Tọa độ House/Booking có thể NULL và không được dùng để từ chối booking.
+### FR-HOUSE — Houses and VietMap addresses
+- Customer quản lý nhiều House gồm người nhận, số điện thoại, địa chỉ VietMap, loại địa chỉ, tùy chọn mặc định và optional address_note. Customer chọn suggestion có ref_id; backend tra tọa độ qua Place API, key chỉ ở server.
+- Mỗi Booking dùng đúng một House thuộc Customer; lưu snapshot địa chỉ và tọa độ. Booking yêu cầu có tọa độ và nằm trong bán kính đường chim bay từ vị trí cơ sở do Admin cấu hình; mặc định khởi điểm 10 km.
 - Soft delete House `is_deleted=1` chỉ khi không có Booking CONFIRMED hoặc AWAITING_PAYMENT; giữ FK/snapshots lịch sử; House deleted không thể được chọn trong Booking mới.
-- AC-HOUSE-01: Không thể đặt House không thuộc Customer hoặc bị soft-delete; hệ thống không kiểm tra bán kính theo tọa độ.
+- AC-HOUSE-01: Không thể đặt House không thuộc Customer, bị soft-delete, thiếu tọa độ VietMap hoặc nằm ngoài bán kính.
 - AC-HOUSE-02: Soft delete với Booking chưa xong bị từ chối; COMPLETED/CANCELLED không ngăn xóa mềm; lịch sử giữ nguyên.
 - AC-HOUSE-03: Sửa House không sửa Booking address snapshots.
 - AC-HOUSE-04: Mỗi Customer có tối đa một House đang hoạt động được đặt làm mặc định; địa chỉ cũ được backfill người nhận/điện thoại và giữ nguyên chuỗi địa chỉ.
 
 ### FR-CONFIG — Company settings/opening hours
-- Một Company_Settings bản ghi; 7 dòng Company_Operating_Hours (Mon=1..Sun=7), closed day NULL times; open day opening<closing.
-- AC-CONFIG-01: Đặt Booking start vào ngày đóng cửa hoặc ngoài `[opening,closing)` bị từ chối; end > closing hợp lệ, không surcharge.
+- Một Company_Settings bản ghi, bán kính dương và một tâm tọa độ; mỗi thứ (Mon=1..Sun=7) có một hoặc nhiều khung không chồng lấn. Ngày đóng cửa có một dòng closed với giờ NULL.
+- Lịch tuần có ngày hiệu lực. Lịch nền hiện tại được backfill từ 1900-01-01; phiên bản áp dụng cho ngày D là phiên bản mới nhất có ngày hiệu lực không sau D. Admin có thể tạo nhiều phiên bản tương lai, xem lịch quá khứ ở chế độ chỉ đọc; ngày của phiên bản đã lưu không đổi. Có thể sửa lịch hôm nay hoặc sửa/hủy lịch tương lai.
+- Khi tạo/sửa/hủy phiên bản, chặn nếu khoảng ngày phiên bản chi phối có Booking `CONFIRMED` hoặc `AWAITING_PAYMENT`, kể cả khi giờ mới vẫn chứa booking. Booking `CANCELLED` không khóa. Hủy phiên bản tương lai không tự kích hoạt lại availability đã inactive.
+- Admin lưu địa điểm/bán kính riêng với các phiên bản giờ. Khi thay đổi giờ hiệu lực, availability Staff không còn nằm trọn trong giờ mới được inactive và giữ lịch sử.
+- Mọi giờ bắt đầu/kết thúc theo lưới 15 phút (:00/:15/:30/:45); server kiểm tra lại.
+- Tọa độ tâm cơ sở do Admin lưu cùng địa chỉ; bán kính dịch vụ mặc định 10 km, Admin có thể điều chỉnh. Đổi tâm/bán kính mà booking tương lai mất điều kiện phục vụ thì chặn lưu đến khi Admin xử lý.
+- Nếu đổi khung giờ hoặc bán kính khiến Booking CONFIRMED tương lai mất hợp lệ, Admin phải đổi nhân viên/hủy booking trước khi lưu. Availability ngoài giờ mới được giữ lịch sử nhưng inactive.
+- AC-CONFIG-01: Booking phải bắt đầu và kết thúc trong cùng một khung hợp lệ; không nhận khoảng bắc qua giờ nghỉ.
+- AC-CONFIG-02: Staff, Customer booking và Admin reassignment cùng tra phiên bản lịch theo ngày; một phiên bản mới chỉ thay lịch từ ngày hiệu lực trở đi.
 
 ### FR-AVAIL — Staff availability
 - FULL_TIME available mặc định khi công ty mở, không phải đăng ký lịch riêng.
-- PART_TIME tự tạo các interval `[start_time,end_time)` trên `work_date`, nhiều non-overlap intervals; không có entry thì không available. Start của Booking thuộc ít nhất một interval; end có thể ngoài interval.
-- Không cho PART_TIME tự đổi/xóa availability ảnh hưởng Booking confirmed; Admin giải quyết.
-- AC-AVAIL-01: PART_TIME không có interval trong ngày => reject Booking; start trong 1 interval dù end ra ngoài => accepted nếu các rule khác đúng.
-- AC-AVAIL-02: Two PART_TIME slots overlapping cùng ngày bị reject; sửa/delete impact CONFIRMED bị từ chối.
+- PART_TIME tạo interval `[start_time,end_time)` nằm trọn trong đúng một khung Admin của ngày; mọi đầu mốc 15 phút, các khoảng không chồng nhau. Booking phải nằm trọn trong khoảng đang active. FULL_TIME theo khung công ty.
+- Không sửa/xóa cứng availability: Staff chỉ deactivate. Chặn deactivate nếu khoảng chứa Booking CONFIRMED tương lai; Admin đổi Staff/hủy trước.
+- AC-AVAIL-01: Availability ngoài giờ công ty, lệch 15 phút, chồng lấn hoặc Booking vượt khỏi availability bị từ chối.
+- AC-AVAIL-02: Deactivate chỉ đổi `is_active`; lịch sử vẫn còn và các Booking đã xử lý được bảo toàn.
 
 ### FR-LEAVE — Leave request/review
 - Staff submit start_date/end_date, reason, status PENDING. Admin APPROVE/REJECT, store reviewer/date. Full-day only.
-- Approved leave rejects new bookings starting on leave date; Admin resolves confirmed booking conflict (no automatic cancel/reassign algorithm assumed).
-- AC-LEAVE-01: PENDING leave không tự động block booking; APPROVED leave block booking mới; start_date>end_date invalid.
+- Admin chỉ duyệt nghỉ khi không còn Booking CONFIRMED tương lai thuộc các ngày xin nghỉ; Admin chủ động đổi Staff hoặc hủy trước. Không tự động xử lý booking.
+- AC-LEAVE-01: PENDING leave không block booking; APPROVED leave block booking mới; approve bị chặn và liệt kê Booking CONFIRMED tương lai cần xử lý; start_date>end_date invalid.
 - AC-LEAVE-02: Staff khác không duyệt/đọc trái quyền; review timestamps/reviewer consistent.
 
 ### FR-BOOK — Create Booking
-- Inputs: Customer, own House, chosen ACTIVE Staff, >=1 ACTIVE Services, proposed start, optional area_note.
-- Validate start alignment to 30-minute slots; now+>=120 minutes; start<=now+30 days; start inside company hours; House within radius; Staff not on approved leave; type-specific availability; check any overlapping Bookings and >=60m buffer for same Staff.
-- Interval collision policy `[a,b)` and 60m buffer in both directions; Bookings occupying staff are CONFIRMED and AWAITING_PAYMENT unless an approved alternative explicitly documented; COMPLETED historic appointment occupancy should be evaluated relative to scheduled interval to prevent retroactive double booking (implementation policy must not silently loosen known 60m rule).
+- Inputs: Customer, own House, chosen ACTIVE Staff, >=1 ACTIVE Services, proposed start, optional area_note. One booking form may include several service dates; each date has its own selected Staff and start time and persists as an independent Booking.
+- Availability calendar only offers dates with at least one Staff and 15-minute start that can fit all selected Services inside Admin hours and the Staff's active interval (for PART_TIME), after leave, existing-booking and 120-minute lead-time checks. When Customer filters by Staff, dates are limited to that Staff's eligible schedule.
+- Validate start alignment to 15-minute slots; now+>=120 minutes; start<=now+30 days; full interval inside a single company window; House within radius; Staff not on approved leave; type-specific availability.
+- For nearest preceding/next booking of same Staff, required gap is `max(60 minutes, VietMap motorcycle route minutes + 15 minutes)`. VietMap error/no route rejects temporarily. Route is an estimate for future schedules, not a traffic forecast.
 - On success snapshot House address/lat/lng/address_note and per-Service name/unit price/duration; total_amount=sum unit prices, total_duration_minutes=sum durations, end=start+duration; `original_staff_id=staff_id`; status CONFIRMED.
 - One transaction with reliable concurrency coordination for parallel requests for same Staff. Do not use an unchecked `existsByOverlap` followed by insert alone.
+- Multi-date submission validates/persists each date independently. A date that fails availability or route validation is reported; other valid dates may still be created. The UI must show which dates need correction/removal and the count of successfully created bookings.
 - AC-BOOK-01: Valid Booking persists header + >=1 detail atomically with correct totals, duration, snapshots, status, staff references.
-- AC-BOOK-02: Lead time 119min reject, 120min accept; beyond 30d reject; non-30min slot reject.
-- AC-BOOK-03: Different Staff can be booked same time at same House; same Staff conflicts/59min gap reject, 60min gap accepted.
-- AC-BOOK-04: End after company close and after PART_TIME slot end accepted (start conditions still required).
+- AC-BOOK-02: Lead time <120min rejects, >=120min accepts when aligned to :00/:15/:30/:45; beyond 30d rejects.
+- AC-BOOK-03: Different Staff can be booked at same time; same Staff is checked against route-aware gap.
+- AC-BOOK-04: End outside current company/Staff interval rejects.
 - AC-BOOK-05: Concurrent requests for same Staff/slot: at most one confirmed successful; no partial write.
 
 ### FR-CANCEL/REASSIGN — Cancellation and admin assignment
@@ -90,6 +99,10 @@ One server-rendered Java Spring MVC web application, single company, SQL Server.
 - Admin can replace assigned staff (`staff_id`), preserve immutable `original_staff_id`; verify replacement Staff's eligibility with the relevant rules. No separate reassignment history.
 - AC-CANCEL-01: Exactly -120m allows customer cancellation; -119m rejects; cancellation leaves snapshots/details intact.
 - AC-REASSIGN-01: Admin reassignment changes current staff, not original staff, and cannot create conflicting active booking.
+
+### FR-ARRIVAL — Customer arrival record
+- Customer owning a CONFIRMED Booking may independently record Staff arrival at or after scheduled start. This timestamp does not change Booking status; assigned Staff completion remains separate.
+- AC-ARRIVAL-01: Other Customers, pre-start, non-CONFIRMED and duplicate confirmations are rejected.
 - Note: status-specific cancellation eligibility after work complete/payment is **TBD**; do not create new refund semantics.
 
 ### FR-JOB — Work execution/evidence

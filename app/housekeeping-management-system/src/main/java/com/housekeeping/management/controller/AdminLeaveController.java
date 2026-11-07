@@ -41,7 +41,7 @@ public class AdminLeaveController {
         try {
             leaves.reviewLeaveRequest(id, user.getUserId(), decision);
             flash.addFlashAttribute("success", decision == LeaveStatus.APPROVED
-                    ? "Đã duyệt đơn nghỉ. Hãy xử lý riêng các Booking đã xác nhận bị ảnh hưởng."
+                    ? "Đã duyệt đơn nghỉ sau khi xác nhận không còn Booking tương lai bị ảnh hưởng."
                     : "Đã từ chối đơn nghỉ.");
         } catch (IllegalArgumentException | IllegalStateException failure) {
             flash.addFlashAttribute("error", failure.getMessage());

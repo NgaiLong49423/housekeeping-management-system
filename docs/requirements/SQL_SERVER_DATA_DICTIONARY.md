@@ -1,12 +1,20 @@
 > **Document:** SQL Server Data Dictionary\
 > **File:** `docs/requirements/SQL_SERVER_DATA_DICTIONARY.md`\
-> **Version:** v1.0.0\
+> **Version:** v2.2.0\
 > **Created:** 2026-10-24\
-> **Last Updated:** 2026-10-24\
+> **Last Updated:** 2026-11-07\
 > **Status:** Active\
 # Từ điển dữ liệu SQL Server — 15 bảng
 
 **Logical schema:** 15 bảng nghiệp vụ đã chốt. **Physical DBMS:** Microsoft SQL Server. Đây là tài liệu mô tả thiết kế SQL Server; **không** dùng bản `.sql` MySQL từ hồ sơ cũ để chạy trực tiếp.
+
+## Migration V3 và dữ liệu lịch sử
+
+Migration mới thêm `period_no` để cho phép nhiều khung mỗi ngày, `is_active` cho Staff availability và `customer_arrived_at` cho Booking. Migration giữ nguyên 15 bảng nghiệp vụ và không sửa migration đã áp dụng. Existing operating-hour rows được đánh số theo `operating_hour_id` trong từng ngày để bảo toàn giờ hiện hành khi nâng cấp.
+
+## Migration V5 — lịch tuần có ngày hiệu lực
+
+Migration dùng chung V5 thêm `effective_from DATE NOT NULL DEFAULT '1900-01-01'` vào `Company_Operating_Hours`; toàn bộ giờ cũ trở thành lịch nền. Khóa duy nhất mở rộng thành `(company_id,effective_from,day_of_week,period_no)`. Không thêm bảng nghiệp vụ; tổng số vẫn là 15. Lịch áp dụng cho ngày D là phiên bản có `effective_from` lớn nhất nhưng không sau D; phiên bản đó kết thúc ngay trước ngày hiệu lực kế tiếp.
 
 ## Mapping kiểu dữ liệu đề xuất
 | Logical | SQL Server |
@@ -40,19 +48,19 @@ Recommended Java: `Long`, `BigDecimal`, `LocalDate`, `LocalTime`, `LocalDateTime
 `company_id PK`, `company_address NVARCHAR(500) NOT NULL`, `latitude DECIMAL(10,7) NOT NULL`, `longitude DECIMAL(10,7) NOT NULL`, `service_radius_km DECIMAL(6,2) NOT NULL CHECK >0`. Chỉ 1 row theo nghiệp vụ; enforce qua application/bootstrap hoặc constraint hợp lý, không phát minh company marketplace. CHECK lat between -90/+90, lng -180/+180.
 
 ## 6. Company_Operating_Hours
-`operating_hour_id PK`, `company_id BIGINT NOT NULL FK`, `day_of_week INT NOT NULL CHECK BETWEEN 1 AND 7` (Mon=1), `opening_time TIME(0) NULL`, `closing_time TIME(0) NULL`, `is_closed BIT NOT NULL DEFAULT 0`; `UNIQUE(company_id,day_of_week)`. Closed=>hours null; open=>non-null open<close. 7 rows do service/bootstrap enforce.
+`operating_hour_id PK`, `company_id BIGINT NOT NULL FK`, `effective_from DATE NOT NULL DEFAULT '1900-01-01'`, `day_of_week INT NOT NULL CHECK BETWEEN 1 AND 7` (Mon=1), `period_no SMALLINT NOT NULL DEFAULT 1`, `opening_time TIME(0) NULL`, `closing_time TIME(0) NULL`, `is_closed BIT NOT NULL DEFAULT 0`; `UNIQUE(company_id,effective_from,day_of_week,period_no)`. Mỗi phiên bản có đủ bảy ngày; ngày có thể có nhiều khung không chồng lấn hoặc một dòng nghỉ. Java chặn phút ngoài 00/15/30/45. Các truy vấn Staff/Booking/Admin chọn phiên bản gần nhất không sau ngày được xét.
 
 ## 7. Houses
-`house_id PK`, `customer_id BIGINT NOT NULL FK -> Users`, `house_name NVARCHAR(100) NOT NULL`, `address NVARCHAR(500) NOT NULL`, `latitude DECIMAL(10,7) NULL`, `longitude DECIMAL(10,7) NULL`, `recipient_name NVARCHAR(150) NOT NULL`, `recipient_phone NVARCHAR(20) NOT NULL`, `province_city NVARCHAR(100) NULL`, `ward_commune NVARCHAR(100) NULL`, `address_detail NVARCHAR(500) NOT NULL`, `address_type VARCHAR(20) NOT NULL CHECK HOME/OFFICE`, `is_default BIT NOT NULL DEFAULT 0`, `address_note NVARCHAR(500) NULL`, `is_deleted BIT NOT NULL DEFAULT 0`. Không timestamps. Tối đa một địa chỉ mặc định đang hoạt động trên mỗi khách bằng filtered unique index. Địa chỉ mới nhập tay không bắt buộc tọa độ; booking không dùng kiểm tra bán kính. `Bookings.house_id` giữ FK sau soft-delete.
+`house_id PK`, `customer_id BIGINT NOT NULL FK -> Users`, `house_name NVARCHAR(100) NOT NULL`, `address NVARCHAR(500) NOT NULL`, `latitude DECIMAL(10,7) NULL`, `longitude DECIMAL(10,7) NULL`, `recipient_name NVARCHAR(150) NOT NULL`, `recipient_phone NVARCHAR(20) NOT NULL`, `province_city NVARCHAR(100) NULL`, `ward_commune NVARCHAR(100) NULL`, `address_detail NVARCHAR(500) NOT NULL`, `address_type VARCHAR(20) NOT NULL CHECK HOME/OFFICE`, `is_default BIT NOT NULL DEFAULT 0`, `address_note NVARCHAR(500) NULL`, `is_deleted BIT NOT NULL DEFAULT 0`. Địa chỉ Customer được xác minh từ VietMap và cần tọa độ khi tạo Booking. `Bookings.house_id` giữ FK sau soft-delete.
 
 ## 8. Staff_Availability
-`availability_id PK`, `staff_id BIGINT NOT NULL FK -> Staff`, `work_date DATE NOT NULL`, `start_time TIME(0) NOT NULL`, `end_time TIME(0) NOT NULL`, `created_at DATETIME2(0) NOT NULL DEFAULT SYSDATETIME()`. CHECK start<end; no updated_at. **Không phải lịch tuần**; overlap kiểm tra bằng transaction/backend.
+`availability_id PK`, `staff_id BIGINT NOT NULL FK -> Staff`, `work_date DATE NOT NULL`, `start_time TIME(0) NOT NULL`, `end_time TIME(0) NOT NULL`, `created_at DATETIME2(0) NOT NULL DEFAULT SYSDATETIME()`, `is_active BIT NOT NULL DEFAULT 1`. CHECK start<end; no updated_at. PART_TIME tạo khoảng trọn trong một khung giờ công ty; ngừng bằng is_active=0, không xóa/sửa lịch sử.
 
 ## 9. Staff_Leaves
 `leave_id PK`, `staff_id BIGINT NOT NULL FK -> Staff`, `start_date DATE NOT NULL`, `end_date DATE NOT NULL`, `reason NVARCHAR(500) NOT NULL`, `status VARCHAR(20) NOT NULL DEFAULT PENDING CHECK PENDING/APPROVED/REJECTED`, `created_at DATETIME2(0) NOT NULL DEFAULT SYSDATETIME()`, `reviewed_by BIGINT NULL FK -> Users`, `reviewed_at DATETIME2(0) NULL`. CHECK start<=end; PENDING reviewed fields NULL; APPROVED/REJECTED reviewed fields non-NULL.
 
 ## 10. Bookings
-`booking_id PK`, `customer_id BIGINT NOT NULL FK -> Users`, `staff_id BIGINT NOT NULL FK -> Staff` (**current**), `original_staff_id BIGINT NOT NULL FK -> Staff` (**immutable**), `house_id BIGINT NOT NULL FK -> Houses`, `address_snapshot NVARCHAR(500) NOT NULL`, `latitude_snapshot DECIMAL(10,7) NULL`, `longitude_snapshot DECIMAL(10,7) NULL`, `address_note_snapshot NVARCHAR(500) NULL`, `start_time DATETIME2(0) NOT NULL`, `end_time DATETIME2(0) NOT NULL`, `total_duration_minutes INT NOT NULL`, `total_amount DECIMAL(12,2) NOT NULL`, `area_note NVARCHAR(MAX) NULL`, `status VARCHAR(20) NOT NULL DEFAULT CONFIRMED CHECK CONFIRMED/AWAITING_PAYMENT/COMPLETED/CANCELLED`, `cancelled_at DATETIME2(0) NULL`, `cancelled_by BIGINT NULL FK -> Users`, `cancellation_reason NVARCHAR(500) NULL`, `created_at DATETIME2(0) NOT NULL DEFAULT SYSDATETIME()`.
+`booking_id PK`, `customer_id BIGINT NOT NULL FK -> Users`, `staff_id BIGINT NOT NULL FK -> Staff` (**current**), `original_staff_id BIGINT NOT NULL FK -> Staff` (**immutable**), `house_id BIGINT NOT NULL FK -> Houses`, `address_snapshot NVARCHAR(500) NOT NULL`, `latitude_snapshot DECIMAL(10,7) NULL`, `longitude_snapshot DECIMAL(10,7) NULL`, `address_note_snapshot NVARCHAR(500) NULL`, `start_time DATETIME2(0) NOT NULL`, `end_time DATETIME2(0) NOT NULL`, `total_duration_minutes INT NOT NULL`, `total_amount DECIMAL(12,2) NOT NULL`, `area_note NVARCHAR(MAX) NULL`, `status VARCHAR(20) NOT NULL DEFAULT CONFIRMED CHECK CONFIRMED/AWAITING_PAYMENT/COMPLETED/CANCELLED`, `cancelled_at DATETIME2(0) NULL`, `cancelled_by BIGINT NULL FK -> Users`, `cancellation_reason NVARCHAR(500) NULL`, `created_at DATETIME2(0) NOT NULL DEFAULT SYSDATETIME()`, `customer_arrived_at DATETIME2(0) NULL`.
 CHECK end_time>start_time, nonnegative totals, valid coordinate range; status CANCELLED means all cancel fields present, others cancel fields NULL. No updated_at/work_completed_at/history.
 
 ## 11. Booking_Details

@@ -23,7 +23,7 @@ cd app/housekeeping-management-system
 .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=demo"
 ```
 
-Mở `http://localhost:8080`. Profile demo cố định URL tới `home_cleaning_demo`, không dùng `DB_URL` để trỏ sang database khác; username/password lấy từ `.env`. Ứng dụng không tự xóa database.
+Mở `http://localhost:8080`. Profile demo cố định URL tới `home_cleaning_demo`, không dùng `DB_URL` để trỏ sang database khác; username/password lấy từ `.env`. Database được giữ nguyên khi khởi động theo mặc định. Chỉ đặt `DB_RESET_ON_STARTUP=true` nếu chủ động muốn xóa và tạo lại database demo local.
 
 ## Kết nối mẫu
 

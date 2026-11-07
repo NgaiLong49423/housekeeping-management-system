@@ -39,21 +39,31 @@ public final class PortalForms {
     public record AvailabilityForm(@NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate workDate,
             @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime startTime,
             @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime endTime) { }
+    public record AvailabilityBatchForm(@NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            List<Integer> daysOfWeek,
+            @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime startTime,
+            @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime endTime) { }
     public record LeaveRequestForm(@NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @NotBlank @Size(max = 500) String reason) { }
     public record HouseForm(@NotBlank @Size(max = 150) String recipientName,
             @NotBlank @Size(min = 7, max = 20) @Pattern(regexp = "[+0-9() .-]+", message = "Số điện thoại không hợp lệ.") String recipientPhone,
-            @NotBlank @Size(max = 100) String provinceCity,
-            @NotBlank @Size(max = 100) String wardCommune,
-            @NotBlank @Size(max = 290) String addressDetail,
+            @NotBlank @Size(max = 500) String vietmapRefId,
+            String provinceCity, String wardCommune, String addressDetail,
             @NotNull HouseAddressType addressType, boolean defaultAddress,
             @Size(max = 500) String addressNote) { }
     public record CompanySettingsForm(@NotBlank @Size(max = 500) String companyAddress,
             @NotNull @DecimalMin("-90.0") @DecimalMax("90.0") @Digits(integer = 3, fraction = 7) BigDecimal latitude,
             @NotNull @DecimalMin("-180.0") @DecimalMax("180.0") @Digits(integer = 3, fraction = 7) BigDecimal longitude,
             @NotNull @DecimalMin(value = "0.01") @Digits(integer = 4, fraction = 2) BigDecimal serviceRadiusKm,
-            @Size(min = 7, max = 7) List<@Valid OperatingHoursForm> operatingHours) { }
+            @Size(min = 7, max = 56) List<@Valid OperatingHoursForm> operatingHours) { }
+    public record CompanyScheduleVersionForm(@NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate effectiveFrom,
+            @Size(min = 7, max = 56) List<@Valid OperatingHoursForm> operatingHours) { }
+    public record CompanyLocationForm(@NotBlank @Size(max = 500) String companyAddress,
+            @NotNull @DecimalMin("-90.0") @DecimalMax("90.0") @Digits(integer = 3, fraction = 7) BigDecimal latitude,
+            @NotNull @DecimalMin("-180.0") @DecimalMax("180.0") @Digits(integer = 3, fraction = 7) BigDecimal longitude,
+            @NotNull @DecimalMin("0.01") @Digits(integer = 4, fraction = 2) BigDecimal serviceRadiusKm) { }
     public record OperatingHoursForm(@NotNull @Min(1) @Max(7) Integer dayOfWeek, boolean closed,
             @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime openingTime,
             @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime closingTime) { }

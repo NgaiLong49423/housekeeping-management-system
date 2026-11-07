@@ -32,7 +32,7 @@ Ba role là `CUSTOMER`, `STAFF`, `ADMIN`. Database có đúng 15 bảng nghiệp
 
 Yêu cầu JDK 21 và SQL Server 2022+ bật TCP/IP, Mixed Mode, cổng 1433.
 
-1. Start local SQL Server. **Every application launch deletes and recreates `Housekeeping_Database` by default, including all data and Flyway history.** The SQL login needs permission to alter, drop and create this database. No manual reset script is required. Set `DB_RESET_ON_STARTUP=false` in the module `.env` to preserve existing data.
+1. Start local SQL Server. The application connects to `Housekeeping_Database` by default and preserves its data. Set `DB_RESET_ON_STARTUP=true` only when you intentionally want to delete and recreate a supported local database, including all data and Flyway history; the SQL login then needs permission to alter, drop and create that database. Keep this value `false` for shared or existing databases.
 2. Sao chép [`.env.example`](app/housekeeping-management-system/.env.example) thành `.env` trong thư mục Maven module, rồi đặt `DB_URL`, `DB_USERNAME` và `DB_PASSWORD` cho SQL Server chính. Địa chỉ nhà được nhập trực tiếp, không cần Google Maps API key. Không commit `.env`.
 3. Từ `app/housekeeping-management-system/`, chạy:
 
@@ -40,9 +40,9 @@ Yêu cầu JDK 21 và SQL Server 2022+ bật TCP/IP, Mixed Mode, cổng 1433.
    mvn spring-boot:run
    ```
 
-4. Before the application datasource starts, the startup initializer recreates the local database; Flyway then applies V1 and V2 to create the 15-table schema with manual customer addresses. The `demo` profile similarly recreates `home_cleaning_demo` using its own migration location.
+4. On startup, Flyway applies pending migrations to the selected database. The default profile uses `Housekeeping_Database` and the primary schema migrations; the `demo` profile uses `home_cleaning_demo` and its demo schema and seed migrations.
 
-Flyway `clean` remains disabled. Automatic reset only accepts `localhost`, `127.0.0.1` or `[::1]` and the database names `Housekeeping_Database` or `home_cleaning_demo`. For shared or remote databases, set `DB_RESET_ON_STARTUP=false`. This behavior applies to application launches through `main` (IntelliJ, Maven and the executable JAR), not ordinary unit tests.
+Flyway `clean` remains disabled. An intentional automatic reset only accepts `localhost`, `127.0.0.1` or `[::1]` and the database names `Housekeeping_Database` or `home_cleaning_demo`. Reset is off by default and applies to application launches through `main` (IntelliJ, Maven and the executable JAR), not ordinary unit tests.
 
 ## Kiểm tra
 

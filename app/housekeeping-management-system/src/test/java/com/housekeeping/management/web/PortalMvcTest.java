@@ -25,14 +25,19 @@ import com.housekeeping.management.controller.AdminCompanySettingsController;
 import com.housekeeping.management.controller.StaffProfileController;
 import com.housekeeping.management.service.AdminBookingManagementService;
 import com.housekeeping.management.dto.request.PortalForms.CompanySettingsForm;
+import com.housekeeping.management.dto.request.PortalForms.CompanyScheduleVersionForm;
 import com.housekeeping.management.dto.request.PortalForms.OperatingHoursForm;
 import com.housekeeping.management.dto.request.PortalForms.StaffProfileForm;
 import com.housekeeping.management.service.PortalQueryService;
 import com.housekeeping.management.service.*;
+import com.housekeeping.management.dto.response.BookingAvailabilityOptions;
+import com.housekeeping.management.dto.response.BookingAvailabilityDates;
+import com.housekeeping.management.dto.response.BookingAvailabilityOptions.StaffOption;
 import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.OffsetDateTime;
+import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -62,6 +67,8 @@ class PortalMvcTest {
     @MockitoBean StaffManagementService staffManagement;
     @MockitoBean AuthService identity;
     @MockitoBean BookingReservationService reservations;
+    @MockitoBean BookingAvailabilityService bookingAvailability;
+    @MockitoBean BookingArrivalService arrival;
     @MockitoBean BookingCompletionService completion;
     @MockitoBean PaymentService payments;
     @MockitoBean PayosPaymentService payosPayments;
@@ -90,17 +97,31 @@ class PortalMvcTest {
             new ServiceCard(12L, "Vệ sinh sofa", "Chăm sóc khu vực sinh hoạt của gia đình.", 60, new BigDecimal("200000"), true)));
         when(query.staff(any())).thenReturn(List.of(new StaffCard(2L, "Nhân viên kiểm thử", "", true, "PART_TIME", true, null, "Tận tâm"), new StaffCard(4L, "Nhân viên thứ hai", "", false, "FULL_TIME", true, null, null)));
         when(query.staff(isNull())).thenReturn(List.of(new StaffCard(2L, "Nhân viên kiểm thử", "", false, "PART_TIME", true, null, null)));
+        when(query.isPartTime(22L)).thenReturn(true);
         when(query.schedules(any())).thenReturn(List.of(new ScheduleCard(20L, 2L, "Nhân viên kiểm thử", start, start.plusHours(8))));
         when(query.busyIntervals()).thenReturn(List.of(new PortalQueryService.BusyInterval(2L, start.plusHours(4), start.plusHours(5))));
         when(query.bookings(any())).thenReturn(List.of(card("CONFIRMED", null, null), card("AWAITING_PAYMENT", "PENDING", "ONLINE")));
         when(query.feedback()).thenReturn(List.of());
         when(leaveManagement.findForStaff(2L)).thenReturn(List.of());
         when(leaveManagement.findAllForAdmin(3L)).thenReturn(List.of());
+        var week=java.util.stream.IntStream.rangeClosed(1, 7)
+                .mapToObj(day -> new OperatingHoursForm(day, day == 7,
+                        day == 7 ? null : java.time.LocalTime.of(8, 0),
+                        day == 7 ? null : java.time.LocalTime.of(17, 0))).toList();
         when(companySettings.get()).thenReturn(new CompanySettingsForm("Địa chỉ kiểm thử", BigDecimal.ZERO,
                 BigDecimal.ZERO, BigDecimal.ONE, java.util.stream.IntStream.rangeClosed(1, 7)
                 .mapToObj(day -> new OperatingHoursForm(day, day == 7,
                         day == 7 ? null : java.time.LocalTime.of(8, 0),
                         day == 7 ? null : java.time.LocalTime.of(17, 0))).toList()));
+        LocalDate today=LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
+        when(companySettings.today()).thenReturn(today);
+        when(companySettings.firstSelectableWeekStart()).thenReturn(today.with(java.time.temporal.TemporalAdjusters.nextOrSame(java.time.DayOfWeek.MONDAY)));
+        when(companySettings.scheduleForEditor(any())).thenReturn(new CompanyScheduleVersionForm(today,week));
+        when(companySettings.versionDates()).thenReturn(List.of());
+        when(companySettings.scheduleWindows()).thenReturn(java.util.stream.IntStream.rangeClosed(1,7)
+                .mapToObj(day -> new CompanySettingsService.ScheduleWindow(LocalDate.of(1900,1,1),day,false,
+                        java.time.LocalTime.of(8,0),java.time.LocalTime.of(18,0))).toList());
+        when(companySettings.hasExactVersion(any())).thenReturn(false);
         when(staffProfiles.findOwnProfile(22L)).thenReturn(new StaffProfileForm(null, "Giới thiệu nhân viên"));
         when(query.booking(eq(42L), any())).thenReturn(card("CONFIRMED", null, null));
         when(query.details(eq(42L), any())).thenReturn(List.of(new DetailCard(30L, "Dọn dẹp nhà theo giờ", 1, 120, new BigDecimal("140000"), List.of())));
@@ -133,6 +154,71 @@ class PortalMvcTest {
     }
 
     @Test
+    void bookingPageStartsWithAvailabilityControlsLockedUntilFilteredOptionsLoad() throws Exception {
+        mvc.perform(get("/customer/bookings/new").with(user(customer)))
+                .andExpect(status().isOk())
+                .andExpect(view().name("booking-new"))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("data-booking-submit disabled")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("data-booking-days")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("data-selected-booking-dates")));
+    }
+
+    @Test
+    void customerAvailabilityLookupReturnsFilteredStaffAndQuarterHourTimes() throws Exception {
+        var workDate = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).plusDays(2);
+        when(bookingAvailability.options(workDate,List.of(10L),2L,java.time.LocalTime.of(10,15)))
+                .thenReturn(new BookingAvailabilityOptions(List.of(new StaffOption(2L,"Nhân viên kiểm thử","PART_TIME")),List.of("10:15","10:30")));
+        mvc.perform(get("/customer/bookings/availability-options").with(user(customer))
+                        .param("workDate",workDate.toString()).param("serviceIds","10").param("staffId","2").param("startTime","10:15"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.staffOptions[0].id").value(2))
+                .andExpect(jsonPath("$.startTimes[0]").value("10:15"));
+    }
+
+    @Test
+    void customerCalendarReturnsOnlyDatesWithMatchingStaffAvailability() throws Exception {
+        LocalDate availableDay=LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).plusDays(4);
+        when(bookingAvailability.availableDates(List.of(10L),2L))
+                .thenReturn(new BookingAvailabilityDates(List.of(availableDay),"Chỉ các ngày có lịch mới hiện."));
+
+        mvc.perform(get("/customer/bookings/availability-dates").with(user(customer))
+                        .param("serviceIds","10").param("staffId","2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.dates[0]").value(availableDay.toString()));
+    }
+
+    @Test
+    void staffCanSubmitMultipleAvailabilityIntervalsAndReturnToTheSelectedWeek() throws Exception {
+        LocalDate workDate = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).plusDays(9);
+        LocalDate weekStart = workDate.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY));
+        when(availability.saveForDate(22L, workDate,
+                List.of(java.time.LocalTime.of(6, 0), java.time.LocalTime.of(13, 0)),
+                List.of(java.time.LocalTime.of(9, 0), java.time.LocalTime.of(17, 0)))).thenReturn(2);
+
+        mvc.perform(post("/staff/schedules/day").with(user(staff)).with(csrf())
+                        .param("workDate", workDate.toString()).param("weekStart", weekStart.toString())
+                        .param("startTimes", "06:00", "13:00").param("endTimes", "09:00", "17:00"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/staff/schedules?weekStart=" + weekStart));
+        verify(availability).saveForDate(22L, workDate,
+                List.of(java.time.LocalTime.of(6, 0), java.time.LocalTime.of(13, 0)),
+                List.of(java.time.LocalTime.of(9, 0), java.time.LocalTime.of(17, 0)));
+    }
+
+    @Test
+    void availabilityLookupRejectsStaffAndAdminRoles() throws Exception {
+        var workDate = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).plusDays(2);
+        mvc.perform(get("/customer/bookings/availability-options").with(user(staff))
+                        .param("workDate",workDate.toString()).param("serviceIds","10"))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/customer/bookings/availability-dates").with(user(staff)).param("serviceIds","10"))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/customer/bookings/availability-options").with(user(admin))
+                        .param("workDate",workDate.toString()).param("serviceIds","10"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void rendersCompletedBookingActionsAndEvidenceForEachRole() throws Exception {
         when(query.booking(eq(42L), any())).thenReturn(card("AWAITING_PAYMENT", "PENDING", "CASH"));
         when(query.details(eq(42L), any())).thenReturn(List.of(new DetailCard(30L, "Dọn dẹp nhà theo giờ", 1, 120,
@@ -145,13 +231,11 @@ class PortalMvcTest {
     }
 
     @Test
-    void customerHouseFormUsesAuthenticatedUserAndManualAddressFields() throws Exception {
+    void customerHouseFormRequiresVietmapSelection() throws Exception {
         mvc.perform(post("/customer/houses").with(user(customer)).with(csrf())
                         .param("recipientName", "Khách Demo")
                         .param("recipientPhone", "0900000000")
-                        .param("provinceCity", "TP. Hồ Chí Minh")
-                        .param("wardCommune", "Phường Bến Nghé")
-                        .param("addressDetail", "12 Đường Mẫu")
+                        .param("vietmapRefId", "vietmap-ref-123")
                         .param("addressType", "HOME")
                         .param("defaultAddress", "true")
                         .param("addressNote", "Cổng màu xanh"))
@@ -161,7 +245,7 @@ class PortalMvcTest {
         org.mockito.ArgumentCaptor<HouseForm> form = org.mockito.ArgumentCaptor.forClass(HouseForm.class);
         verify(houses).save(eq(customer.getUserId()), isNull(), form.capture());
         assertThat(form.getValue().recipientName()).isEqualTo("Khách Demo");
-        assertThat(form.getValue().provinceCity()).isEqualTo("TP. Hồ Chí Minh");
+        assertThat(form.getValue().vietmapRefId()).isEqualTo("vietmap-ref-123");
     }
 
     @Test
@@ -235,15 +319,16 @@ class PortalMvcTest {
 
     @Test
     void staffSelfServicePassesUsersIdentityInsteadOfStaffAccountId() throws Exception {
-        AvailabilityForm form = new AvailabilityForm(java.time.LocalDate.of(2026, 11, 3),
+        AvailabilityForm form = new AvailabilityForm(java.time.LocalDate.of(2026, 11, 9),
                 java.time.LocalTime.of(9, 0), java.time.LocalTime.of(12, 0));
         mvc.perform(post("/staff/schedules").with(user(staff)).with(csrf())
-                        .param("workDate", "2026-11-03").param("startTime", "09:00").param("endTime", "12:00"))
-                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/staff/schedules"));
+                        .param("workDate", "2026-11-09").param("startTime", "09:00").param("endTime", "12:00")
+                        .param("weekStart", "2026-11-09"))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/staff/schedules?weekStart=2026-11-09"));
         verify(availability).save(22L, null, form);
 
-        mvc.perform(post("/staff/schedules/20/delete").with(user(staff)).with(csrf()))
-                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/staff/schedules"));
+        mvc.perform(post("/staff/schedules/20/delete").with(user(staff)).with(csrf()).param("weekStart", "2026-11-09"))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/staff/schedules?weekStart=2026-11-09"));
         verify(availability).delete(22L, 20L);
     }
 
@@ -258,6 +343,20 @@ class PortalMvcTest {
             assertThat(((PortalUser) context.getAuthentication().getPrincipal()).getRole()).isEqualTo(user.getRole());
             mvc.perform(get("/portal").with(user(user))).andExpect(redirectedUrl("/" + user.getRole().toLowerCase() + "/bookings"));
         }
+    }
+
+    @Test
+    void loginReturnsCustomerToBookingPageTheyRequestedBeforeAuthenticating() throws Exception {
+        PortalUser stored = new PortalUser(customer.getAccountId(), customer.getUsername(), encoder.encode("test-password"), customer.getDisplayName(), "CUSTOMER");
+        when(identity.loadUserByUsername(customer.getUsername())).thenReturn(stored);
+        MvcResult anonymous = mvc.perform(get("/customer/bookings/new"))
+                .andExpect(status().is3xxRedirection()).andReturn();
+        var session = (org.springframework.mock.web.MockHttpSession) anonymous.getRequest().getSession(false);
+
+        mvc.perform(post("/login").session(session).with(csrf())
+                        .param("email", customer.getUsername()).param("password", "test-password"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().string("Location", org.hamcrest.Matchers.startsWith("http://localhost/customer/bookings/new")));
     }
 
     @Test
@@ -284,6 +383,35 @@ class PortalMvcTest {
             .andExpect(redirectedUrl("/customer/bookings/42"));
         verify(reservations).createBooking(eq(1L), eq(2L), eq(30L), eq(java.time.LocalDateTime.parse("2026-11-01T08:00")),
                 eq(List.of(10L, 11L)), eq("Entryway"));
+    }
+
+    @Test
+    void multiDayBookingCreatesIndependentAppointmentsAndReportsUnavailableDates() throws Exception {
+        when(reservations.createBooking(eq(1L), eq(2L), eq(30L), any(), eq(List.of(10L)), eq("Entryway")))
+                .thenReturn(42L)
+                .thenThrow(new IllegalStateException("Staff không còn khả dụng."));
+
+        mvc.perform(post("/customer/bookings/multiple").with(user(customer)).with(csrf())
+                        .param("houseId", "30").param("serviceIds", "10").param("areaNote", "Entryway")
+                        .param("workDates", "2026-11-10", "2026-11-12")
+                        .param("staffIds", "2", "2").param("startTimes", "09:00", "10:00"))
+                .andExpect(redirectedUrl("/customer/bookings"))
+                .andExpect(flash().attribute("success", "Đã tạo 1 lịch hẹn riêng cho các ngày bạn chọn."))
+                .andExpect(flash().attributeExists("warning"));
+
+        verify(reservations, org.mockito.Mockito.times(2)).createBooking(eq(1L), eq(2L), eq(30L), any(),
+                eq(List.of(10L)), eq("Entryway"));
+    }
+
+    @Test
+    void multiDayBookingRejectsMismatchedListsBeforeCreatingAnything() throws Exception {
+        mvc.perform(post("/customer/bookings/multiple").with(user(customer)).with(csrf())
+                        .param("houseId", "30").param("serviceIds", "10")
+                        .param("workDates", "2026-11-10", "2026-11-12")
+                        .param("staffIds", "2").param("startTimes", "09:00", "10:00"))
+                .andExpect(redirectedUrl("/customer/bookings/new"))
+                .andExpect(flash().attributeExists("error"));
+        verifyNoInteractions(reservations);
     }
 
     @Test

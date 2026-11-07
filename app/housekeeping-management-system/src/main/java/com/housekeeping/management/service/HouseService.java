@@ -15,10 +15,12 @@ public class HouseService {
     private static final double EARTH_RADIUS_KM = 6371.0088;
     private final HouseRepository houses;
     private final JdbcTemplate jdbc;
+    private final VietmapClient vietmap;
 
-    public HouseService(HouseRepository houses, JdbcTemplate jdbc) {
+    public HouseService(HouseRepository houses, JdbcTemplate jdbc, VietmapClient vietmap) {
         this.houses = houses;
         this.jdbc = jdbc;
+        this.vietmap = vietmap;
     }
 
     @Transactional(readOnly = true)
@@ -32,22 +34,36 @@ public class HouseService {
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy nhà thuộc tài khoản của bạn."));
     }
 
+    @Transactional(readOnly = true)
+    public House findHouse(Long houseId) {
+        return houses.findById(houseId).orElseThrow(() -> new IllegalArgumentException("Không tìm thấy địa chỉ Booking."));
+    }
+
     @Transactional
     public House save(Long customerId, Long houseId, HouseForm form) {
+        if (form == null || form.vietmapRefId() == null || form.vietmapRefId().isBlank() || form.vietmapRefId().length() > 500) {
+            throw new IllegalArgumentException("Hãy chọn một kết quả địa chỉ VietMap hợp lệ.");
+        }
         House house = houseId == null
                 ? new House()
                 : houses.findLockedByHouseIdAndCustomerIdAndDeletedFalse(houseId, customerId)
                         .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy nhà thuộc tài khoản của bạn."));
+        VietmapClient.Place place = vietmap.place(form.vietmapRefId());
         if (houseId == null) {
             house.setCustomerId(customerId);
         }
         house.setHouseName(form.addressType().getLabel());
         house.setRecipientName(form.recipientName().trim());
         house.setRecipientPhone(form.recipientPhone().trim());
-        house.setProvinceCity(form.provinceCity().trim());
-        house.setWardCommune(form.wardCommune().trim());
-        house.setAddressDetail(form.addressDetail().trim());
-        house.setAddress(String.join(", ", form.addressDetail().trim(), form.wardCommune().trim(), form.provinceCity().trim()));
+        String province = place.city() == null ? "" : place.city();
+        String ward = place.ward() == null ? "" : place.ward();
+        String detail = place.address() == null ? place.display() : place.address();
+        house.setProvinceCity(province);
+        house.setWardCommune(ward);
+        house.setAddressDetail(detail);
+        house.setLatitude(place.latitude());
+        house.setLongitude(place.longitude());
+        house.setAddress(place.display());
         house.setAddressType(form.addressType());
         house.setDefaultAddress(form.defaultAddress());
         house.setAddressNote(form.addressNote() == null || form.addressNote().isBlank() ? null : form.addressNote().trim());
@@ -61,6 +77,11 @@ public class HouseService {
             }
         }
         return houses.save(house);
+    }
+
+    public List<VietmapClient.Suggestion> autocomplete(String query) {
+        if (query == null || query.trim().length() < 3 || query.length() > 200) return List.of();
+        return vietmap.autocomplete(query.trim());
     }
 
     @Transactional

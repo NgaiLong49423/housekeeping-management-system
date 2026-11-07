@@ -43,7 +43,7 @@ public class SecurityConfig {
                     .anyRequest().authenticated())
                 .csrf(csrf -> csrf.ignoringRequestMatchers("/payments/payos/webhook"))
                 .formLogin(login -> login.loginPage("/login").usernameParameter("email")
-                    .defaultSuccessUrl("/portal", true).failureUrl("/login?error").permitAll())
+                    .defaultSuccessUrl("/portal").failureUrl("/login?error").permitAll())
                 .logout(logout -> logout.logoutSuccessUrl("/login?logout"))
                 .build();
     }
