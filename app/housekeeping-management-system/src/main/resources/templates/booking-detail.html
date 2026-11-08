@@ -118,10 +118,7 @@
           <!-- Services and Evidence Card -->
           <section class="surface p-4">
             <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
-              <h2 class="h5 mb-0">
-                Dịch vụ &amp; Bằng chứng hoàn thành
-              </h2>
-              <span class="small text-secondary">Chi tiết gói dịch vụ tại thời điểm đặt lịch</span>
+              <h2 class="h5 mb-0">Chi tiết dịch vụ đã đặt (Booking Details)</h2><span class="small text-secondary">Các gói dịch vụ (Services) được chọn trong lịch hẹn</span>
             </div>
 
             <article class="detail-service pt-3" th:each="detail : ${details}">
@@ -139,7 +136,7 @@
 
           <!-- Booking Images -->
           <section class="surface p-4">
-            <h2 class="h5 mb-3 border-bottom pb-2">Ảnh minh chứng của lịch hẹn</h2>
+            <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3"><h2 class="h5 mb-0">Ảnh minh chứng hoàn thành (Evidences)</h2><span class="badge bg-light text-secondary border" th:text="${#lists.size(bookingImages)} + ' ảnh'">0 ảnh</span></div>
             <div class="evidence-grid mt-3" th:unless="${#lists.isEmpty(bookingImages)}">
               <a th:each="photo : ${bookingImages}" th:href="@{/evidence/{id}(id=${photo.id})}" target="_blank" rel="noopener" title="Nhấp để xem ảnh kích thước gốc">
                 <img th:src="@{/evidence/{id}(id=${photo.id})}" alt="Ảnh minh chứng công việc" width="160" height="120" loading="lazy">
@@ -162,7 +159,7 @@
 
           <!-- Customer feedback is text-only; no rating is part of the business schema. -->
           <section th:if="${booking.status == 'COMPLETED' and currentUser.role == 'CUSTOMER'}" class="surface p-4">
-            <h2 class="h5 mb-3 border-bottom pb-2">Phản hồi về dịch vụ</h2>
+            <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3"><h2 class="h5 mb-0">Đánh giá &amp; Phản hồi (Feedback)</h2><span class="small text-secondary">Ý kiến đánh giá từ khách hàng</span></div>
             <div th:if="${booking.feedbackStatus != null}">
               <p class="mb-2" th:text="${booking.feedbackContent}">Nội dung phản hồi</p>
               <p class="small text-secondary mb-0" th:if="${booking.adminReply != null}">
