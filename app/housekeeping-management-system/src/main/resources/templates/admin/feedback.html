@@ -5,17 +5,26 @@
     <header th:replace="~{fragments/layout :: header('feedback')}"></header>
     <main id="main" class="container py-4 py-md-5">
       <div class="page-heading">
-        <span class="eyebrow">Quản lý vận hành · Gọn Nhà</span>
+        <span class="eyebrow">
+          <svg th:replace="~{fragments/icons :: message-square}"></svg>
+          <span>Quản lý vận hành · Gọn Nhà</span>
+        </span>
         <h1>Phản hồi khách hàng</h1>
         <p class="lead">Đọc góp ý theo từng lịch hẹn, gửi phản hồi và đánh dấu nội dung đã giải quyết.</p>
       </div>
       <div th:replace="~{fragments/layout :: alerts}"></div>
       <section class="surface p-4">
-        <p th:if="${#lists.isEmpty(feedback)}" class="text-secondary mb-0">Chưa có phản hồi nào.</p>
+        <div th:if="${#lists.isEmpty(feedback)}" class="empty-state py-5">
+          <div class="empty-illustration">
+            <svg th:replace="~{fragments/icons :: illustration-feedback}"></svg>
+          </div>
+          <h3>Chưa có phản hồi nào</h3>
+          <p class="mb-0">Hộp thư góp ý hiện đang trống. Sau mỗi lịch hẹn hoàn tất, nhận xét của khách hàng sẽ chuyển về đây để bạn phản hồi và đánh dấu hoàn thành xử lý.</p>
+        </div>
         <article th:each="item : ${feedback}" class="border-bottom py-4">
           <div class="d-flex flex-wrap justify-content-between gap-2">
-            <h2 class="h6 mb-0" th:text="|${item.customerName} · Lịch #${item.bookingId}|">Khách hàng · Lịch</h2>
-            <span class="badge" th:classappend="${item.status == 'RESOLVED'} ? 'text-bg-success' : 'text-bg-secondary'"
+            <h2 class="h6 mb-0" th:text="|${ui.label(item.customerName)} · Lịch #${item.bookingId}|">Khách hàng · Lịch</h2>
+            <span class="status-pill" th:classappend="${item.status == 'RESOLVED'} ? 'confirmed' : 'unpaid'"
                   th:text="${item.status == 'RESOLVED'} ? 'Đã giải quyết' : 'Đang mở'">Đang mở</span>
           </div>
           <p class="mt-3 mb-2" style="white-space: pre-wrap" th:text="${item.content}">Nội dung phản hồi</p>
@@ -28,7 +37,10 @@
             <button class="btn btn-outline-primary align-self-start" type="submit">Lưu trả lời</button>
           </form>
           <form th:if="${item.status == 'OPEN'}" method="post" class="mt-2" th:action="@{/admin/feedback/{id}/resolve(id=${item.id})}">
-            <button class="btn btn-success" type="submit">Đánh dấu đã giải quyết</button>
+            <button class="btn btn-reactivate" type="submit">
+              <svg th:replace="~{fragments/icons :: check}"></svg>
+              <span>Đánh dấu đã giải quyết</span>
+            </button>
           </form>
         </article>
       </section>

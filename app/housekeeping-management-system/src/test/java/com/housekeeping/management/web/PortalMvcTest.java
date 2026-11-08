@@ -384,6 +384,28 @@ class PortalMvcTest {
         verify(adminBookingManagement).reassignConfirmedBooking(42L, 3L, 2L);
     }
 
+    @Test
+    void stripsDemoWordFromRenderedFrontendLabelsWithoutAlteringAccounts() throws Exception {
+        PortalUser demoCustomer = account(1L, "CUSTOMER", "Khách hàng Demo");
+        when(query.bookings(demoCustomer)).thenReturn(List.of(
+                new BookingCard(42L, 1L, 2L, "Khách hàng Demo", "Nhân viên bán thời gian Demo",
+                        start, start.plusHours(2), "CONFIRMED", new BigDecimal("140000"), null, null, null, null, null)));
+        when(query.staff(demoCustomer)).thenReturn(List.of(
+                new StaffCard(2L, "Nhân viên bán thời gian Demo", "0900000002", false, "PART_TIME", true, null, null)));
+
+        String bookingsHtml = mvc.perform(get("/customer/bookings").with(user(demoCustomer)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(bookingsHtml).contains("Xin chào Khách hàng,").contains("NV: Nhân viên bán thời gian");
+        assertThat(bookingsHtml).doesNotContainIgnoringCase("demo");
+
+        String staffHtml = mvc.perform(get("/customer/staff").with(user(demoCustomer)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(staffHtml).contains("Nhân viên bán thời gian");
+        assertThat(staffHtml).doesNotContainIgnoringCase("demo");
+    }
+
     private void render(String url, PortalUser principal, String name) throws Exception {
         var request = get(url);
         if (principal != null) request.with(user(principal));

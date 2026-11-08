@@ -3,7 +3,7 @@
     <option name="MAIN_CLASS_NAME" value="com.housekeeping.management.HousekeepingManagementSystemApplication" />
     <module name="housekeeping-management-system" />
     <option name="PROGRAM_PARAMETERS" value="--spring.profiles.active=demo" />
-    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/app/housekeeping-management-system" />
+    <option name="WORKING_DIRECTORY" value="$MODULE_WORKING_DIR$" />
     <option name="SHORTEN_COMMAND_LINE" value="ARGS_FILE" />
     <method v="2">
       <option name="Make" enabled="true" />

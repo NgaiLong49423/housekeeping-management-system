@@ -104,7 +104,43 @@ if (bookingForm) {
   refresh();
 }
 
-
 if (document.querySelector(".admin-sidebar")) {
   document.body.classList.add("has-admin-sidebar");
 }
+
+// Sync "Nghỉ" operating-hours rows (fallback alongside CSS :has(input:checked))
+document.querySelectorAll("[data-hours-row]").forEach(row => {
+  const toggle = row.querySelector("[data-closed-toggle]");
+  if (!toggle) return;
+  const timeInputs = [...row.querySelectorAll(".hours-time-input")];
+  const syncClosedState = () => {
+    const closed = toggle.checked;
+    row.classList.toggle("is-closed-day", closed);
+    timeInputs.forEach(input => {
+      if (closed) {
+        input.setAttribute("aria-disabled", "true");
+        input.setAttribute("tabindex", "-1");
+      } else {
+        input.removeAttribute("aria-disabled");
+        input.removeAttribute("tabindex");
+      }
+    });
+  };
+  toggle.addEventListener("change", syncClosedState);
+  syncClosedState();
+});
+
+// Expand collapsed <details> automatically if a child control triggers validation
+document.addEventListener("invalid", event => {
+  const hiddenDetails = event.target instanceof Element ? event.target.closest("details:not([open])") : null;
+  if (hiddenDetails) hiddenDetails.open = true;
+}, true);
+
+// Tactile loading feedback on valid form submission
+document.querySelectorAll("form").forEach(form => {
+  form.addEventListener("submit", event => {
+    if (event.defaultPrevented || !form.checkValidity()) return;
+    const submitter = event.submitter || form.querySelector('button[type="submit"]');
+    if (submitter) submitter.classList.add("is-submitting");
+  });
+});

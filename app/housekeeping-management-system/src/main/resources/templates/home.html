@@ -6,28 +6,59 @@
     <header th:replace="~{fragments/layout :: header('home')}">
     </header>
     <main id="main">
-      <!-- Hero & Connected Booking Process Section -->
+      <!-- Asymmetrical Editorial Hero & Connected Booking Process Ledger -->
       <section class="hero">
         <div class="container">
-          <div class="hero-showcase surface mx-auto">
-            <div class="hero-card text-center">
-              <h1 class="hero-title">
-                Nhà gọn gàng.
-                <span>Thảnh thơi tận hưởng.</span>
-              </h1>
-              <div class="d-flex flex-wrap justify-content-center gap-3 mt-4">
-                <a class="btn btn-primary btn-lg" th:href="@{/customer/bookings/new}">
-                  Đặt lịch dọn nhà
-                  <span aria-hidden="true">↗</span>
-                </a>
-                <a class="btn btn-outline-primary btn-lg" th:href="@{/services}">
-                  Khám phá dịch vụ
-                </a>
+          <div class="hero-showcase mx-auto">
+            <div class="hero-editorial-grid">
+              <div class="hero-copy">
+                <span class="eyebrow align-self-start">
+                  <svg th:replace="~{fragments/icons :: sparkles}"></svg>
+                  <span>Dịch vụ chăm sóc tổ ấm chuẩn mực</span>
+                </span>
+                <h1 class="hero-title">
+                  Nhà gọn gàng.
+                  <em>Thảnh thơi tận hưởng.</em>
+                </h1>
+                <p class="hero-subtitle">
+                  Đặt lịch dọn dẹp minh bạch theo giờ cùng đội ngũ nhân sự tận tâm. Chủ động chọn người phụ trách và chỉ thanh toán khi không gian sống đã tươm tất.
+                </p>
+                <div class="d-flex flex-wrap gap-3">
+                  <a class="btn btn-primary btn-lg" th:href="@{/customer/bookings/new}">
+                    <span>Đặt lịch dọn nhà</span>
+                    <svg th:replace="~{fragments/icons :: arrow-up-right}"></svg>
+                  </a>
+                  <a class="btn btn-outline-primary btn-lg" th:href="@{/services}">
+                    <span>Khám phá dịch vụ</span>
+                  </a>
+                </div>
+                <div class="hero-assurances">
+                  <span>
+                    <svg th:replace="~{fragments/icons :: check-circle}"></svg>
+                    Tự chọn nhân viên
+                  </span>
+                  <span>
+                    <svg th:replace="~{fragments/icons :: check-circle}"></svg>
+                    Giá dịch vụ rõ ràng
+                  </span>
+                  <span>
+                    <svg th:replace="~{fragments/icons :: check-circle}"></svg>
+                    Thanh toán sau hoàn thành
+                  </span>
+                </div>
               </div>
-              <div class="hero-assurances justify-content-center">
-                <span>✓ Tự chọn nhân viên</span>
-                <span>✓ Giá dịch vụ rõ ràng</span>
-                <span>✓ Thanh toán sau hoàn thành</span>
+
+              <div class="hero-visual">
+                <div class="hero-visual-frame">
+                  <img th:src="@{/images/b501c.png}" alt="Không gian phòng khách sáng thoáng và ngăn nắp" width="512" height="384">
+                  <div class="hero-floating-card">
+                    <div>
+                      <strong>Xác nhận lịch tức thì</strong>
+                      <small>Kiểm tra lịch trống theo giờ Việt Nam</small>
+                    </div>
+                    <span class="status-pill confirmed">Minh bạch 100%</span>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -85,7 +116,8 @@
             </p>
           </div>
           <a class="text-link" th:href="@{/services}">
-            Tất cả dịch vụ →
+            <span>Tất cả dịch vụ</span>
+            <svg th:replace="~{fragments/icons :: arrow-right}"></svg>
           </a>
         </div>
         <div th:replace="~{fragments/services :: cards}">
@@ -100,7 +132,8 @@
           </div>
           <div class="col-md-7 p-4 p-lg-5">
             <span class="eyebrow">
-              An tâm từ lựa chọn đầu tiên
+              <svg th:replace="~{fragments/icons :: shield-check}"></svg>
+              <span>An tâm từ lựa chọn đầu tiên</span>
             </span>
             <h2>
               Người bạn chọn.
@@ -108,14 +141,15 @@
               Ngôi nhà bạn yêu.
             </h2>
             <p>
-              Bạn chủ động chọn nhân viên part-time của công ty và khoảng thời gian phù hợp. Lịch hợp lệ được xác nhận ngay sau khi kiểm tra, không cần chờ đợi.
+              Bạn chủ động chọn nhân viên bán thời gian của công ty và khoảng thời gian phù hợp. Lịch hợp lệ được xác nhận ngay sau khi kiểm tra, không cần chờ đợi.
             </p>
             <div class="d-flex flex-wrap gap-3">
               <a class="btn btn-primary" th:href="@{/customer/staff}">
-                Tìm nhân viên phù hợp →
+                <span>Tìm nhân viên phù hợp</span>
+                <svg th:replace="~{fragments/icons :: arrow-right}"></svg>
               </a>
               <a class="btn btn-white" th:href="@{/customer/bookings/new}">
-                Đặt lịch nhanh
+                <span>Đặt lịch nhanh</span>
               </a>
             </div>
           </div>

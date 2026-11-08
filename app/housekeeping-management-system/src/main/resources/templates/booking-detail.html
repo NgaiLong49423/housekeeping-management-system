@@ -8,8 +8,9 @@
     <main id="main" class="container py-4 py-md-5">
       <!-- Back Navigation -->
       <div class="mb-3">
-        <a class="text-link" th:href="@{/{role}/bookings(role=${#strings.toLowerCase(currentUser.role)})}">
-          ← Quay lại danh sách lịch hẹn
+        <a class="text-link back-link" th:href="@{/{role}/bookings(role=${#strings.toLowerCase(currentUser.role)})}">
+          <svg th:replace="~{fragments/icons :: arrow-left}"></svg>
+          <span>Quay lại danh sách lịch hẹn</span>
         </a>
       </div>
 
@@ -22,8 +23,11 @@
           <h1 class="h2 mb-1" th:text="'Lịch hẹn #GN-' + ${booking.id}">
             Lịch hẹn #GN-0
           </h1>
-          <p class="text-secondary small mb-0" th:text="${booking.startLabel} + ' → ' + ${booking.endLabel}">
-            Thời gian
+          <p class="text-secondary small mb-0 d-flex align-items-center gap-2 flex-wrap">
+            <svg th:replace="~{fragments/icons :: clock}"></svg>
+            <span th:text="${booking.startLabel}">Bắt đầu</span>
+            <svg th:replace="~{fragments/icons :: arrow-right}"></svg>
+            <span th:text="${booking.endLabel}">Kết thúc</span>
           </p>
         </div>
         <div>
@@ -38,7 +42,7 @@
 
       <!-- Cancelled Status Banner -->
       <div th:if="${booking.status == 'CANCELLED'}" class="alert alert-danger d-flex align-items-start gap-2 border-0 shadow-sm mb-4" role="alert" style="background-color: var(--status-cancelled-bg); color: var(--status-cancelled-text); border-left: 4px solid #ef4444 !important;">
-        <span aria-hidden="true" class="fs-5">✕</span>
+        <svg th:replace="~{fragments/icons :: x-circle}"></svg>
         <div>
           <strong class="d-block">Lịch hẹn này đã bị hủy.</strong>
           <span th:if="${booking.cancellationReason != null and !booking.cancellationReason.isBlank()}" th:text="'Lý do hủy: ' + ${booking.cancellationReason}"></span>
@@ -56,11 +60,11 @@
             <dl class="info-grid mt-3 mb-0">
               <div>
                 <dt>Khách hàng</dt>
-                <dd th:text="${booking.customerName}">Khách hàng</dd>
+                <dd th:text="${ui.label(booking.customerName)}">Khách hàng</dd>
               </div>
               <div>
                 <dt>Nhân viên phụ trách</dt>
-                <dd th:text="${booking.staffName}">Nhân viên</dd>
+                <dd th:text="${ui.label(booking.staffName)}">Nhân viên</dd>
               </div>
               <div>
                 <dt>Bắt đầu dự kiến</dt>
@@ -91,11 +95,11 @@
               <label class="form-label" for="replacementStaff">Đổi nhân viên phụ trách</label>
               <div class="input-group">
                 <select class="form-select" name="staffId" id="replacementStaff" required>
-                  <option th:each="candidate : ${assignableStaff}" th:value="${candidate.id}" th:selected="${candidate.id == booking.staffId}" th:text="${candidate.name + (candidate.staffType == 'FULL_TIME' ? ' · Toàn thời gian' : ' · Bán thời gian')}">Nhân viên</option>
+                  <option th:each="candidate : ${assignableStaff}" th:value="${candidate.id}" th:selected="${candidate.id == booking.staffId}" th:text="${ui.label(candidate.name) + (candidate.staffType == 'FULL_TIME' ? ' · Toàn thời gian' : ' · Bán thời gian')}">Nhân viên</option>
                 </select>
                 <button class="btn btn-outline-primary" type="submit">Lưu nhân viên</button>
               </div>
-              <p class="small text-secondary mt-2 mb-0">Hệ thống kiểm tra nhân viên đang hoạt động, ngày nghỉ, giờ sẵn sàng part-time và xung đột/đệm lịch 60 phút. Không đủ điều kiện thì không đổi lịch.</p>
+              <p class="small text-secondary mt-2 mb-0">Hệ thống kiểm tra nhân viên đang hoạt động, ngày nghỉ, giờ sẵn sàng của nhân viên bán thời gian và khoảng đệm 60 phút giữa các lịch. Nếu không đủ điều kiện sẽ không đổi lịch.</p>
             </form>
             <form method="post" th:action="@{/admin/bookings/{id}/cancel(id=${booking.id})}">
               <label class="form-label" for="adminCancelReason">Hủy lịch (ghi rõ lý do)</label>
@@ -103,7 +107,7 @@
                 <input class="form-control" id="adminCancelReason" name="reason" maxlength="500" required>
                 <button class="btn btn-outline-danger" type="submit">Hủy lịch</button>
               </div>
-              <p class="small text-secondary mt-2 mb-0">Chỉ áp dụng khi trạng thái là CONFIRMED. Lịch hoàn thành/chờ thanh toán không bị hủy ở đây vì chưa có quy tắc hoàn tiền được duyệt.</p>
+              <p class="small text-secondary mt-2 mb-0">Chỉ áp dụng khi lịch hẹn đang ở trạng thái Đã xác nhận. Lịch đã hoàn thành hoặc đang chờ thanh toán không thể hủy tại đây.</p>
             </form>
           </section>
 
@@ -113,7 +117,7 @@
               <h2 class="h5 mb-0">
                 Dịch vụ &amp; Bằng chứng hoàn thành
               </h2>
-              <span class="small text-secondary">Snapshot dịch vụ được lưu khi đặt lịch</span>
+              <span class="small text-secondary">Chi tiết gói dịch vụ tại thời điểm đặt lịch</span>
             </div>
 
             <article class="detail-service pt-3" th:each="detail : ${details}">
@@ -143,9 +147,12 @@
               <label class="form-label small fw-bold" for="booking-image">Tải ảnh minh chứng</label>
               <div class="d-flex flex-wrap gap-2">
                 <input type="file" name="image" id="booking-image" class="form-control" accept=".jpg,.jpeg,.png,image/jpeg,image/png" required>
-                <button class="btn btn-outline-primary" type="submit">Tải ảnh lên ↗</button>
+                <button class="btn btn-outline-primary" type="submit">
+                  <svg th:replace="~{fragments/icons :: upload}"></svg>
+                  <span>Tải ảnh lên</span>
+                </button>
               </div>
-              <p class="small text-secondary mt-2 mb-0" data-file-status role="status">Chọn ảnh JPEG hoặc PNG; giới hạn kỹ thuật hiện tại là 5 MB/ảnh.</p>
+              <p class="small text-secondary mt-2 mb-0" data-file-status role="status">Chọn tệp ảnh (.jpg hoặc .png), dung lượng tối đa 5 MB mỗi ảnh.</p>
             </form>
           </section>
 
@@ -157,7 +164,7 @@
               <p class="small text-secondary mb-0" th:if="${booking.adminReply != null}">
                 <strong>Phản hồi từ công ty:</strong> <span th:text="${booking.adminReply}"></span>
               </p>
-              <span class="badge mt-2" th:classappend="${booking.feedbackStatus == 'RESOLVED'} ? 'text-bg-success' : 'text-bg-secondary'"
+              <span class="status-pill mt-2" th:classappend="${booking.feedbackStatus == 'RESOLVED'} ? 'confirmed' : 'completed'"
                     th:text="${booking.feedbackStatus == 'RESOLVED'} ? 'Đã giải quyết' : 'Đã tiếp nhận'">Đã tiếp nhận</span>
             </div>
             <form th:if="${booking.feedbackStatus == null}" method="post" th:action="@{/customer/bookings/{id}/feedback(id=${booking.id})}">
@@ -174,7 +181,8 @@
           <!-- Cost and Payment Info -->
           <section class="surface p-4">
             <span class="eyebrow mb-2">
-              Thanh toán sau dịch vụ
+              <svg th:replace="~{fragments/icons :: credit-card}"></svg>
+              <span>Thanh toán sau dịch vụ</span>
             </span>
             <h2 class="h5 mb-1">
               Chi phí lịch hẹn
@@ -196,13 +204,19 @@
 
             <form th:if="${currentUser.role == 'CUSTOMER' and booking.status == 'AWAITING_PAYMENT' and booking.paymentStatus != 'SUCCESS'}"
                   method="post" th:action="@{/customer/bookings/{id}/payment(id=${booking.id})}" class="mt-3 pt-3 border-top">
-              <button class="btn btn-primary w-100" type="submit">Thanh toán trực tuyến qua PayOS</button>
-              <p class="small text-secondary mt-2 mb-0">Lịch chỉ chuyển sang hoàn tất khi Backend xác minh webhook PayOS hợp lệ.</p>
+              <button class="btn btn-primary w-100" type="submit">
+                <svg th:replace="~{fragments/icons :: credit-card}"></svg>
+                <span>Thanh toán trực tuyến qua PayOS</span>
+              </button>
+              <p class="small text-secondary mt-2 mb-0">Lịch hẹn chỉ chuyển sang hoàn tất sau khi hệ thống xác nhận giao dịch PayOS thành công.</p>
             </form>
             <form th:if="${currentUser.role == 'STAFF' and booking.status == 'AWAITING_PAYMENT' and booking.paymentStatus != 'SUCCESS'}"
                   method="post" th:action="@{/staff/bookings/{id}/cash-payment(id=${booking.id})}"
                   data-confirm="Xác nhận bạn đã thực tế nhận đủ tiền mặt từ khách?" class="mt-3 pt-3 border-top">
-              <button class="btn btn-outline-primary w-100" type="submit">Xác nhận đã nhận tiền mặt</button>
+              <button class="btn btn-outline-primary w-100" type="submit">
+                <svg th:replace="~{fragments/icons :: check-circle}"></svg>
+                <span>Xác nhận đã nhận tiền mặt</span>
+              </button>
             </form>
           </section>
 
@@ -234,7 +248,8 @@
             </p>
             <form method="post" th:action="@{/staff/bookings/{id}/complete(id=${booking.id})}" data-confirm="Xác nhận đã hoàn thành toàn bộ dịch vụ?">
               <button class="btn btn-primary w-100" type="submit">
-                Xác nhận hoàn thành
+                <svg th:replace="~{fragments/icons :: check-circle}"></svg>
+                <span>Xác nhận hoàn thành</span>
               </button>
             </form>
           </section>

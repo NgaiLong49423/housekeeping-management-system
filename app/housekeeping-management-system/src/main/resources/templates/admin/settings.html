@@ -4,30 +4,91 @@
   <body>
     <header th:replace="~{fragments/layout :: header('settings')}"></header>
     <main id="main" class="container py-4 py-md-5">
-      <div class="page-heading"><span class="eyebrow">Vận hành</span><h1>Cấu hình công ty</h1>
-        <p class="lead">Thiết lập thông tin công ty và giờ nhận lịch trong tuần.</p></div>
+      <div class="page-heading">
+        <span class="eyebrow">
+          <svg th:replace="~{fragments/icons :: settings}"></svg>
+          <span>Vận hành</span>
+        </span>
+        <h1>Cấu hình công ty</h1>
+        <p class="lead">Thiết lập thông tin công ty và giờ nhận lịch trong tuần.</p>
+      </div>
       <div th:replace="~{fragments/layout :: alerts}"></div>
       <form method="post" th:action="@{/admin/settings}" th:object="${settingsForm}" class="surface p-4">
-        <h2 class="h4">Thông tin địa điểm công ty</h2>
-        <div class="row g-3 mb-4">
-          <div class="col-12"><label class="form-label" for="companyAddress">Địa chỉ công ty</label><input id="companyAddress" class="form-control" th:field="*{companyAddress}" maxlength="500" required></div>
-          <div class="col-md-4"><label class="form-label" for="latitude">Vĩ độ</label><input id="latitude" class="form-control" type="number" step="0.0000001" min="-90" max="90" th:field="*{latitude}" required></div>
-          <div class="col-md-4"><label class="form-label" for="longitude">Kinh độ</label><input id="longitude" class="form-control" type="number" step="0.0000001" min="-180" max="180" th:field="*{longitude}" required></div>
+        <div class="pb-4 mb-4 border-bottom">
+          <h2 class="h5 mb-1">Thông tin địa điểm công ty</h2>
+          <p class="small text-secondary mb-3">
+            Khách hàng tự nhập địa chỉ nhà khi đặt dịch vụ; hệ thống hiện không giới hạn phạm vi phục vụ theo khoảng cách tọa độ.
+          </p>
+          <div>
+            <label class="form-label" for="companyAddress">Địa chỉ công ty</label>
+            <input id="companyAddress" class="form-control" th:field="*{companyAddress}" maxlength="500" required>
+          </div>
+          <details class="details-disclosure settings-coords-details mt-3" th:attr="open=${#fields.hasErrors('latitude') or #fields.hasErrors('longitude') ? 'open' : null}">
+            <summary class="details-summary">
+              <span>Tọa độ (nâng cao)</span>
+              <svg th:replace="~{fragments/icons :: chevron-down}"></svg>
+            </summary>
+            <div class="details-body row g-3 pt-3">
+              <div class="col-md-6">
+                <label class="form-label" for="latitude">Vĩ độ</label>
+                <input id="latitude" class="form-control" type="number" step="0.0000001" min="-90" max="90" th:field="*{latitude}" required>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label" for="longitude">Kinh độ</label>
+                <input id="longitude" class="form-control" type="number" step="0.0000001" min="-180" max="180" th:field="*{longitude}" required>
+              </div>
+              <div class="col-12">
+                <small class="form-text">Thông số tọa độ lưu trữ nội bộ cho địa điểm văn phòng công ty.</small>
+              </div>
+            </div>
+          </details>
           <input type="hidden" th:field="*{serviceRadiusKm}">
         </div>
-        <h2 class="h4">Giờ hoạt động</h2>
-        <p class="small text-secondary">Địa chỉ của khách được nhập trực tiếp; hệ thống hiện không kiểm tra bán kính theo tọa độ.</p>
-        <div class="table-responsive"><table class="table align-middle">
-          <thead><tr><th>Ngày</th><th>Nghỉ</th><th>Mở cửa</th><th>Đóng cửa</th></tr></thead>
-          <tbody><tr th:each="day, stat : ${dayNames}">
-            <td th:text="${day}">Thứ Hai</td>
-            <td><label for="closed" th:for="|closed-${stat.index}|" class="visually-hidden">Ngày nghỉ <span th:text="${day}">Thứ Hai</span></label><input id="closed" th:id="|closed-${stat.index}|" class="form-check-input" type="checkbox" th:field="*{operatingHours[__${stat.index}__].closed}"><input type="hidden" th:field="*{operatingHours[__${stat.index}__].dayOfWeek}"></td>
-            <td><label for="openingTime" th:for="|openingTime-${stat.index}|" class="visually-hidden">Giờ mở cửa <span th:text="${day}">Thứ Hai</span></label><input id="openingTime" th:id="|openingTime-${stat.index}|" class="form-control" type="time" th:field="*{operatingHours[__${stat.index}__].openingTime}"></td>
-            <td><label for="closingTime" th:for="|closingTime-${stat.index}|" class="visually-hidden">Giờ đóng cửa <span th:text="${day}">Thứ Hai</span></label><input id="closingTime" th:id="|closingTime-${stat.index}|" class="form-control" type="time" th:field="*{operatingHours[__${stat.index}__].closingTime}"></td>
-          </tr></tbody>
-        </table></div>
-        <p class="small text-secondary">Đánh dấu “Nghỉ” để đóng cửa cả ngày. Ngày mở cửa cần có đủ giờ bắt đầu và kết thúc; giờ kết thúc phải sau giờ bắt đầu. Không có giờ mặc định được tự áp dụng.</p>
-        <button class="btn btn-primary" type="submit">Lưu cấu hình</button>
+
+        <h2 class="h5 mb-1">Giờ hoạt động</h2>
+        <p class="small text-secondary mb-3">Thiết lập khung giờ mở cửa nhận lịch cho từng ngày trong tuần (bước nhảy 30 phút).</p>
+        <div class="table-responsive">
+          <table class="table table-zebra table-stack-mobile admin-hours-table align-middle">
+            <thead>
+              <tr>
+                <th>Ngày</th>
+                <th>Nghỉ</th>
+                <th>Mở cửa</th>
+                <th>Đóng cửa</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr th:each="day, stat : ${dayNames}" class="hours-row" th:classappend="${settingsForm.operatingHours[stat.index].closed} ? 'is-closed-day'" data-hours-row>
+                <td data-label="Ngày">
+                  <strong class="day-name text-dark" th:text="${day}">Thứ Hai</strong>
+                </td>
+                <td data-label="Trạng thái">
+                  <div class="d-flex flex-wrap align-items-center gap-2">
+                    <label for="closed" th:for="|closed-${stat.index}|" class="closed-day-toggle">
+                      <input id="closed" th:id="|closed-${stat.index}|" class="form-check-input closed-day-checkbox" type="checkbox" th:field="*{operatingHours[__${stat.index}__].closed}" data-closed-toggle>
+                      <span class="closed-day-label">Nghỉ</span>
+                    </label>
+                    <span class="closed-day-badge">Đóng cửa cả ngày</span>
+                  </div>
+                  <input type="hidden" th:field="*{operatingHours[__${stat.index}__].dayOfWeek}">
+                </td>
+                <td data-label="Mở cửa" class="hours-time-cell">
+                  <label for="openingTime" th:for="|openingTime-${stat.index}|" class="visually-hidden">Giờ mở cửa <span th:text="${day}">Thứ Hai</span></label>
+                  <input id="openingTime" th:id="|openingTime-${stat.index}|" class="form-control hours-time-input" type="time" step="1800" lang="vi-VN" th:field="*{operatingHours[__${stat.index}__].openingTime}">
+                </td>
+                <td data-label="Đóng cửa" class="hours-time-cell">
+                  <label for="closingTime" th:for="|closingTime-${stat.index}|" class="visually-hidden">Giờ đóng cửa <span th:text="${day}">Thứ Hai</span></label>
+                  <input id="closingTime" th:id="|closingTime-${stat.index}|" class="form-control hours-time-input" type="time" step="1800" lang="vi-VN" th:field="*{operatingHours[__${stat.index}__].closingTime}">
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="small text-secondary mt-3">Đánh dấu “Nghỉ” để đóng cửa cả ngày. Ngày mở cửa cần có đủ giờ bắt đầu và kết thúc; giờ kết thúc phải sau giờ bắt đầu. Không có giờ mặc định được tự áp dụng.</p>
+        <button class="btn btn-primary" type="submit">
+          <svg th:replace="~{fragments/icons :: check}"></svg>
+          <span>Lưu cấu hình</span>
+        </button>
       </form>
     </main>
     <footer th:replace="~{fragments/layout :: footer}"></footer>

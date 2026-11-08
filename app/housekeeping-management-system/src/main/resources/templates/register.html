@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
-  <head th:replace="~{fragments/layout :: head('Đăng ký tài khoản Customer')}"></head>
+  <head th:replace="~{fragments/layout :: head('Đăng ký tài khoản khách hàng')}"></head>
   <body>
     <header th:replace="~{fragments/layout :: header('register')}"></header>
     <main id="main" class="container d-flex align-items-center justify-content-center py-5">
@@ -10,13 +10,16 @@
           <div class="p-4 p-lg-5">
             <span class="eyebrow">Gọn Nhà</span>
             <h2>Nhà sạch hơn.<br>Ngày nhẹ hơn.</h2>
-            <p class="mb-0">Tạo tài khoản Customer để đặt lịch chăm sóc ngôi nhà của bạn.</p>
+            <p class="mb-0">Tạo tài khoản khách hàng để đặt lịch chăm sóc ngôi nhà của bạn.</p>
           </div>
         </div>
         <div class="p-4 p-lg-5 d-flex flex-column justify-content-center">
-          <span class="eyebrow">Bắt đầu với Gọn Nhà</span>
-          <h1 class="h2 mb-2">Đăng ký Customer</h1>
-          <p class="text-secondary small mb-4">Staff và Admin được cấp tài khoản bởi quản trị viên.</p>
+          <span class="eyebrow align-self-start">
+            <svg th:replace="~{fragments/icons :: sparkles}"></svg>
+            <span>Bắt đầu với Gọn Nhà</span>
+          </span>
+          <h1 class="h2 mb-2">Đăng ký tài khoản</h1>
+          <p class="text-secondary small mb-4">Dành cho khách hàng đặt dịch vụ. Tài khoản nhân viên và quản trị viên do công ty cấp riêng.</p>
           <form th:action="@{/register}" th:object="${registrationForm}" method="post" class="vstack gap-3">
             <div>
               <label class="form-label" for="name">Họ và tên</label>
@@ -36,7 +39,7 @@
             <div>
               <label class="form-label" for="password">Mật khẩu</label>
               <input id="password" name="password" type="password" class="form-control" minlength="8" maxlength="72" autocomplete="new-password" required>
-              <div class="form-text">Mật khẩu có từ 8 đến 72 ký tự và tối đa 72 byte UTF-8.</div>
+              <div class="form-text">Mật khẩu dài từ 8 đến 72 ký tự (hỗ trợ chữ cái, chữ số và ký tự đặc biệt).</div>
               <div th:if="${#fields.hasErrors('password')}" th:errors="*{password}" class="invalid-feedback d-block"></div>
             </div>
             <div>
@@ -44,7 +47,10 @@
               <input id="confirmPassword" name="confirmPassword" type="password" class="form-control" maxlength="72" autocomplete="new-password" required>
               <div th:if="${#fields.hasErrors('confirmPassword')}" th:errors="*{confirmPassword}" class="invalid-feedback d-block"></div>
             </div>
-            <button type="submit" class="btn btn-primary w-100 mt-2">Tạo tài khoản</button>
+            <button type="submit" class="btn btn-primary w-100 mt-2">
+              <span>Tạo tài khoản</span>
+              <svg th:replace="~{fragments/icons :: arrow-right}"></svg>
+            </button>
           </form>
           <p class="small text-center text-secondary mt-4 mb-0">
             Đã có tài khoản?
