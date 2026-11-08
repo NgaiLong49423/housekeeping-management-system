@@ -720,70 +720,364 @@ if (bookingForm) {
     });
     return select;
   };
+  const getDurationMinutes = () => {
+    return selectedServices().reduce((sum, input) => sum + Number(input.dataset.duration || 0), 0);
+  };
+  const getEndTime = (start, dur) => {
+    if (!start || !/^\d{2}:\d{2}$/.test(start) || !dur) return "";
+    const [h, m] = start.split(":").map(Number);
+    const total = h * 60 + m + dur;
+    const endH = Math.floor(total / 60) % 24;
+    const endM = total % 60;
+    return (endH < 10 ? "0" : "") + endH + ":" + (endM < 10 ? "0" : "") + endM;
+  };
   const renderDay = day => {
-    const card = document.createElement("article"); card.className = "booking-day-card"; card.dataset.bookingDate = day.date;
-    const head = document.createElement("header"); head.className = "booking-day-card-heading";
-    const title = document.createElement("strong"); title.textContent = weekdayDate(day.date);
-    const actions = document.createElement("div"); actions.className = "booking-day-card-actions";
-    const edit = document.createElement("button"); edit.type = "button"; edit.className = "btn btn-sm btn-outline-primary";
+    const durationMinutes = getDurationMinutes();
+    const card = document.createElement("article");
+    card.className = "booking-day-card" + (day.time && day.staffId ? " is-confirmed" : "");
+    card.dataset.bookingDate = day.date;
+
+    const head = document.createElement("header");
+    head.className = "booking-day-card-heading";
+
+    const titleWrap = document.createElement("div");
+    titleWrap.className = "d-flex align-items-center flex-wrap gap-2";
+    const title = document.createElement("strong");
+    title.className = "booking-day-card-title";
+    title.textContent = weekdayDate(day.date);
+    titleWrap.append(title);
+
+    if (day.time && day.staffId) {
+      const badge = document.createElement("span");
+      badge.className = "badge";
+      badge.style.background = "var(--brand-subtle)";
+      badge.style.color = "var(--brand-dark)";
+      badge.style.border = "1px solid var(--brand-border)";
+      badge.style.fontWeight = "600";
+      badge.textContent = "✓ " + day.time + " – " + getEndTime(day.time, durationMinutes);
+      titleWrap.append(badge);
+    } else {
+      const badge = document.createElement("span");
+      badge.className = "badge bg-light text-secondary border";
+      badge.textContent = "Chưa hoàn tất chọn giờ";
+      titleWrap.append(badge);
+    }
+
+    const actions = document.createElement("div");
+    actions.className = "booking-day-card-actions";
+    const edit = document.createElement("button");
+    edit.type = "button";
+    edit.className = "btn btn-sm btn-outline-primary";
     const selectedStaffName = allStaff.find(person => String(person.id) === String(day.staffId))?.name;
-    edit.textContent = day.expanded ? "Thu gọn" : (day.time && day.staffId ? `${day.time} · ${selectedStaffName || "Đã chọn"} · Sửa` : "Chọn giờ và nhân viên");
+    edit.textContent = day.expanded
+      ? "Thu gọn"
+      : (day.time && day.staffId ? day.time + " · " + (selectedStaffName || "Đã chọn") + " · Sửa" : "Chọn giờ và nhân viên");
     edit.setAttribute("aria-expanded", String(Boolean(day.expanded)));
-    edit.addEventListener("click", () => { days.forEach(item => { item.expanded = item === day ? !day.expanded : false; }); render(); });
-    const remove = document.createElement("button"); remove.type = "button"; remove.className = "btn btn-sm btn-outline-danger"; remove.textContent = "Bỏ ngày";
+    edit.addEventListener("click", () => {
+      days.forEach(item => { item.expanded = item === day ? !day.expanded : false; });
+      render();
+    });
+
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "btn btn-sm btn-outline-danger";
+    remove.textContent = "Bỏ ngày";
     remove.addEventListener("click", () => { days.delete(day.date); render(); });
-    actions.append(edit, remove); head.append(title, actions); card.append(head);
-    const status = document.createElement("p"); status.className = "small text-secondary booking-day-status";
+
+    actions.append(edit, remove);
+    head.append(titleWrap, actions);
+    card.append(head);
+
+    // Confirmed banner
+    if (day.time && day.staffId) {
+      const staffObj = allStaff.find(p => String(p.id) === String(day.staffId));
+      const sName = staffObj?.name || selectedStaffName || "Nhân viên";
+      const sType = staffObj?.staffType === 'FULL_TIME' ? 'Toàn thời gian' : (staffObj?.staffType === 'PART_TIME' ? 'Bán thời gian' : '');
+      const sAvatar = sName.trim().charAt(0) || 'N';
+      const confirmedBox = document.createElement("div");
+      confirmedBox.className = "booking-day-confirmed-card";
+      confirmedBox.innerHTML = `
+        <div class="booking-day-confirmed-left">
+          <div class="booking-day-confirmed-time">
+            <svg class="ui-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            <div>
+              <strong>${day.time} – ${getEndTime(day.time, durationMinutes)}</strong>
+              <small class="d-block text-secondary">Thời lượng dịch vụ: ${durationMinutes} phút</small>
+            </div>
+          </div>
+          <div class="booking-day-confirmed-staff">
+            <div class="booking-day-confirmed-avatar">${sAvatar}</div>
+            <div>
+              <strong>${sName}</strong>
+              <small class="d-block text-secondary">${sType ? sType : 'Nhân viên thực hiện'}</small>
+            </div>
+          </div>
+        </div>
+        <div class="booking-day-confirmed-status">
+          <span class="badge" style="background: #eaf7ec; color: #08752e; border: 1px solid #b8dfbe; font-size: 0.82rem; padding: 0.45rem 0.75rem;">
+            ✓ Sẵn sàng thực hiện
+          </span>
+        </div>
+      `;
+      card.append(confirmedBox);
+    } else if (!day.expanded) {
+      const unconfBox = document.createElement("div");
+      unconfBox.className = "booking-day-unconfigured-note d-flex align-items-center justify-content-between p-2 px-3 rounded-2 mt-1";
+      unconfBox.style.background = "var(--bg-subtle)";
+      unconfBox.style.fontSize = "0.85rem";
+      unconfBox.innerHTML = `
+        <span class="text-secondary">⚠️ Vui lòng hoàn tất chọn giờ và nhân viên để hoàn thiện lịch ngày này.</span>
+        <button type="button" class="btn btn-sm btn-link text-decoration-none text-primary p-0 fw-semibold">Chọn ngay →</button>
+      `;
+      unconfBox.querySelector("button").addEventListener("click", () => {
+        days.forEach(item => { item.expanded = item === day; });
+        render();
+      });
+      card.append(unconfBox);
+    }
+
+    const status = document.createElement("p");
+    status.className = "small text-secondary booking-day-status mt-2 mb-0";
     status.setAttribute("role", "status");
-    status.textContent = day.loading ? "Đang tải lịch…" : day.error || day.notice || day.options?.message || (day.time && day.staffId ? "Đã chọn giờ và nhân viên cho ngày này." : "Chọn giờ và nhân viên cho ngày này.");
-    status.classList.toggle("text-danger",Boolean(day.error||day.notice));
-    status.classList.toggle("text-secondary",!day.error&&!day.notice);
+    status.textContent = day.loading
+      ? "Đang tải lịch…"
+      : day.error || day.notice || day.options?.message || (day.time && day.staffId ? "Đã chọn giờ và nhân viên cho ngày này." : "Chọn giờ và nhân viên cho ngày này.");
+    status.classList.toggle("text-danger", Boolean(day.error || day.notice));
+    status.classList.toggle("text-secondary", !day.error && !day.notice);
     card.append(status);
+
     addHiddenSelection(card, day);
     if (!day.expanded) return card;
-    const eligibleStaff = day.time ? (timeFor(day, day.time)?.staffOptions || [])
+
+    const eligibleStaff = day.time
+      ? (timeFor(day, day.time)?.staffOptions || [])
       : [...new Map((day.timeOptions || []).flatMap(option => option.staffOptions || []).map(person => [String(person.id), person])).values()];
+
+    const timeSection = document.createElement("div");
+    timeSection.className = "booking-time-section mt-3";
+
     if (preference === "staff") {
       if (!day.staffId) {
-        const prompt = document.createElement("p"); prompt.className = "small text-secondary mb-0"; prompt.textContent = "Chọn nhân viên ở phía trên để xem các giờ người đó có thể làm."; card.append(prompt);
+        const prompt = document.createElement("div");
+        prompt.className = "alert alert-warning py-2 px-3 small mb-0";
+        prompt.textContent = "Vui lòng chọn một nhân viên ưu tiên ở Bước 03 phía trên để xem các ca làm việc của họ.";
+        timeSection.append(prompt);
+      } else if (!day.loading && day.options) {
+        const timeHeader = document.createElement("div");
+        timeHeader.className = "booking-section-subhead d-flex align-items-center justify-content-between mb-2";
+        timeHeader.innerHTML = `
+          <span class="fw-semibold text-dark d-flex align-items-center gap-2">
+            <svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            <span>Chọn khung giờ bắt đầu (Ca làm việc: ${durationMinutes} phút)</span>
+          </span>
+          <span class="small text-secondary">${(day.timeOptions || []).length} khung giờ trống</span>
+        `;
+        timeSection.append(timeHeader);
+
+        const morning = (day.timeOptions || []).filter(opt => opt.startTime < "12:00");
+        const afternoon = (day.timeOptions || []).filter(opt => opt.startTime >= "12:00");
+
+        const createGroup = (label, iconChar, opts) => {
+          if (!opts.length) return null;
+          const wrap = document.createElement("div");
+          wrap.className = "booking-time-group mb-2";
+          wrap.innerHTML = `<div class="booking-time-session-label"><span>${iconChar}</span> <span>${label} (${opts.length} mốc)</span></div>`;
+          const grid = document.createElement("div");
+          grid.className = "booking-time-grid";
+          opts.forEach(option => {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "booking-time-slot-btn" + (day.time === option.startTime ? " selected" : "");
+            btn.setAttribute("aria-pressed", String(day.time === option.startTime));
+            btn.innerHTML = `<strong>${option.startTime}</strong><small>${getEndTime(option.startTime, durationMinutes)}</small>`;
+            btn.addEventListener("click", () => {
+              day.time = option.startTime;
+              day.stale = false; day.restored = false; day.notice = "";
+              day.expanded = false;
+              render(); loadDay(day);
+            });
+            grid.append(btn);
+          });
+          wrap.append(grid);
+          return wrap;
+        };
+
+        const mg = createGroup("Buổi sáng (08:00 – 12:00)", "🌅", morning);
+        const ag = createGroup("Buổi chiều & Tối (12:00 – 18:00)", "☀️", afternoon);
+        if (mg) timeSection.append(mg);
+        if (ag) timeSection.append(ag);
+        if (!mg && !ag) {
+          const empty = document.createElement("p");
+          empty.className = "small text-secondary mb-0";
+          empty.textContent = day.options.message || "Nhân viên này chưa có giờ phù hợp trong ngày.";
+          timeSection.append(empty);
+        }
       }
-    } else if (day.time) {
-      const staffLabel = document.createElement("label"); staffLabel.className = "booking-day-field";
-      const staffCaption = document.createElement("span"); staffCaption.textContent = "Nhân viên phù hợp với giờ đã chọn";
-      staffLabel.append(staffCaption, makeStaffSelect(day, eligibleStaff)); card.append(staffLabel);
-    } else if (day.stale && !day.loading && !day.timeOptions.length) {
-      const staffLabel = document.createElement("label"); staffLabel.className = "booking-day-field";
-      const staffCaption = document.createElement("span"); staffCaption.textContent = "Đổi nhân viên để xem các giờ khác";
-      staffLabel.append(staffCaption, makeStaffSelect(day, allStaff, true)); card.append(staffLabel);
-    }
-    if (preference === "time") {
-      const pickerLabel = document.createElement("label"); pickerLabel.className = "booking-day-field booking-day-time-field";
-      const pickerCaption = document.createElement("span"); pickerCaption.textContent = "Giờ bắt đầu";
-      const picker = document.createElement("div"); picker.className = "time-picker"; picker.dataset.quarterTime = ""; picker.dataset.bookingTimePicker = ""; picker.dataset.changeOnDone = "";
-      const trigger = document.createElement("input"); trigger.type = "text"; trigger.className = "form-control time-trigger"; trigger.dataset.timeTrigger = ""; trigger.readOnly = true; trigger.disabled = day.loading || !day.options || !selectedServices().length; trigger.placeholder = "Chọn giờ"; trigger.setAttribute("aria-label", `Giờ bắt đầu ${weekdayDate(day.date)}`);
-      const value = document.createElement("input"); value.type = "hidden"; value.dataset.timeValue = ""; value.value = day.time || "";
-      picker.append(trigger, value); pickerLabel.append(pickerCaption, picker); card.append(pickerLabel);
+    } else {
+      // PREFERENCE === "TIME" (Default mode)
+      const timeHeader = document.createElement("div");
+      timeHeader.className = "booking-section-subhead d-flex align-items-center justify-content-between mb-2";
+      timeHeader.innerHTML = `
+        <span class="fw-semibold text-dark d-flex align-items-center gap-2">
+          <svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          <span>Bước 1: Chọn giờ bắt đầu làm việc</span>
+        </span>
+        <span class="small text-secondary">Mỗi ca kéo dài ${durationMinutes} phút</span>
+      `;
+      timeSection.append(timeHeader);
+
+      if (day.timeOptions && day.timeOptions.length > 0) {
+        const morning = day.timeOptions.filter(opt => opt.startTime < "12:00");
+        const afternoon = day.timeOptions.filter(opt => opt.startTime >= "12:00");
+
+        const createGroup = (label, iconChar, opts) => {
+          if (!opts.length) return null;
+          const wrap = document.createElement("div");
+          wrap.className = "booking-time-group mb-2";
+          wrap.innerHTML = `<div class="booking-time-session-label"><span>${iconChar}</span> <span>${label} (${opts.length} mốc khả dụng)</span></div>`;
+          const grid = document.createElement("div");
+          grid.className = "booking-time-grid";
+          opts.forEach(option => {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "booking-time-slot-btn" + (day.time === option.startTime ? " selected" : "");
+            btn.setAttribute("aria-pressed", String(day.time === option.startTime));
+            btn.innerHTML = `<strong>${option.startTime}</strong><small>${getEndTime(option.startTime, durationMinutes)}</small>`;
+            btn.addEventListener("click", () => {
+              day.time = option.startTime;
+              day.stale = false; day.restored = false; day.notice = "";
+              const elig = timeFor(day, option.startTime)?.staffOptions || [];
+              if (!elig.some(p => String(p.id) === String(day.staffId))) {
+                if (elig.length === 1) {
+                  day.staffId = elig[0].id;
+                } else {
+                  day.staffId = "";
+                }
+              }
+              render(); loadDay(day);
+            });
+            grid.append(btn);
+          });
+          wrap.append(grid);
+          return wrap;
+        };
+
+        const mg = createGroup("Buổi sáng (08:00 – 12:00)", "🌅", morning);
+        const ag = createGroup("Buổi chiều & Tối (12:00 – 18:00)", "☀️", afternoon);
+        if (mg) timeSection.append(mg);
+        if (ag) timeSection.append(ag);
+      }
+
+      // Quarter-time picker fallback
+      const pickerLabel = document.createElement("details");
+      pickerLabel.className = "booking-time-custom-details mt-2";
+      pickerLabel.innerHTML = `<summary class="small text-secondary fw-semibold cursor-pointer mb-2">⚙️ Hoặc tùy chỉnh mốc giờ khác</summary>`;
+      const pickerField = document.createElement("div");
+      pickerField.className = "booking-day-field booking-day-time-field";
+      const picker = document.createElement("div");
+      picker.className = "time-picker";
+      picker.dataset.quarterTime = "";
+      picker.dataset.bookingTimePicker = "";
+      picker.dataset.changeOnDone = "";
+      const trigger = document.createElement("input");
+      trigger.type = "text";
+      trigger.className = "form-control time-trigger";
+      trigger.dataset.timeTrigger = "";
+      trigger.readOnly = true;
+      trigger.disabled = day.loading || !day.options || !selectedServices().length;
+      trigger.placeholder = "Chọn giờ tùy ý";
+      trigger.setAttribute("aria-label", "Giờ bắt đầu " + weekdayDate(day.date));
+      trigger.value = day.time || "";
+      const value = document.createElement("input");
+      value.type = "hidden";
+      value.dataset.timeValue = "";
+      value.value = day.time || "";
+      picker.append(trigger, value);
+      pickerField.append(picker);
+      pickerLabel.append(pickerField);
+      timeSection.append(pickerLabel);
+
       if (window.initQuarterTimePicker) window.initQuarterTimePicker(picker);
       picker.setAllowedTimes?.((day.timeOptions || []).map(option => option.startTime));
-      picker.addEventListener("change", () => { day.time = value.value; day.staffId = ""; day.stale=false;day.restored=false;day.notice = ""; render(); loadDay(day); });
-    }
-    if (preference === "staff" && day.staffId && !day.loading && day.options) {
-      const list = document.createElement("div"); list.className = "booking-availability-options booking-time-only-options";
-      (day.timeOptions || []).forEach(option => {
-        const button = document.createElement("button"); button.type = "button"; button.className = "booking-availability-option";
-        if (day.time === option.startTime) button.classList.add("selected");
-        button.setAttribute("aria-pressed", String(day.time === option.startTime));
-        const time = document.createElement("strong"); time.textContent = option.startTime;
-        button.append(time);
-        button.addEventListener("click", () => {
-          day.time = option.startTime; day.stale = false; day.restored = false; day.notice = ""; day.expanded = false;
-          render(); loadDay(day);
-        });
-        list.append(button);
+      picker.addEventListener("change", () => {
+        day.time = value.value;
+        day.staffId = "";
+        day.stale = false; day.restored = false; day.notice = "";
+        render(); loadDay(day);
       });
-      if (!list.childElementCount) { const empty = document.createElement("p"); empty.className = "small text-secondary mb-0"; empty.textContent = day.options.message || "Nhân viên này chưa có giờ phù hợp trong ngày."; list.append(empty); }
-      card.append(list);
     }
+
+    card.append(timeSection);
+
+    // SECTION 2: Chọn nhân viên thực hiện (khi preference === "time")
+    if (preference === "time") {
+      const staffSection = document.createElement("div");
+      staffSection.className = "booking-staff-section mt-3 pt-3 border-top";
+
+      if (day.time) {
+        const staffHeader = document.createElement("div");
+        staffHeader.className = "booking-section-subhead d-flex align-items-center justify-content-between mb-2";
+        staffHeader.innerHTML = `
+          <span class="fw-semibold text-dark d-flex align-items-center gap-2">
+            <svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            <span>Bước 2: Chọn nhân viên cho ca ${day.time} – ${getEndTime(day.time, durationMinutes)}</span>
+          </span>
+          <span class="small text-secondary">${eligibleStaff.length} nhân viên sẵn sàng</span>
+        `;
+        staffSection.append(staffHeader);
+
+        const staffSelect = makeStaffSelect(day, eligibleStaff);
+        staffSelect.hidden = true;
+        staffSection.append(staffSelect);
+
+        const staffGrid = document.createElement("div");
+        staffGrid.className = "booking-day-staff-grid";
+        eligibleStaff.forEach(person => {
+          const isSelected = String(day.staffId) === String(person.id);
+          const sCard = document.createElement("div");
+          sCard.className = "booking-day-staff-card" + (isSelected ? " selected" : "");
+          sCard.tabIndex = 0;
+          sCard.role = "button";
+          const typeLabel = person.staffType === 'FULL_TIME' ? 'Toàn thời gian' : (person.staffType === 'PART_TIME' ? 'Bán thời gian' : '');
+          const avatarChar = (person.name || 'N').trim().charAt(0);
+          sCard.innerHTML = `
+            <div class="booking-day-staff-avatar">${avatarChar}</div>
+            <div class="booking-day-staff-details">
+              <span class="booking-day-staff-name">${person.name}</span>
+              <span class="booking-day-staff-type">${typeLabel}</span>
+            </div>
+            <span class="booking-day-staff-check" ${isSelected ? '' : 'style="display:none;"'}>
+              <svg class="ui-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </span>
+          `;
+          sCard.addEventListener("click", () => {
+            day.staffId = person.id;
+            staffSelect.value = person.id;
+            day.expanded = false;
+            day.notice = "";
+            render();
+            loadDay(day);
+          });
+          staffGrid.append(sCard);
+        });
+        staffSection.append(staffGrid);
+      } else {
+        const prompt = document.createElement("p");
+        prompt.className = "small text-secondary mb-0 p-2 rounded-2";
+        prompt.style.background = "var(--bg-subtle)";
+        prompt.textContent = "👆 Hãy chọn một khung giờ ở Bước 1 trước để xem danh sách các nhân viên có thể nhận ca.";
+        staffSection.append(prompt);
+      }
+      card.append(staffSection);
+    } else if (day.stale && !day.loading && !day.timeOptions.length) {
+      const staffLabel = document.createElement("label");
+      staffLabel.className = "booking-day-field mt-3";
+      const staffCaption = document.createElement("span");
+      staffCaption.textContent = "Đổi nhân viên để xem các giờ khác";
+      staffLabel.append(staffCaption, makeStaffSelect(day, allStaff, true));
+      card.append(staffLabel);
+    }
+
     return card;
   };
   function render() {
