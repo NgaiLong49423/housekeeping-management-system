@@ -67,10 +67,16 @@
                           th:text="${ui.label(house.recipientName)} + ' · ' + ${house.addressType.label} + (${house.defaultAddress} ? ' (Mặc định)' : '') + ' · ' + ${house.address}">Nhà</option>
                 </select>
                 <p class="small text-danger fw-semibold mt-2 mb-0" id="houseServiceAreaError" role="alert" th:text="${houseServiceAreaError}" th:hidden="${houseServiceAreaError == null}"></p>
-                <a class="small text-link d-inline-block mt-2" th:href="@{/customer/houses}">
-                  <span>Quản lý địa chỉ nhà</span>
-                  <svg th:replace="~{fragments/icons :: arrow-right}"></svg>
-                </a>
+                <div class="d-flex align-items-center gap-3 mt-2 flex-wrap">
+                  <a class="small text-link" th:href="@{/customer/houses}">
+                    <span>Quản lý địa chỉ nhà</span>
+                    <svg th:replace="~{fragments/icons :: arrow-right}"></svg>
+                  </a>
+                  <a class="small text-link text-success fw-semibold" th:href="@{/customer/houses}">
+                    <svg th:replace="~{fragments/icons :: plus}"></svg>
+                    <span>Thêm địa chỉ mới</span>
+                  </a>
+                </div>
               </div>
               <div class="mt-3">
                 <label class="form-label" for="areaNote">Ghi chú khu vực cần ưu tiên (không bắt buộc)</label>
@@ -88,44 +94,107 @@
                 </div>
               </div>
               <fieldset class="booking-search-preference mt-3" data-booking-preference>
-                <legend class="form-label">Bạn muốn ưu tiên chọn theo</legend>
-                <div class="d-flex gap-3">
-                  <label class="form-check">
-                    <input class="form-check-input" type="radio" name="bookingPreference" value="time" checked>
-                    <span class="form-check-label">Ngày và giờ</span>
+                <legend class="form-label mb-2 fw-semibold">Bạn muốn ưu tiên chọn theo</legend>
+                <div class="booking-preference-toggle-group">
+                  <label class="booking-pref-card" for="pref-time">
+                    <input class="form-check-input" type="radio" id="pref-time" name="bookingPreference" value="time" checked>
+                    <span class="booking-pref-card-body">
+                      <span class="booking-pref-card-title">
+                        <svg th:replace="~{fragments/icons :: clock}"></svg>
+                        <span>Ngày & Giờ thuận tiện</span>
+                      </span>
+                      <span class="booking-pref-card-desc">Chọn ngày bạn rảnh, hệ thống lọc nhân viên phù hợp theo từng buổi.</span>
+                    </span>
                   </label>
-                  <label class="form-check">
-                    <input class="form-check-input" type="radio" name="bookingPreference" value="staff">
-                    <span class="form-check-label">Nhân viên yêu thích</span>
+                  <label class="booking-pref-card" for="pref-staff">
+                    <input class="form-check-input" type="radio" id="pref-staff" name="bookingPreference" value="staff">
+                    <span class="booking-pref-card-body">
+                      <span class="booking-pref-card-title">
+                        <svg th:replace="~{fragments/icons :: heart}"></svg>
+                        <span>Nhân viên yêu thích</span>
+                      </span>
+                      <span class="booking-pref-card-desc">Ưu tiên người quen phục vụ, xem các ngày người đó còn trống ca.</span>
+                    </span>
                   </label>
                 </div>
               </fieldset>
+
               <div class="mt-3 booking-availability-calendar">
+                <!-- Staff selection when in "staff" preference mode -->
                 <div class="booking-preferred-staff" data-preferred-staff-wrap hidden>
-                  <label class="form-label" for="preferredStaffId">Nhân viên bạn muốn ưu tiên</label>
+                  <div class="d-flex align-items-center justify-content-between mb-2">
+                    <label class="form-label mb-0 fw-semibold" for="preferredStaffId">Nhân viên bạn muốn ưu tiên</label>
+                    <span class="small text-secondary">Nhấp thẻ bên dưới hoặc chọn trong danh sách</span>
+                  </div>
                   <select class="form-select" id="preferredStaffId" data-preferred-staff-select>
                     <option value="">Chọn nhân viên để xem ngày họ làm</option>
-                    <option th:each="person : ${staff}" th:value="${person.id}" th:text="${ui.label(person.name)}" th:data-staff-type="${person.staffType}">Nhân viên</option>
+                    <option th:each="person : ${staff}" th:value="${person.id}"
+                            th:text="(${person.favorite ? '★ ' : ''} + ${ui.label(person.name)} + ' · ' + (${person.staffType == 'FULL_TIME' ? 'Toàn thời gian' : 'Bán thời gian'}) + (${person.favorite ? ' (Yêu thích)' : ''}))"
+                            th:data-staff-type="${person.staffType}"
+                            th:data-favorite="${person.favorite}">Nhân viên</option>
                   </select>
+
+                  <!-- Visual Staff Picker Cards -->
+                  <div class="booking-staff-cards-grid mt-3" data-staff-cards-grid>
+                    <div class="booking-staff-card" th:each="person : ${staff}" th:data-staff-card-id="${person.id}" role="button" tabindex="0">
+                      <div class="booking-staff-avatar-box">
+                        <img th:if="${person.avatarUrl != null and !person.avatarUrl.isBlank()}" th:src="${person.avatarUrl}" th:alt="${person.name}" class="booking-staff-avatar-img" />
+                        <span th:unless="${person.avatarUrl != null and !person.avatarUrl.isBlank()}" class="booking-staff-avatar-text" th:text="${#strings.substring(person.name, 0, 1)}">NV</span>
+                        <span th:if="${person.favorite}" class="booking-staff-fav-badge" title="Đã thêm vào danh sách yêu thích">
+                          <svg class="ui-icon" width="11" height="11" viewBox="0 0 24 24" fill="#c83a3a" stroke="#c83a3a"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                        </span>
+                      </div>
+                      <div class="booking-staff-card-details">
+                        <span class="booking-staff-card-name" th:text="${ui.label(person.name)}">Tên nhân viên</span>
+                        <span class="booking-staff-card-type" th:text="${person.staffType == 'FULL_TIME'} ? 'Toàn thời gian' : 'Bán thời gian'">Toàn thời gian</span>
+                      </div>
+                      <span class="booking-staff-check-indicator" aria-hidden="true">
+                        <svg class="ui-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <p class="small text-secondary mb-2" data-calendar-status role="status">Chọn dịch vụ để xem các ngày còn nhân viên và giờ phù hợp.</p>
+
+                <!-- Calendar Header with Status & Nav Controls -->
+                <div class="booking-calendar-header d-flex align-items-center justify-content-between mt-3 mb-2 flex-wrap gap-2">
+                  <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <span class="booking-calendar-badge">Lịch khả dụng 30 ngày tới</span>
+                    <p class="small text-secondary mb-0" data-calendar-status role="status">Chọn dịch vụ để xem các ngày còn nhân viên và giờ phù hợp.</p>
+                  </div>
+                  <div class="booking-date-nav-controls" data-date-nav-controls>
+                    <button class="booking-date-nav btn-prev" type="button" data-date-prev aria-label="Các ngày trước" disabled>
+                      <svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                    </button>
+                    <button class="booking-date-nav btn-next" type="button" data-date-next aria-label="Các ngày tiếp theo" disabled>
+                      <svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Date Carousel -->
                 <div class="booking-date-carousel" data-date-carousel>
-                  <button class="booking-date-nav" type="button" data-date-prev aria-label="Các ngày trước" disabled>‹</button>
                   <div class="booking-date-track" data-date-track>
                     <div class="booking-available-dates" data-available-dates aria-label="Các ngày có nhân viên sẵn sàng"></div>
                   </div>
-                  <button class="booking-date-nav" type="button" data-date-next aria-label="Các ngày tiếp theo" disabled>›</button>
                 </div>
-                <p class="small text-secondary mb-0 mt-2">Chỉ ngày có nhân viên làm được đủ thời lượng mới hiện. Ngày được chọn sẽ dùng giờ và nhân viên riêng.</p>
+
+                <div class="booking-date-helper-note mt-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                  <p class="small text-secondary mb-0">Chỉ ngày có nhân viên làm được đủ thời lượng mới hiện. Ngày được chọn sẽ dùng giờ và nhân viên riêng.</p>
+                  <span class="small text-muted fst-italic">Bấm vào ngày để chọn hoặc bỏ chọn</span>
+                </div>
+
                 <div class="booking-selected-dates mt-3" data-selected-booking-dates aria-live="polite"></div>
+
                 <select data-booking-staff-source hidden>
                   <option value="">Chọn nhân viên</option>
                   <option th:each="person : ${staff}" th:value="${person.id}" th:text="${ui.label(person.name)}" th:data-staff-type="${person.staffType}">Nhân viên</option>
                 </select>
               </div>
-              <div class="d-flex align-items-center justify-content-between mt-3">
+
+              <div class="d-flex align-items-center justify-content-between mt-3 pt-2 border-top">
                 <a class="small text-link" th:href="@{/customer/staff}">
-                  <span>Xem danh sách nhân viên và yêu thích</span>
+                  <svg th:replace="~{fragments/icons :: users}"></svg>
+                  <span>Xem hồ sơ chi tiết và đánh giá của các nhân viên</span>
                   <svg th:replace="~{fragments/icons :: arrow-right}"></svg>
                 </a>
               </div>

@@ -491,29 +491,143 @@ if (bookingForm) {
       chip.append(label, remove); selectedDates.append(chip);
     });
   };
+  const staffCards = [...bookingForm.querySelectorAll('[data-staff-card-id]')];
+  const syncStaffCards = () => {
+    const currentId = preferredStaff.value;
+    staffCards.forEach(card => {
+      const isSelected = String(card.dataset.staffCardId) === String(currentId);
+      card.classList.toggle('selected', isSelected);
+      card.setAttribute('aria-selected', String(isSelected));
+    });
+  };
+  staffCards.forEach(card => {
+    card.addEventListener('click', () => {
+      preferredStaff.value = card.dataset.staffCardId;
+      preferredStaff.dispatchEvent(new Event('change'));
+    });
+    card.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        card.click();
+      }
+    });
+  });
+
   const renderAvailableDates = () => {
     const previousScroll = calendarDates.scrollLeft;
     calendarDates.replaceChildren();
-    preferredStaffWrap.hidden = preference !== "staff";
-    if (!selectedServices().length) { calendarStatus.textContent = "Chọn dịch vụ để xem ngày có nhân viên làm."; updateDateNavigation(); return; }
-    if (preference === "staff" && !preferredStaff.value) { calendarStatus.textContent = "Chọn nhân viên trước; chỉ các ngày người đó có giờ phù hợp mới hiện."; updateDateNavigation(); return; }
-    if (calendarPending) { calendarStatus.textContent = "Đang kiểm tra ngày và lịch nhân viên…"; updateDateNavigation(); return; }
-    if (calendarError) {
-      calendarStatus.textContent=calendarError;
-      const retry=document.createElement("button"); retry.type="button"; retry.className="btn btn-sm btn-outline-primary ms-2"; retry.textContent="Tải lại ngày";
-      retry.addEventListener("click",loadAvailableDates,{once:true}); calendarStatus.append(retry); updateDateNavigation(); return;
+    preferredStaffWrap.hidden = preference !== 'staff';
+    const navControls = bookingForm.querySelector('[data-date-nav-controls]');
+
+    if (!selectedServices().length) {
+      calendarStatus.textContent = 'Chọn dịch vụ ở Bước 01 để xem ngày có nhân viên làm.';
+      if (navControls) navControls.style.display = 'none';
+      if (previousDatesButton) previousDatesButton.style.display = 'none';
+      if (nextDatesButton) nextDatesButton.style.display = 'none';
+      const guide = document.createElement('div');
+      guide.className = 'booking-dates-empty-guide';
+      guide.innerHTML = '<div class="empty-guide-icon"><svg class="ui-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg></div><div class="empty-guide-text"><strong class="d-block mb-1 text-dark">Chưa chọn dịch vụ ở Bước 01</strong><p class="small text-secondary mb-0">Vui lòng tích chọn ít nhất một dịch vụ bạn cần ở trên để hệ thống tự động kiểm tra ngày làm việc của nhân viên.</p></div>';
+      calendarDates.append(guide);
+      updateDateNavigation();
+      return;
     }
+
+    if (preference === 'staff' && !preferredStaff.value) {
+      calendarStatus.textContent = 'Chọn nhân viên trước; chỉ các ngày người đó có giờ phù hợp mới hiện.';
+      if (navControls) navControls.style.display = 'none';
+      if (previousDatesButton) previousDatesButton.style.display = 'none';
+      if (nextDatesButton) nextDatesButton.style.display = 'none';
+      const guide = document.createElement('div');
+      guide.className = 'booking-dates-empty-guide';
+      guide.innerHTML = '<div class="empty-guide-icon text-brand"><svg class="ui-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></div><div class="empty-guide-text"><strong class="d-block mb-1 text-dark">Vui lòng chọn nhân viên ưu tiên ở trên</strong><p class="small text-secondary mb-0">Nhấp chọn một nhân viên từ danh sách thẻ ở trên để xem ngay những ngày nhân viên đó có ca làm việc.</p></div>';
+      calendarDates.append(guide);
+      updateDateNavigation();
+      return;
+    }
+
+    if (calendarPending) {
+      calendarStatus.textContent = 'Đang kiểm tra ngày và lịch nhân viên…';
+      if (navControls) navControls.style.display = 'none';
+      const loading = document.createElement('div');
+      loading.className = 'booking-dates-loading p-4 text-center w-100';
+      loading.innerHTML = '<span class="spinner-border spinner-border-sm text-primary me-2" role="status"></span><span class="small text-secondary">Đang tải lịch ngày và kiểm tra nhân viên khả dụng…</span>';
+      calendarDates.append(loading);
+      updateDateNavigation();
+      return;
+    }
+
+    if (calendarError) {
+      calendarStatus.textContent = calendarError;
+      if (navControls) navControls.style.display = 'none';
+      const retry = document.createElement('button');
+      retry.type = 'button';
+      retry.className = 'btn btn-sm btn-outline-primary ms-2';
+      retry.textContent = 'Tải lại ngày';
+      retry.addEventListener('click', loadAvailableDates, { once: true });
+      calendarStatus.append(retry);
+      updateDateNavigation();
+      return;
+    }
+
+    if (navControls) navControls.style.display = '';
+    if (previousDatesButton) previousDatesButton.style.display = '';
+    if (nextDatesButton) nextDatesButton.style.display = '';
+
     calendarStatus.textContent = calendarNotice || (availableDates.length
-      ? "Chỉ các ngày còn mốc giờ hợp lệ mới được hiển thị. Chọn một hoặc nhiều ngày."
-      : "Không có ngày phù hợp trong 30 ngày tới.");
+      ? 'Chỉ các ngày còn mốc giờ hợp lệ mới được hiển thị. Chọn một hoặc nhiều ngày.'
+      : 'Không có ngày phù hợp trong 30 ngày tới.');
+
+    if (!availableDates.length) {
+      if (navControls) navControls.style.display = 'none';
+      if (previousDatesButton) previousDatesButton.style.display = 'none';
+      if (nextDatesButton) nextDatesButton.style.display = 'none';
+      const emptyNotice = document.createElement('div');
+      emptyNotice.className = 'booking-dates-empty-guide';
+      emptyNotice.innerHTML = '<div class="empty-guide-icon text-muted"><svg class="ui-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg></div><div class="empty-guide-text"><strong class="d-block mb-1 text-dark">Không có ngày phù hợp trong 30 ngày tới</strong><p class="small text-secondary mb-0">Rất tiếc hiện chưa có ca làm việc nào trống đáp ứng thời lượng dịch vụ này. Vui lòng thử chọn nhân viên khác hoặc liên hệ hotline.</p></div>';
+      calendarDates.append(emptyNotice);
+      updateDateNavigation();
+      return;
+    }
+
     availableDates.forEach(date => {
-      const button = document.createElement("button"); button.type = "button"; button.className = "booking-available-date";
-      const selected = days.has(date); button.classList.toggle("selected",selected); button.setAttribute("aria-pressed",String(selected));
-      const weekday = document.createElement("strong"); weekday.textContent = new Date(`${date}T12:00:00`).toLocaleDateString("vi-VN",{weekday:"long"});
-      const dayLabel = document.createElement("span"); dayLabel.textContent = new Date(`${date}T12:00:00`).toLocaleDateString("vi-VN",{day:"2-digit",month:"2-digit",year:"numeric"});
-      button.append(weekday,dayLabel);
-      button.addEventListener("click",()=>toggleDate(date)); calendarDates.append(button);
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'booking-available-date';
+      const selected = days.has(date);
+      button.classList.toggle('selected', selected);
+      button.setAttribute('aria-pressed', String(selected));
+      button.setAttribute('title', `Chọn ngày ${weekdayDate(date)}`);
+
+      const d = new Date(`${date}T12:00:00`);
+      const fullWeekday = d.toLocaleDateString('vi-VN', { weekday: 'long' });
+      const dayNum = String(d.getDate()).padStart(2, '0');
+      const monthNum = String(d.getMonth() + 1).padStart(2, '0');
+
+      const weekday = document.createElement('span');
+      weekday.className = 'date-card-weekday';
+      weekday.textContent = fullWeekday;
+
+      const dayLabel = document.createElement('span');
+      dayLabel.className = 'date-card-day';
+      dayLabel.textContent = dayNum;
+
+      const monthYear = document.createElement('span');
+      monthYear.className = 'date-card-month';
+      monthYear.textContent = `Thg ${monthNum}`;
+
+      button.append(weekday, dayLabel, monthYear);
+
+      if (selected) {
+        const checkBadge = document.createElement('span');
+        checkBadge.className = 'date-card-check';
+        checkBadge.innerHTML = '<svg class="ui-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+        button.append(checkBadge);
+      }
+
+      button.addEventListener('click', () => toggleDate(date));
+      calendarDates.append(button);
     });
+
     calendarDates.scrollLeft = Math.min(previousScroll, Math.max(0, calendarDates.scrollWidth - calendarDates.clientWidth));
     updateDateNavigation();
     requestAnimationFrame(updateDateNavigation);
@@ -594,7 +708,7 @@ if (bookingForm) {
   const makeStaffSelect = (day, available, allowWithoutTime = false) => {
     const select = document.createElement("select"); select.className = "form-select booking-day-staff";
     select.append(new Option(preference === "staff" ? "Chọn nhân viên" : "Chọn giờ trước để xem nhân viên", ""));
-    available.forEach(person => select.add(new Option(person.name, person.id)));
+    available.forEach(person => { const typeLabel = person.staffType === 'FULL_TIME' ? 'Toàn thời gian' : (person.staffType === 'PART_TIME' ? 'Bán thời gian' : ''); const label = person.name + (!typeLabel ? '' : ' (' + typeLabel + ')'); select.add(new Option(label, person.id)); });
     select.value = day.staffId || "";
     select.disabled = day.loading || !selectedServices().length || (preference === "time" && !day.time && !allowWithoutTime);
     select.addEventListener("change", () => {
@@ -675,18 +789,18 @@ if (bookingForm) {
   function render() {
     renderDateChips(); renderAvailableDates(); daysContainer.replaceChildren();
     const ordered = [...days.values()].sort((a,b) => a.date.localeCompare(b.date));
-    if (!ordered.length) { const empty = document.createElement("p"); empty.className = "small text-secondary mb-0"; empty.textContent = "Thêm ít nhất một ngày để xem lịch."; daysContainer.append(empty); }
+    if (!ordered.length) { const empty = document.createElement("div"); empty.className = "booking-time-empty-guide text-center py-4 px-3 surface border rounded-3 w-100"; empty.innerHTML = '<div class="d-inline-flex align-items-center justify-content-center p-3 rounded-circle mb-2" style="background: var(--bg-subtle); color: var(--muted);"><svg class="ui-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></div><strong class="d-block mb-1 text-dark">Chưa có ngày nào được chọn</strong><p class="small text-secondary mb-0">Thêm ít nhất một ngày để xem lịch.</p>'; daysContainer.append(empty); }
     ordered.forEach(day => daysContainer.append(renderDay(day)));
     refresh();
   }
   preferredStaff.value=requestedStaffId||"";
-  preferredStaff.addEventListener("change",()=>{
+  preferredStaff.addEventListener("change", () => { syncStaffCards();
     days.forEach(day=>{day.time="";day.staffId=preferredStaff.value;day.stale=false;day.restored=false;day.notice="";});
     render(); loadAvailableDates(); days.forEach(loadDay);
   });
   preferenceInputs.forEach(input => input.addEventListener("change", () => {
     preference=input.value; days.forEach(day=>{day.time="";day.staffId=preference==="staff"?preferredStaff.value:"";day.stale=false;day.restored=false;day.notice="";});
-    if(preference==="staff"&&!preferredStaff.value)days.clear();
+    if(preference==="staff"&&!preferredStaff.value)days.clear(); syncStaffCards();
     render(); loadAvailableDates(); days.forEach(loadDay);
   }));
   services.forEach(input => input.addEventListener("change", () => {
@@ -761,7 +875,7 @@ if (bookingForm) {
       if(item&&item.date&&item.staffId&&item.time)days.set(item.date,{date:item.date,time:item.time,staffId:String(item.staffId),loading:false,options:null,timeOptions:[],error:"",notice:"Lịch trước chưa được tạo. Hãy xác nhận lại lựa chọn.",expanded:true,restored:true,stale:false});
     });
   }
-  render(); loadAvailableDates(); checkHouseServiceArea();
+  syncStaffCards(); render(); loadAvailableDates(); checkHouseServiceArea();
   if(retryState?.days?.length)retryState.days.forEach(item=>{const day=days.get(item.date);if(day)loadDay(day);});
 }
 

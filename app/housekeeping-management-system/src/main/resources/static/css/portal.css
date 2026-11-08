@@ -899,6 +899,7 @@ button, input, select, textarea {
 .form-control:not(textarea),
 .form-select:not(.form-select-sm) {
   min-height: 44px;
+}
 
 .time-picker { position: relative; }
 
@@ -1254,40 +1255,91 @@ button, input, select, textarea {
 @media (max-width: 760px) { .staff-week-day-content { grid-template-columns: 1fr; } .staff-week-add { grid-column: auto; } .staff-interval-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 2.75rem; gap: 0.65rem; } }
 @media (max-width: 480px) { .staff-week-day-content { padding: 0.75rem; } .staff-interval-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.55rem; } .staff-interval-remove { grid-column: 1 / -1; justify-self: start; } .staff-week-register-actions { align-items: stretch; flex-direction: column; } .staff-week-register-actions button { width: 100%; } }
 
-.booking-search-preference { display: flex; flex-wrap: wrap; gap: 0.55rem; border: 0; padding: 0; }
-.booking-search-preference legend { flex-basis: 100%; margin-bottom: 0.1rem; font-weight: 650; }
-.booking-search-preference label { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 0.75rem; border: 1px solid var(--mint-border); border-radius: var(--radius-pill); background: #fff; }
-.booking-search-preference input { accent-color: var(--brand); }
-.booking-availability-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: 0.55rem; }
-.booking-availability-option { display: flex; flex-direction: column; align-items: flex-start; gap: 0.25rem; min-height: 4rem; padding: 0.65rem 0.75rem; border: 1px solid var(--line); border-radius: 0.75rem; background: #fff; color: var(--ink); text-align: left; }
-.booking-availability-option:hover, .booking-availability-option:focus-visible { border-color: var(--brand); }
-.booking-availability-option.selected { border-color: var(--brand); background: #eaf8f3; box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand) 14%, transparent); }
-.booking-availability-option small { color: var(--muted); line-height: 1.35; }
-.booking-preferred-staff { max-width: 32rem; margin-bottom: 1rem; }
-.booking-date-carousel { display: flex !important; align-items: center !important; gap: 0.65rem !important; width: 100% !important; position: relative !important; }
-.booking-date-track { flex: 1 1 auto !important; min-width: 0 !important; overflow: hidden !important; }
-.booking-date-nav { flex: 0 0 2.5rem !important; width: 2.5rem !important; height: 2.5rem !important; padding: 0 !important; border: 1.5px solid var(--line-strong) !important; border-radius: 50% !important; background: #ffffff !important; color: var(--brand-dark) !important; font-size: 1.35rem !important; line-height: 1 !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; cursor: pointer !important; transition: all var(--motion-fast) !important; box-shadow: var(--shadow-sm) !important; }
+/* Step 3: Preference Selection Cards */
+.booking-search-preference { display: block; border: 0; padding: 0; margin: 0; }
+.booking-search-preference legend { margin-bottom: 0.5rem; font-weight: 650; font-size: 0.95rem; color: var(--ink); }
+.booking-preference-toggle-group { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.75rem; }
+.booking-pref-card { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.85rem 1rem; border: 1.5px solid var(--line); border-radius: var(--radius-md); background: #ffffff; cursor: pointer; transition: all var(--motion-fast); position: relative; }
+.booking-pref-card:hover { border-color: var(--brand-border); background: var(--bg-app); transform: translateY(-1px); }
+.booking-pref-card:has(input:checked) { border-color: var(--brand); background: var(--brand-subtle); box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand) 18%, transparent); }
+.booking-pref-card input { margin-top: 0.25rem; accent-color: var(--brand); }
+.booking-pref-card-body { display: flex; flex-direction: column; gap: 0.2rem; }
+.booking-pref-card-title { display: flex; align-items: center; gap: 0.35rem; font-size: 0.95rem; font-weight: 700; color: var(--brand-dark); }
+.booking-pref-card-title .ui-icon { width: 17px; height: 17px; }
+.booking-pref-card-desc { font-size: 0.82rem; color: var(--muted); line-height: 1.35; }
+
+/* Interactive Staff Picker Cards (Staff First Preference) */
+.booking-preferred-staff { max-width: 100%; margin-bottom: 1.25rem; }
+.booking-staff-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(13.5rem, 1fr)); gap: 0.75rem; max-height: 20rem; overflow-y: auto; padding: 0.25rem 0.2rem; }
+.booking-staff-card { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 0.85rem; border: 1.5px solid var(--line); border-radius: var(--radius-md); background: #ffffff; cursor: pointer; transition: all var(--motion-fast); position: relative; text-align: left; }
+.booking-staff-card:hover { border-color: var(--brand-border); background: var(--brand-subtle); transform: translateY(-1px); }
+.booking-staff-card.selected { border-color: var(--brand); background: var(--brand-subtle); box-shadow: 0 0 0 2px var(--brand); }
+.booking-staff-avatar-box { width: 2.75rem; height: 2.75rem; border-radius: 50%; overflow: hidden; background: var(--bg-subtle); display: grid; place-items: center; position: relative; flex-shrink: 0; border: 1px solid var(--line); }
+.booking-staff-avatar-img { width: 100%; height: 100%; object-fit: cover; }
+.booking-staff-avatar-text { font-family: var(--font-display); font-weight: 700; color: var(--brand-dark); font-size: 1.15rem; }
+.booking-staff-fav-badge { position: absolute; bottom: -2px; right: -2px; width: 1.15rem; height: 1.15rem; border-radius: 50%; background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.2); display: grid; place-items: center; }
+.booking-staff-card-details { flex: 1 1 auto; min-width: 0; }
+.booking-staff-card-name { font-size: 0.92rem; font-weight: 700; color: var(--brand-dark); line-height: 1.25; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.booking-staff-card-type { font-size: 0.78rem; color: var(--muted); display: block; margin-top: 0.15rem; }
+.booking-staff-check-indicator { width: 1.25rem; height: 1.25rem; border-radius: 50%; background: var(--brand); color: #ffffff; display: grid; place-items: center; flex-shrink: 0; opacity: 0; transform: scale(0.6); transition: all var(--motion-fast); }
+.booking-staff-card.selected .booking-staff-check-indicator { opacity: 1; transform: scale(1); }
+
+/* Calendar Header & Nav Controls */
+.booking-calendar-badge { display: inline-flex; align-items: center; padding: 0.25rem 0.65rem; font-size: 0.78rem; font-weight: 650; color: var(--brand-dark); background: var(--brand-subtle); border: 1px solid var(--brand-border); border-radius: var(--radius-pill); }
+.booking-date-nav-controls { display: inline-flex; align-items: center; gap: 0.4rem; }
+.booking-date-nav { flex: 0 0 2.25rem !important; width: 2.25rem !important; height: 2.25rem !important; padding: 0 !important; border: 1.5px solid var(--line-strong) !important; border-radius: 50% !important; background: #ffffff !important; color: var(--brand-dark) !important; display: inline-grid !important; place-items: center !important; cursor: pointer !important; transition: all var(--motion-fast) !important; box-shadow: var(--shadow-xs) !important; }
 .booking-date-nav:hover:not(:disabled) { border-color: var(--brand) !important; background: var(--brand-subtle) !important; color: var(--brand) !important; transform: translateY(-1px) !important; }
 .booking-date-nav:disabled { opacity: 0.25 !important; cursor: not-allowed !important; transform: none !important; box-shadow: none !important; }
-.booking-available-dates { display: flex !important; flex: 1 1 auto !important; min-width: 0 !important; gap: 0.65rem !important; overflow-x: auto !important; overscroll-behavior-inline: contain !important; scroll-snap-type: x mandatory !important; scrollbar-width: none !important; padding: 0.35rem 0.15rem !important; }
+
+/* Date Carousel & Track */
+.booking-date-carousel { display: block !important; width: 100% !important; position: relative !important; margin-top: 0.5rem !important; }
+.booking-date-track { width: 100% !important; overflow: hidden !important; }
+.booking-available-dates { display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; gap: 0.65rem !important; overflow-x: auto !important; overscroll-behavior-inline: contain !important; scroll-snap-type: x mandatory !important; scrollbar-width: none !important; padding: 0.4rem 0.2rem 0.85rem !important; -webkit-overflow-scrolling: touch !important; }
 .booking-available-dates::-webkit-scrollbar { display: none !important; }
-.booking-available-date { display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 0.35rem !important; flex: 0 0 8.75rem !important; min-height: 4.85rem !important; padding: 0.65rem 0.75rem !important; border: 1.5px solid var(--line-strong) !important; border-radius: var(--radius-md) !important; background: #ffffff !important; color: var(--ink) !important; text-align: center !important; scroll-snap-align: start !important; cursor: pointer !important; transition: all var(--motion-fast) !important; font-family: inherit !important; }
-.booking-available-date:hover { border-color: var(--brand) !important; background: var(--brand-subtle) !important; transform: translateY(-1px) !important; }
-.booking-available-date.selected { border-color: var(--brand) !important; background: var(--brand-subtle) !important; box-shadow: 0 0 0 2px var(--brand) !important; }
-.booking-available-date strong { display: block !important; font-size: 0.95rem !important; font-weight: 700 !important; color: var(--brand-dark) !important; text-transform: capitalize !important; line-height: 1.2 !important; }
-.booking-available-date span { display: block !important; font-size: 0.85rem !important; color: var(--muted) !important; line-height: 1.2 !important; }
+
+/* Date Card Item */
+.booking-available-date { display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 0.25rem !important; flex: 0 0 6.75rem !important; min-width: 6.75rem !important; max-width: 6.75rem !important; min-height: 5.65rem !important; padding: 0.65rem 0.5rem !important; border: 1.5px solid var(--line-strong) !important; border-radius: var(--radius-md) !important; background: #ffffff !important; color: var(--ink) !important; text-align: center !important; scroll-snap-align: start !important; cursor: pointer !important; transition: all var(--motion-fast) !important; position: relative !important; text-decoration: none !important; outline: none !important; box-shadow: var(--shadow-xs) !important; }
+.booking-available-date:hover { border-color: var(--brand) !important; background: var(--brand-subtle) !important; transform: translateY(-2px) !important; box-shadow: var(--shadow-sm) !important; }
+.booking-available-date.selected { border-color: var(--brand) !important; background: var(--brand) !important; color: #ffffff !important; box-shadow: var(--shadow-md), 0 0 0 2px var(--brand-border) !important; transform: translateY(-2px) !important; }
+.booking-available-date .date-card-weekday { display: block !important; font-size: 0.78rem !important; font-weight: 600 !important; color: var(--muted) !important; text-transform: uppercase !important; letter-spacing: 0.03em !important; line-height: 1.2 !important; }
+.booking-available-date.selected .date-card-weekday { color: rgba(255, 255, 255, 0.85) !important; }
+.booking-available-date .date-card-day { display: block !important; font-family: var(--font-display) !important; font-size: 1.45rem !important; font-weight: 700 !important; color: var(--brand-dark) !important; line-height: 1.15 !important; }
+.booking-available-date.selected .date-card-day { color: #ffffff !important; }
+.booking-available-date .date-card-month { display: block !important; font-size: 0.75rem !important; color: var(--muted) !important; line-height: 1.2 !important; }
+.booking-available-date.selected .date-card-month { color: rgba(255, 255, 255, 0.85) !important; }
+.booking-available-date .date-card-check { position: absolute !important; top: 4px !important; right: 4px !important; width: 18px !important; height: 18px !important; border-radius: 50% !important; background: #ffffff !important; color: var(--brand) !important; display: grid !important; place-items: center !important; box-shadow: var(--shadow-xs) !important; }
+
+/* Empty State Guides */
+.booking-dates-empty-guide,
+.booking-time-empty-guide { display: flex; align-items: center; gap: 1rem; padding: 1.25rem 1.35rem; border: 1.5px dashed var(--line-strong); border-radius: var(--radius-md); background: var(--surface); color: var(--ink); width: 100%; }
+.booking-dates-empty-guide .empty-guide-icon,
+.booking-time-empty-guide .empty-guide-icon { width: 3rem; height: 3rem; border-radius: 50%; background: var(--brand-subtle); color: var(--brand); display: grid; place-items: center; flex-shrink: 0; }
+.booking-dates-empty-guide .empty-guide-text strong,
+.booking-time-empty-guide .empty-guide-text strong { font-size: 0.95rem; color: var(--brand-dark); display: block; margin-bottom: 0.25rem; }
+.booking-dates-empty-guide .empty-guide-text p,
+.booking-time-empty-guide .empty-guide-text p { font-size: 0.85rem; color: var(--muted); margin: 0; line-height: 1.4; }
+
+/* Selected Date Chips */
 .booking-selected-dates { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-.booking-date-chip { display: inline-flex; align-items: center; gap: 0.55rem; padding: 0.45rem 0.7rem; border: 1px solid var(--mint-border); border-radius: var(--radius-pill); background: #eff9f2; }
+.booking-date-chip { display: inline-flex; align-items: center; gap: 0.55rem; padding: 0.45rem 0.75rem; border: 1px solid var(--mint-border); border-radius: var(--radius-pill); background: #eff9f2; font-size: 0.88rem; font-weight: 500; }
 .booking-date-chip .btn-close { width: 0.55rem; height: 0.55rem; }
-.booking-days { display: grid; gap: 0.85rem; }
-.booking-day-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.65rem; align-items: center; padding: 0.75rem 0.9rem; border: 1px solid var(--line); border-radius: 1rem; background: #fff; }
-.booking-day-card-heading { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding-bottom: 0.55rem; border-bottom: 1px solid var(--line); }
+
+/* Step 4: Day Cards & Times */
+.booking-days { display: grid; gap: 1rem; }
+.booking-day-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.85rem; padding: 1rem 1.2rem; border: 1px solid var(--line); border-radius: var(--radius-lg); background: #fff; box-shadow: var(--shadow-xs); }
+.booking-day-card-heading { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.booking-day-card-title { font-size: 1.05rem; font-weight: 700; color: var(--brand-dark); }
 .booking-day-card-actions { display: flex; align-items: center; gap: 0.5rem; }
 .booking-day-field { display: grid; gap: 0.35rem; font-size: 0.9rem; font-weight: 650; }
 .booking-day-status { grid-column: 1 / -1; margin: 0; }
 .booking-day-card .booking-availability-options { grid-column: 1 / -1; }
-.booking-day-card .time-picker { width: min(100%, 12rem); }
-.booking-day-time-field { width: min(100%, 15rem); }
+.booking-day-card .time-picker { width: min(100%, 14rem); }
+.booking-day-time-field { width: min(100%, 16rem); }
+.booking-availability-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: 0.55rem; }
+.booking-availability-option { display: flex; flex-direction: column; align-items: flex-start; gap: 0.25rem; min-height: 4rem; padding: 0.65rem 0.75rem; border: 1px solid var(--line); border-radius: 0.75rem; background: #fff; color: var(--ink); text-align: left; transition: all var(--motion-fast); }
+.booking-availability-option:hover, .booking-availability-option:focus-visible { border-color: var(--brand); }
+.booking-availability-option.selected { border-color: var(--brand); background: #eaf8f3; box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand) 14%, transparent); }
+.booking-availability-option small { color: var(--muted); line-height: 1.35; }
 .booking-time-only-options { max-height: 17rem; overflow-y: auto; padding: 0.15rem 0.25rem 0.15rem 0.1rem; grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr)); }
 .booking-time-only-options .booking-availability-option { min-height: 2.8rem; align-items: center; justify-content: center; padding: 0.45rem; }
 .booking-time-only-options .booking-availability-option strong { font-size: 0.92rem; }
@@ -1340,8 +1392,6 @@ button, input, select, textarea {
   .staff-edit-form { grid-template-columns: 1fr; }
   .staff-schedule-submit { width: 100%; }
   .staff-schedule-dashboard { padding: 1rem; }
-}
-
 }
 
 .form-select {
