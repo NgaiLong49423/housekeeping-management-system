@@ -66,9 +66,14 @@ class AdminBookingManagementServiceTest {
         when(bookings.hasConflictingBookingExcept(13L, LocalDateTime.of(2026, 11, 1, 10, 0),
                 LocalDateTime.of(2026, 11, 1, 12, 0), 51L, 60)).thenReturn(true);
         when(reservations.hasInsufficientTravelGap(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
+        when(reservations.assessTravel(org.mockito.ArgumentMatchers.eq(13L),org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.eq(51L))).thenReturn(new BookingReservationService.TravelAssessment(
+                        BookingReservationService.TravelStatus.OVERLAP,"Nhân viên thay thế đã có booking trùng giờ.",
+                        null,null,0,0,0,52L));
 
         assertThatThrownBy(() -> service.reassignConfirmedBooking(51L, 99L, 13L))
-                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("trùng lịch");
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("trùng giờ");
         verify(bookings, never()).assignStaff(51L, 12L, 13L);
     }
 
@@ -91,6 +96,10 @@ class AdminBookingManagementServiceTest {
         when(bookings.companyAcceptsInterval(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
         when(bookings.hasConflictingBookingExcept(13L, LocalDateTime.of(2026, 11, 1, 10, 0),
                 LocalDateTime.of(2026, 11, 1, 12, 0), 51L, 60)).thenReturn(false);
+        when(reservations.assessTravel(org.mockito.ArgumentMatchers.eq(13L),org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.eq(51L))).thenReturn(new BookingReservationService.TravelAssessment(
+                        BookingReservationService.TravelStatus.FEASIBLE,"",null,null,0,0,0,null));
         when(bookings.assignStaff(51L, 12L, 13L)).thenReturn(1);
 
         service.reassignConfirmedBooking(51L, 99L, 13L);

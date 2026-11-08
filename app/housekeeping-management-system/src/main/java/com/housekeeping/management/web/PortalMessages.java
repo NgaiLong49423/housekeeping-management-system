@@ -26,7 +26,8 @@ public final class PortalMessages {
         String message = failure.getMessage();
         if (message != null && (message.startsWith("Chỉ ") || message.startsWith("Lịch ") || message.startsWith("Bạn ")
                 || message.startsWith("Khoảng ") || message.startsWith("Hãy ") || message.startsWith("Giờ ")
-                || message.startsWith("Nhân viên ") || message.startsWith("Dịch vụ "))) { return message; }
+                || message.startsWith("Nhân viên ") || message.startsWith("Dịch vụ ")
+                || message.startsWith("Địa chỉ "))) { return message; }
         return MESSAGES.getOrDefault(message == null ? "" : message, "Không thể thực hiện thao tác. Vui lòng kiểm tra dữ liệu hoặc tải lại trang.");
     }
 }

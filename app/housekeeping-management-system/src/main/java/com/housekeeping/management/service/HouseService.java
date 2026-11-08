@@ -100,6 +100,11 @@ public class HouseService {
 
     @Transactional(readOnly = true)
     public boolean isWithinServiceRadius(BigDecimal latitude, BigDecimal longitude) {
+        return serviceCenter().contains(latitude, longitude);
+    }
+
+    @Transactional(readOnly = true)
+    public ServiceCenter serviceCenter() {
         List<CompanyLocation> configuredCompanies = jdbc.query("""
                 SELECT latitude, longitude, service_radius_km
                 FROM dbo.Company_Settings ORDER BY company_id
@@ -109,9 +114,15 @@ public class HouseService {
             throw new IllegalStateException("Cần cấu hình chính xác một vị trí và bán kính phục vụ của công ty.");
         }
         CompanyLocation company = configuredCompanies.getFirst();
-        double distance = distanceKm(latitude.doubleValue(), longitude.doubleValue(),
-                company.latitude().doubleValue(), company.longitude().doubleValue());
-        return distance <= company.radiusKm().doubleValue();
+        if (company.latitude()==null || company.longitude()==null || company.radiusKm()==null)
+            throw new IllegalStateException("Admin chưa cấu hình tâm và bán kính phục vụ của công ty.");
+        return new ServiceCenter(company.latitude(),company.longitude(),company.radiusKm());
+    }
+
+    public record ServiceCenter(BigDecimal latitude,BigDecimal longitude,BigDecimal radiusKm) {
+        public boolean contains(BigDecimal latitude,BigDecimal longitude) {
+            return distanceKm(latitude.doubleValue(),longitude.doubleValue(),this.latitude.doubleValue(),this.longitude.doubleValue())<=radiusKm.doubleValue();
+        }
     }
 
     static double distanceKm(double lat1, double lon1, double lat2, double lon2) {

@@ -75,7 +75,7 @@ public class BookingController {
     }
 
     @GetMapping("/customer/bookings/new")
-    String newBooking(@AuthenticationPrincipal PortalUser user, Model model) {
+    String newBooking(@AuthenticationPrincipal PortalUser user, @RequestParam(required = false) Long houseId, Model model) {
         model.addAttribute("services", query.services());
         model.addAttribute("staff", query.staff(user));
         java.time.LocalDate businessToday = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
@@ -83,8 +83,10 @@ public class BookingController {
         model.addAttribute("lastBookableDate", businessToday.plusDays(30));
         var customerHouses = houses.findCustomerHouses(user.getUserId());
         model.addAttribute("houses", customerHouses);
+        if(!model.containsAttribute("bookingRetryState")) model.addAttribute("bookingRetryState",null);
         if (!model.containsAttribute("bookingForm")) {
-            Long defaultHouseId = customerHouses.stream().filter(House::isDefaultAddress)
+            Long defaultHouseId = customerHouses.stream().filter(house -> houseId != null
+                            ? house.getHouseId().equals(houseId) : house.isDefaultAddress())
                     .map(House::getHouseId).findFirst().orElse(null);
             model.addAttribute("bookingForm", new BookingForm(null, defaultHouseId, null, List.of(), ""));
         }
@@ -97,12 +99,13 @@ public class BookingController {
     @org.springframework.web.bind.annotation.ResponseBody
     BookingAvailabilityOptions availabilityOptions(@RequestParam LocalDate workDate,
             @RequestParam List<Long> serviceIds, @RequestParam(required = false) Long staffId,
-            @RequestParam(required = false) String startTime, @AuthenticationPrincipal PortalUser user) {
+            @RequestParam(required = false) String startTime,@RequestParam Long houseId,
+            @AuthenticationPrincipal PortalUser user) {
         if (user == null || !"CUSTOMER".equals(user.getRole())) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         try {
             return bookingAvailability.options(workDate,serviceIds,staffId,
-                    startTime == null || startTime.isBlank() ? null : LocalTime.parse(startTime));
-        } catch (IllegalArgumentException | java.time.DateTimeException failure) {
+                    startTime == null || startTime.isBlank() ? null : LocalTime.parse(startTime),user.getUserId(),houseId);
+        } catch (IllegalArgumentException | IllegalStateException | java.time.DateTimeException failure) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,failure.getMessage(),failure);
         }
     }
@@ -119,17 +122,36 @@ public class BookingController {
         }
     }
 
+    @GetMapping("/customer/bookings/house-service-area")
+    @org.springframework.web.bind.annotation.ResponseBody
+    HouseAreaStatus houseServiceArea(@RequestParam Long houseId,@AuthenticationPrincipal PortalUser user) {
+        if(user==null||!"CUSTOMER".equals(user.getRole()))throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        try {
+            House house=houses.findCustomerHouse(user.getUserId(),houseId);
+            if(house.getLatitude()==null||house.getLongitude()==null)
+                return new HouseAreaStatus(false,"Địa chỉ nhà chưa được xác minh tọa độ VietMap. Hãy cập nhật địa chỉ trước khi đặt.");
+            if(!houses.isWithinServiceRadius(house.getLatitude(),house.getLongitude()))
+                return new HouseAreaStatus(false,"Địa chỉ nhà này nằm ngoài bán kính phục vụ của công ty. Hãy chọn địa chỉ khác hoặc liên hệ Admin.");
+            return new HouseAreaStatus(true,"Địa chỉ nằm trong bán kính phục vụ.");
+        } catch(IllegalArgumentException|IllegalStateException failure) {
+            return new HouseAreaStatus(false,"Chưa kiểm tra được bán kính phục vụ. Vui lòng thử lại.");
+        }
+    }
+
+    record HouseAreaStatus(boolean eligible,String message) { }
+
     @PostMapping("/customer/bookings")
     String create(@AuthenticationPrincipal PortalUser user, @Valid @ModelAttribute BookingForm bookingForm,
             BindingResult errors, Model model) {
-        if (errors.hasErrors()) return newBooking(user, model);
+        if (errors.hasErrors()) return newBooking(user, bookingForm.houseId(), model);
         try {
             Long id = reservations.createBooking(user.getUserId(), bookingForm.staffId(), bookingForm.houseId(),
                     bookingForm.startAt(), bookingForm.serviceIds(), bookingForm.areaNote());
             return "redirect:/customer/bookings/" + id;
         } catch (IllegalArgumentException | IllegalStateException failure) {
             model.addAttribute("error", PortalMessages.business(failure));
-            return newBooking(user, model);
+            if (isOutOfServiceArea(failure)) model.addAttribute("houseServiceAreaError", failure.getMessage());
+            return newBooking(user, bookingForm.houseId(), model);
         }
     }
 
@@ -146,6 +168,8 @@ public class BookingController {
         }
         int created = 0;
         List<String> failures = new java.util.ArrayList<>();
+        List<java.util.Map<String,Object>> retryDays=new java.util.ArrayList<>();
+        boolean serviceAreaFailure = false;
         for (int index = 0; index < workDates.size(); index++) {
             LocalDate date = workDates.get(index);
             try {
@@ -154,13 +178,26 @@ public class BookingController {
                         startAt, serviceIds, areaNote);
                 created++;
             } catch (IllegalArgumentException | IllegalStateException failure) {
-                failures.add(date + ": " + PortalMessages.business(failure));
+                String message = PortalMessages.business(failure);
+                failures.add(date + ": " + message);
+                retryDays.add(java.util.Map.of("date",date.toString(),"staffId",staffIds.get(index),"time",startTimes.get(index).toString()));
+                serviceAreaFailure |= isOutOfServiceArea(failure);
             }
         }
+        if (!failures.isEmpty()) {
+            flash.addFlashAttribute("bookingRetryState",java.util.Map.of("houseId",houseId,"serviceIds",serviceIds,
+                    "areaNote",areaNote==null?"":areaNote,"days",retryDays));
+            if (created > 0) flash.addFlashAttribute("warning", "Đã tạo " + created + " lịch; các ngày còn lại chưa đặt được: " + String.join("; ",failures));
+            else flash.addFlashAttribute("error", serviceAreaFailure ? "Chưa tạo được lịch nào vì địa chỉ nằm ngoài bán kính phục vụ." : "Chưa tạo được lịch nào. " + String.join("; ",failures));
+            if(serviceAreaFailure)flash.addFlashAttribute("houseServiceAreaError", "Địa chỉ nhà này nằm ngoài bán kính phục vụ của công ty. Hãy chọn địa chỉ khác hoặc liên hệ Admin.");
+            return "redirect:/customer/bookings/new?houseId=" + houseId;
+        }
         if (created > 0) flash.addFlashAttribute("success", "Đã tạo " + created + " lịch hẹn riêng cho các ngày bạn chọn.");
-        if (created > 0 && !failures.isEmpty()) flash.addFlashAttribute("warning", "Một số ngày chưa đặt được: " + String.join("; ", failures));
-        if (created == 0) flash.addFlashAttribute("error", "Chưa tạo được lịch nào. " + String.join("; ", failures));
         return "redirect:/customer/bookings";
+    }
+
+    private static boolean isOutOfServiceArea(RuntimeException failure) {
+        return failure.getMessage() != null && failure.getMessage().startsWith("Địa chỉ nằm ngoài bán kính phục vụ");
     }
 
     @GetMapping({"/customer/bookings/{id}", "/staff/bookings/{id}", "/admin/bookings/{id}"})

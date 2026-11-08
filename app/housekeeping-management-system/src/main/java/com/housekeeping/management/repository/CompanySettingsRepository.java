@@ -1,6 +1,5 @@
 package com.housekeeping.management.repository;
 
-import com.housekeeping.management.dto.request.PortalForms.CompanyLocationForm;
 import com.housekeeping.management.dto.request.PortalForms.CompanySettingsForm;
 import com.housekeeping.management.dto.request.PortalForms.OperatingHoursForm;
 import java.math.BigDecimal;
@@ -57,10 +56,10 @@ public class CompanySettingsRepository {
         return jdbc.query("SELECT company_id FROM dbo.Company_Settings WITH (UPDLOCK,HOLDLOCK,INDEX(0)) ORDER BY company_id",(rs,row)->rs.getLong(1));
     }
 
-    public void saveLocation(CompanyLocationForm form) {
+    public void saveLocation(String address, BigDecimal latitude, BigDecimal longitude, BigDecimal radiusKm) {
         List<Long> ids=lockCompanySettings(); if(ids.size()>1) throw new IllegalStateException("Phát hiện nhiều hơn một cấu hình công ty.");
-        if(ids.isEmpty()) jdbc.update("INSERT INTO dbo.Company_Settings(company_address,latitude,longitude,service_radius_km) VALUES(?,?,?,?)",form.companyAddress().trim(),form.latitude(),form.longitude(),form.serviceRadiusKm());
-        else jdbc.update("UPDATE dbo.Company_Settings SET company_address=?,latitude=?,longitude=?,service_radius_km=? WHERE company_id=?",form.companyAddress().trim(),form.latitude(),form.longitude(),form.serviceRadiusKm(),ids.getFirst());
+        if(ids.isEmpty()) jdbc.update("INSERT INTO dbo.Company_Settings(company_address,latitude,longitude,service_radius_km) VALUES(?,?,?,?)",address,latitude,longitude,radiusKm);
+        else jdbc.update("UPDATE dbo.Company_Settings SET company_address=?,latitude=?,longitude=?,service_radius_km=? WHERE company_id=?",address,latitude,longitude,radiusKm,ids.getFirst());
     }
 
     public List<Long> bookingsInVersionInterval(LocalDate from, LocalDate until) {
@@ -105,11 +104,11 @@ public class CompanySettingsRepository {
         }
     }
     private long requireCompanyId(){List<Long> ids=lockCompanySettings();if(ids.size()!=1)throw new IllegalStateException("Cần cấu hình chính xác một công ty.");return ids.getFirst();}
-    public List<Long> conflictingFutureConfirmedBookings(CompanyLocationForm form) {
+    public List<Long> conflictingFutureConfirmedBookings(BigDecimal latitude, BigDecimal longitude, BigDecimal radiusKm) {
         List<Long> ids=lockCompanySettings();if(ids.isEmpty())return List.of();
         List<Long> invalid=new ArrayList<>();
         List<BookingLocation> bookings=jdbc.query("SELECT booking_id,latitude_snapshot,longitude_snapshot FROM dbo.Bookings WHERE status IN ('CONFIRMED','AWAITING_PAYMENT') AND start_time>SYSDATETIME()",(rs,row)->new BookingLocation(rs.getLong(1),rs.getBigDecimal(2),rs.getBigDecimal(3)));
-        for(BookingLocation b:bookings) if(distanceKm(b.lat(),b.lon(),form.latitude(),form.longitude())>form.serviceRadiusKm().doubleValue())invalid.add(b.id());
+        for(BookingLocation b:bookings) if(distanceKm(b.lat(),b.lon(),latitude,longitude)>radiusKm.doubleValue())invalid.add(b.id());
         return invalid;
     }
     private static double distanceKm(BigDecimal a,BigDecimal b,BigDecimal c,BigDecimal d){if(a==null||b==null)return Double.POSITIVE_INFINITY;double p1=Math.toRadians(a.doubleValue()),p2=Math.toRadians(c.doubleValue()),dp=p2-p1,dl=Math.toRadians(d.doubleValue()-b.doubleValue());return 12742.0176*Math.asin(Math.sqrt(Math.min(1,Math.pow(Math.sin(dp/2),2)+Math.cos(p1)*Math.cos(p2)*Math.pow(Math.sin(dl/2),2))));}

@@ -114,6 +114,17 @@ public class BookingPersistenceRepository {
         return matches != null && matches > 0;
     }
 
+    public List<AppointmentPoint> overlappingAppointments(Long staffId, LocalDateTime start, LocalDateTime end, Long exceptId) {
+        return jdbc.query("""
+                SELECT booking_id,start_time,end_time,latitude_snapshot,longitude_snapshot FROM dbo.Bookings
+                WHERE staff_id=? AND booking_id<>? AND status IN ('CONFIRMED','AWAITING_PAYMENT','COMPLETED')
+                  AND start_time<? AND end_time>?
+                ORDER BY start_time
+                """, (rs,row)->new AppointmentPoint(rs.getLong(1),rs.getObject(2,LocalDateTime.class),
+                        rs.getObject(3,LocalDateTime.class),rs.getBigDecimal(4),rs.getBigDecimal(5)),
+                staffId,exceptId==null?-1L:exceptId,end,start);
+    }
+
     public boolean hasPartTimeAvailability(Long staffId, LocalDate date, LocalTime startTime) {
         Integer matches = jdbc.queryForObject("""
                 SELECT COUNT(*) FROM dbo.Staff_Availability

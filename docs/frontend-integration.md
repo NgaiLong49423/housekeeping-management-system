@@ -1,8 +1,8 @@
 > **Document:** Frontend–Backend Integration Guide\
 > **File:** `docs/frontend-integration.md`\
-> **Version:** v2.2.0\
+> **Version:** v2.3.0\
 > **Created:** 2026-10-16\
-> **Last Updated:** 2026-11-07\
+> **Last Updated:** 2026-11-08\
 > **Status:** Draft
 
 # Kết Nối Giao Diện Gọn Nhà Với Backend
@@ -63,8 +63,9 @@ Các route dưới đây là điểm vào MVC của ứng dụng.
 | `/customer/houses/{id}/delete` | CSRF | Ẩn House nếu không có Booking CONFIRMED/AWAITING_PAYMENT; giữ bản ghi lịch sử |
 | `/customer/bookings` | `staffId`, `houseId`, `startAt`, `serviceIds` lặp, `areaNote` | Tạo một booking qua `BookingReservationService.createBooking` (luồng tương thích đơn lẻ) |
 | `/customer/bookings/multiple` | `houseId`, `serviceIds` lặp, `workDates`, `staffIds`, `startTimes` theo cùng chỉ số, `areaNote` | Tạo một Booking riêng cho từng ngày; giờ và Staff chọn độc lập. Ngày lỗi được báo riêng, ngày hợp lệ khác vẫn được tạo |
-| `/customer/bookings/availability-options` | `workDate`, `serviceIds` lặp, tùy chọn `staffId`, `startTime` | Trả giờ bắt đầu hợp lệ và Staff phù hợp cho từng ngày; backend vẫn xác thực lại khi tạo |
+| `/customer/bookings/availability-options` | `workDate`, `houseId`, `serviceIds` lặp, tùy chọn `staffId`, `startTime` | Customer phải sở hữu House; trả giờ/Staff phù hợp. Khi gửi `startTime`, kiểm tra tuyến theo tọa độ House và trả lý do riêng nếu trùng giờ, thiếu thời gian trước/sau hoặc VietMap không xác minh được |
 | `/customer/bookings/availability-dates` | `serviceIds` lặp, tùy chọn `staffId` | Chỉ trả ngày trong 30 ngày tới còn ít nhất một mốc và Staff phù hợp; ngày hiện tại áp dụng lead time 120 phút |
+| `/customer/bookings/house-service-area` | `houseId` | Chỉ Customer đang đăng nhập; backend xác minh quyền sở hữu, tọa độ và bán kính công ty trước khi form cho gửi booking |
 | `/customer/bookings/{id}/cancel` | CSRF | Owner, CONFIRMED, còn ít nhất 2 giờ |
 | `/customer/bookings/{id}/arrived` | CSRF | Owner ghi nhận Staff đã đến từ giờ bắt đầu; timestamp độc lập, không đổi trạng thái |
 | `/customer/bookings/{id}/payment` | CSRF | Owner; tạo hoặc mở lại checkout ONLINE qua PayOS |
@@ -92,9 +93,9 @@ Các route dưới đây là điểm vào MVC của ứng dụng.
 
 Customer ID và Staff ID lấy từ session, không tin ID vai trò do trình duyệt gửi. Giá và thời lượng do Service đọc từ SQL Server. `startAt` là local datetime theo UTC+7. Backend lưu snapshot cho từng dịch vụ và tổng hợp giá/thời lượng; schema không lưu thứ tự thực hiện dịch vụ.
 
-Mỗi Booking chọn một Staff, House đã chọn qua VietMap và thời điểm bắt đầu. Biểu mẫu Customer hỗ trợ tick nhiều ngày, chọn giờ và Staff riêng cho mỗi ngày, rồi gửi một lần; mỗi ngày được lưu như Booking riêng. Nếu một ngày thất bại vì không còn phù hợp hoặc VietMap lỗi, các ngày khác vẫn được xử lý và giao diện báo riêng kết quả. Backend tự tính thời lượng/giá từ Services; kiểm tra phút :00/:15/:30/:45, toàn bộ interval trong cùng khung công ty và availability (nếu PART_TIME), lead time 120 phút, horizon 30 ngày, bán kính từ vị trí công ty và khoảng trống cùng Staff `max(60 phút, tuyến xe máy VietMap + 15 phút)`. Lỗi/không có tuyến từ chối ngày đó. Không dùng `Work_Schedule` hoặc ID lịch do client quyết định.
+Mỗi Booking chọn một Staff, House đã chọn qua VietMap và thời điểm bắt đầu. Form kiểm tra quyền sở hữu và bán kính ngay khi chọn nhà; backend kiểm tra lại lúc lưu. Biểu mẫu Customer hỗ trợ tick nhiều ngày, chọn giờ và Staff riêng cho mỗi ngày, rồi gửi một lần; mỗi ngày được lưu như Booking riêng. Nếu ngày thất bại ở bước lưu cuối, ngày đó cùng dịch vụ, nhà, ghi chú, giờ và Staff được giữ để khách sửa/thử lại; ngày đã lưu không gửi lại. Backend tự tính thời lượng/giá từ Services; kiểm tra phút :00/:15/:30/:45, toàn bộ interval trong cùng khung công ty và availability (nếu PART_TIME), lead time 120 phút, horizon 30 ngày, bán kính từ vị trí công ty, booking chồng giờ, giới hạn quãng đường tuyến giữa hai booking cùng Staff không vượt `serviceRadiusKm` đang cấu hình, và khoảng trống cùng Staff `ETA tuyến xe máy VietMap + 15 phút`. Chặng giữa hai booking dùng địa chỉ trước→sau, giờ xuất phát là lúc booking trước kết thúc. Chặng đầu ngày đi từ tâm công ty; hệ thống tính lùi giờ xuất phát từ giờ booking theo ETA tuyến cơ sở + 15 phút dự phòng. Lỗi/không có tuyến từ chối ngày đó. Khi khách chọn giờ, giao diện kiểm tra tuyến với House đã chọn; giờ chồng lịch bị ẩn khỏi các mốc chọn, còn giờ thiếu thời gian tuyến hoặc vượt giới hạn km bị bỏ và báo lý do cùng thông tin tuyến. Nếu mốc bị loại, giữ nhân viên và mở thẻ ngày để khách chọn giờ khác ngay. Lưới vẫn theo 15 phút: nếu đủ điều kiện lúc 10:35 thì mốc sớm nhất chọn được là 10:45. Nếu VietMap lỗi, giao diện báo chưa xác minh được tuyến. Backend lặp kiểm tra khi lưu và báo lỗi theo từng ngày. Không tính phí di chuyển; không dùng `Work_Schedule` hoặc ID lịch do client quyết định.
 
-Staff PART_TIME chỉ được tạo/ngừng hiệu lực khoảng của chính mình. Không thể ngừng khoảng nếu giao cắt với Booking CONFIRMED tương lai; Admin phải đổi Staff hoặc hủy booking trước. Booking dùng VietMap Services key ở backend (`VIETMAP_API_KEY`); có thể cấu hình `VIETMAP_API_BASE_URL`, mặc định `https://maps.vietmap.vn`. Địa chỉ nhà phải được chọn từ autocomplete và có tọa độ. Tuyến lịch tương lai là ước tính xe máy, không phải dự báo giao thông. Khoảng trống giữa booking gần nhất cần `max(60 phút, tuyến + 15 phút)`; nếu API lỗi hoặc không có tuyến thì booking bị từ chối để thử lại. Các thao tác lịch và đặt chỗ khóa cùng Staff; nghiệm thu cạnh tranh trên SQL Server cần Docker/Testcontainers.
+Staff PART_TIME chỉ được tạo/ngừng hiệu lực khoảng của chính mình. Không thể ngừng khoảng nếu giao cắt với Booking CONFIRMED tương lai; Admin phải đổi Staff hoặc hủy booking trước. Booking dùng VietMap Services key ở backend (`VIETMAP_API_KEY`); có thể cấu hình `VIETMAP_API_BASE_URL`, mặc định `https://maps.vietmap.vn`. Địa chỉ nhà phải được chọn từ autocomplete và có tọa độ. Route v4 nhận giờ khởi hành để tránh vùng hạn chế theo thời gian; tham số này không biến ETA thành dự báo kẹt xe tương lai. Traffic layer là dữ liệu giao thông hiện thời, không xác nhận dự báo cho giờ đặt sau này. ETA dùng để chặn lịch là ước tính tuyến cơ sở cộng đúng 15 phút dự phòng. Nếu Staff dự kiến trễ, Staff báo Admin sớm để Admin liên hệ khách; không tự động dời/hủy booking hay thêm quy tắc hoàn tiền trong luồng này. Các thao tác lịch và đặt chỗ khóa cùng Staff; nghiệm thu cạnh tranh trên SQL Server cần Docker/Testcontainers.
 
 ## Cấu hình chạy thật
 

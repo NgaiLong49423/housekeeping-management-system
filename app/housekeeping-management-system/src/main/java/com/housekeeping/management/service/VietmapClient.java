@@ -2,6 +2,9 @@ package com.housekeeping.management.service;
 
 import com.housekeeping.management.config.VietmapProperties;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -62,20 +65,53 @@ public class VietmapClient {
     }
 
     public int motorcycleMinutes(BigDecimal fromLat, BigDecimal fromLng, BigDecimal toLat, BigDecimal toLng) {
+        return motorcycleMinutes(fromLat, fromLng, toLat, toLng, null);
+    }
+
+    public int motorcycleMinutes(BigDecimal fromLat, BigDecimal fromLng, BigDecimal toLat, BigDecimal toLng,
+            LocalDateTime plannedDeparture) {
+        return motorcycleRoute(fromLat,fromLng,toLat,toLng,plannedDeparture).durationMinutes();
+    }
+
+    public MotorcycleRoute motorcycleRoute(BigDecimal fromLat,BigDecimal fromLng,BigDecimal toLat,BigDecimal toLng,
+            LocalDateTime plannedDeparture) {
         requireKey();
         try {
             Map<String, Object> json = client.get().uri(uri -> uri.path("/api/route/v4").queryParam("apikey", properties.apiKey())
                     .queryParam("point", fromLat + "," + fromLng, toLat + "," + toLng)
-                    .queryParam("vehicle", "motorcycle").build()).retrieve().body(new org.springframework.core.ParameterizedTypeReference<>() { });
+                    .queryParam("vehicle", "motorcycle")
+                    .queryParamIfPresent("time", java.util.Optional.ofNullable(plannedDeparture).map(departure -> departure
+                            .atZone(ZoneId.of("Asia/Ho_Chi_Minh")).withZoneSameInstant(ZoneId.of("UTC"))
+                            .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))).build()).retrieve()
+                    .body(new org.springframework.core.ParameterizedTypeReference<>() { });
             Object paths = json == null ? null : json.get("paths");
             Object time = paths instanceof List<?> list && !list.isEmpty() && list.getFirst() instanceof Map<?, ?> path ? path.get("time") : null;
-            if (!(time instanceof Number number) || number.longValue() <= 0) throw new IllegalStateException("Không tìm thấy tuyến đường khả dụng.");
-            return Math.toIntExact((number.longValue() + 59_999) / 60_000);
+            Object distance = paths instanceof List<?> list && !list.isEmpty() && list.getFirst() instanceof Map<?, ?> path ? path.get("distance") : null;
+            if (!(time instanceof Number timeNumber) || timeNumber.longValue() <= 0
+                    || !(distance instanceof Number distanceNumber) || !Double.isFinite(distanceNumber.doubleValue())
+                    || distanceNumber.doubleValue() <= 0) {
+                throw new IllegalStateException("Không tìm thấy tuyến đường khả dụng.");
+            }
+            return new MotorcycleRoute(BigDecimal.valueOf(distanceNumber.doubleValue()),
+                    Math.toIntExact((timeNumber.longValue() + 59_999) / 60_000));
         } catch (RestClientException e) { throw new IllegalStateException("Không tính được tuyến VietMap. Vui lòng thử lại."); }
+    }
+
+    public int motorcycleMinutesBeforeArrival(BigDecimal fromLat,BigDecimal fromLng,BigDecimal toLat,BigDecimal toLng,
+            LocalDateTime arrivalTime) {
+        int eta=motorcycleMinutes(fromLat,fromLng,toLat,toLng);
+        for(int attempt=0;attempt<2;attempt++) {
+            LocalDateTime departure=arrivalTime.minusMinutes(Math.addExact(eta,15));
+            int timeAwareEta=motorcycleMinutes(fromLat,fromLng,toLat,toLng,departure);
+            if(timeAwareEta==eta)return eta;
+            eta=timeAwareEta;
+        }
+        return eta;
     }
 
     private void requireKey() { if (properties.apiKey() == null || properties.apiKey().isBlank()) throw new IllegalStateException("Chưa cấu hình VIETMAP_API_KEY ở máy chủ."); }
     private static String text(Object value) { return value == null ? null : String.valueOf(value); }
+    public record MotorcycleRoute(BigDecimal distanceMeters,int durationMinutes) { }
     public record Suggestion(String refId, String display) { }
     public record Place(String display, String address, String city, String district, String ward, BigDecimal latitude, BigDecimal longitude) { }
 }

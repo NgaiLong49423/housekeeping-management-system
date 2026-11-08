@@ -72,8 +72,11 @@ public class AdminBookingManagementService {
             throw new IllegalArgumentException("Toàn bộ lịch phải nằm trong khoảng sẵn sàng của nhân viên bán thời gian.");
         }
         if (booking.latitude() == null || booking.longitude() == null || !houses.isWithinServiceRadius(booking.latitude(), booking.longitude())) throw new IllegalArgumentException("Địa chỉ Booking nằm ngoài vùng phục vụ hoặc thiếu tọa độ.");
-        if (reservations.hasInsufficientTravelGap(replacementStaffId, start, booking.endTime(), booking.latitude(), booking.longitude(), bookingId)) {
-            throw new IllegalArgumentException("Nhân viên thay thế bị trùng lịch hoặc chưa đủ khoảng nghỉ/tuyến đường.");
+        BookingReservationService.TravelAssessment travel=reservations.assessTravel(replacementStaffId,start,booking.endTime(),
+                booking.latitude(),booking.longitude(),bookingId);
+        if(!travel.feasible()) {
+            if(travel.status()==BookingReservationService.TravelStatus.ROUTE_UNAVAILABLE)throw new IllegalStateException(travel.message());
+            throw new IllegalArgumentException(travel.message());
         }
         if (bookings.assignStaff(bookingId, booking.staffId(), replacementStaffId) != 1) {
             throw new IllegalStateException("Lịch hẹn vừa thay đổi. Hãy tải lại trang.");

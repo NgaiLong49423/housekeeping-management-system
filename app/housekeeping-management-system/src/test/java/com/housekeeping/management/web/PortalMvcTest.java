@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.housekeeping.management.config.SecurityConfig;
 import com.housekeeping.management.dto.response.PortalViews;
 import com.housekeeping.management.dto.request.PortalForms.HouseForm;
+import com.housekeeping.management.entity.House;
 import com.housekeeping.management.dto.request.PortalForms.AvailabilityForm;
 import com.housekeeping.management.controller.PortalAdminController;
 import com.housekeeping.management.controller.PortalController;
@@ -164,12 +165,63 @@ class PortalMvcTest {
     }
 
     @Test
+    void adminLocationAutocompleteIsAdminOnlyAndReturnsVietmapSuggestions() throws Exception {
+        var suggestion = new VietmapClient.Suggestion("ref-1", "Địa chỉ kiểm thử");
+        when(companySettings.locationAutocomplete("Địa chỉ")).thenReturn(List.of(suggestion));
+
+        mvc.perform(get("/admin/settings/location/autocomplete").param("q", "Địa chỉ").with(user(admin)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].refId").value("ref-1"))
+                .andExpect(jsonPath("$[0].display").value("Địa chỉ kiểm thử"));
+        mvc.perform(get("/admin/settings/location/autocomplete").param("q", "Địa chỉ").with(user(staff)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void adminLocationFormRequiresVietmapSelectionAndDoesNotExposeCoordinateInputs() throws Exception {
+        String html = mvc.perform(get("/admin/settings").with(user(admin))).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(html).contains("id=\"companyAddressSearch\"", "id=\"companyVietmapRefId\"", "/admin/settings/location/autocomplete",
+                        "mốc bắt đầu là lúc nhân viên có mặt")
+                .doesNotContain("id=\"latitude\"", "id=\"longitude\"");
+    }
+
+    @Test
+    void adminScheduleFeedbackAppearsImmediatelyAboveSaveButton() throws Exception {
+        String html=mvc.perform(get("/admin/settings").with(user(admin)).flashAttr("scheduleSuccess","Đã lưu lịch tuần."))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(html.indexOf("Giờ hoạt động")).isLessThan(html.indexOf("Đã lưu lịch tuần."));
+        assertThat(html.indexOf("Đã lưu lịch tuần.")).isLessThan(html.indexOf("Lưu phiên bản lịch"));
+        assertThat(html).contains("id=\"schedule-save-feedback\"", "role=\"status\"");
+    }
+
+    @Test
+    void adminScheduleSaveRedirectsBackToFeedbackAnchorForSuccessAndFailure() throws Exception {
+        LocalDate effective=LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"))
+                .with(java.time.temporal.TemporalAdjusters.nextOrSame(java.time.DayOfWeek.MONDAY));
+        String redirect="/admin/settings?effectiveFrom="+effective+"#schedule-save-feedback";
+
+        mvc.perform(scheduleSaveRequest(effective))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl(redirect))
+                .andExpect(flash().attributeExists("scheduleSuccess"));
+        verify(companySettings).saveSchedule(any(CompanyScheduleVersionForm.class),eq(false));
+
+        doThrow(new IllegalStateException("Lịch ảnh hưởng booking đã xác nhận."))
+                .when(companySettings).saveSchedule(any(CompanyScheduleVersionForm.class),eq(false));
+        mvc.perform(scheduleSaveRequest(effective))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl(redirect))
+                .andExpect(flash().attribute("scheduleError","Lịch ảnh hưởng booking đã xác nhận."));
+    }
+
+    @Test
     void customerAvailabilityLookupReturnsFilteredStaffAndQuarterHourTimes() throws Exception {
         var workDate = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).plusDays(2);
-        when(bookingAvailability.options(workDate,List.of(10L),2L,java.time.LocalTime.of(10,15)))
+        when(bookingAvailability.options(workDate,List.of(10L),2L,java.time.LocalTime.of(10,15),1L,30L))
                 .thenReturn(new BookingAvailabilityOptions(List.of(new StaffOption(2L,"Nhân viên kiểm thử","PART_TIME")),List.of("10:15","10:30")));
         mvc.perform(get("/customer/bookings/availability-options").with(user(customer))
-                        .param("workDate",workDate.toString()).param("serviceIds","10").param("staffId","2").param("startTime","10:15"))
+                        .param("workDate",workDate.toString()).param("serviceIds","10").param("staffId","2").param("startTime","10:15").param("houseId","30"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.staffOptions[0].id").value(2))
                 .andExpect(jsonPath("$.startTimes[0]").value("10:15"));
@@ -185,6 +237,29 @@ class PortalMvcTest {
                         .param("serviceIds","10").param("staffId","2"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.dates[0]").value(availableDay.toString()));
+    }
+
+    @Test
+    void houseAreaLookupChecksOwnedHouseAndReturnsInlineEligibility() throws Exception {
+        House house=new House();house.setLatitude(new BigDecimal("10.0"));house.setLongitude(new BigDecimal("106.0"));
+        when(houses.findCustomerHouse(1L,30L)).thenReturn(house);
+        when(houses.isWithinServiceRadius(house.getLatitude(),house.getLongitude())).thenReturn(false);
+        mvc.perform(get("/customer/bookings/house-service-area").with(user(customer)).param("houseId","30"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.eligible").value(false))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("ngoài bán kính")));
+        verify(houses).findCustomerHouse(1L,30L);
+        mvc.perform(get("/customer/bookings/house-service-area").with(user(staff)).param("houseId","30"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void bookingFormRendersRetrySelectionsForFailedDate() throws Exception {
+        var retry=java.util.Map.of("houseId",30,"serviceIds",List.of(10),"areaNote","Cổng xanh",
+                "days",List.of(java.util.Map.of("date","2026-11-10","staffId",2,"time","09:00")));
+        mvc.perform(get("/customer/bookings/new").with(user(customer)).flashAttr("bookingRetryState",retry))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("window.bookingRetryState")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("2026-11-10")));
     }
 
     @Test
@@ -395,8 +470,8 @@ class PortalMvcTest {
                         .param("houseId", "30").param("serviceIds", "10").param("areaNote", "Entryway")
                         .param("workDates", "2026-11-10", "2026-11-12")
                         .param("staffIds", "2", "2").param("startTimes", "09:00", "10:00"))
-                .andExpect(redirectedUrl("/customer/bookings"))
-                .andExpect(flash().attribute("success", "Đã tạo 1 lịch hẹn riêng cho các ngày bạn chọn."))
+                .andExpect(redirectedUrl("/customer/bookings/new?houseId=30"))
+                .andExpect(flash().attributeExists("bookingRetryState"))
                 .andExpect(flash().attributeExists("warning"));
 
         verify(reservations, org.mockito.Mockito.times(2)).createBooking(eq(1L), eq(2L), eq(30L), any(),
@@ -412,6 +487,25 @@ class PortalMvcTest {
                 .andExpect(redirectedUrl("/customer/bookings/new"))
                 .andExpect(flash().attributeExists("error"));
         verifyNoInteractions(reservations);
+    }
+
+    @Test
+    void outOfRadiusBookingReturnsCustomerToAddressWithSpecificInlineError() throws Exception {
+        when(reservations.createBooking(eq(1L), eq(2L), eq(30L), any(), eq(List.of(10L)), isNull()))
+                .thenThrow(new IllegalArgumentException("Địa chỉ nằm ngoài bán kính phục vụ hiện tại của công ty."));
+
+        mvc.perform(post("/customer/bookings/multiple").with(user(customer)).with(csrf())
+                        .param("houseId", "30").param("serviceIds", "10")
+                        .param("workDates", "2026-11-10").param("staffIds", "2").param("startTimes", "09:00"))
+                .andExpect(redirectedUrl("/customer/bookings/new?houseId=30"))
+                .andExpect(flash().attributeExists("houseServiceAreaError"))
+                .andExpect(flash().attribute("error", "Chưa tạo được lịch nào vì địa chỉ nằm ngoài bán kính phục vụ."));
+
+        mvc.perform(get("/customer/bookings/new").with(user(customer))
+                        .flashAttr("houseServiceAreaError", "Địa chỉ nhà này nằm ngoài bán kính phục vụ của công ty."))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("id=\"houseServiceAreaError\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Địa chỉ nhà này nằm ngoài bán kính phục vụ của công ty.")));
     }
 
     @Test
@@ -523,5 +617,16 @@ class PortalMvcTest {
             Files.createDirectories(preview.getParent());
             Files.writeString(preview, html);
         }
+    }
+
+    private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder scheduleSaveRequest(LocalDate effective) {
+        var request=post("/admin/settings/schedule").with(user(admin)).with(csrf())
+                .param("effectiveFrom",effective.toString()).param("editingExisting","false");
+        for(int day=1;day<=7;day++) {
+            String prefix="operatingHours["+(day-1)+"].";
+            request.param(prefix+"dayOfWeek",Integer.toString(day)).param(prefix+"closed",day==7?"true":"false");
+            if(day<7)request.param(prefix+"openingTime","08:00").param(prefix+"closingTime","17:00");
+        }
+        return request;
     }
 }

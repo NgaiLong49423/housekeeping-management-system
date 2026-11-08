@@ -60,9 +60,7 @@ public final class PortalForms {
             @Size(min = 7, max = 56) List<@Valid OperatingHoursForm> operatingHours) { }
     public record CompanyScheduleVersionForm(@NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate effectiveFrom,
             @Size(min = 7, max = 56) List<@Valid OperatingHoursForm> operatingHours) { }
-    public record CompanyLocationForm(@NotBlank @Size(max = 500) String companyAddress,
-            @NotNull @DecimalMin("-90.0") @DecimalMax("90.0") @Digits(integer = 3, fraction = 7) BigDecimal latitude,
-            @NotNull @DecimalMin("-180.0") @DecimalMax("180.0") @Digits(integer = 3, fraction = 7) BigDecimal longitude,
+    public record CompanyLocationForm(@NotBlank @Size(max = 500) String vietmapRefId,
             @NotNull @DecimalMin("0.01") @Digits(integer = 4, fraction = 2) BigDecimal serviceRadiusKm) { }
     public record OperatingHoursForm(@NotNull @Min(1) @Max(7) Integer dayOfWeek, boolean closed,
             @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime openingTime,

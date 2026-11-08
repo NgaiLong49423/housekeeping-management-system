@@ -22,9 +22,11 @@ public class CompanySettingsService {
     private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
 
     private final CompanySettingsRepository settings;
+    private final VietmapClient vietmap;
 
-    public CompanySettingsService(CompanySettingsRepository settings) {
+    public CompanySettingsService(CompanySettingsRepository settings, VietmapClient vietmap) {
         this.settings = settings;
+        this.vietmap = vietmap;
     }
 
     @Transactional(readOnly = true)
@@ -91,12 +93,24 @@ public class CompanySettingsService {
     @Transactional
     public void saveLocation(CompanyLocationForm form) {
         validateLocation(form);
+        VietmapClient.Place place = vietmap.place(form.vietmapRefId().trim());
+        if (place.display() == null || place.display().isBlank() || place.display().length() > 500
+                || place.latitude().abs().compareTo(new java.math.BigDecimal("90")) > 0
+                || place.longitude().abs().compareTo(new java.math.BigDecimal("180")) > 0) {
+            throw new IllegalArgumentException("Địa chỉ VietMap không có thông tin vị trí hợp lệ.");
+        }
         settings.lockCompanySettings();
-        List<Long> conflicts = settings.conflictingFutureConfirmedBookings(form);
+        List<Long> conflicts = settings.conflictingFutureConfirmedBookings(
+                place.latitude(), place.longitude(), form.serviceRadiusKm());
         if (!conflicts.isEmpty()) {
             throw new IllegalStateException("Chưa thể đổi vị trí/bán kính. Hãy xử lý Booking: " + conflicts);
         }
-        settings.saveLocation(form);
+        settings.saveLocation(place.display(), place.latitude(), place.longitude(), form.serviceRadiusKm());
+    }
+
+    public List<VietmapClient.Suggestion> locationAutocomplete(String query) {
+        if (query == null || query.trim().length() < 3 || query.length() > 200) return List.of();
+        return vietmap.autocomplete(query.trim());
     }
 
     @Transactional
@@ -186,16 +200,19 @@ public class CompanySettingsService {
     }
 
     public void validate(CompanySettingsForm form) {
-        validateLocation(form == null ? null : new CompanyLocationForm(form.companyAddress(), form.latitude(),
-                form.longitude(), form.serviceRadiusKm()));
+        if (form == null || form.companyAddress() == null || form.companyAddress().isBlank()
+                || form.latitude() == null || form.latitude().abs().compareTo(new java.math.BigDecimal("90")) > 0
+                || form.longitude() == null || form.longitude().abs().compareTo(new java.math.BigDecimal("180")) > 0
+                || form.serviceRadiusKm() == null || form.serviceRadiusKm().signum() <= 0) {
+            throw new IllegalArgumentException("Địa chỉ, tọa độ cơ sở và bán kính dương là bắt buộc.");
+        }
         validateSchedule(form.operatingHours());
     }
 
     private void validateLocation(CompanyLocationForm form) {
         if (form == null || form.serviceRadiusKm() == null || form.serviceRadiusKm().signum() <= 0
-                || form.latitude() == null || form.longitude() == null
-                || form.companyAddress() == null || form.companyAddress().isBlank()) {
-            throw new IllegalArgumentException("Địa chỉ, tọa độ cơ sở và bán kính dương là bắt buộc.");
+                || form.vietmapRefId() == null || form.vietmapRefId().isBlank() || form.vietmapRefId().length() > 500) {
+            throw new IllegalArgumentException("Hãy chọn địa chỉ VietMap và nhập bán kính phục vụ dương.");
         }
     }
 

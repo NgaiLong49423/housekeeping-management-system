@@ -36,9 +36,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @SpringBootTest
 class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
+    @MockitoBean private VietmapClient vietmap;
     @Autowired private BookingReservationService reservationService;
     @Autowired private UserRepository users;
     @Autowired private StaffAccountRepository staffAccounts;
@@ -58,6 +60,13 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
 
     @BeforeEach
     void seedCompanyHoursWhenEmpty() {
+        org.mockito.Mockito.when(vietmap.motorcycleMinutes(org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any())).thenReturn(1);
+        org.mockito.Mockito.when(vietmap.motorcycleRoute(org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new VietmapClient.MotorcycleRoute(new java.math.BigDecimal("1000"),1));
+        org.mockito.Mockito.when(vietmap.motorcycleMinutesBeforeArrival(org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any())).thenReturn(1);
         Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Company_Settings", Integer.class);
         if (count == null || count == 0) {
             jdbc.update("""
@@ -112,7 +121,7 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
     }
 
     @Test
-    void sqlServerConflictQueryRejectsOverlapAnd59MinuteGapButAllowsExact60MinuteGap() {
+    void sqlServerOverlapQueryDetectsActualTimeOverlapWithoutAnArbitraryBuffer() {
         String suffix = UUID.randomUUID().toString();
         User customer = users.saveAndFlush(user("buffer-customer-" + suffix, UserRole.CUSTOMER));
         User staffUser = users.saveAndFlush(user("buffer-staff-" + suffix, UserRole.STAFF));
@@ -128,17 +137,11 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
         Long bookingId = reservationService.createBooking(customer.getUserId(), savedStaff.getStaffId(), house.getHouseId(),
                 existingStart, List.of(service.getServiceId()), null);
 
-        assertThat(bookingPersistence.hasConflictingBooking(savedStaff.getStaffId(),
-                existingStart.plusMinutes(30), existingStart.plusMinutes(90), 60)).isTrue();
-
-        LocalDateTime nextSlot = existingStart.plusHours(2);
-        jdbc.update("UPDATE dbo.Bookings SET end_time=? WHERE booking_id=?", existingStart.plusMinutes(61), bookingId);
-        assertThat(bookingPersistence.hasConflictingBooking(savedStaff.getStaffId(),
-                nextSlot, nextSlot.plusMinutes(60), 60)).isTrue();
-
-        jdbc.update("UPDATE dbo.Bookings SET end_time=? WHERE booking_id=?", existingStart.plusMinutes(60), bookingId);
-        assertThat(bookingPersistence.hasConflictingBooking(savedStaff.getStaffId(),
-                nextSlot, nextSlot.plusMinutes(60), 60)).isFalse();
+        assertThat(bookingPersistence.overlappingAppointments(savedStaff.getStaffId(),
+                existingStart.plusMinutes(30), existingStart.plusMinutes(90), null))
+                .extracting(BookingPersistenceRepository.AppointmentPoint::bookingId).containsExactly(bookingId);
+        assertThat(bookingPersistence.overlappingAppointments(savedStaff.getStaffId(),
+                existingStart.plusMinutes(35), existingStart.plusMinutes(95), null)).isEmpty();
     }
 
     @Test

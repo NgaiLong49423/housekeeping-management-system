@@ -6,6 +6,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.housekeeping.management.dto.request.PortalForms.CompanySettingsForm;
 import com.housekeeping.management.dto.request.PortalForms.CompanyScheduleVersionForm;
@@ -21,7 +22,8 @@ import org.junit.jupiter.api.Test;
 
 class CompanySettingsServiceTest {
     private final CompanySettingsRepository repository = mock(CompanySettingsRepository.class);
-    private final CompanySettingsService service = new CompanySettingsService(repository);
+    private final VietmapClient vietmap = mock(VietmapClient.class);
+    private final CompanySettingsService service = new CompanySettingsService(repository, vietmap);
 
     @Test
     void firstSetupDoesNotInventCompanyLocationOrOpeningHours() {
@@ -81,11 +83,37 @@ class CompanySettingsServiceTest {
 
     @Test
     void blocksLocationChangeWhenActiveBookingsWouldFallOutsideTheRadius() {
-        CompanyLocationForm form = new CompanyLocationForm("Address", BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ONE);
-        when(repository.conflictingFutureConfirmedBookings(form)).thenReturn(List.of(15L,19L));
+        CompanyLocationForm form = new CompanyLocationForm("place-1", BigDecimal.ONE);
+        when(vietmap.place("place-1")).thenReturn(new VietmapClient.Place("Verified address", null, null, null, null,
+                BigDecimal.TEN, BigDecimal.valueOf(106)));
+        when(repository.conflictingFutureConfirmedBookings(BigDecimal.TEN, BigDecimal.valueOf(106), BigDecimal.ONE)).thenReturn(List.of(15L,19L));
         assertThatThrownBy(() -> service.saveLocation(form)).isInstanceOf(IllegalStateException.class).hasMessageContaining("15, 19");
         verify(repository).lockCompanySettings();
-        verify(repository, never()).saveLocation(form);
+        verify(repository, never()).saveLocation(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void resolvesSelectedVietmapPlaceBeforeSavingCompanyCoordinates() {
+        CompanyLocationForm form = new CompanyLocationForm("place-1", BigDecimal.ONE);
+        VietmapClient.Place place = new VietmapClient.Place("Verified address", null, null, null, null,
+                BigDecimal.TEN, BigDecimal.valueOf(106));
+        when(vietmap.place("place-1")).thenReturn(place);
+        when(repository.conflictingFutureConfirmedBookings(place.latitude(), place.longitude(), BigDecimal.ONE)).thenReturn(List.of());
+
+        service.saveLocation(form);
+
+        verify(repository).saveLocation("Verified address", place.latitude(), place.longitude(), BigDecimal.ONE);
+    }
+
+    @Test
+    void vietmapFailureLeavesCompanySettingsUntouched() {
+        CompanyLocationForm form = new CompanyLocationForm("place-1", BigDecimal.ONE);
+        when(vietmap.place("place-1")).thenThrow(new IllegalStateException("VietMap unavailable"));
+
+        assertThatThrownBy(() -> service.saveLocation(form)).isInstanceOf(IllegalStateException.class)
+                .hasMessage("VietMap unavailable");
+        verifyNoInteractions(repository);
     }
 
     @Test

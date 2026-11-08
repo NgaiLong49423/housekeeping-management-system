@@ -757,6 +757,10 @@ button, input, select, textarea {
   font-size: 1rem;
 }
 
+.company-schedule-save-feedback {
+  scroll-margin-top: 6rem;
+}
+
 .staff-schedule-dashboard {
   padding: clamp(1rem, 2.5vw, 2.25rem);
   border: 1px solid var(--mint-border);

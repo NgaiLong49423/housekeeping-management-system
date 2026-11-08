@@ -6,6 +6,7 @@ import com.housekeeping.management.dto.response.BookingAvailabilityOptions.Staff
 import com.housekeeping.management.dto.response.BookingAvailabilityOptions.TimeOption;
 import com.housekeeping.management.dto.response.BookingAvailabilityDates;
 import com.housekeeping.management.entity.Services;
+import com.housekeeping.management.entity.House;
 import com.housekeeping.management.repository.BookingAvailabilityRepository;
 import com.housekeeping.management.repository.BookingAvailabilityRepository.Interval;
 import com.housekeeping.management.repository.ServicesRepository;
@@ -30,20 +31,29 @@ public class BookingAvailabilityService {
     private final BookingAvailabilityRepository availability;
     private final CompanySettingsService companySettings;
     private final ServicesRepository services;
+    private final HouseService houses;
+    private final BookingReservationService reservations;
 
     public BookingAvailabilityService(BookingAvailabilityRepository availability,
-            CompanySettingsService companySettings, ServicesRepository services) {
+            CompanySettingsService companySettings, ServicesRepository services,HouseService houses,
+            BookingReservationService reservations) {
         this.availability = availability;
         this.companySettings = companySettings;
         this.services = services;
+        this.houses=houses;
+        this.reservations=reservations;
     }
 
-    public BookingAvailabilityOptions options(LocalDate date, List<Long> serviceIds, Long selectedStaffId, LocalTime selectedTime) {
+    public BookingAvailabilityOptions options(LocalDate date,List<Long> serviceIds,Long selectedStaffId,
+            LocalTime selectedTime,Long customerId,Long houseId) {
         LocalDate today = LocalDate.now(BUSINESS_ZONE);
         if (date == null || date.isBefore(today) || date.isAfter(today.plusDays(30))) {
             throw new IllegalArgumentException("Chỉ tra cứu lịch từ hôm nay đến 30 ngày tới.");
         }
         int duration = serviceDuration(serviceIds);
+        House house=houses.findCustomerHouse(customerId,houseId);
+        if(house.getLatitude()==null||house.getLongitude()==null)
+            throw new IllegalArgumentException("Địa chỉ nhà chưa có tọa độ VietMap. Hãy cập nhật địa chỉ trước khi xem giờ.");
         int day = date.getDayOfWeek().getValue();
         List<Interval> companyWindows = companySettings.operatingHoursForDate(date).stream()
                 .filter(window -> window.dayOfWeek() == day && !window.closed() && window.openingTime() != null && window.closingTime() != null)
@@ -58,20 +68,62 @@ public class BookingAvailabilityService {
             throw new IllegalArgumentException("Giờ bắt đầu chỉ được chọn phút 00, 15, 30 hoặc 45.");
         }
 
-        List<TimeOption> timeOptions = slots.stream().map(time -> new TimeOption(format(time), staff.stream()
-                .filter(person -> selectedStaffId == null || person.id().equals(selectedStaffId))
-                .filter(person -> eligible(person,date,time,duration,companyWindows,partTimeHours,onLeave,busy))
-                .map(person -> new StaffOption(person.id(),person.name(),person.staffType())).toList()))
-                .filter(option -> !option.staffOptions().isEmpty()).toList();
+        List<BookingReservationService.TravelAssessment> selectedTravelChecks=new ArrayList<>();
+        List<String> travelMessages=new ArrayList<>();
+        List<TimeOption> timeOptions = slots.stream().map(time -> {
+            List<BookingAvailabilityRepository.StaffOption> candidates=staff.stream()
+                    .filter(person -> selectedStaffId == null || person.id().equals(selectedStaffId))
+                    .filter(person -> selectedTime!=null&&selectedTime.equals(time)
+                            ? eligibleForSchedule(person,date,time,duration,companyWindows,partTimeHours,onLeave)
+                            : eligible(person,date,time,duration,companyWindows,partTimeHours,onLeave,busy)).toList();
+            List<StaffOption> feasibleStaff=new ArrayList<>();
+            for(var person:candidates) {
+                if(selectedTime==null||!selectedTime.equals(time)) {
+                    feasibleStaff.add(new StaffOption(person.id(),person.name(),person.staffType()));
+                    continue;
+                }
+                BookingReservationService.TravelAssessment check=reservations.assessTravel(person.id(),date.atTime(time),
+                        date.atTime(time).plusMinutes(duration),house.getLatitude(),house.getLongitude(),null);
+                selectedTravelChecks.add(check);
+                if(check.feasible()) {
+                    feasibleStaff.add(new StaffOption(person.id(),person.name(),person.staffType()));
+                } else {
+                    travelMessages.add(check.message());
+                }
+            }
+            return new TimeOption(format(time),feasibleStaff);
+        }).filter(option -> !option.staffOptions().isEmpty()).toList();
         List<String> validTimes = timeOptions.stream().map(TimeOption::startTime).toList();
 
-        List<StaffOption> validStaff = staff.stream()
-                .filter(person -> selectedTime == null || (slots.contains(selectedTime)
-                        && eligible(person, date, selectedTime, duration, companyWindows, partTimeHours, onLeave, busy)))
-                .map(person -> new StaffOption(person.id(),person.name(),person.staffType())).toList();
+        List<StaffOption> validStaff=selectedTime==null?staff.stream()
+                .filter(person->selectedStaffId==null||person.id().equals(selectedStaffId))
+                .map(person->new StaffOption(person.id(),person.name(),person.staffType())).toList()
+                :timeOptions.stream().filter(option->option.startTime().equals(format(selectedTime)))
+                        .findFirst().map(TimeOption::staffOptions).orElse(List.of());
         String message = availabilityMessage(date,selectedStaffId,selectedTime,staff,companyWindows,partTimeHours,
                 onLeave,timeOptions,validStaff);
-        return new BookingAvailabilityOptions(validStaff, validTimes,timeOptions,message);
+        LocalDateTime earliestStart=null,latestStart=null;
+        if(selectedTime!=null&&selectedStaffId!=null&&!selectedTravelChecks.isEmpty()) {
+            var check=selectedTravelChecks.getFirst();earliestStart=check.earliestStart();latestStart=check.latestStart();
+            if(!check.feasible())message=check.message();
+        } else if(selectedTime!=null&&validStaff.isEmpty()) {
+            if(travelMessages.stream().anyMatch(text->text.startsWith("Booking trước")))message=travelMessages.stream().filter(text->text.startsWith("Booking trước")).findFirst().orElse(message);
+            else if(!travelMessages.isEmpty())message=String.join(" ",travelMessages.stream().distinct().limit(3).toList());
+            earliestStart=selectedTravelChecks.stream().map(BookingReservationService.TravelAssessment::earliestStart)
+                    .filter(java.util.Objects::nonNull).min(LocalDateTime::compareTo).orElse(null);
+            latestStart=selectedTravelChecks.stream().map(BookingReservationService.TravelAssessment::latestStart)
+                    .filter(java.util.Objects::nonNull).max(LocalDateTime::compareTo).orElse(null);
+        }
+        if(earliestStart!=null) {
+            int earliestMinute=earliestStart.toLocalTime().toSecondOfDay()/60;
+            int quarter=((earliestMinute+14)/15)*15;
+            Set<String> filteredTimes=validTimes.stream().filter(value->LocalTime.parse(value).toSecondOfDay()/60>=quarter)
+                    .collect(Collectors.toSet());
+            validTimes=validTimes.stream().filter(filteredTimes::contains).toList();
+            timeOptions=timeOptions.stream().filter(option->filteredTimes.contains(option.startTime())).toList();
+        }
+        return new BookingAvailabilityOptions(validStaff, validTimes,timeOptions,message,
+                earliestStart==null?null:format(earliestStart.toLocalTime()),latestStart==null?null:format(latestStart.toLocalTime()));
     }
 
     public BookingAvailabilityDates availableDates(List<Long> serviceIds, Long selectedStaffId) {
@@ -175,6 +227,15 @@ public class BookingAvailabilityService {
 
     private boolean eligible(BookingAvailabilityRepository.StaffOption person, LocalDate date, LocalTime start, int duration,
             List<Interval> companyWindows, List<Interval> partTimeHours, Set<Long> onLeave, List<Interval> busy) {
+        if(!eligibleForSchedule(person,date,start,duration,companyWindows,partTimeHours,onLeave))return false;
+        int startMinute = start.toSecondOfDay() / 60;
+        LocalTime end = LocalTime.of((startMinute + duration) / 60,(startMinute + duration) % 60);
+        return busy.stream().noneMatch(interval -> person.id().equals(interval.staffId())
+                && interval.start().isBefore(end) && interval.end().isAfter(start));
+    }
+
+    private boolean eligibleForSchedule(BookingAvailabilityRepository.StaffOption person,LocalDate date,LocalTime start,int duration,
+            List<Interval> companyWindows,List<Interval> partTimeHours,Set<Long> onLeave) {
         int startMinute = start.toSecondOfDay() / 60;
         if (startMinute + duration >= 24 * 60 || onLeave.contains(person.id())) return false;
         LocalTime end = LocalTime.of((startMinute + duration) / 60,(startMinute + duration) % 60);
@@ -182,9 +243,6 @@ public class BookingAvailabilityService {
         if (!inCompany) return false;
         if ("PART_TIME".equals(person.staffType()) && partTimeHours.stream().noneMatch(interval -> person.id().equals(interval.staffId())
                 && !start.isBefore(interval.start()) && !end.isAfter(interval.end()))) return false;
-        if (busy.stream().anyMatch(interval -> person.id().equals(interval.staffId())
-                && date.atTime(interval.start()).isBefore(date.atTime(end).plusMinutes(60))
-                && date.atTime(interval.end()).isAfter(date.atTime(start).minusMinutes(60)))) return false;
         return true;
     }
 }

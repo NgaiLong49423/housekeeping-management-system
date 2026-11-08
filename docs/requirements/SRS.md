@@ -1,8 +1,8 @@
 > **Document:** Software Requirements Specification\
 > **File:** `docs/requirements/SRS.md`\
-> **Version:** v3.2.0\
+> **Version:** v4.0.0\
 > **Created:** 2026-06-14\
-> **Last Updated:** 2026-11-07\
+> **Last Updated:** 2026-11-08\
 > **Status:** Active\
 # SRS — SOFTWARE REQUIREMENTS SPECIFICATION
 
@@ -83,7 +83,8 @@ One server-rendered Java Spring MVC web application, single company, SQL Server.
 - Inputs: Customer, own House, chosen ACTIVE Staff, >=1 ACTIVE Services, proposed start, optional area_note. One booking form may include several service dates; each date has its own selected Staff and start time and persists as an independent Booking.
 - Availability calendar only offers dates with at least one Staff and 15-minute start that can fit all selected Services inside Admin hours and the Staff's active interval (for PART_TIME), after leave, existing-booking and 120-minute lead-time checks. When Customer filters by Staff, dates are limited to that Staff's eligible schedule.
 - Validate start alignment to 15-minute slots; now+>=120 minutes; start<=now+30 days; full interval inside a single company window; House within radius; Staff not on approved leave; type-specific availability.
-- For nearest preceding/next booking of same Staff, required gap is `max(60 minutes, VietMap motorcycle route minutes + 15 minutes)`. VietMap error/no route rejects temporarily. Route is an estimate for future schedules, not a traffic forecast.
+- Giờ Admin cấu hình và giờ Staff đăng ký là thời điểm nhân viên có mặt tại nhà khách, sẵn sàng bắt đầu phục vụ. Booking đầu ngày đi từ tâm công ty; hệ thống lấy ETA tuyến xe máy VietMap cơ sở + 15 phút để ước tính giờ xuất phát lùi từ giờ booking và truyền thời điểm đó vào Route v4. Giữa hai booking trong cùng ngày, khoảng trống tối thiểu là ETA tuyến VietMap từ địa chỉ booking trước đến địa chỉ sau + 15 phút dự phòng (ví dụ ETA 20 phút cần 35 phút). Quãng đường đường bộ VietMap giữa hai booking cùng Staff không được vượt `serviceRadiusKm` Admin đang cấu hình; đúng bằng ngưỡng thì chấp nhận. Quy tắc này chỉ áp dụng cho chặng giữa booking, không cộng phí; bán kính nhà quanh tâm công ty vẫn được kiểm tra riêng. Booking cùng Staff không được chồng giờ. Thời điểm khởi hành gửi VietMap chỉ hỗ trợ tránh khu vực hạn chế theo giờ, ETA không phải dự báo kẹt xe tương lai. API lỗi/không có tuyến từ chối booking. Nếu dự kiến trễ, Staff báo Admin sớm để Admin liên hệ khách; không tự đổi/hủy lịch hoặc áp dụng quy tắc hoàn tiền mới.
+- Khi Customer tra giờ, availability-options bắt buộc nhận `houseId` và xác minh House thuộc Customer đang đăng nhập. Các mốc chồng giờ bị ẩn. Khi kiểm tra một mốc cụ thể, nếu thiếu thời gian di chuyển trước/sau thì loại mốc đó và nêu booking liên quan, khoảng trống hiện có, ETA, 15 phút dự phòng, thời điểm đủ điều kiện sớm nhất hoặc giờ bắt đầu muộn nhất. Lưới chọn vẫn theo 15 phút: đủ điều kiện từ 10:35 thì mốc đầu tiên có thể chọn là 10:45. Lỗi VietMap phải được phân biệt với thiếu thời gian di chuyển. Backend lặp lại cùng kiểm tra khi lưu; lỗi từng ngày giữ nguyên dịch vụ, House, ghi chú, giờ và Staff để Customer chỉnh sửa.
 - On success snapshot House address/lat/lng/address_note and per-Service name/unit price/duration; total_amount=sum unit prices, total_duration_minutes=sum durations, end=start+duration; `original_staff_id=staff_id`; status CONFIRMED.
 - One transaction with reliable concurrency coordination for parallel requests for same Staff. Do not use an unchecked `existsByOverlap` followed by insert alone.
 - Multi-date submission validates/persists each date independently. A date that fails availability or route validation is reported; other valid dates may still be created. The UI must show which dates need correction/removal and the count of successfully created bookings.

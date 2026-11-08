@@ -13,9 +13,10 @@ import com.housekeeping.management.repository.ServicesRepository;
 import com.housekeeping.management.repository.StaffAccountRepository;
 import com.housekeeping.management.repository.UserRepository;
 import java.math.BigDecimal;
-import java.time.LocalTime;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -77,8 +78,10 @@ public class BookingReservationService {
         }
         if (house.getLatitude() == null || house.getLongitude() == null) throw new IllegalArgumentException("Địa chỉ này chưa có tọa độ VietMap. Hãy cập nhật địa chỉ bằng kết quả gợi ý.");
         if (!houseService.isWithinServiceRadius(house.getLatitude(), house.getLongitude())) throw new IllegalArgumentException("Địa chỉ nằm ngoài bán kính phục vụ hiện tại của công ty.");
-        if (hasInsufficientTravelGap(staffId, start, end, house.getLatitude(), house.getLongitude(), null)) {
-            throw new IllegalArgumentException("Lịch của nhân viên bị trùng hoặc chưa đủ khoảng nghỉ/tuyến đường di chuyển.");
+        TravelAssessment travel = assessTravel(staffId,start,end,house.getLatitude(),house.getLongitude(),null);
+        if (!travel.feasible()) {
+            if (travel.status()==TravelStatus.ROUTE_UNAVAILABLE) throw new IllegalStateException(travel.message());
+            throw new IllegalArgumentException(travel.message());
         }
         bookings.validateStillOpen(start, now());
 
@@ -91,18 +94,108 @@ public class BookingReservationService {
 
     public boolean hasInsufficientTravelGap(Long staffId, LocalDateTime start, LocalDateTime end,
             BigDecimal latitude, BigDecimal longitude, Long exceptBookingId) {
-        for (BookingPersistenceRepository.AppointmentPoint adjacent : bookings.adjacentAppointments(staffId, start, end, exceptBookingId)) {
-            boolean previous = !adjacent.end().isAfter(start);
-            LocalDateTime from = previous ? adjacent.end() : end;
-            LocalDateTime to = previous ? start : adjacent.start();
-            if (adjacent.latitude() == null || adjacent.longitude() == null) throw new IllegalStateException("Thiếu tọa độ lịch gần nhất nên không tính được tuyến. Vui lòng thử lại hoặc nhờ Admin cập nhật địa chỉ.");
-            int route = vietmap.motorcycleMinutes(previous ? adjacent.latitude() : latitude,
-                    previous ? adjacent.longitude() : longitude, previous ? latitude : adjacent.latitude(),
-                    previous ? longitude : adjacent.longitude());
-            int required = Math.max(60, Math.addExact(route, 15));
-            if (java.time.Duration.between(from, to).toMinutes() < required) return true;
+        return !assessTravel(staffId,start,end,latitude,longitude,exceptBookingId).feasible();
+    }
+
+    public TravelAssessment assessTravel(Long staffId,LocalDateTime start,LocalDateTime end,
+            BigDecimal latitude,BigDecimal longitude,Long exceptBookingId) {
+        List<BookingPersistenceRepository.AppointmentPoint> overlaps=bookings.overlappingAppointments(staffId,start,end,exceptBookingId);
+        if(!overlaps.isEmpty()) {
+            BookingPersistenceRepository.AppointmentPoint overlap=overlaps.getFirst();
+            return new TravelAssessment(TravelStatus.OVERLAP,"Giờ đã chọn bị trùng với booking #"+overlap.bookingId()+" ("+
+                    format(overlap.start())+"–"+format(overlap.end())+"). Hãy chọn giờ khác.",null,null,0,0,0,overlap.bookingId());
         }
-        return false;
+        List<BookingPersistenceRepository.AppointmentPoint> appointments=bookings.adjacentAppointments(staffId,start,end,exceptBookingId);
+        BookingPersistenceRepository.AppointmentPoint previousAppointment=null;
+        BookingPersistenceRepository.AppointmentPoint nextAppointment=null;
+        LocalDateTime earliestStart=null,latestStart=null;
+        int previousRoute=0,previousGap=0,previousRequired=0,nextRoute=0,nextGap=0,nextRequired=0;
+        for (BookingPersistenceRepository.AppointmentPoint adjacent : appointments) {
+            boolean previous = !adjacent.end().isAfter(start);
+            if (previous && adjacent.end().toLocalDate().equals(start.toLocalDate())) previousAppointment=adjacent;
+            if (!adjacent.start().toLocalDate().equals(start.toLocalDate())) continue;
+            if(previous) {
+                if(adjacent.latitude()==null||adjacent.longitude()==null)
+                    return TravelAssessment.unavailable("Không thể xác minh tuyến: booking trước #"+adjacent.bookingId()+" chưa có tọa độ.");
+                VietmapClient.MotorcycleRoute route;
+                BigDecimal maximumDistanceMeters;
+                try {
+                    maximumDistanceMeters=houseService.serviceCenter().radiusKm().movePointRight(3);
+                    route=vietmap.motorcycleRoute(adjacent.latitude(),adjacent.longitude(),latitude,longitude,adjacent.end());
+                }
+                catch(IllegalStateException routeFailure) { return TravelAssessment.unavailable("Chưa xác minh được tuyến từ booking trước #"+adjacent.bookingId()+" đến địa chỉ này. " + routeFailure.getMessage()); }
+                if(route.distanceMeters().compareTo(maximumDistanceMeters)>0)
+                    return distanceLimitExceeded("từ booking trước #"+adjacent.bookingId()+" đến booking này",route.distanceMeters(),maximumDistanceMeters,adjacent.bookingId());
+                previousRoute=route.durationMinutes();
+                previousRequired=Math.addExact(previousRoute,15);
+                previousGap=Math.toIntExact(java.time.Duration.between(adjacent.end(),start).toMinutes());
+                earliestStart=adjacent.end().plusMinutes(previousRequired);
+            } else {
+                nextAppointment=adjacent;
+                if(adjacent.latitude()==null||adjacent.longitude()==null)
+                    return TravelAssessment.unavailable("Không thể xác minh tuyến: booking kế tiếp #"+adjacent.bookingId()+" chưa có tọa độ.");
+                VietmapClient.MotorcycleRoute route;
+                BigDecimal maximumDistanceMeters;
+                try {
+                    maximumDistanceMeters=houseService.serviceCenter().radiusKm().movePointRight(3);
+                    route=vietmap.motorcycleRoute(latitude,longitude,adjacent.latitude(),adjacent.longitude(),end);
+                }
+                catch(IllegalStateException routeFailure) { return TravelAssessment.unavailable("Chưa xác minh được tuyến từ địa chỉ này đến booking kế tiếp #"+adjacent.bookingId()+". " + routeFailure.getMessage()); }
+                if(route.distanceMeters().compareTo(maximumDistanceMeters)>0)
+                    return distanceLimitExceeded("từ booking này đến booking kế tiếp #"+adjacent.bookingId(),route.distanceMeters(),maximumDistanceMeters,adjacent.bookingId());
+                nextRoute=route.durationMinutes();
+                nextRequired=Math.addExact(nextRoute,15);
+                nextGap=Math.toIntExact(java.time.Duration.between(end,adjacent.start()).toMinutes());
+                latestStart=adjacent.start().minusMinutes((long)nextRequired+java.time.Duration.between(start,end).toMinutes());
+            }
+        }
+        if(previousAppointment==null) {
+            HouseService.ServiceCenter center=houseService.serviceCenter();
+            try { vietmap.motorcycleMinutesBeforeArrival(center.latitude(),center.longitude(),latitude,longitude,start); }
+            catch(IllegalStateException routeFailure) { return TravelAssessment.unavailable("Chưa xác minh được tuyến từ tâm công ty đến địa chỉ booking. " + routeFailure.getMessage()); }
+        }
+        if(earliestStart!=null&&start.isBefore(earliestStart)) {
+            int rounded=roundUpToQuarterHour(earliestStart.toLocalTime().toSecondOfDay()/60);
+            LocalTime firstSelectable=LocalTime.of((rounded/60)%24,rounded%60);
+            String msg="Booking trước #"+previousAppointment.bookingId()+" kết thúc lúc "+format(previousAppointment.end().toLocalTime())+
+                    ". Tuyến đến địa chỉ này khoảng "+previousRoute+" phút, cộng 15 phút dự phòng cần "+previousRequired+
+                    " phút; hiện chỉ cách "+previousGap+" phút. Đủ thời gian từ "+format(earliestStart.toLocalTime())+
+                    "; mốc đặt sớm nhất theo lưới 15 phút là "+format(firstSelectable)+".";
+            return new TravelAssessment(TravelStatus.TOO_EARLY,msg,earliestStart,latestStart,previousRoute,previousGap,previousRequired,previousAppointment.bookingId());
+        }
+        if(latestStart!=null&&start.isAfter(latestStart)) {
+            int rounded=roundDownToQuarterHour(latestStart.toLocalTime().toSecondOfDay()/60);
+            LocalTime lastSelectable=LocalTime.of((Math.max(0,rounded)/60)%24,Math.max(0,rounded)%60);
+            String msg="Booking kế tiếp #"+nextAppointment.bookingId()+" bắt đầu lúc "+format(nextAppointment.start().toLocalTime())+
+                    ". Tuyến từ địa chỉ này khoảng "+nextRoute+" phút, cộng 15 phút dự phòng cần "+nextRequired+
+                    " phút; hiện còn "+nextGap+" phút. Với dịch vụ "+java.time.Duration.between(start,end).toMinutes()+
+                    " phút, cần bắt đầu không muộn hơn "+
+                    format(latestStart.toLocalTime())+" (mốc 15 phút cuối có thể chọn: "+format(lastSelectable)+").";
+            return new TravelAssessment(TravelStatus.TOO_LATE,msg,earliestStart,latestStart,nextRoute,nextGap,nextRequired,nextAppointment.bookingId());
+        }
+        return new TravelAssessment(TravelStatus.FEASIBLE,"",earliestStart,latestStart,
+                previousAppointment!=null?previousRoute:nextRoute,previousAppointment!=null?previousGap:nextGap,
+                previousAppointment!=null?previousRequired:nextRequired,
+                previousAppointment!=null?previousAppointment.bookingId():nextAppointment==null?null:nextAppointment.bookingId());
+    }
+
+    private static int roundUpToQuarterHour(int minute){return ((minute+14)/15)*15;}
+    private static int roundDownToQuarterHour(int minute){return (minute/15)*15;}
+    private static TravelAssessment distanceLimitExceeded(String direction,BigDecimal distanceMeters,
+            BigDecimal maximumDistanceMeters,Long bookingId) {
+        BigDecimal actualKm=distanceMeters.movePointLeft(3).setScale(2,java.math.RoundingMode.CEILING);
+        BigDecimal maximumKm=maximumDistanceMeters.movePointLeft(3).setScale(2,java.math.RoundingMode.HALF_UP);
+        String message="Quãng đường tuyến VietMap "+direction+" là "+actualKm.toPlainString()+" km, vượt giới hạn "+
+                maximumKm.toPlainString()+" km theo bán kính phục vụ Admin. Hãy chọn nhân viên hoặc ngày khác.";
+        return new TravelAssessment(TravelStatus.DISTANCE_LIMIT_EXCEEDED,message,null,null,0,0,0,bookingId);
+    }
+    private static String format(LocalTime time){return time.format(DateTimeFormatter.ofPattern("HH:mm"));}
+    private static String format(LocalDateTime time){return format(time.toLocalTime());}
+    public enum TravelStatus { FEASIBLE, OVERLAP, TOO_EARLY, TOO_LATE, DISTANCE_LIMIT_EXCEEDED, ROUTE_UNAVAILABLE }
+    public record TravelAssessment(TravelStatus status,String message,LocalDateTime earliestStart,LocalDateTime latestStart,
+            int routeMinutes,int availableGapMinutes,int requiredGapMinutes,Long relatedBookingId) {
+        boolean feasible(){return status==TravelStatus.FEASIBLE;}
+        static TravelAssessment unavailable(String message){return new TravelAssessment(TravelStatus.ROUTE_UNAVAILABLE,message,null,null,0,0,0,null);}
     }
 
     static void validateRequestedStart(LocalDateTime start, LocalDateTime now) {

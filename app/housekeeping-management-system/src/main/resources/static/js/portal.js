@@ -425,6 +425,9 @@ document.querySelectorAll("[data-upload-form]").forEach(form => {
 const bookingForm = document.querySelector("[data-booking-form]");
 if (bookingForm) {
   const house = bookingForm.elements.houseId;
+  const houseServiceAreaError = bookingForm.querySelector("#houseServiceAreaError");
+  let houseAreaState = house.value ? "checking" : "empty";
+  let houseAreaRequest = 0;
   const services = [...bookingForm.querySelectorAll("input[name=serviceIds]")];
   const calendarDates = bookingForm.querySelector("[data-available-dates]");
   const previousDatesButton = bookingForm.querySelector("[data-date-prev]");
@@ -531,8 +534,8 @@ if (bookingForm) {
       availableDates=result.dates||[];
       const available=new Set(availableDates);
       const removed=[...days.keys()].filter(date=>!available.has(date));
-      removed.forEach(date=>days.delete(date));
-      if(removed.length)calendarNotice=`Đã bỏ ${removed.length} ngày vì không còn giờ hoặc nhân viên phù hợp với lựa chọn hiện tại.`;
+      removed.forEach(date=>{const day=days.get(date);if(day){day.notice="Lựa chọn này không còn khả dụng; ngày và thông tin đã chọn được giữ lại để bạn điều chỉnh.";day.stale=true;}});
+      if(removed.length)calendarNotice=`${removed.length} ngày đã chọn không còn phù hợp; thông tin được giữ lại để bạn điều chỉnh.`;
       else calendarNotice=result.message||"";
     } catch(error) {
       if(request===calendarSequence)calendarError="Không tải được lịch ngày. Vui lòng thử tải lại trước khi tiếp tục.";
@@ -555,24 +558,29 @@ if (bookingForm) {
     if (!chosen.length) { day.options = null; day.loading = false; day.error = "Chọn ít nhất một dịch vụ để tra lịch."; render(); return; }
     const request = ++sequence; day.request = request; day.loading = true; day.error = ""; pending++; render();
     const query = new URLSearchParams({ workDate: day.date });
+    if (house.value) query.set("houseId", house.value);
     chosen.forEach(input => query.append("serviceIds", input.value));
     if (day.staffId) query.set("staffId", day.staffId);
     if (day.time) query.set("startTime", day.time);
     try {
       const response = await fetch(`/customer/bookings/availability-options?${query}`, { headers: { Accept: "application/json" } });
-      if (!response.ok) throw new Error("Không tải được lịch khả dụng cho ngày này.");
-      const options = await response.json();
+      const options = await response.json().catch(()=>({}));
+      if (!response.ok) throw new Error(options.detail || options.message || "Không tải được lịch khả dụng cho ngày này.");
       if (day.request !== request) return;
       day.options = options; day.error = "";
       day.timeOptions = options.timeOptions || [];
+      if(options.earliestStartTime)day.timeOptions=day.timeOptions.filter(option=>option.startTime>=options.earliestStartTime);
       if (day.time && !day.timeOptions.some(option => option.startTime === day.time)) {
-        day.time = ""; day.staffId = "";
-        day.notice = `Lựa chọn trước không còn phù hợp. ${options.message || "Hãy chọn lại giờ và nhân viên."}`;
+        if(!day.restored)day.time = "";
+        day.stale=true;
+        day.expanded=true;
+        day.notice = options.message || "Mốc giờ này không còn phù hợp. Hãy chọn một giờ khác.";
       }
       if (day.staffId && day.time) {
         const eligible = timeFor(day, day.time)?.staffOptions || [];
         if (!eligible.some(person => String(person.id) === String(day.staffId))) {
-          day.staffId = "";
+          if(!day.restored)day.staffId = "";
+          day.stale=true;
           day.notice = `Nhân viên không còn phù hợp với khung giờ này. ${options.message || "Hãy chọn người khác."}`;
         }
       }
@@ -583,14 +591,15 @@ if (bookingForm) {
       if (day.request === request) { day.loading = false; render(); }
     }
   }
-  const makeStaffSelect = (day, available) => {
+  const makeStaffSelect = (day, available, allowWithoutTime = false) => {
     const select = document.createElement("select"); select.className = "form-select booking-day-staff";
     select.append(new Option(preference === "staff" ? "Chọn nhân viên" : "Chọn giờ trước để xem nhân viên", ""));
     available.forEach(person => select.add(new Option(person.name, person.id)));
     select.value = day.staffId || "";
-    select.disabled = day.loading || !selectedServices().length || (preference === "time" && !day.time);
+    select.disabled = day.loading || !selectedServices().length || (preference === "time" && !day.time && !allowWithoutTime);
     select.addEventListener("change", () => {
       day.staffId = select.value;
+      day.stale = false; day.restored = false;
       if (preference === "staff" || !timeFor(day, day.time)?.staffOptions.some(person => String(person.id) === String(day.staffId))) day.time = "";
       if (preference === "time" && day.time && day.staffId) day.expanded = false;
       day.notice = ""; loadDay(day);
@@ -613,6 +622,8 @@ if (bookingForm) {
     const status = document.createElement("p"); status.className = "small text-secondary booking-day-status";
     status.setAttribute("role", "status");
     status.textContent = day.loading ? "Đang tải lịch…" : day.error || day.notice || day.options?.message || (day.time && day.staffId ? "Đã chọn giờ và nhân viên cho ngày này." : "Chọn giờ và nhân viên cho ngày này.");
+    status.classList.toggle("text-danger",Boolean(day.error||day.notice));
+    status.classList.toggle("text-secondary",!day.error&&!day.notice);
     card.append(status);
     addHiddenSelection(card, day);
     if (!day.expanded) return card;
@@ -626,6 +637,10 @@ if (bookingForm) {
       const staffLabel = document.createElement("label"); staffLabel.className = "booking-day-field";
       const staffCaption = document.createElement("span"); staffCaption.textContent = "Nhân viên phù hợp với giờ đã chọn";
       staffLabel.append(staffCaption, makeStaffSelect(day, eligibleStaff)); card.append(staffLabel);
+    } else if (day.stale && !day.loading && !day.timeOptions.length) {
+      const staffLabel = document.createElement("label"); staffLabel.className = "booking-day-field";
+      const staffCaption = document.createElement("span"); staffCaption.textContent = "Đổi nhân viên để xem các giờ khác";
+      staffLabel.append(staffCaption, makeStaffSelect(day, allStaff, true)); card.append(staffLabel);
     }
     if (preference === "time") {
       const pickerLabel = document.createElement("label"); pickerLabel.className = "booking-day-field booking-day-time-field";
@@ -636,7 +651,7 @@ if (bookingForm) {
       picker.append(trigger, value); pickerLabel.append(pickerCaption, picker); card.append(pickerLabel);
       if (window.initQuarterTimePicker) window.initQuarterTimePicker(picker);
       picker.setAllowedTimes?.((day.timeOptions || []).map(option => option.startTime));
-      picker.addEventListener("change", () => { day.time = value.value; day.staffId = ""; day.notice = ""; render(); loadDay(day); });
+      picker.addEventListener("change", () => { day.time = value.value; day.staffId = ""; day.stale=false;day.restored=false;day.notice = ""; render(); loadDay(day); });
     }
     if (preference === "staff" && day.staffId && !day.loading && day.options) {
       const list = document.createElement("div"); list.className = "booking-availability-options booking-time-only-options";
@@ -646,7 +661,10 @@ if (bookingForm) {
         button.setAttribute("aria-pressed", String(day.time === option.startTime));
         const time = document.createElement("strong"); time.textContent = option.startTime;
         button.append(time);
-        button.addEventListener("click", () => { day.time = option.startTime; day.notice = ""; day.expanded = false; render(); loadDay(day); });
+        button.addEventListener("click", () => {
+          day.time = option.startTime; day.stale = false; day.restored = false; day.notice = ""; day.expanded = false;
+          render(); loadDay(day);
+        });
         list.append(button);
       });
       if (!list.childElementCount) { const empty = document.createElement("p"); empty.className = "small text-secondary mb-0"; empty.textContent = day.options.message || "Nhân viên này chưa có giờ phù hợp trong ngày."; list.append(empty); }
@@ -663,19 +681,43 @@ if (bookingForm) {
   }
   preferredStaff.value=requestedStaffId||"";
   preferredStaff.addEventListener("change",()=>{
-    days.forEach(day=>{day.time="";day.staffId=preferredStaff.value;day.notice="";});
+    days.forEach(day=>{day.time="";day.staffId=preferredStaff.value;day.stale=false;day.restored=false;day.notice="";});
     render(); loadAvailableDates(); days.forEach(loadDay);
   });
   preferenceInputs.forEach(input => input.addEventListener("change", () => {
-    preference=input.value; days.forEach(day=>{day.time="";day.staffId=preference==="staff"?preferredStaff.value:"";day.notice="";});
+    preference=input.value; days.forEach(day=>{day.time="";day.staffId=preference==="staff"?preferredStaff.value:"";day.stale=false;day.restored=false;day.notice="";});
     if(preference==="staff"&&!preferredStaff.value)days.clear();
     render(); loadAvailableDates(); days.forEach(loadDay);
   }));
   services.forEach(input => input.addEventListener("change", () => {
-    days.forEach(day=>{day.time="";day.staffId=preference==="staff"?preferredStaff.value:"";day.notice="";});
+    days.forEach(day=>{day.time="";day.staffId=preference==="staff"?preferredStaff.value:"";day.stale=false;day.restored=false;day.notice="";});
     render(); loadAvailableDates(); days.forEach(loadDay);
   }));
-  house.addEventListener("change", refresh);
+  async function checkHouseServiceArea() {
+    const request=++houseAreaRequest;
+    if(!house.value){houseAreaState="empty";if(houseServiceAreaError){houseServiceAreaError.hidden=true;houseServiceAreaError.textContent="";}refresh();return;}
+    houseAreaState="checking";
+    if(houseServiceAreaError){houseServiceAreaError.hidden=false;houseServiceAreaError.classList.remove("text-danger");houseServiceAreaError.classList.add("text-secondary");houseServiceAreaError.textContent="Đang kiểm tra địa chỉ trong bán kính phục vụ…";}
+    refresh();
+    try {
+      const response=await fetch(`/customer/bookings/house-service-area?houseId=${encodeURIComponent(house.value)}`,{headers:{Accept:"application/json"}});
+      if(!response.ok)throw new Error();
+      const result=await response.json();
+      if(request!==houseAreaRequest)return;
+      houseAreaState=result.eligible?"eligible":"ineligible";
+      if(houseServiceAreaError){houseServiceAreaError.hidden=false;houseServiceAreaError.classList.toggle("text-danger",!result.eligible);houseServiceAreaError.classList.toggle("text-secondary",Boolean(result.eligible));houseServiceAreaError.textContent=result.message;}
+    } catch(error) {
+      if(request!==houseAreaRequest)return;
+      houseAreaState="error";
+      if(houseServiceAreaError){houseServiceAreaError.hidden=false;houseServiceAreaError.classList.add("text-danger");houseServiceAreaError.textContent="Chưa kiểm tra được bán kính phục vụ. Vui lòng thử lại.";}
+    }
+    refresh();
+  }
+  house.addEventListener("change",()=>{
+    checkHouseServiceArea();
+    days.forEach(day=>{day.time="";day.staffId=preference==="staff"?preferredStaff.value:"";day.stale=false;day.restored=false;day.notice="";});
+    render();days.forEach(loadDay);
+  });
   function refresh() {
     const selected = services.filter(input => input.checked);
     const minutes = selected.reduce((sum, input) => sum + Number(input.dataset.duration), 0);
@@ -692,10 +734,12 @@ if (bookingForm) {
     const selectedDays = [...days.values()];
     bookingForm.querySelector("[data-summary-duration]").textContent = `${minutes} phút × ${selectedDays.length} ngày`;
     bookingForm.querySelector("[data-summary-price]").textContent = `${currency.format(price * selectedDays.length)} tổng · ${currency.format(price)} / ngày`;
-    const incomplete = selectedDays.filter(day => !day.options || !day.time || !day.staffId || !timeFor(day, day.time)?.staffOptions.some(person => String(person.id) === String(day.staffId)));
+    const incomplete = selectedDays.filter(day => !day.options || day.stale || !day.time || !day.staffId || !timeFor(day, day.time)?.staffOptions.some(person => String(person.id) === String(day.staffId)));
     let error = "";
     if (!selected.length) error = "Chọn ít nhất một dịch vụ.";
     else if (!house.value) error = "Chọn địa chỉ nhà cần dọn.";
+    else if (houseAreaState === "checking") error = "Đang kiểm tra địa chỉ trong bán kính phục vụ.";
+    else if (houseAreaState === "ineligible" || houseAreaState === "error" || houseAreaState === "empty") error = "Hãy chọn địa chỉ nhà nằm trong bán kính phục vụ.";
     else if (preference==="staff"&&!preferredStaff.value) error = "Chọn nhân viên ưu tiên trước khi xem ngày làm.";
     else if (!selectedDays.length) error = "Chọn ít nhất một ngày có nhân viên sẵn sàng.";
     else if (calendarPending||pending) error = "Đang tải lịch khả dụng cho các ngày đã chọn.";
@@ -708,5 +752,15 @@ if (bookingForm) {
     refresh();
     if (submit.disabled || !bookingForm.reportValidity()) event.preventDefault();
   });
-  render(); loadAvailableDates();
+  const retryState=window.bookingRetryState;
+  if(retryState){
+    if(retryState.houseId)house.value=String(retryState.houseId);
+    if(Array.isArray(retryState.serviceIds))services.forEach(input=>input.checked=retryState.serviceIds.map(String).includes(input.value));
+    const note=bookingForm.querySelector("#areaNote");if(note&&retryState.areaNote)note.value=retryState.areaNote;
+    if(Array.isArray(retryState.days))retryState.days.forEach(item=>{
+      if(item&&item.date&&item.staffId&&item.time)days.set(item.date,{date:item.date,time:item.time,staffId:String(item.staffId),loading:false,options:null,timeOptions:[],error:"",notice:"Lịch trước chưa được tạo. Hãy xác nhận lại lựa chọn.",expanded:true,restored:true,stale:false});
+    });
+  }
+  render(); loadAvailableDates(); checkHouseServiceArea();
+  if(retryState?.days?.length)retryState.days.forEach(item=>{const day=days.get(item.date);if(day)loadDay(day);});
 }

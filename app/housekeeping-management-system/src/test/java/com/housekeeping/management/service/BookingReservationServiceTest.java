@@ -26,6 +26,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.util.Optional;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class BookingReservationServiceTest {
@@ -217,6 +218,9 @@ class BookingReservationServiceTest {
 
         when(bookings.partTimeAcceptsInterval(7L, start.toLocalDate(), start.toLocalTime(), start.plusMinutes(180).toLocalTime())).thenReturn(true);
         when(bookings.adjacentAppointments(7L, start, start.plusMinutes(180), null)).thenReturn(java.util.List.of());
+        when(houseService.serviceCenter()).thenReturn(new HouseService.ServiceCenter(new BigDecimal("10.0"),new BigDecimal("106.0"),new BigDecimal("25")));
+        when(vietmap.motorcycleMinutesBeforeArrival(new BigDecimal("10.0"),new BigDecimal("106.0"),
+                house.getLatitude(),house.getLongitude(),start)).thenReturn(1);
         when(bookings.insertBooking(org.mockito.ArgumentMatchers.eq(12L), org.mockito.ArgumentMatchers.eq(7L),
                 org.mockito.ArgumentMatchers.eq(31L), org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.isNull(),
@@ -225,6 +229,110 @@ class BookingReservationServiceTest {
                 org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.any())).thenReturn(78L);
 
         assertThat(service.createBooking(12L, 7L, 31L, start, java.util.List.of(5L), null)).isEqualTo(78L);
+        verify(vietmap).motorcycleMinutesBeforeArrival(new BigDecimal("10.0"),new BigDecimal("106.0"),
+                house.getLatitude(),house.getLongitude(),start);
+    }
+
+    @Test
+    void travelGapUsesRouteEtaPlusExactlyFifteenMinutes() {
+        LocalDateTime start=LocalDateTime.of(2026,11,10,10,35);
+        LocalDateTime previousEnd=start.minusMinutes(35);
+        var previous=new BookingPersistenceRepository.AppointmentPoint(44L,previousEnd.minusHours(1),previousEnd,
+                new BigDecimal("10.0"),new BigDecimal("106.0"));
+        when(bookings.adjacentAppointments(7L,start,start.plusHours(1),null)).thenReturn(List.of(previous));
+        when(houseService.serviceCenter()).thenReturn(new HouseService.ServiceCenter(new BigDecimal("10.0"),new BigDecimal("106.0"),new BigDecimal("25")));
+        when(vietmap.motorcycleRoute(previous.latitude(),previous.longitude(),new BigDecimal("10.1"),
+                new BigDecimal("106.1"),previousEnd)).thenReturn(new VietmapClient.MotorcycleRoute(new BigDecimal("25000"),20));
+
+        assertThat(service.hasInsufficientTravelGap(7L,start,start.plusHours(1),new BigDecimal("10.1"),new BigDecimal("106.1"),null)).isFalse();
+
+        LocalDateTime tooEarly=start.minusMinutes(1);
+        when(bookings.adjacentAppointments(7L,tooEarly,tooEarly.plusHours(1),null)).thenReturn(List.of(previous));
+        when(vietmap.motorcycleRoute(previous.latitude(),previous.longitude(),new BigDecimal("10.1"),
+                new BigDecimal("106.1"),previousEnd)).thenReturn(new VietmapClient.MotorcycleRoute(new BigDecimal("25000"),20));
+        assertThat(service.hasInsufficientTravelGap(7L,tooEarly,tooEarly.plusHours(1),new BigDecimal("10.1"),new BigDecimal("106.1"),null)).isTrue();
+    }
+
+    @Test
+    void acceptsRouteDistanceAtLimitAndRejectsDistanceAboveLimitFromPreviousBooking() {
+        LocalDateTime start=LocalDateTime.of(2026,11,10,10,0);
+        LocalDateTime end=start.plusHours(1);
+        LocalDateTime previousEnd=start.minusMinutes(35);
+        var previous=new BookingPersistenceRepository.AppointmentPoint(44L,previousEnd.minusHours(1),previousEnd,
+                new BigDecimal("10.0"),new BigDecimal("106.0"));
+        when(bookings.adjacentAppointments(7L,start,end,null)).thenReturn(List.of(previous));
+        when(houseService.serviceCenter()).thenReturn(new HouseService.ServiceCenter(new BigDecimal("10.0"),new BigDecimal("106.0"),new BigDecimal("25.00")));
+        when(vietmap.motorcycleRoute(previous.latitude(),previous.longitude(),new BigDecimal("10.1"),
+                new BigDecimal("106.1"),previousEnd)).thenReturn(new VietmapClient.MotorcycleRoute(new BigDecimal("25000"),20));
+
+        var atLimit=service.assessTravel(7L,start,end,new BigDecimal("10.1"),new BigDecimal("106.1"),null);
+
+        assertThat(atLimit.status()).isEqualTo(BookingReservationService.TravelStatus.FEASIBLE);
+        when(vietmap.motorcycleRoute(previous.latitude(),previous.longitude(),new BigDecimal("10.1"),
+                new BigDecimal("106.1"),previousEnd)).thenReturn(new VietmapClient.MotorcycleRoute(new BigDecimal("25001"),20));
+
+        var overLimit=service.assessTravel(7L,start,end,new BigDecimal("10.1"),new BigDecimal("106.1"),null);
+
+        assertThat(overLimit.status()).isEqualTo(BookingReservationService.TravelStatus.DISTANCE_LIMIT_EXCEEDED);
+        assertThat(overLimit.message()).contains("booking trước #44", "25.01 km", "25.00 km");
+    }
+
+    @Test
+    void rejectsRouteDistanceAboveLimitToTheNextBooking() {
+        LocalDateTime start=LocalDateTime.of(2026,11,10,10,0);
+        LocalDateTime end=start.plusMinutes(30);
+        var previous=new BookingPersistenceRepository.AppointmentPoint(43L,start.minusHours(2),start.minusHours(1),
+                new BigDecimal("10.0"),new BigDecimal("106.0"));
+        var next=new BookingPersistenceRepository.AppointmentPoint(45L,end.plusHours(1),end.plusHours(2),
+                new BigDecimal("10.2"),new BigDecimal("106.2"));
+        when(bookings.adjacentAppointments(7L,start,end,null)).thenReturn(List.of(previous,next));
+        when(houseService.serviceCenter()).thenReturn(new HouseService.ServiceCenter(new BigDecimal("10.0"),new BigDecimal("106.0"),new BigDecimal("25.00")));
+        when(vietmap.motorcycleRoute(previous.latitude(),previous.longitude(),new BigDecimal("10.1"),
+                new BigDecimal("106.1"),previous.end())).thenReturn(new VietmapClient.MotorcycleRoute(new BigDecimal("1000"),10));
+        when(vietmap.motorcycleRoute(new BigDecimal("10.1"),new BigDecimal("106.1"),next.latitude(),next.longitude(),end))
+                .thenReturn(new VietmapClient.MotorcycleRoute(new BigDecimal("26000"),20));
+
+        var result=service.assessTravel(7L,start,end,new BigDecimal("10.1"),new BigDecimal("106.1"),null);
+
+        assertThat(result.status()).isEqualTo(BookingReservationService.TravelStatus.DISTANCE_LIMIT_EXCEEDED);
+        assertThat(result.message()).contains("booking kế tiếp #45", "26.00 km", "25.00 km");
+    }
+
+    @Test
+    void reportsLatestStartWhenThereIsNotEnoughTimeToReachTheNextBooking() {
+        LocalDateTime start=LocalDateTime.of(2026,11,10,12,30);
+        LocalDateTime end=start.plusHours(1);
+        var next=new BookingPersistenceRepository.AppointmentPoint(45L,end.plusMinutes(30),end.plusMinutes(150),
+                new BigDecimal("10.2"),new BigDecimal("106.2"));
+        when(bookings.adjacentAppointments(7L,start,end,null)).thenReturn(List.of(next));
+        when(vietmap.motorcycleRoute(new BigDecimal("10.1"),new BigDecimal("106.1"),next.latitude(),next.longitude(),end))
+                .thenReturn(new VietmapClient.MotorcycleRoute(new BigDecimal("20000"),20));
+        when(houseService.serviceCenter()).thenReturn(new HouseService.ServiceCenter(new BigDecimal("10.0"),new BigDecimal("106.0"),new BigDecimal("25")));
+        when(vietmap.motorcycleMinutesBeforeArrival(new BigDecimal("10.0"),new BigDecimal("106.0"),
+                new BigDecimal("10.1"),new BigDecimal("106.1"),start)).thenReturn(1);
+
+        var result=service.assessTravel(7L,start,end,new BigDecimal("10.1"),new BigDecimal("106.1"),null);
+
+        assertThat(result.status()).isEqualTo(BookingReservationService.TravelStatus.TOO_LATE);
+        assertThat(result.latestStart()).isEqualTo(LocalDateTime.of(2026,11,10,12,25));
+        assertThat(result.message()).contains("Booking kế tiếp #45","20 phút","15 phút","30 phút","12:25","12:15");
+    }
+
+    @Test
+    void reportsRouteUnavailableSeparatelyFromInsufficientTravelTime() {
+        LocalDateTime start=LocalDateTime.of(2026,11,10,10,0);
+        LocalDateTime end=start.plusHours(1);
+        var next=new BookingPersistenceRepository.AppointmentPoint(46L,end.plusHours(2),end.plusHours(3),
+                new BigDecimal("10.2"),new BigDecimal("106.2"));
+        when(bookings.adjacentAppointments(7L,start,end,null)).thenReturn(List.of(next));
+        when(houseService.serviceCenter()).thenReturn(new HouseService.ServiceCenter(new BigDecimal("10.0"),new BigDecimal("106.0"),new BigDecimal("25")));
+        when(vietmap.motorcycleRoute(new BigDecimal("10.1"),new BigDecimal("106.1"),next.latitude(),next.longitude(),end))
+                .thenThrow(new IllegalStateException("Không tìm thấy tuyến đường khả dụng."));
+
+        var result=service.assessTravel(7L,start,end,new BigDecimal("10.1"),new BigDecimal("106.1"),null);
+
+        assertThat(result.status()).isEqualTo(BookingReservationService.TravelStatus.ROUTE_UNAVAILABLE);
+        assertThat(result.message()).contains("Chưa xác minh được tuyến","booking kế tiếp #46");
     }
 
     private Services service(Long id, String name, String price, int durationMinutes) {
