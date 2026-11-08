@@ -1,7 +1,7 @@
-/* ==========================================================================
-   GỌN NHÀ — DESIGN SYSTEM & PORTAL STYLESHEET
-   Aesthetic Direction: Warm Sanctuary Editorial (Tối giản ấm áp kiểu Bắc Âu)
-   Grid & Spacing: 4px / 8px Modular Scale · WCAG AA Contrast Compliant
+﻿/* ==========================================================================
+   Gá»ŒN NHÃ€ â€” DESIGN SYSTEM & PORTAL STYLESHEET
+   Aesthetic Direction: Warm Sanctuary Editorial (Tá»‘i giáº£n áº¥m Ã¡p kiá»ƒu Báº¯c Ã‚u)
+   Grid & Spacing: 4px / 8px Modular Scale Â· WCAG AA Contrast Compliant
    ========================================================================== */
 
 /* --------------------------------------------------------------------------
@@ -364,7 +364,7 @@ button, input, select, textarea {
 }
 
 /* --------------------------------------------------------------------------
-   4. HEADER NAVIGATION (CENTERED CAPSULE · MATCHING FOOTER CHROME)
+   4. HEADER NAVIGATION (CENTERED CAPSULE Â· MATCHING FOOTER CHROME)
    -------------------------------------------------------------------------- */
 .site-header {
   background: rgba(19, 32, 28, 0.97);
@@ -843,7 +843,7 @@ button, input, select, textarea {
   box-shadow: var(--shadow-sm);
 }
 
-/* Neutral Deactivate Button — shifts to crimson only on hover/focus */
+/* Neutral Deactivate Button â€” shifts to crimson only on hover/focus */
 .btn-deactivate {
   background-color: var(--surface);
   color: var(--ink-secondary);
@@ -1264,16 +1264,18 @@ button, input, select, textarea {
 .booking-availability-option.selected { border-color: var(--brand); background: #eaf8f3; box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand) 14%, transparent); }
 .booking-availability-option small { color: var(--muted); line-height: 1.35; }
 .booking-preferred-staff { max-width: 32rem; margin-bottom: 1rem; }
-.booking-date-carousel { display: grid; grid-template-columns: 2.5rem minmax(0, 1fr) 2.5rem; align-items: center; gap: 0.55rem; }
-.booking-date-nav { width: 2.5rem; height: 2.5rem; padding: 0; border: 1px solid var(--mint-border); border-radius: 50%; background: #fff; color: var(--brand-dark); font-size: 1.5rem; line-height: 1; }
-.booking-date-nav:disabled { opacity: 0.35; cursor: default; }
-.booking-available-dates { display: flex; min-width: 0; gap: 0.55rem; overflow-x: auto; overscroll-behavior-inline: contain; scroll-snap-type: x mandatory; scrollbar-width: none; }
-.booking-available-dates::-webkit-scrollbar { display: none; }
-.booking-available-date { display: grid; flex: 0 0 clamp(8.5rem, 18%, 10.5rem); gap: 0.15rem; min-height: 4rem; padding: 0.55rem 0.7rem; border: 1px solid var(--line); border-radius: 0.8rem; background: #fff; color: var(--ink); text-align: left; scroll-snap-align: start; }
-.booking-available-date:hover, .booking-available-date:focus-visible { border-color: var(--brand); }
-.booking-available-date.selected { border-color: var(--brand); background: #eaf8f3; box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand) 14%, transparent); }
-.booking-available-date strong { color: var(--brand-dark); text-transform: capitalize; }
-.booking-available-date span { color: var(--muted); font-size: 0.9rem; }
+.booking-date-carousel { display: flex !important; align-items: center !important; gap: 0.65rem !important; width: 100% !important; position: relative !important; }
+.booking-date-track { flex: 1 1 auto !important; min-width: 0 !important; overflow: hidden !important; }
+.booking-date-nav { flex: 0 0 2.5rem !important; width: 2.5rem !important; height: 2.5rem !important; padding: 0 !important; border: 1.5px solid var(--line-strong) !important; border-radius: 50% !important; background: #ffffff !important; color: var(--brand-dark) !important; font-size: 1.35rem !important; line-height: 1 !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; cursor: pointer !important; transition: all var(--motion-fast) !important; box-shadow: var(--shadow-sm) !important; }
+.booking-date-nav:hover:not(:disabled) { border-color: var(--brand) !important; background: var(--brand-subtle) !important; color: var(--brand) !important; transform: translateY(-1px) !important; }
+.booking-date-nav:disabled { opacity: 0.25 !important; cursor: not-allowed !important; transform: none !important; box-shadow: none !important; }
+.booking-available-dates { display: flex !important; flex: 1 1 auto !important; min-width: 0 !important; gap: 0.65rem !important; overflow-x: auto !important; overscroll-behavior-inline: contain !important; scroll-snap-type: x mandatory !important; scrollbar-width: none !important; padding: 0.35rem 0.15rem !important; }
+.booking-available-dates::-webkit-scrollbar { display: none !important; }
+.booking-available-date { display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 0.35rem !important; flex: 0 0 8.75rem !important; min-height: 4.85rem !important; padding: 0.65rem 0.75rem !important; border: 1.5px solid var(--line-strong) !important; border-radius: var(--radius-md) !important; background: #ffffff !important; color: var(--ink) !important; text-align: center !important; scroll-snap-align: start !important; cursor: pointer !important; transition: all var(--motion-fast) !important; font-family: inherit !important; }
+.booking-available-date:hover { border-color: var(--brand) !important; background: var(--brand-subtle) !important; transform: translateY(-1px) !important; }
+.booking-available-date.selected { border-color: var(--brand) !important; background: var(--brand-subtle) !important; box-shadow: 0 0 0 2px var(--brand) !important; }
+.booking-available-date strong { display: block !important; font-size: 0.95rem !important; font-weight: 700 !important; color: var(--brand-dark) !important; text-transform: capitalize !important; line-height: 1.2 !important; }
+.booking-available-date span { display: block !important; font-size: 0.85rem !important; color: var(--muted) !important; line-height: 1.2 !important; }
 .booking-selected-dates { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .booking-date-chip { display: inline-flex; align-items: center; gap: 0.55rem; padding: 0.45rem 0.7rem; border: 1px solid var(--mint-border); border-radius: var(--radius-pill); background: #eff9f2; }
 .booking-date-chip .btn-close { width: 0.55rem; height: 0.55rem; }
@@ -2757,7 +2759,7 @@ summary:hover {
   }
 }
 
-/* Operating Hours Table ("Nghỉ" Dimming & 44px Touch Toggle) */
+/* Operating Hours Table ("Nghá»‰" Dimming & 44px Touch Toggle) */
 .closed-day-toggle {
   display: inline-flex;
   align-items: center;

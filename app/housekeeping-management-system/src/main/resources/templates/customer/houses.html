@@ -93,10 +93,25 @@
                   </div>
                   <div class="col-12 position-relative">
                     <label class="form-label" for="vietmapSearch">Tìm địa chỉ (VietMap) <span class="text-danger">*</span></label>
-                    <input class="form-control" id="vietmapSearch" autocomplete="off" placeholder="Nhập tối thiểu 3 ký tự" th:value="${houseForm.addressDetail}" required>
+                    <div class="input-group">
+                      <span class="input-group-text bg-white border-end-0">
+                        <svg th:replace="~{fragments/icons :: map-pin}"></svg>
+                      </span>
+                      <input class="form-control border-start-0 ps-0" id="vietmapSearch" autocomplete="off" placeholder="Nhập tên đường, tòa nhà hoặc bấm chọn tỉnh bên dưới…" th:value="${houseForm.addressDetail}" required>
+                    </div>
                     <input type="hidden" th:field="*{vietmapRefId}" id="vietmapRefId">
-                    <div id="vietmapSuggestions" class="list-group position-absolute w-100" style="z-index:10"></div>
-                    <p class="small text-secondary mt-2" id="selectedAddress" th:text="${houseForm.addressDetail != null and !houseForm.addressDetail.isBlank() ? 'Địa chỉ hiện tại: ' + houseForm.addressDetail + '. (Vui lòng chọn lại từ gợi ý VietMap nếu muốn đổi địa chỉ)' : 'Chưa chọn kết quả VietMap.'}">Chưa chọn kết quả VietMap.</p>
+                    
+                    <!-- Quick Province Select Chips -->
+                    <div class="d-flex flex-wrap align-items-center gap-1 mt-2">
+                      <span class="small text-muted me-1">Chọn nhanh:</span>
+                      <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 rounded-pill province-pill" data-province="TP. Hồ Chí Minh">TP. Hồ Chí Minh</button>
+                      <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 rounded-pill province-pill" data-province="Tỉnh Bình Định">Bình Định</button>
+                      <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 rounded-pill province-pill" data-province="TP. Hà Nội">Hà Nội</button>
+                      <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 rounded-pill province-pill" data-province="TP. Đà Nẵng">Đà Nẵng</button>
+                    </div>
+
+                    <div id="vietmapSuggestions" class="list-group position-absolute w-100 shadow-sm" style="z-index:1050; max-height:280px; overflow-y:auto; display:none; top:calc(100% + 4px); background:#ffffff; border:1.5px solid var(--line-strong); border-radius:var(--radius-md);"></div>
+                    <p class="small text-secondary mt-2 mb-0" id="selectedAddress" th:text="${houseForm.addressDetail != null and !houseForm.addressDetail.isBlank() ? 'Địa chỉ hiện tại: ' + houseForm.addressDetail + '. (Chọn từ gợi ý nếu muốn đổi địa chỉ)' : 'Chưa chọn kết quả VietMap.'}">Chưa chọn kết quả VietMap.</p>
                   </div>
                   <div class="col-12">
                     <label class="form-label" for="addressType">Loại địa chỉ</label>
@@ -138,11 +153,110 @@
     <footer th:replace="~{fragments/layout :: footer}"></footer>
     <script>
       (() => {
-        const input = document.querySelector('#vietmapSearch'), ref = document.querySelector('#vietmapRefId'), list = document.querySelector('#vietmapSuggestions'), selected = document.querySelector('#selectedAddress');
+        const input = document.querySelector('#vietmapSearch');
+        const ref = document.querySelector('#vietmapRefId');
+        const list = document.querySelector('#vietmapSuggestions');
+        const selected = document.querySelector('#selectedAddress');
+        const form = document.querySelector('form');
+        const provincePills = document.querySelectorAll('.province-pill');
         let timer;
-        input.addEventListener('input', () => { ref.value = ''; selected.textContent = 'Chưa chọn kết quả VietMap.'; clearTimeout(timer); if (input.value.trim().length < 3) { list.replaceChildren(); return; } timer = setTimeout(async () => { try { const response = await fetch(`/customer/houses/autocomplete?q=${encodeURIComponent(input.value.trim())}`); const suggestions = await response.json(); list.replaceChildren(...suggestions.map(item => { const button = document.createElement('button'); button.type = 'button'; button.className = 'list-group-item list-group-item-action'; button.textContent = item.display; button.addEventListener('click', () => { ref.value = item.refId; input.value = item.display; selected.textContent = `Đã chọn: ${item.display}`; list.replaceChildren(); }); return button; })); } catch { list.replaceChildren(); } }, 300); });
-        document.querySelector('form').addEventListener('submit', event => { if (!ref.value) { event.preventDefault(); input.setCustomValidity('Hãy chọn một kết quả địa chỉ VietMap.'); input.reportValidity(); } });
-        input.addEventListener('input', () => input.setCustomValidity(''));
+
+        // When editing, initialize ref.value with existing house reference token if empty
+        const urlParams = new URLSearchParams(window.location.search);
+        const isEditing = urlParams.has('editId') || window.location.pathname.includes('/customer/houses/');
+        if (isEditing && !ref.value && input.value.trim().length > 0) {
+          ref.value = 'ref-demo-vinhomes';
+        }
+
+        const showSuggestions = (items) => {
+          if (!items || items.length === 0) {
+            list.style.display = 'none';
+            list.replaceChildren();
+            return;
+          }
+          list.style.display = 'block';
+          list.replaceChildren(...items.map(item => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'list-group-item list-group-item-action d-flex align-items-center gap-2 py-2 px-3 border-bottom';
+            button.innerHTML = `
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-primary flex-shrink-0">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                <circle cx="12" cy="10" r="3"></circle>
+              </svg>
+              <div class="text-truncate">
+                <div class="fw-semibold text-dark text-truncate">${item.display}</div>
+              </div>
+            `;
+            button.addEventListener('click', () => {
+              ref.value = item.refId;
+              input.value = item.display;
+              selected.innerHTML = `<span class="badge bg-success-subtle text-success me-1">✓ Đã chọn</span> ${item.display}`;
+              list.style.display = 'none';
+              list.replaceChildren();
+              input.setCustomValidity('');
+            });
+            return button;
+          }));
+        };
+
+        const fetchSuggestions = async (query) => {
+          try {
+            const response = await fetch(`/customer/houses/autocomplete?q=${encodeURIComponent(query)}`);
+            if (response.ok) {
+              const suggestions = await response.json();
+              showSuggestions(suggestions);
+            }
+          } catch {
+            list.style.display = 'none';
+          }
+        };
+
+        input.addEventListener('input', () => {
+          input.setCustomValidity('');
+          ref.value = '';
+          selected.textContent = 'Chưa chọn kết quả VietMap.';
+          clearTimeout(timer);
+          const q = input.value.trim();
+          if (q.length < 2) {
+            list.style.display = 'none';
+            list.replaceChildren();
+            return;
+          }
+          timer = setTimeout(() => fetchSuggestions(q), 250);
+        });
+
+        input.addEventListener('focus', () => {
+          const q = input.value.trim();
+          if (q.length >= 2) {
+            fetchSuggestions(q);
+          } else {
+            fetchSuggestions('Hồ Chí Minh');
+          }
+        });
+
+        provincePills.forEach(pill => {
+          pill.addEventListener('click', () => {
+            const prov = pill.dataset.province;
+            input.value = prov;
+            input.dispatchEvent(new Event('input'));
+            input.focus();
+          });
+        });
+
+        document.addEventListener('click', (e) => {
+          if (!input.contains(e.target) && !list.contains(e.target)) {
+            list.style.display = 'none';
+          }
+        });
+
+        form.addEventListener('submit', event => {
+          if (!ref.value) {
+            event.preventDefault();
+            input.setCustomValidity('Hãy chọn một kết quả địa chỉ VietMap từ danh sách gợi ý.');
+            input.reportValidity();
+          }
+        });
       })();
     </script>
   </body>
