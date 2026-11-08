@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
@@ -19,37 +20,37 @@ public class PaymentPersistenceRepository {
         this.jdbc = jdbc;
     }
 
-    public Long nextPayosOrderCode() {
+    private static final RowMapper<PaymentState> PAYMENT_STATE = (rs, row) -> new PaymentState(
+            rs.getLong("payment_id"), rs.getLong("booking_id"), rs.getBigDecimal("amount"),
+            rs.getString("payment_method"), rs.getString("status"), rs.getString("transaction_code"),
+            rs.getObject("created_at", LocalDateTime.class));
+
+    /** Online order codes come from the existing sequence; its PayOS name predates the VNPay gateway. */
+    public Long nextOnlineOrderCode() {
         return jdbc.queryForObject("SELECT NEXT VALUE FOR dbo.PayOS_Order_Code_Seq", Long.class);
     }
 
     public List<PaymentState> findForBookingUpdate(Long bookingId) {
         return jdbc.query("""
-                SELECT payment_id, booking_id, amount, payment_method, status, transaction_code
+                SELECT payment_id, booking_id, amount, payment_method, status, transaction_code, created_at
                 FROM dbo.Payments WITH (UPDLOCK, HOLDLOCK, INDEX(IX_Payments_Booking_Status))
                 WHERE booking_id=? ORDER BY created_at DESC, payment_id DESC
-                """, (rs, row) -> new PaymentState(rs.getLong("payment_id"), rs.getLong("booking_id"),
-                rs.getBigDecimal("amount"), rs.getString("payment_method"), rs.getString("status"),
-                rs.getString("transaction_code")), bookingId);
+                """, PAYMENT_STATE, bookingId);
     }
 
     public Optional<PaymentState> findByOrderCodeForUpdate(Long orderCode) {
         return jdbc.query("""
-                SELECT payment_id, booking_id, amount, payment_method, status, transaction_code
+                SELECT payment_id, booking_id, amount, payment_method, status, transaction_code, created_at
                 FROM dbo.Payments WITH (UPDLOCK, HOLDLOCK)
                 WHERE transaction_code=?
-                """, (rs, row) -> new PaymentState(rs.getLong("payment_id"), rs.getLong("booking_id"),
-                rs.getBigDecimal("amount"), rs.getString("payment_method"), rs.getString("status"),
-                rs.getString("transaction_code")), Long.toString(orderCode)).stream().findFirst();
+                """, PAYMENT_STATE, Long.toString(orderCode)).stream().findFirst();
     }
 
     public Optional<PaymentState> findByOrderCode(Long orderCode) {
         return jdbc.query("""
-                SELECT payment_id, booking_id, amount, payment_method, status, transaction_code
+                SELECT payment_id, booking_id, amount, payment_method, status, transaction_code, created_at
                 FROM dbo.Payments WHERE transaction_code=?
-                """, (rs, row) -> new PaymentState(rs.getLong("payment_id"), rs.getLong("booking_id"),
-                rs.getBigDecimal("amount"), rs.getString("payment_method"), rs.getString("status"),
-                rs.getString("transaction_code")), Long.toString(orderCode)).stream().findFirst();
+                """, PAYMENT_STATE, Long.toString(orderCode)).stream().findFirst();
     }
 
     public Long insertPendingOnline(Long bookingId, BigDecimal amount, long orderCode, LocalDateTime createdAt) {
@@ -115,5 +116,5 @@ public class PaymentPersistenceRepository {
     }
 
     public record PaymentState(Long paymentId, Long bookingId, BigDecimal amount,
-            String method, String status, String transactionCode) { }
+            String method, String status, String transactionCode, LocalDateTime createdAt) { }
 }

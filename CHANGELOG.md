@@ -1,8 +1,8 @@
 > **Document:** Changelog\
 > **File:** `CHANGELOG.md`\
-> **Version:** v1.0.1\
+> **Version:** v1.1.0\
 > **Created:** 2026-06-14\
-> **Last Updated:** 2026-10-27\
+> **Last Updated:** 2026-11-08\
 > **Status:** Template\
 
 # Changelog
@@ -27,6 +27,7 @@ Ghi các thay đổi đáng chú ý theo thứ tự mới nhất trước. File 
 - Bổ sung kiểm tra repository trung lập với framework bằng GitHub Actions.
 
 ### Changed
+- Online payment now uses the VNPay sandbox instead of PayOS: signed checkout URLs, confirmation only from VNPay itself (QueryDR lookup on return or signed IPN) so it works on every machine without a public URL, a repeat checkout asks VNPay about the previous attempt to avoid double charges, and a clear message when VNPay is not configured. The PayOS integration and its Postman collection are removed; database and booking statuses are unchanged.
 - Share the post-baseline address migration between primary and demo Flyway locations to avoid maintaining duplicate DDL.
 - Exclude only the two guarded primary/demo baseline scripts from Sonar duplication measurement while retaining the rest of their analysis.
 - Recreate the approved local SQL Server database on every application launch by default, with an explicit data-loss warning, local database restrictions and a `DB_RESET_ON_STARTUP=false` opt-out.

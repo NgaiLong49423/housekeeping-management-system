@@ -28,16 +28,21 @@ class PaymentServiceTest {
 
     @Test
     void onlineCheckoutCreatesPaymentRowAndReusesPendingOrderAfterRetry() {
+        LocalDateTime storedAt = LocalDateTime.of(2026, 11, 8, 10, 15, 30);
         when(bookings.lockBooking(42L)).thenReturn(Optional.of(booking(7L, 11L, "AWAITING_PAYMENT")));
         when(bookings.bookingAmount(42L)).thenReturn(new BigDecimal("150000.00"));
         when(payments.findForBookingUpdate(42L)).thenReturn(List.of()).thenReturn(List.of(
-                payment(19L, 42L, "150000.00", "ONLINE", "PENDING", "1001")));
-        when(payments.nextPayosOrderCode()).thenReturn(1001L);
+                payment(19L, 42L, "150000.00", "ONLINE", "PENDING", "1001", storedAt)));
+        when(payments.nextOnlineOrderCode()).thenReturn(1001L);
 
-        assertThat(service.prepareOnlineCheckout(42L, 7L)).isEqualTo(new PaymentService.OnlineCheckout(1001L, 150000L, false));
-        verify(payments).insertPendingOnline(eq(42L), eq(new BigDecimal("150000.00")), eq(1001L), any(LocalDateTime.class));
-        assertThat(service.prepareOnlineCheckout(42L, 7L)).isEqualTo(new PaymentService.OnlineCheckout(1001L, 150000L, true));
-        verify(payments, times(1)).nextPayosOrderCode();
+        PaymentService.OnlineCheckout created = service.prepareOnlineCheckout(42L, 7L);
+        org.mockito.ArgumentCaptor<LocalDateTime> insertedAt = org.mockito.ArgumentCaptor.forClass(LocalDateTime.class);
+        verify(payments).insertPendingOnline(eq(42L), eq(new BigDecimal("150000.00")), eq(1001L), insertedAt.capture());
+        assertThat(created).isEqualTo(new PaymentService.OnlineCheckout(1001L, 150000L, insertedAt.getValue(), false));
+
+        assertThat(service.prepareOnlineCheckout(42L, 7L))
+                .isEqualTo(new PaymentService.OnlineCheckout(1001L, 150000L, storedAt, true));
+        verify(payments, times(1)).nextOnlineOrderCode();
     }
 
     @Test
@@ -103,7 +108,12 @@ class PaymentServiceTest {
 
     private PaymentPersistenceRepository.PaymentState payment(Long paymentId, Long bookingId, String amount,
             String method, String status, String transactionCode) {
+        return payment(paymentId, bookingId, amount, method, status, transactionCode, LocalDateTime.of(2026, 11, 8, 9, 0));
+    }
+
+    private PaymentPersistenceRepository.PaymentState payment(Long paymentId, Long bookingId, String amount,
+            String method, String status, String transactionCode, LocalDateTime createdAt) {
         return new PaymentPersistenceRepository.PaymentState(paymentId, bookingId, new BigDecimal(amount),
-                method, status, transactionCode);
+                method, status, transactionCode, createdAt);
     }
 }

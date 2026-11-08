@@ -1,6 +1,6 @@
 > **Document:** Frontend–Backend Integration Guide\
 > **File:** `docs/frontend-integration.md`\
-> **Version:** v2.3.0\
+> **Version:** v2.4.0\
 > **Created:** 2026-10-16\
 > **Last Updated:** 2026-11-08\
 > **Status:** Draft
@@ -68,14 +68,14 @@ Các route dưới đây là điểm vào MVC của ứng dụng.
 | `/customer/bookings/house-service-area` | `houseId` | Chỉ Customer đang đăng nhập; backend xác minh quyền sở hữu, tọa độ và bán kính công ty trước khi form cho gửi booking |
 | `/customer/bookings/{id}/cancel` | CSRF | Owner, CONFIRMED, còn ít nhất 2 giờ |
 | `/customer/bookings/{id}/arrived` | CSRF | Owner ghi nhận Staff đã đến từ giờ bắt đầu; timestamp độc lập, không đổi trạng thái |
-| `/customer/bookings/{id}/payment` | CSRF | Owner; tạo hoặc mở lại checkout ONLINE qua PayOS |
+| `/customer/bookings/{id}/payment` | CSRF | Owner; tạo hoặc mở lại checkout ONLINE qua VNPay sandbox (hỏi VNPay về lần trước còn chờ để tránh thu hai lần) |
 | `/customer/bookings/{id}/feedback` | `content` dạng văn bản | Customer sở hữu Booking đã hoàn thành, tối đa một Feedback; không có chấm điểm |
 | `/customer/staff/{id}/favorite` | `favorite=true/false` | Thêm/bỏ cặp Customer–Staff, không thêm trùng |
 | `/staff/bookings/{id}/evidence` | Multipart `image` | Ownership rồi `EvidenceStorageService.upload` |
 | `/staff/bookings/{id}/complete` | CSRF | `BookingCompletionService.completeBooking` |
 | `/staff/bookings/{id}/cash-payment` | CSRF | Nhân viên được phân công xác nhận đã nhận CASH |
-| `/payments/payos/webhook` | JSON webhook từ PayOS; không dùng session/CSRF | Public callback, kiểm tra HMAC và order/amount/payment-link, xử lý idempotent; chỉ trả 204 khi hợp lệ |
-| `/payments/payos/return`, `/payments/payos/cancel` | Browser redirect từ PayOS | Chỉ thông báo/điều hướng; không xác nhận trạng thái thanh toán |
+| `/payments/vnpay/return` | Browser redirect GET từ VNPay; public | Kiểm tra chữ ký rồi tra cứu QueryDR; chỉ xác nhận khi VNPay báo thành công, sau đó về trang chi tiết booking kèm thông báo |
+| `/payments/vnpay/ipn` | GET server-to-server từ VNPay; public, không dùng session | Kiểm tra chữ ký, đơn và số tiền, xử lý idempotent; trả JSON `RspCode`/`Message` theo quy ước VNPay |
 | `/admin/services`, `/admin/services/{id}` | `name`, `description`, `duration`, `price` | Tạo/cập nhật theo Entity hiện có |
 | `/admin/services/{id}/activate`, `/admin/staff/{id}/activate` | CSRF | Kích hoạt lại dịch vụ hoặc tài khoản Staff đã ngừng hoạt động |
 | `/admin/staff` | `name`, `email`, `password`, `phone` | `GlobalEmailUniquenessService`, BCrypt trước khi lưu |
@@ -144,7 +144,7 @@ Quy trình nghiệm thu với SQL Server:
 2. Admin cấu hình thông tin công ty, bán kính (mặc định khởi điểm 10km) và ít nhất một khung giờ/ngày tại `/admin/settings`; nhiều khung trong ngày không chồng lấn. Tất cả đầu mốc theo 15 phút. Thay đổi làm Booking tương lai mất hợp lệ bị chặn và báo IDs. Admin tạo Staff và Service; email trùng bị từ chối. Staff PART_TIME đăng ký khoảng nằm trọn trong một khung giờ công ty; FULL_TIME theo khung Admin. Staff gửi đơn nghỉ theo ngày; Admin duyệt chỉ khi không còn Booking CONFIRMED tương lai bị ảnh hưởng, và thấy liên kết đến các Booking đó.
 3. Customer đặt lịch thành `CONFIRMED`; đặt trùng bị từ chối kể cả hai cửa sổ đồng thời; hủy theo mốc 2 giờ và kiểm tra giải phóng lịch.
 4. Staff chỉ thấy việc của mình; tải JPEG/PNG vào từng detail; file hỏng, quá 5 MB và vượt 5 ảnh bị từ chối. Không hoàn thành khi thiếu ảnh hoặc chưa tới giờ bắt đầu.
-5. Hoàn thành chuyển Booking sang `AWAITING_PAYMENT`; Staff được phân công xác nhận CASH hoặc Customer thanh toán ONLINE qua PayOS webhook; Payment thành `SUCCESS` thì Booking mới thành `COMPLETED`.
+5. Hoàn thành chuyển Booking sang `AWAITING_PAYMENT`; Staff được phân công xác nhận CASH hoặc Customer thanh toán ONLINE qua VNPay sandbox (xác nhận bằng QueryDR hoặc IPN); Payment thành `SUCCESS` thì Booking mới thành `COMPLETED`.
 6. Kiểm tra feedback một lần, yêu thích và sửa URL sang Booking/Evidence của tài khoản khác bị từ chối.
 
 Admin quản lý Booking tại trang chi tiết `/admin/bookings/{id}`. Chỉ Booking `CONFIRMED` có nút hủy/đổi nhân viên; hủy yêu cầu lý do và lưu người hủy/thời gian. Đổi nhân viên chỉ cập nhật `staff_id`, giữ `original_staff_id`; nhân viên thay thế phải đang hoạt động, không nghỉ đã duyệt, có availability nếu PART_TIME, nằm trong giờ Admin và đủ khoảng tuyến. Customer chủ Booking ghi nhận Staff đã đến từ giờ bắt đầu; ghi nhận không đổi trạng thái. Booking `AWAITING_PAYMENT`/`COMPLETED` không được hủy hoặc chuyển nhân viên vì quy tắc hoàn tiền/xử lý sau hoàn thành chưa được chốt trong SRS.
