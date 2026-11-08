@@ -8,7 +8,7 @@
         <div>
           <span class="eyebrow">Quản lý địa chỉ</span>
           <h1>Nhà của tôi</h1>
-          <p class="lead">Lưu thông tin người nhận và địa chỉ để đặt dịch vụ. Không cần ghim bản đồ hoặc nhập tọa độ.</p>
+          <p class="lead">Lưu thông tin người nhận và chọn địa chỉ từ gợi ý VietMap để hệ thống kiểm tra vùng phục vụ.</p>
         </div>
       </div>
       <div th:replace="~{fragments/layout :: alerts}"></div>
@@ -29,20 +29,12 @@
               <input class="form-control" id="recipientPhone" th:field="*{recipientPhone}" maxlength="20" autocomplete="tel" inputmode="tel" required>
               <div class="text-danger small" th:errors="*{recipientPhone}"></div>
             </div>
-            <div class="col-12">
-              <label class="form-label" for="provinceCity">Tỉnh/Thành phố</label>
-              <input class="form-control" id="provinceCity" th:field="*{provinceCity}" maxlength="100" autocomplete="address-level1" required>
-              <div class="text-danger small" th:errors="*{provinceCity}"></div>
-            </div>
-            <div class="col-12">
-              <label class="form-label" for="wardCommune">Phường/Xã</label>
-              <input class="form-control" id="wardCommune" th:field="*{wardCommune}" maxlength="100" autocomplete="address-level2" required>
-              <div class="text-danger small" th:errors="*{wardCommune}"></div>
-            </div>
-            <div class="col-12">
-              <label class="form-label" for="addressDetail">Tên đường, tòa nhà, số nhà</label>
-              <textarea class="form-control" id="addressDetail" th:field="*{addressDetail}" maxlength="290" rows="2" autocomplete="street-address" required></textarea>
-              <div class="text-danger small" th:errors="*{addressDetail}"></div>
+            <div class="col-12 position-relative">
+              <label class="form-label" for="vietmapSearch">Tìm địa chỉ</label>
+              <input class="form-control" id="vietmapSearch" autocomplete="off" placeholder="Nhập tối thiểu 3 ký tự" required>
+              <input type="hidden" th:field="*{vietmapRefId}" id="vietmapRefId">
+              <div id="vietmapSuggestions" class="list-group position-absolute w-100" style="z-index:10"></div>
+              <p class="small text-secondary mt-2" id="selectedAddress">Chưa chọn kết quả VietMap.</p>
             </div>
             <div class="col-md-6">
               <label class="form-label" for="addressType">Loại địa chỉ</label>
@@ -91,5 +83,14 @@
       </section>
     </main>
     <footer th:replace="~{fragments/layout :: footer}"></footer>
+    <script>
+      (() => {
+        const input = document.querySelector('#vietmapSearch'), ref = document.querySelector('#vietmapRefId'), list = document.querySelector('#vietmapSuggestions'), selected = document.querySelector('#selectedAddress');
+        let timer;
+        input.addEventListener('input', () => { ref.value = ''; selected.textContent = 'Chưa chọn kết quả VietMap.'; clearTimeout(timer); if (input.value.trim().length < 3) { list.replaceChildren(); return; } timer = setTimeout(async () => { try { const response = await fetch(`/customer/houses/autocomplete?q=${encodeURIComponent(input.value.trim())}`); const suggestions = await response.json(); list.replaceChildren(...suggestions.map(item => { const button = document.createElement('button'); button.type = 'button'; button.className = 'list-group-item list-group-item-action'; button.textContent = item.display; button.addEventListener('click', () => { ref.value = item.refId; input.value = item.display; selected.textContent = `Đã chọn: ${item.display}`; list.replaceChildren(); }); return button; })); } catch { list.replaceChildren(); } }, 300); });
+        document.querySelector('form').addEventListener('submit', event => { if (!ref.value) { event.preventDefault(); input.setCustomValidity('Hãy chọn một kết quả địa chỉ VietMap.'); input.reportValidity(); } });
+        input.addEventListener('input', () => input.setCustomValidity(''));
+      })();
+    </script>
   </body>
 </html>

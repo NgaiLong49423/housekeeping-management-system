@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.util.List;
 import org.springframework.jdbc.core.JdbcTemplate;
 import com.housekeeping.management.repository.FeedbackRepository;
@@ -56,24 +57,31 @@ public class PortalQueryService {
     }
 
     public List<ScheduleCard> schedules(PortalUser user) {
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh"));
+        LocalTime now = LocalTime.now(ZoneId.of("Asia/Ho_Chi_Minh"));
         String condition = switch (user.getRole()) {
             case "STAFF" -> " WHERE a.staff_id=?";
-            case "CUSTOMER" -> " WHERE u.status='ACTIVE'";
+            case "CUSTOMER" -> " WHERE u.status='ACTIVE' AND a.is_active=1 AND a.work_date>=? AND a.work_date<=? AND (a.work_date>? OR a.start_time>?)";
             case "ADMIN" -> "";
             default -> throw new AccessDeniedException("Vai trò không hợp lệ.");
         };
-        Object[] params = user.getRole().equals("STAFF") ? new Object[]{user.getAccountId()} : new Object[]{};
+        Object[] params = switch (user.getRole()) {
+            case "STAFF" -> new Object[]{user.getAccountId()};
+            case "CUSTOMER" -> new Object[]{java.sql.Date.valueOf(today), java.sql.Date.valueOf(today.plusDays(30)),
+                    java.sql.Date.valueOf(today), java.sql.Time.valueOf(now.withSecond(0).withNano(0))};
+            default -> new Object[]{};
+        };
         return jdbc.query("""
-                SELECT a.availability_id, a.staff_id, u.full_name, a.work_date, a.start_time, a.end_time
+                SELECT a.availability_id, a.staff_id, u.full_name, a.work_date, a.start_time, a.end_time, a.is_active
                 FROM dbo.Staff_Availability a
                 JOIN dbo.Staff s ON s.staff_id=a.staff_id
                 JOIN dbo.Users u ON u.user_id=s.user_id
                 """ + condition + " ORDER BY a.work_date, a.start_time", (rs, row) -> new ScheduleCard(
                     rs.getLong(1), rs.getLong(2), rs.getString(3),
-                    LocalDateTime.of(rs.getObject("work_date", LocalDate.class), rs.getObject("start_time", LocalTime.class))
+                    LocalDateTime.of(rs.getDate("work_date").toLocalDate(), rs.getTime("start_time").toLocalTime())
                             .atOffset(ZoneOffset.ofHours(7)),
-                    LocalDateTime.of(rs.getObject("work_date", LocalDate.class), rs.getObject("end_time", LocalTime.class))
-                            .atOffset(ZoneOffset.ofHours(7))), params);
+                    LocalDateTime.of(rs.getDate("work_date").toLocalDate(), rs.getTime("end_time").toLocalTime())
+                            .atOffset(ZoneOffset.ofHours(7)), rs.getBoolean("is_active")), params);
     }
 
     public boolean isPartTime(Long staffId) {
@@ -163,7 +171,7 @@ public class PortalQueryService {
                        b.total_amount,
                        payment.status AS payment_status, payment.payment_method, f.content AS feedback_content,
                        f.admin_reply, f.status AS feedback_status,
-                       b.address_snapshot, b.address_note_snapshot, b.area_note, b.cancellation_reason
+                       b.address_snapshot, b.address_note_snapshot, b.area_note, b.cancellation_reason, b.customer_arrived_at
                 FROM dbo.Bookings b
                 JOIN dbo.Users customer ON customer.user_id=b.customer_id
                 JOIN dbo.Staff selected_staff ON selected_staff.staff_id=b.staff_id
@@ -180,6 +188,7 @@ public class PortalQueryService {
                     rs.getString("feedback_content"),
                     rs.getString("admin_reply"), rs.getString("feedback_status"),
                     rs.getString("address_snapshot"), rs.getString("address_note_snapshot"),
-                    rs.getString("area_note"), rs.getString("cancellation_reason")), params);
+                    rs.getString("area_note"), rs.getString("cancellation_reason"),
+                    rs.getObject("customer_arrived_at", LocalDateTime.class) == null ? null : rs.getObject("customer_arrived_at", LocalDateTime.class).atOffset(ZoneOffset.ofHours(7))), params);
     }
 }

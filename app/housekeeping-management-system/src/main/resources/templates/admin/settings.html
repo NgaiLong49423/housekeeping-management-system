@@ -4,32 +4,188 @@
   <body>
     <header th:replace="~{fragments/layout :: header('settings')}"></header>
     <main id="main" class="container py-4 py-md-5">
-      <div class="page-heading"><span class="eyebrow">Vận hành</span><h1>Cấu hình công ty</h1>
-        <p class="lead">Thiết lập thông tin công ty và giờ nhận lịch trong tuần.</p></div>
+      <div class="page-heading settings-page-heading">
+        <a class="settings-back" th:href="@{/admin/bookings}" aria-label="Quay lại trang quản trị">←</a>
+        <span class="settings-heading-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V5l7-3 7 3v16M9 9h2m-2 4h2m4-4h2m-2 4h2M10 21v-4h4v4"/></svg></span>
+        <div><span class="eyebrow">Vận hành</span><h1>Cấu hình công ty</h1>
+          <p class="lead">Thiết lập thông tin công ty và giờ hoạt động.</p></div>
+      </div>
       <div th:replace="~{fragments/layout :: alerts}"></div>
-      <form method="post" th:action="@{/admin/settings}" th:object="${settingsForm}" class="surface p-4">
-        <h2 class="h4">Thông tin địa điểm công ty</h2>
-        <div class="row g-3 mb-4">
-          <div class="col-12"><label class="form-label" for="companyAddress">Địa chỉ công ty</label><input id="companyAddress" class="form-control" th:field="*{companyAddress}" maxlength="500" required></div>
-          <div class="col-md-4"><label class="form-label" for="latitude">Vĩ độ</label><input id="latitude" class="form-control" type="number" step="0.0000001" min="-90" max="90" th:field="*{latitude}" required></div>
-          <div class="col-md-4"><label class="form-label" for="longitude">Kinh độ</label><input id="longitude" class="form-control" type="number" step="0.0000001" min="-180" max="180" th:field="*{longitude}" required></div>
-          <input type="hidden" th:field="*{serviceRadiusKm}">
+      <div class="alert alert-warning" th:if="${configurationConflicts != null}">
+        <strong>Booking cần xử lý trước khi lưu:</strong>
+        <span th:each="bookingId, stat : ${configurationConflicts}"><a th:href="@{/admin/bookings/{id}(id=${bookingId})}" th:text="${'#' + bookingId}">#1</a><span th:if="${!stat.last}">, </span></span>
+      </div>
+      <form method="post" th:action="@{/admin/settings/location}" th:object="${settingsForm}" class="company-settings-form">
+        <section class="company-settings-panel mb-4">
+          <div class="company-settings-panel-heading"><span class="settings-section-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V5l7-3 7 3v16M9 9h2m-2 4h2m4-4h2m-2 4h2M10 21v-4h4v4"/></svg></span><h2>Thông tin địa điểm công ty</h2></div>
+          <div class="row g-3 p-3 p-md-4">
+            <div class="col-12 position-relative"><label class="form-label" for="companyAddressSearch">Địa chỉ công ty · tâm vùng phục vụ <span class="text-danger">*</span></label><input id="companyAddressSearch" class="form-control" autocomplete="off" maxlength="500" placeholder="Nhập ít nhất 3 ký tự, rồi chọn địa chỉ VietMap" th:value="${currentCompanyAddress}" required><input type="hidden" th:field="*{vietmapRefId}" id="companyVietmapRefId"><div id="companyAddressSuggestions" class="list-group position-absolute w-100" style="z-index:10"></div><p class="small text-secondary mt-2" id="selectedCompanyAddress" th:text="${currentCompanyAddress == null or currentCompanyAddress.isBlank() ? 'Chưa chọn kết quả VietMap.' : 'Địa chỉ tâm hiện tại: ' + currentCompanyAddress + '. Hãy chọn lại từ gợi ý VietMap trước khi lưu.'}">Chưa chọn kết quả VietMap.</p></div>
+            <div class="col-md-4"><label class="form-label" for="serviceRadiusKm">Bán kính phục vụ (km) <span class="text-danger">*</span></label><div class="settings-input-with-icon"><span aria-hidden="true"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg></span><input id="serviceRadiusKm" class="form-control" type="number" min="0.1" max="9999" step="0.1" th:field="*{serviceRadiusKm}" required></div></div>
+          </div>
+        </section>
+        <button class="btn btn-primary company-save-button mb-4" type="submit">▣ <span>Lưu vị trí và bán kính</span></button>
+      </form>
+      <section class="company-settings-panel mb-4">
+        <div class="company-settings-panel-heading"><span class="settings-section-icon" aria-hidden="true">▦</span><div><h2>Phiên bản lịch tuần</h2><p>Lịch cũ tự áp dụng đến trước ngày hiệu lực kế tiếp.</p></div></div>
+        <div class="p-3 d-flex flex-wrap gap-2 align-items-center">
+          <a th:each="version : ${scheduleVersions}" class="btn btn-sm btn-outline-primary" th:href="@{/admin/settings(effectiveFrom=${version})}" th:text="${'Tuần từ ' + #temporals.format(version, 'dd/MM/yyyy')}" th:attr="data-scheduled-week=${version}">Tuần từ 09/11/2026</a>
         </div>
-        <h2 class="h4">Giờ hoạt động</h2>
-        <p class="small text-secondary">Địa chỉ của khách được nhập trực tiếp; hệ thống hiện không kiểm tra bán kính theo tọa độ.</p>
-        <div class="table-responsive"><table class="table align-middle">
-          <thead><tr><th>Ngày</th><th>Nghỉ</th><th>Mở cửa</th><th>Đóng cửa</th></tr></thead>
-          <tbody><tr th:each="day, stat : ${dayNames}">
-            <td th:text="${day}">Thứ Hai</td>
-            <td><label for="closed" th:for="|closed-${stat.index}|" class="visually-hidden">Ngày nghỉ <span th:text="${day}">Thứ Hai</span></label><input id="closed" th:id="|closed-${stat.index}|" class="form-check-input" type="checkbox" th:field="*{operatingHours[__${stat.index}__].closed}"><input type="hidden" th:field="*{operatingHours[__${stat.index}__].dayOfWeek}"></td>
-            <td><label for="openingTime" th:for="|openingTime-${stat.index}|" class="visually-hidden">Giờ mở cửa <span th:text="${day}">Thứ Hai</span></label><input id="openingTime" th:id="|openingTime-${stat.index}|" class="form-control" type="time" th:field="*{operatingHours[__${stat.index}__].openingTime}"></td>
-            <td><label for="closingTime" th:for="|closingTime-${stat.index}|" class="visually-hidden">Giờ đóng cửa <span th:text="${day}">Thứ Hai</span></label><input id="closingTime" th:id="|closingTime-${stat.index}|" class="form-control" type="time" th:field="*{operatingHours[__${stat.index}__].closingTime}"></td>
-          </tr></tbody>
-        </table></div>
-        <p class="small text-secondary">Đánh dấu “Nghỉ” để đóng cửa cả ngày. Ngày mở cửa cần có đủ giờ bắt đầu và kết thúc; giờ kết thúc phải sau giờ bắt đầu. Không có giờ mặc định được tự áp dụng.</p>
-        <button class="btn btn-primary" type="submit">Lưu cấu hình</button>
+      </section>
+      <nav class="week-navigation mb-3" aria-label="Điều hướng tuần">
+        <a class="btn btn-outline-primary" th:href="@{/admin/settings(effectiveFrom=${previousWeek})}" aria-label="Tuần trước">← Tuần trước</a>
+        <strong th:text="${#temporals.format(scheduleForm.effectiveFrom, 'dd/MM/yyyy') + ' – ' + #temporals.format(weekEnd, 'dd/MM/yyyy')}">Tuần</strong>
+        <a class="btn btn-outline-primary" th:if="${canNavigateNext}" th:href="@{/admin/settings(effectiveFrom=${nextWeek})}" aria-label="Tuần sau">Tuần sau →</a>
+        <span class="btn btn-outline-secondary disabled" th:unless="${canNavigateNext}" aria-disabled="true">Tuần sau →</span>
+      </nav>
+      <form th:if="${selectedVersionFuture}" method="post" th:action="@{/admin/settings/schedule/cancel(effectiveFrom=${scheduleForm.effectiveFrom})}" class="mb-3" data-confirm="Hủy phiên bản lịch này? Staff cần đăng ký lại các khoảng phù hợp nếu lịch mới không còn áp dụng."><button class="btn btn-outline-danger" type="submit">Hủy phiên bản tương lai</button></form>
+      <form method="post" th:action="@{/admin/settings/schedule}" th:object="${scheduleForm}" class="company-settings-form" data-schedule-form>
+        <input type="hidden" name="editingExisting" th:value="${selectedVersionExists}">
+        <section class="company-settings-panel mb-4 p-3">
+          <strong th:text="${'Tuần ' + #temporals.format(scheduleForm.effectiveFrom, 'dd/MM/yyyy') + ' – ' + #temporals.format(weekEnd, 'dd/MM/yyyy')}">Tuần làm việc</strong>
+          <input type="hidden" th:field="*{effectiveFrom}">
+          <div class="form-text" th:if="${selectedVersionExists}">Ngày của phiên bản đã lưu được giữ cố định. Muốn đổi ngày, hãy hủy phiên bản tương lai rồi tạo lại.</div>
+          <div class="form-text" th:unless="${selectedVersionExists}">Lịch được điền sẵn từ phiên bản gần nhất trước ngày này.</div>
+          <div class="form-text" th:if="${scheduleReadOnly}">Tuần trước — chỉ xem, không thể chỉnh sửa.</div>
+        </section>
+        <fieldset th:disabled="${scheduleReadOnly}">
+        <section class="company-settings-panel">
+          <div class="company-settings-panel-heading company-hours-heading"><span class="settings-section-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg></span><div><h2>Giờ hoạt động</h2><p>Khung giờ dịch vụ tại nhà khách; mốc bắt đầu là lúc nhân viên có mặt và sẵn sàng phục vụ. Với booking đầu ngày, hệ thống tính giờ xuất phát lùi theo ETA VietMap và 15 phút dự phòng.</p></div></div>
+          <div class="company-days p-3 p-md-4">
+            <div th:each="day, dayStat : ${dayNames}" class="company-day-row" data-day-group th:attr="data-locked=${scheduleReadOnly or (selectedCurrentWeek and dayStat.index + 1 < currentDayOfWeek)}">
+              <div class="company-day-name"><span class="company-day-calendar" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg></span><strong><span th:text="${day}">Thứ Hai</span><small class="d-block text-secondary" th:text="${#temporals.format(weekDates[dayStat.index], 'dd/MM/yyyy')}">09/11/2026</small></strong></div>
+              <label class="form-check form-switch company-day-switch"><input class="form-check-input" type="checkbox" data-active th:checked="${!closedDays.contains(dayStat.index + 1)}"><span class="form-check-label">Hoạt động</span></label>
+              <div class="company-day-schedule">
+                <div class="company-periods" data-periods>
+                  <div th:each="hour, stat : *{operatingHours}" th:if="${hour.dayOfWeek == dayStat.index + 1 and !hour.closed}" class="company-time-row" data-period>
+                    <input type="hidden" th:name="|operatingHours[${stat.index}].dayOfWeek|" th:value="${hour.dayOfWeek}" data-day>
+                    <input type="hidden" th:name="|operatingHours[${stat.index}].closed|" value="false" data-closed-hidden>
+                    <input type="hidden" th:name="|operatingHours[${stat.index}].openingTime|" th:value="${hour.openingTime == null ? '' : #temporals.format(hour.openingTime, 'HH:mm')}" data-opening-value>
+                    <input type="hidden" th:name="|operatingHours[${stat.index}].closingTime|" th:value="${hour.closingTime == null ? '' : #temporals.format(hour.closingTime, 'HH:mm')}" data-closing-value>
+                    <div class="time-picker" data-quarter-time data-time-side="opening"><input type="text" class="form-control time-trigger" data-time-trigger aria-label="Giờ mở cửa" placeholder="Chọn giờ" readonly><input type="hidden" data-time-value data-opening-value-proxy></div>
+                    <span class="company-time-separator">đến</span>
+                    <div class="time-picker" data-quarter-time data-time-side="closing"><input type="text" class="form-control time-trigger" data-time-trigger aria-label="Giờ đóng cửa" placeholder="Chọn giờ" readonly><input type="hidden" data-time-value data-closing-value-proxy></div>
+                    <button class="btn btn-outline-danger company-remove-slot" type="button" data-remove aria-label="Gỡ khung giờ">×</button>
+                  </div>
+                  <button class="btn btn-outline-primary company-add-slot" type="button" data-add>＋ <span>Thêm khung giờ</span></button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <template id="period-template"><div class="company-time-row" data-period><input type="hidden" data-day><input type="hidden" value="false" data-closed-hidden><input type="hidden" data-opening-value><input type="hidden" data-closing-value><div class="time-picker" data-quarter-time data-time-side="opening"><input type="text" class="form-control time-trigger" data-time-trigger aria-label="Giờ mở cửa" placeholder="Chọn giờ" readonly><input type="hidden" data-time-value data-opening-value-proxy></div><span class="company-time-separator">đến</span><div class="time-picker" data-quarter-time data-time-side="closing"><input type="text" class="form-control time-trigger" data-time-trigger aria-label="Giờ đóng cửa" placeholder="Chọn giờ" readonly><input type="hidden" data-time-value data-closing-value-proxy></div><button class="btn btn-outline-danger company-remove-slot" type="button" data-remove aria-label="Gỡ khung giờ">×</button></div></template>
+        <template id="closed-template"><div data-period><input type="hidden" data-day><input type="hidden" value="true" data-closed-hidden></div></template>
+        <div id="schedule-save-feedback" class="company-schedule-save-feedback mt-3 mb-2" tabindex="-1" th:if="${scheduleSuccess != null or scheduleError != null}">
+          <div class="alert alert-success mb-0" role="status" th:if="${scheduleSuccess != null}" th:text="${scheduleSuccess}"></div>
+          <div class="alert alert-danger mb-0" role="alert" th:if="${scheduleError != null}" th:text="${scheduleError}"></div>
+        </div>
+        <button class="btn btn-primary company-save-button" type="submit" th:disabled="${scheduleReadOnly}">▣ <span>Lưu phiên bản lịch</span></button>
+        </fieldset>
       </form>
     </main>
+    <script>
+      (() => {
+        const feedback = document.querySelector('#schedule-save-feedback');
+        if (feedback && location.hash === '#schedule-save-feedback') {
+          requestAnimationFrame(() => feedback.focus({ preventScroll: true }));
+        }
+        const groups = [...document.querySelectorAll('[data-day-group]')];
+        const template = document.querySelector('#period-template');
+        const reindex = () => document.querySelectorAll('[data-period]').forEach((row, index) => {
+          row.querySelectorAll('[data-day], [data-closed-hidden], [data-opening-value], [data-closing-value]').forEach(el => {
+            const key = el.matches('[data-day]') ? 'dayOfWeek' : el.matches('[data-opening-value]') ? 'openingTime' : el.matches('[data-closing-value]') ? 'closingTime' : 'closed';
+            el.name = `operatingHours[${index}].${key}`;
+          });
+          const opening = row.querySelector('[data-opening-value]'), openingProxy = row.querySelector('[data-opening-value-proxy]');
+          const closing = row.querySelector('[data-closing-value]'), closingProxy = row.querySelector('[data-closing-value-proxy]');
+          if (opening && openingProxy) opening.value = openingProxy.value;
+          if (closing && closingProxy) closing.value = closingProxy.value;
+        });
+        const bindTime = group => window.initQuarterTimePicker?.(group);
+        groups.forEach((group, dayIndex) => {
+          const periods = group.querySelector('[data-periods]'); const active = group.querySelector('[data-active]');
+          const add = group.querySelector('[data-add]');
+          const locked = group.dataset.locked === 'true';
+          const sync = () => {
+            const closed = !active.checked;
+            active.disabled = locked;
+            add.disabled = locked || closed;
+            periods.hidden = closed;
+            periods.querySelectorAll('[data-time-trigger], [data-remove]').forEach(x => x.disabled = locked || closed);
+          };
+          group.querySelector('[data-add]').addEventListener('click', () => { const row = template.content.firstElementChild.cloneNode(true); row.querySelector('[data-day]').value = dayIndex + 1; row.querySelectorAll('[data-quarter-time]').forEach(bindTime); row.querySelector('[data-remove]').addEventListener('click', () => { row.remove(); sync(); reindex(); }); periods.insertBefore(row, add); sync(); reindex(); });
+          group.querySelectorAll('[data-remove]').forEach(btn => btn.addEventListener('click', () => { btn.closest('[data-period]').remove(); sync(); reindex(); }));
+          active.addEventListener('change', () => { sync(); if (active.checked && !periods.querySelector('[data-period]')) add.click(); reindex(); }); sync();
+        });
+        document.querySelector('[data-schedule-form]').addEventListener('submit', () => {
+          groups.forEach((group, dayIndex) => {
+            const periods = group.querySelector('[data-periods]');
+            if (!group.querySelector('[data-active]').checked && !periods.querySelector('[data-closed-hidden][value="true"]')) {
+              const row = document.querySelector('#closed-template').content.firstElementChild.cloneNode(true);
+              row.querySelector('[data-day]').value = dayIndex + 1;
+              periods.append(row);
+            }
+          });
+          reindex();
+          groups.forEach(group => {
+            if (group.querySelector('[data-active]').checked) return;
+            group.querySelectorAll('[data-period]').forEach(row => {
+              if (row.querySelector('[data-closed-hidden]')?.value !== 'true') row.querySelectorAll('[name]').forEach(field => field.removeAttribute('name'));
+            });
+          });
+        });
+        document.querySelectorAll('[data-period] [data-quarter-time]').forEach(group => {
+          const row = group.closest('[data-period]');
+          const proxy = group.querySelector('[data-time-value]');
+          proxy.value = row.querySelector(group.dataset.timeSide === 'opening' ? '[data-opening-value]' : '[data-closing-value]').value;
+          bindTime(group);
+        });
+        reindex();
+      })();
+    </script>
+    <script>
+      (() => {
+        const input = document.querySelector('#companyAddressSearch');
+        const ref = document.querySelector('#companyVietmapRefId');
+        const list = document.querySelector('#companyAddressSuggestions');
+        const selected = document.querySelector('#selectedCompanyAddress');
+        const form = input.closest('form');
+        let timer;
+        input.addEventListener('input', () => {
+          ref.value = '';
+          selected.textContent = 'Chưa chọn kết quả VietMap.';
+          input.setCustomValidity('');
+          clearTimeout(timer);
+          if (input.value.trim().length < 3) { list.replaceChildren(); return; }
+          timer = setTimeout(async () => {
+            try {
+              const response = await fetch(`/admin/settings/location/autocomplete?q=${encodeURIComponent(input.value.trim())}`);
+              if (!response.ok) throw new Error('Autocomplete failed');
+              const suggestions = await response.json();
+              list.replaceChildren(...suggestions.map(item => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'list-group-item list-group-item-action';
+                button.textContent = item.display;
+                button.addEventListener('click', () => {
+                  ref.value = item.refId;
+                  input.value = item.display;
+                  selected.textContent = `Đã chọn: ${item.display}`;
+                  list.replaceChildren();
+                });
+                return button;
+              }));
+            } catch { list.replaceChildren(); }
+          }, 300);
+        });
+        form.addEventListener('submit', event => {
+          if (!ref.value) {
+            event.preventDefault();
+            input.setCustomValidity('Hãy chọn một kết quả địa chỉ VietMap.');
+            input.reportValidity();
+          }
+        });
+      })();
+    </script>
     <footer th:replace="~{fragments/layout :: footer}"></footer>
   </body>
 </html>
