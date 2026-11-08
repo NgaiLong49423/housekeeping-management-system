@@ -78,4 +78,7 @@ public class Booking {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "customer_arrived_at")
+    private LocalDateTime customerArrivedAt;
 }

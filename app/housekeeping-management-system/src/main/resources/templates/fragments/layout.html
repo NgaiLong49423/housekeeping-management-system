@@ -187,6 +187,10 @@
         <svg th:replace="~{fragments/icons :: check-circle}"></svg>
         <span th:text="${success}"></span>
       </div>
+      <div th:if="${warning != null}" class="alert alert-warning d-flex align-items-center gap-2 mb-4 border-0 shadow-sm" role="status">
+        <span aria-hidden="true">⚠</span>
+        <span th:text="${warning}"></span>
+      </div>
       <div th:if="${error != null}" class="alert alert-danger d-flex align-items-center gap-2 mb-4 border-0 shadow-sm" role="alert" style="background-color: var(--status-cancelled-bg); color: var(--status-cancelled-text); border-left: 4px solid #ef4444 !important;">
         <svg th:replace="~{fragments/icons :: alert-circle}"></svg>
         <span th:text="${error}"></span>

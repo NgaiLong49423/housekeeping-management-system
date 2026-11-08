@@ -45,7 +45,11 @@ public class LeaveManagementService {
     public List<LeaveCard> findAllForAdmin(Long adminUserId) {
         requireActiveAdmin(adminUserId);
         return leaves.findAllForAdmin().stream()
-                .map(request -> toCard(request, request.getStaff().getStaffId(), request.getStaff().getUser().getFullName()))
+                .map(request -> {
+                    List<Long> affected = request.getStatus() == LeaveStatus.PENDING
+                            ? leaves.findFutureConfirmedBookingIds(request.getStaff().getStaffId(), request.getStartDate(), request.getEndDate()) : List.of();
+                    return toCard(request, request.getStaff().getStaffId(), request.getStaff().getUser().getFullName(), affected);
+                })
                 .toList();
     }
 
@@ -80,6 +84,10 @@ public class LeaveManagementService {
         if (request.getStatus() != LeaveStatus.PENDING) {
             throw new IllegalStateException("Chỉ có thể xét duyệt đơn đang ở trạng thái PENDING.");
         }
+        if (decision == LeaveStatus.APPROVED) {
+            List<Long> conflicts = leaves.findFutureConfirmedBookingIds(request.getStaff().getStaffId(), request.getStartDate(), request.getEndDate());
+            if (!conflicts.isEmpty()) throw new IllegalStateException("Chưa thể duyệt nghỉ. Hãy đổi nhân viên hoặc hủy các Booking: " + conflicts);
+        }
         request.setStatus(decision);
         request.setReviewedBy(reviewer.getUserId());
         request.setReviewedAt(businessNow());
@@ -106,10 +114,11 @@ public class LeaveManagementService {
         }
     }
 
-    private static LeaveCard toCard(StaffLeave request, Long staffId, String staffName) {
+    private static LeaveCard toCard(StaffLeave request, Long staffId, String staffName) { return toCard(request, staffId, staffName, List.of()); }
+    private static LeaveCard toCard(StaffLeave request, Long staffId, String staffName, List<Long> conflicts) {
         LocalDateTime createdAt = request.getCreatedAt();
         return new LeaveCard(request.getLeaveId(), staffId, staffName, request.getStartDate(), request.getEndDate(),
-                request.getReason(), request.getStatus().name(), createdAt == null ? "" : createdAt.format(CREATED_AT_FORMAT));
+                request.getReason(), request.getStatus().name(), createdAt == null ? "" : createdAt.format(CREATED_AT_FORMAT), conflicts);
     }
 
     private static LocalDateTime businessNow() {

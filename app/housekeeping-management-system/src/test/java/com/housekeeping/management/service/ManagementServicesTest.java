@@ -3,6 +3,7 @@ package com.housekeeping.management.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -25,6 +26,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Optional;
+import java.util.List;
 import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -122,16 +124,21 @@ class ManagementServicesTest {
 
     @Test
     void partTimeAvailabilityRejectsAnOverlappingInterval() {
+        LocalDate workDate = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).plusDays(5);
         StaffAccountRepository staffAccounts = mock(StaffAccountRepository.class);
         StaffAvailabilityRepository availability = mock(StaffAvailabilityRepository.class);
         Staff staff = new Staff(); staff.setStaffType(StaffType.PART_TIME);
         staff.setStaffId(8L);
         when(staffAccounts.findActiveByUserIdForUpdate(800L)).thenReturn(Optional.of(staff));
-        when(availability.overlapsAnotherInterval(8L, LocalDate.of(2026, 11, 3),
+        when(availability.overlapsAnotherInterval(8L, workDate,
                 LocalTime.of(9, 0), LocalTime.of(12, 0), null)).thenReturn(true);
-        StaffAvailabilityService service = new StaffAvailabilityService(staffAccounts, availability);
+        var settings = mock(com.housekeeping.management.repository.CompanySettingsRepository.class);
+        when(settings.findOperatingHoursForDate(workDate)).thenReturn(java.util.stream.IntStream.rangeClosed(1,7).mapToObj(day -> new PortalForms.OperatingHoursForm(day, false, LocalTime.of(6,0), LocalTime.of(21,0))).toList());
+        when(settings.findSettings()).thenReturn(Optional.of(new PortalForms.CompanySettingsForm("Office", java.math.BigDecimal.ZERO, java.math.BigDecimal.ZERO, java.math.BigDecimal.TEN,
+                java.util.stream.IntStream.rangeClosed(1,7).mapToObj(day -> new PortalForms.OperatingHoursForm(day, false, LocalTime.of(6,0), LocalTime.of(21,0))).toList())));
+        StaffAvailabilityService service = new StaffAvailabilityService(staffAccounts, availability, settings);
         assertThatThrownBy(() -> service.save(800L, null, new PortalForms.AvailabilityForm(
-                LocalDate.of(2026, 11, 3), LocalTime.of(9, 0), LocalTime.of(12, 0))))
+                workDate, LocalTime.of(9, 0), LocalTime.of(12, 0))))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("bị chồng");
         org.mockito.Mockito.verify(availability, org.mockito.Mockito.never()).insert(any(), any(), any(), any());
     }
@@ -145,14 +152,78 @@ class ManagementServicesTest {
         staff.setStaffId(8L);
         when(staffAccounts.findActiveByUserIdForUpdate(800L)).thenReturn(Optional.of(staff));
         when(availability.containsExistingBookingStart(25L, 8L)).thenReturn(true);
-        StaffAvailabilityService service = new StaffAvailabilityService(staffAccounts, availability);
+        StaffAvailabilityService service = new StaffAvailabilityService(staffAccounts, availability, mock(com.housekeeping.management.repository.CompanySettingsRepository.class));
 
         assertThatThrownBy(() -> service.save(800L, 25L, new PortalForms.AvailabilityForm(
                 LocalDate.of(2026, 11, 3), LocalTime.of(10, 0), LocalTime.of(13, 0))))
-                .isInstanceOf(IllegalStateException.class).hasMessageContaining("đã có lịch hẹn");
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("thay thế");
 
-        verify(availability).containsExistingBookingStart(25L, 8L);
         verify(availability, never()).update(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void partTimeStaffCanRegisterTheSameHoursAcrossSelectedWeekdaysInOneBatch() {
+        StaffAccountRepository staffAccounts = mock(StaffAccountRepository.class);
+        StaffAvailabilityRepository availability = mock(StaffAvailabilityRepository.class);
+        var settings = mock(com.housekeeping.management.repository.CompanySettingsRepository.class);
+        Staff staff = new Staff(); staff.setStaffType(StaffType.PART_TIME); staff.setStaffId(8L);
+        when(staffAccounts.findActiveByUserIdForUpdate(800L)).thenReturn(Optional.of(staff));
+        when(settings.findOperatingHoursForDate(any())).thenReturn(java.util.stream.IntStream.rangeClosed(1, 7)
+                .mapToObj(day -> new PortalForms.OperatingHoursForm(day, false, LocalTime.of(6, 0), LocalTime.of(21, 0))).toList());
+        when(availability.insert(eq(8L), any(), eq(LocalTime.of(9, 0)), eq(LocalTime.of(12, 0)))).thenReturn(1);
+        StaffAvailabilityService service = new StaffAvailabilityService(staffAccounts, availability, settings);
+        LocalDate monday = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
+        while (monday.getDayOfWeek() != java.time.DayOfWeek.MONDAY) monday = monday.plusDays(1);
+
+        int inserted = service.saveBatch(800L, new PortalForms.AvailabilityBatchForm(monday, monday.plusDays(6),
+                List.of(1, 3, 5), LocalTime.of(9, 0), LocalTime.of(12, 0)));
+
+        assertThat(inserted).isEqualTo(3);
+        verify(availability).insert(8L, monday, LocalTime.of(9, 0), LocalTime.of(12, 0));
+        verify(availability).insert(8L, monday.plusDays(2), LocalTime.of(9, 0), LocalTime.of(12, 0));
+        verify(availability).insert(8L, monday.plusDays(4), LocalTime.of(9, 0), LocalTime.of(12, 0));
+    }
+
+    @Test
+    void partTimeStaffCanRegisterMultipleNonOverlappingIntervalsForOneDate() {
+        LocalDate workDate = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).plusDays(5);
+        StaffAccountRepository staffAccounts = mock(StaffAccountRepository.class);
+        StaffAvailabilityRepository availability = mock(StaffAvailabilityRepository.class);
+        var settings = mock(com.housekeeping.management.repository.CompanySettingsRepository.class);
+        Staff staff = new Staff(); staff.setStaffType(StaffType.PART_TIME); staff.setStaffId(8L);
+        when(staffAccounts.findActiveByUserIdForUpdate(800L)).thenReturn(Optional.of(staff));
+        when(settings.findOperatingHoursForDate(workDate)).thenReturn(List.of(
+                new PortalForms.OperatingHoursForm(workDate.getDayOfWeek().getValue(), false, LocalTime.of(6, 0), LocalTime.of(21, 0))));
+        when(availability.insert(eq(8L), eq(workDate), any(), any())).thenReturn(1);
+        StaffAvailabilityService service = new StaffAvailabilityService(staffAccounts, availability, settings);
+
+        int inserted = service.saveForDate(800L, workDate,
+                List.of(LocalTime.of(6, 0), LocalTime.of(13, 0)),
+                List.of(LocalTime.of(9, 0), LocalTime.of(17, 0)));
+
+        assertThat(inserted).isEqualTo(2);
+        verify(availability).insert(8L, workDate, LocalTime.of(6, 0), LocalTime.of(9, 0));
+        verify(availability).insert(8L, workDate, LocalTime.of(13, 0), LocalTime.of(17, 0));
+    }
+
+    @Test
+    void partTimeStaffCannotRegisterOverlappingIntervalsInOneSubmission() {
+        LocalDate workDate = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).plusDays(5);
+        StaffAccountRepository staffAccounts = mock(StaffAccountRepository.class);
+        StaffAvailabilityRepository availability = mock(StaffAvailabilityRepository.class);
+        var settings = mock(com.housekeeping.management.repository.CompanySettingsRepository.class);
+        Staff staff = new Staff(); staff.setStaffType(StaffType.PART_TIME); staff.setStaffId(8L);
+        when(staffAccounts.findActiveByUserIdForUpdate(800L)).thenReturn(Optional.of(staff));
+        when(settings.findOperatingHoursForDate(workDate)).thenReturn(List.of(
+                new PortalForms.OperatingHoursForm(workDate.getDayOfWeek().getValue(), false, LocalTime.of(6, 0), LocalTime.of(21, 0))));
+        when(availability.insert(eq(8L), eq(workDate), any(), any())).thenReturn(1);
+        StaffAvailabilityService service = new StaffAvailabilityService(staffAccounts, availability, settings);
+
+        assertThatThrownBy(() -> service.saveForDate(800L, workDate,
+                List.of(LocalTime.of(8, 0), LocalTime.of(11, 0)),
+                List.of(LocalTime.of(12, 0), LocalTime.of(13, 0))))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("chồng lấn");
+        verify(availability, never()).insert(any(), any(), any(), any());
     }
 
     @Test
@@ -163,14 +234,14 @@ class ManagementServicesTest {
         staff.setStaffType(StaffType.PART_TIME);
         staff.setStaffId(8L);
         when(staffAccounts.findActiveByUserIdForUpdate(800L)).thenReturn(Optional.of(staff));
-        when(availability.containsExistingBookingStart(25L, 8L)).thenReturn(true);
-        StaffAvailabilityService service = new StaffAvailabilityService(staffAccounts, availability);
+        when(availability.containsFutureConfirmedBooking(25L, 8L)).thenReturn(true);
+        StaffAvailabilityService service = new StaffAvailabilityService(staffAccounts, availability, mock(com.housekeeping.management.repository.CompanySettingsRepository.class));
 
         assertThatThrownBy(() -> service.delete(800L, 25L))
-                .isInstanceOf(IllegalStateException.class).hasMessageContaining("đã có lịch hẹn");
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("Booking CONFIRMED");
 
-        verify(availability).containsExistingBookingStart(25L, 8L);
-        verify(availability, never()).delete(25L, 8L);
+        verify(availability).containsFutureConfirmedBooking(25L, 8L);
+        verify(availability, never()).deactivate(25L, 8L);
     }
 
     @SuppressWarnings("unchecked")

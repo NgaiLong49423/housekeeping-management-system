@@ -1,64 +1,261 @@
 <!DOCTYPE html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
-  <head th:replace="~{fragments/layout :: head('Lịch sẵn sàng')}">
-  </head>
+  <head th:replace="~{fragments/layout :: head('Lịch sẵn sàng')}"><title>Lịch sẵn sàng · Gọn Nhà</title></head>
   <body>
-    <header th:replace="~{fragments/layout :: header('schedules')}">
-    </header>
+    <header th:replace="~{fragments/layout :: header('schedules')}"></header>
     <main id="main" class="container py-4 py-md-5">
       <div class="page-heading">
         <span class="eyebrow">
           <svg th:replace="~{fragments/icons :: clock}"></svg>
           <span th:text="${currentUser.role == 'STAFF' ? 'Lịch làm việc cá nhân' : 'Chủ động thời gian của bạn'}">Lịch sẵn sàng</span>
         </span>
-        <h1>
-          Khoảng sẵn sàng
-        </h1>
+        <h1>Khoảng sẵn sàng</h1>
         <p class="lead">
-          Lịch sẵn sàng theo ngày, hiển thị theo giờ Việt Nam.
+          Khoảng đã đăng ký là giờ bạn có thể có mặt tại nhà khách để bắt đầu phục vụ. Lịch hẹn đầu ngày được tính giờ xuất phát lùi theo thời gian di chuyển và 15 phút dự phòng; các lịch tiếp theo tính từ địa điểm vừa hoàn thành.
         </p>
       </div>
 
-      <div th:replace="~{fragments/layout :: alerts}">
-      </div>
+      <div th:replace="~{fragments/layout :: alerts}"></div>
 
-      <section class="surface p-4">
-        <div th:if="${currentUser.role == 'STAFF' and partTime}" class="mb-4 pb-4 border-bottom">
-          <h2 class="h5">Đăng ký khoảng sẵn sàng</h2>
-          <p class="small text-secondary">Nhân viên bán thời gian tự khai báo ngày và giờ có thể nhận việc.</p>
-          <form method="post" th:action="@{/staff/schedules}" th:object="${availabilityForm}" class="row g-3 align-items-end">
-            <div class="col-12 col-md-3">
-              <label class="form-label" for="workDate">Ngày làm <span class="label-format-hint">(dd/MM/yyyy)</span></label>
-              <input id="workDate" class="form-control" type="date" placeholder="dd/MM/yyyy" th:field="*{workDate}" required>
+      <!-- Staff Part-Time Dashboard -->
+      <section th:if="${currentUser.role == 'STAFF' and partTime}" class="staff-schedule-dashboard surface p-4 mb-4">
+        <div class="staff-schedule-hero d-flex align-items-center gap-3 mb-4 pb-3 border-bottom">
+          <span class="staff-schedule-icon" aria-hidden="true">
+            <svg th:replace="~{fragments/icons :: calendar}"></svg>
+          </span>
+          <div>
+            <h2 class="h5 mb-0">Đăng ký khoảng sẵn sàng</h2>
+            <p class="small text-secondary mb-0">Chọn nhiều thứ trong một khoảng ngày để đăng ký cùng khung giờ chỉ trong một lần.</p>
+          </div>
+        </div>
+
+        <nav class="week-navigation staff-week-navigation mb-3 d-flex flex-wrap align-items-center justify-content-between gap-2" aria-label="Điều hướng tuần làm việc">
+          <a class="btn btn-outline-primary" th:href="@{/staff/schedules(weekStart=${staffPreviousWeek})}" aria-label="Tuần trước">← Tuần trước</a>
+          <strong class="h6 mb-0" th:text="${#temporals.format(staffWeekStart, 'dd/MM/yyyy') + ' – ' + #temporals.format(staffWeekEnd, 'dd/MM/yyyy')}">Tuần</strong>
+          <a class="btn btn-outline-primary" th:if="${staffCanNavigateNext}" th:href="@{/staff/schedules(weekStart=${staffNextWeek})}" aria-label="Tuần sau">Tuần sau →</a>
+          <span class="btn btn-outline-secondary disabled" th:unless="${staffCanNavigateNext}" aria-disabled="true">Tuần sau →</span>
+        </nav>
+
+        <p class="small text-secondary mb-3" th:if="${staffWeekReadOnly}">Tuần đã qua — chỉ xem giờ công ty và lịch bạn đã đăng ký.</p>
+
+        <div class="staff-week-calendar mb-4">
+          <article class="staff-week-day surface p-3 mb-3 border" th:each="day : ${staffWeekDays}" th:attr="data-week-day=${#temporals.format(day.date, 'yyyy-MM-dd')}">
+            <header class="staff-week-day-heading d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+              <strong class="h6 mb-0 text-dark" th:text="${#temporals.format(day.date, 'EEEE', new java.util.Locale('vi', 'VN'))}">Thứ Hai</strong>
+              <span class="meta-chip" th:text="${#temporals.format(day.date, 'dd/MM/yyyy')}">09/11/2026</span>
+            </header>
+            <div class="staff-week-day-content">
+              <div class="staff-week-company-hours mb-2">
+                <small class="text-secondary fw-semibold d-block mb-1">Giờ công ty mở:</small>
+                <div th:if="${!#lists.isEmpty(day.adminWindows)}" class="d-flex flex-wrap gap-1">
+                  <span class="meta-chip" th:each="window : ${day.adminWindows}" th:text="${#temporals.format(window.start, 'HH:mm') + ' – ' + #temporals.format(window.end, 'HH:mm')}">08:00 – 18:00</span>
+                </div>
+                <span th:if="${#lists.isEmpty(day.adminWindows)}" class="small text-secondary">Nghỉ</span>
+              </div>
+              <div class="staff-week-registered-hours mb-2">
+                <small class="text-secondary fw-semibold d-block mb-1">Khoảng bạn đã đăng ký:</small>
+                <div th:if="${!#lists.isEmpty(day.staffWindows)}" class="d-flex flex-wrap gap-1">
+                  <span class="status-pill confirmed" th:each="slot : ${day.staffWindows}" th:classappend="${!slot.active} ? ' opacity-50' : ''" th:text="${#temporals.format(slot.start, 'HH:mm') + ' – ' + #temporals.format(slot.end, 'HH:mm') + (!slot.active ? ' · Đã ngừng' : '')}">08:00 – 12:00</span>
+                </div>
+                <span th:if="${#lists.isEmpty(day.staffWindows)}" class="small text-secondary">Chưa đăng ký khoảng nào</span>
+              </div>
+              <details class="details-disclosure staff-week-add mt-2" th:if="${day.canRegister}">
+                <summary class="details-summary small text-link">
+                  <span>+ Thêm khoảng giờ cho ngày này</span>
+                  <svg th:replace="~{fragments/icons :: chevron-down}"></svg>
+                </summary>
+                <form method="post" th:action="@{/staff/schedules/day}" class="staff-week-register-form mt-2 p-3 bg-light rounded" data-company-window-form data-staff-multi-form th:attr="data-today=${businessToday},data-min-service-duration=${minimumServiceDuration}">
+                  <input type="hidden" name="weekStart" th:value="${staffWeekStart}">
+                  <input type="hidden" name="workDate" data-work-date th:value="${#temporals.format(day.date, 'yyyy-MM-dd')}">
+                  <div class="staff-interval-list" data-staff-interval-list>
+                    <div class="staff-interval-row d-flex flex-wrap align-items-center gap-2 mb-2" data-staff-interval-row>
+                      <div>
+                        <label class="form-label small mb-1">Bắt đầu</label>
+                        <div class="time-picker" data-quarter-time>
+                          <input type="text" class="form-control form-control-sm time-trigger" data-time-trigger readonly required aria-label="Giờ bắt đầu">
+                          <input type="hidden" name="startTimes" data-time-value>
+                        </div>
+                      </div>
+                      <div>
+                        <label class="form-label small mb-1">Kết thúc</label>
+                        <div class="time-picker" data-quarter-time>
+                          <input type="text" class="form-control form-control-sm time-trigger" data-time-trigger readonly required aria-label="Giờ kết thúc">
+                          <input type="hidden" name="endTimes" data-time-value>
+                        </div>
+                      </div>
+                      <button class="btn btn-outline-danger btn-sm mt-3" type="button" data-remove-interval aria-label="Gỡ khoảng này">×</button>
+                    </div>
+                  </div>
+                  <div class="d-flex flex-wrap gap-2 mt-2">
+                    <button class="btn btn-outline-secondary btn-sm" type="button" data-add-interval>+ Thêm khoảng nữa</button>
+                    <button class="btn btn-primary btn-sm" type="submit">Lưu ngày này</button>
+                  </div>
+                  <div class="staff-company-window-info mt-2">
+                    <small class="fw-semibold d-block">Khung giờ công ty cho ngày này:</small>
+                    <div data-company-window-list class="small text-secondary"></div>
+                    <p data-company-window-message class="small text-danger mb-0" hidden></p>
+                  </div>
+                </form>
+              </details>
             </div>
-            <div class="col-6 col-md-3">
-              <label class="form-label" for="startTime">Bắt đầu</label>
-              <input id="startTime" class="form-control" type="time" th:field="*{startTime}" required>
-            </div>
-            <div class="col-6 col-md-3">
-              <label class="form-label" for="endTime">Kết thúc</label>
-              <input id="endTime" class="form-control" type="time" th:field="*{endTime}" required>
-            </div>
-            <div class="col-12 col-md-3">
-              <button class="btn btn-primary w-100 form-aligned-submit" type="submit">
-                <svg th:replace="~{fragments/icons :: plus}"></svg>
-                <span>Đăng ký</span>
-              </button>
+          </article>
+        </div>
+
+        <!-- Batch Registration Form -->
+        <div class="surface p-4 mb-4 border">
+          <h3 class="h6 mb-3">Đăng ký hàng loạt theo khoảng ngày</h3>
+          <form method="post" th:action="@{/staff/schedules}" th:object="${availabilityForm}" class="staff-schedule-form" data-company-window-form th:attr="data-today=${businessToday},data-min-service-duration=${minimumServiceDuration}">
+            <input type="hidden" name="weekStart" th:value="${staffWeekStart}">
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label">Chọn các thứ trong tuần</label>
+                <div class="d-flex flex-wrap gap-3">
+                  <label class="form-check" th:each="day, stat : ${dayNames}">
+                    <input class="form-check-input" type="checkbox" name="daysOfWeek" th:value="${stat.index + 1}">
+                    <span class="form-check-label" th:text="${day}">Thứ Hai</span>
+                  </label>
+                </div>
+              </div>
+              <div class="col-sm-6 col-md-3">
+                <label class="form-label" for="startDate">Từ ngày</label>
+                <input class="form-control" type="date" id="startDate" name="startDate" th:attr="min=${businessToday}" required>
+              </div>
+              <div class="col-sm-6 col-md-3">
+                <label class="form-label" for="endDate">Đến ngày</label>
+                <input class="form-control" type="date" id="endDate" name="endDate" th:attr="min=${businessToday}" required>
+              </div>
+              <div class="col-6 col-md-3">
+                <label class="form-label">Bắt đầu</label>
+                <div class="time-picker" data-quarter-time>
+                  <input type="text" class="form-control time-trigger" data-time-trigger readonly required aria-label="Giờ bắt đầu">
+                  <input type="hidden" name="startTime" data-time-value>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <label class="form-label">Kết thúc</label>
+                <div class="time-picker" data-quarter-time>
+                  <input type="text" class="form-control time-trigger" data-time-trigger readonly required aria-label="Giờ kết thúc">
+                  <input type="hidden" name="endTime" data-time-value>
+                </div>
+              </div>
+              <div class="col-12">
+                <button class="btn btn-primary" type="submit">
+                  <svg th:replace="~{fragments/icons :: plus}"></svg>
+                  <span>Đăng ký các ngày đã chọn</span>
+                </button>
+              </div>
             </div>
           </form>
         </div>
-        <p th:if="${currentUser.role == 'STAFF' and !partTime}" class="alert alert-info d-flex align-items-center gap-2 border-0" style="background-color: var(--brand-subtle); color: var(--brand-dark); border-left: 4px solid var(--brand) !important;">
-          <svg th:replace="~{fragments/icons :: info}"></svg>
-          <span>Nhân viên toàn thời gian làm theo khung giờ hoạt động của công ty; không cần đăng ký khoảng riêng.</span>
-        </p>
+
+        <!-- Schedule Filter and Table -->
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+          <h3 class="h6 mb-0">Danh sách các khoảng đã đăng ký</h3>
+          <div class="btn-group btn-group-sm" role="group" aria-label="Lọc khoảng thời gian">
+            <button type="button" class="btn btn-outline-secondary active" data-schedule-filter="all">Tất cả</button>
+            <button type="button" class="btn btn-outline-secondary" data-schedule-filter="today">Hôm nay</button>
+            <button type="button" class="btn btn-outline-secondary" data-schedule-filter="future">Tương lai</button>
+            <button type="button" class="btn btn-outline-secondary" data-schedule-filter="inactive">Đã ngừng</button>
+          </div>
+        </div>
+
+        <div class="table-responsive" th:unless="${#lists.isEmpty(schedules)}">
+          <table class="table table-zebra table-stack-mobile align-middle staff-schedule-table">
+            <thead>
+              <tr>
+                <th>Ngày làm</th>
+                <th>Khung giờ</th>
+                <th>Thao tác</th>
+                <th>Trạng thái</th>
+              </tr>
+            </thead>
+            <tbody>
+              <th:block th:each="slot : ${schedules}">
+                <tr data-schedule-row th:attr="data-work-date=${#temporals.format(slot.start, 'yyyy-MM-dd')},data-active=${slot.active}">
+                  <td data-label="Ngày làm">
+                    <strong class="text-dark" th:text="${#temporals.format(slot.start, 'dd/MM/yyyy')}">09/11/2026</strong>
+                  </td>
+                  <td data-label="Khung giờ">
+                    <span class="meta-chip font-monospace" th:text="${slot.startLabel} + ' – ' + ${slot.endLabel}">08:00 – 12:00</span>
+                  </td>
+                  <td data-label="Thao tác">
+                    <div class="d-flex gap-2">
+                      <button th:if="${slot.active and !slot.start.toLocalDate().isBefore(businessToday) and (slot.start.toLocalDate().isAfter(businessToday) or staffTodayEditable)}" class="btn btn-outline-primary btn-sm" type="button" data-edit-toggle th:attr="data-target=|#staff-edit-${slot.id}|">Chỉnh sửa</button>
+                      <form th:if="${slot.active}" method="post" th:action="@{/staff/schedules/{id}/delete(id=${slot.id})}">
+                        <button class="btn btn-deactivate btn-sm" type="submit">Ngừng hiệu lực</button>
+                      </form>
+                    </div>
+                  </td>
+                  <td data-label="Trạng thái">
+                    <span th:if="${slot.active}" class="status-pill confirmed">Đang nhận lịch</span>
+                    <span th:unless="${slot.active}" class="status-pill cancelled">Đã ngừng</span>
+                  </td>
+                </tr>
+                <tr th:if="${slot.active and !slot.start.toLocalDate().isBefore(businessToday) and (slot.start.toLocalDate().isAfter(businessToday) or staffTodayEditable)}" th:id="|staff-edit-${slot.id}|" class="staff-edit-row" hidden>
+                  <td colspan="4">
+                    <form method="post" th:action="@{/staff/schedules/{id}/replace(id=${slot.id})}" class="staff-edit-form p-3 bg-light rounded" data-company-window-form th:attr="data-today=${businessToday},data-min-service-duration=${minimumServiceDuration}">
+                      <input type="hidden" name="weekStart" th:value="${staffWeekStart}">
+                      <div class="row g-2 align-items-end">
+                        <div class="col-md-3">
+                          <label class="form-label small" th:for="|edit-date-${slot.id}|">Ngày làm</label>
+                          <input class="form-control form-control-sm" type="date" name="workDate" data-work-date th:id="|edit-date-${slot.id}|" th:value="${#temporals.format(slot.start, 'yyyy-MM-dd')}" th:attr="min=${businessToday}" required>
+                        </div>
+                        <div class="col-md-3">
+                          <label class="form-label small" th:for="|edit-start-${slot.id}|">Bắt đầu</label>
+                          <div class="time-picker" data-quarter-time>
+                            <input type="text" class="form-control form-control-sm time-trigger" data-time-trigger readonly required th:id="|edit-start-${slot.id}|" aria-label="Giờ bắt đầu">
+                            <input type="hidden" name="startTime" data-time-value th:value="${#temporals.format(slot.start, 'HH:mm')}">
+                          </div>
+                        </div>
+                        <div class="col-md-3">
+                          <label class="form-label small" th:for="|edit-end-${slot.id}|">Kết thúc</label>
+                          <div class="time-picker" data-quarter-time>
+                            <input type="text" class="form-control form-control-sm time-trigger" data-time-trigger readonly required th:id="|edit-end-${slot.id}|" aria-label="Giờ kết thúc">
+                            <input type="hidden" name="endTime" data-time-value th:value="${#temporals.format(slot.end, 'HH:mm')}">
+                          </div>
+                        </div>
+                        <div class="col-md-3 d-flex gap-2">
+                          <button class="btn btn-primary btn-sm" type="submit">Lưu thay đổi</button>
+                          <button class="btn btn-outline-secondary btn-sm" type="button" data-edit-cancel>Hủy</button>
+                        </div>
+                      </div>
+                      <div class="staff-company-window-info staff-edit-window-info mt-2">
+                        <small class="fw-semibold d-block">Khung giờ công ty cho ngày này:</small>
+                        <div data-company-window-list class="small text-secondary"></div>
+                        <p data-company-window-message class="small text-danger mb-0" hidden></p>
+                      </div>
+                    </form>
+                  </td>
+                </tr>
+              </th:block>
+            </tbody>
+          </table>
+          <p class="staff-schedule-filter-empty small text-secondary mt-2" data-schedule-filter-empty hidden>Không có khoảng giờ trong mục này.</p>
+        </div>
+
         <div class="empty-state py-5" th:if="${#lists.isEmpty(schedules)}">
           <div class="empty-illustration">
             <svg th:replace="~{fragments/icons :: illustration-schedules}"></svg>
           </div>
           <h3>Chưa có khoảng sẵn sàng</h3>
-          <p class="mb-0">
-            Hiện chưa có khoảng thời gian rảnh nào được đăng ký.
-          </p>
+          <p class="mb-0">Các khung giờ bạn đăng ký sẽ hiển thị ở đây.</p>
+        </div>
+        <p class="small text-secondary mt-3 mb-0">Khi thay đổi, khoảng cũ được lưu ở trạng thái ngừng hiệu lực. Lịch hẹn đã xác nhận trong tương lai sẽ chặn thay đổi cho đến khi quản trị viên xử lý.</p>
+      </section>
+
+      <!-- Customer / Full-Time Staff View -->
+      <section class="surface p-4" th:if="${currentUser.role != 'STAFF' or !partTime}">
+        <p th:if="${currentUser.role == 'STAFF' and !partTime}" class="alert alert-info d-flex align-items-center gap-2 border-0" style="background-color: var(--brand-subtle); color: var(--brand-dark); border-left: 4px solid var(--brand) !important;">
+          <svg th:replace="~{fragments/icons :: info}"></svg>
+          <span>Nhân viên toàn thời gian làm theo khung giờ hoạt động của công ty; không cần đăng ký khoảng riêng.</span>
+        </p>
+
+        <div class="empty-state py-5" th:if="${#lists.isEmpty(schedules)}">
+          <div class="empty-illustration">
+            <svg th:replace="~{fragments/icons :: illustration-schedules}"></svg>
+          </div>
+          <h3>Chưa có khoảng sẵn sàng</h3>
+          <p class="mb-0">Hiện chưa có khoảng thời gian rảnh nào được đăng ký.</p>
         </div>
 
         <div class="table-responsive" th:unless="${#lists.isEmpty(schedules)}">
@@ -81,6 +278,7 @@
                 </td>
                 <td data-label="Bắt đầu từ">
                   <span class="meta-chip font-monospace" th:text="${slot.startLabel}">Bắt đầu</span>
+                  <span class="status-pill cancelled ms-1" th:if="${!slot.active}">Đã ngừng</span>
                 </td>
                 <td data-label="Kết thúc lúc">
                   <span class="meta-chip font-monospace" th:text="${slot.endLabel}">Kết thúc</span>
@@ -90,8 +288,8 @@
                     <span>Chọn thời gian</span>
                     <svg th:replace="~{fragments/icons :: arrow-right}"></svg>
                   </a>
-                  <form th:if="${currentUser.role == 'STAFF' and partTime}" method="post" th:action="@{/staff/schedules/{id}/delete(id=${slot.id})}">
-                    <button class="btn btn-deactivate btn-sm" type="submit">Xóa khoảng này</button>
+                  <form th:if="${currentUser.role == 'STAFF' and partTime and slot.active}" method="post" th:action="@{/staff/schedules/{id}/delete(id=${slot.id})}">
+                    <button class="btn btn-deactivate btn-sm" type="submit">Ngừng hiệu lực</button>
                   </form>
                 </td>
               </tr>
@@ -99,14 +297,12 @@
           </table>
         </div>
         <div class="mt-3 pt-3 border-top">
-          <p class="small text-secondary mb-0 d-flex align-items-center gap-2">
-            <svg th:replace="~{fragments/icons :: info}"></svg>
-            <span>Lưu ý: Hệ thống kiểm tra trùng giờ khi khách hàng gửi yêu cầu đặt lịch.</span>
+          <p class="small text-secondary mb-0">
+            Lưu ý: Hệ thống kiểm tra trùng giờ khi khách hàng gửi yêu cầu đặt lịch.
           </p>
         </div>
       </section>
     </main>
-    <footer th:replace="~{fragments/layout :: footer}">
-    </footer>
+    <footer th:replace="~{fragments/layout :: footer}"></footer>
   </body>
 </html>

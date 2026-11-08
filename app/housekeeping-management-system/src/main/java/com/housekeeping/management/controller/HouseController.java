@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 @Controller
@@ -33,11 +34,11 @@ public class HouseController {
         model.addAttribute("addressTypes", HouseAddressType.values());
         if (!model.containsAttribute("houseForm")) {
             if (editId == null) {
-                model.addAttribute("houseForm", new HouseForm(PortalAdvice.cleanLabel(user.getDisplayName()), "", "", "", "",
+                model.addAttribute("houseForm", new HouseForm(PortalAdvice.cleanLabel(user.getDisplayName()), "", "", "", "", "",
                         HouseAddressType.HOME, false, ""));
             } else {
                 var house = houses.findCustomerHouse(user.getUserId(), editId);
-                model.addAttribute("houseForm", new HouseForm(PortalAdvice.cleanLabel(house.getRecipientName()), house.getRecipientPhone(),
+                model.addAttribute("houseForm", new HouseForm(PortalAdvice.cleanLabel(house.getRecipientName()), house.getRecipientPhone(), "",
                         house.getProvinceCity() == null ? "" : house.getProvinceCity(),
                         house.getWardCommune() == null ? "" : house.getWardCommune(),
                         house.getAddressDetail() == null ? house.getAddress() : house.getAddressDetail(),
@@ -48,6 +49,12 @@ public class HouseController {
             model.addAttribute("editHouseId", editId);
         }
         return "customer/houses";
+    }
+
+    @GetMapping("/autocomplete")
+    @ResponseBody
+    java.util.List<com.housekeeping.management.service.VietmapClient.Suggestion> autocomplete(@RequestParam String q) {
+        return houses.autocomplete(q);
     }
 
     @PostMapping

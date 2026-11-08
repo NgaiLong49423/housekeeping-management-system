@@ -74,6 +74,10 @@
                 <dt>Kết thúc dự kiến</dt>
                 <dd th:text="${booking.endLabel}">Kết thúc</dd>
               </div>
+              <div style="grid-column: 1 / -1;" th:if="${booking.customerArrivedAt != null}">
+                <dt>Khách đã ghi nhận nhân viên đến</dt>
+                <dd th:text="${booking.arrivalLabel}">Thời gian</dd>
+              </div>
               <div style="grid-column: 1 / -1;" th:if="${booking.addressSnapshot != null and !booking.addressSnapshot.isBlank()}">
                 <dt>Địa chỉ dọn dẹp</dt>
                 <dd th:text="${booking.addressSnapshot}">Địa chỉ</dd>
@@ -232,6 +236,10 @@
               <button class="btn btn-outline-danger w-100" type="submit" th:disabled="${!booking.cancellable}">
                 Hủy lịch hẹn
               </button>
+            </form>
+            <form th:if="${booking.status == 'CONFIRMED' and booking.customerArrivedAt == null and booking.start.isBefore(T(java.time.OffsetDateTime).now())}" method="post" th:action="@{/customer/bookings/{id}/arrived(id=${booking.id})}" class="mt-3">
+              <button class="btn btn-outline-primary w-100" type="submit">Xác nhận nhân viên đã đến</button>
+              <p class="small text-secondary mt-2 mb-0">Ghi nhận độc lập để đối chiếu; không làm thay đổi trạng thái lịch.</p>
             </form>
             <p class="small text-danger mt-2 mb-0" th:unless="${booking.cancellable}">
               Đã qua thời hạn cho phép hủy lịch (trong vòng 2 giờ trước khi bắt đầu).

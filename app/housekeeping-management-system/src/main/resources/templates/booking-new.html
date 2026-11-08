@@ -1,33 +1,26 @@
 <!DOCTYPE html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
-  <head th:replace="~{fragments/layout :: head('Đặt lịch dọn nhà')}">
-  </head>
+  <head th:replace="~{fragments/layout :: head('Đặt lịch dọn nhà')}"><title>Đặt lịch dọn nhà · Gọn Nhà</title></head>
   <body>
-    <header th:replace="~{fragments/layout :: header('booking')}">
-    </header>
+    <header th:replace="~{fragments/layout :: header('booking')}"></header>
     <main id="main" class="container py-4 py-md-5">
       <div class="page-heading text-center mb-4">
         <span class="eyebrow justify-content-center">
           <svg th:replace="~{fragments/icons :: sparkles}"></svg>
           <span>Tổ ấm sạch, tâm trí thảnh thơi</span>
         </span>
-        <h1>
-          Hẹn một ngày nhà thật sạch
-        </h1>
-        <p class="lead">
-          Chọn dịch vụ, nhân viên và thời gian phù hợp với nhu cầu sinh hoạt của bạn.
-        </p>
+        <h1>Chọn những ngày bạn muốn đặt</h1>
+        <p class="lead">Chọn dịch vụ, nhân viên và thời gian phù hợp với nhu cầu sinh hoạt của bạn.</p>
       </div>
 
-      <div th:replace="~{fragments/layout :: alerts}">
-      </div>
+      <div th:replace="~{fragments/layout :: alerts}"></div>
 
-      <form method="post" th:action="@{/customer/bookings}" th:object="${bookingForm}" data-booking-form>
+      <form method="post" th:action="@{/customer/bookings/multiple}" th:object="${bookingForm}" data-booking-form>
         <div class="row g-4 align-items-start">
           <!-- Main Form Wizard Column -->
           <div class="col-lg-8 vstack gap-4">
             <div th:if="${#fields.hasAnyErrors()}" class="alert alert-danger d-flex align-items-center gap-2 border-0 shadow-sm" role="alert" style="background-color: var(--status-cancelled-bg); color: var(--status-cancelled-text); border-left: 4px solid #ef4444 !important;">
-              <svg th:replace="~{fragments/icons :: alert-circle}"></svg>
+              <span aria-hidden="true">⚠</span>
               <span>Hãy chọn dịch vụ, địa chỉ, nhân viên và giờ bắt đầu hợp lệ.</span>
             </div>
 
@@ -36,22 +29,18 @@
               <div class="step-heading">
                 <span>01</span>
                 <div>
-                  <h2 class="h5 mb-1">
-                    Bạn cần chúng tôi giúp gì?
-                  </h2>
-                  <p class="mb-0 small text-secondary">
-                    Có thể chọn nhiều dịch vụ. Các dịch vụ sẽ được thực hiện nối tiếp theo thứ tự bạn chọn.
-                  </p>
+                  <h2 class="h5 mb-1">Bạn cần chúng tôi giúp gì?</h2>
+                  <p class="mb-0 small text-secondary">Có thể chọn nhiều dịch vụ. Các dịch vụ sẽ được thực hiện nối tiếp theo thứ tự bạn chọn.</p>
                 </div>
               </div>
               <div class="row g-3 mt-2">
                 <div th:each="service : ${services}" class="col-sm-6">
                   <label class="selection-card">
                     <input type="checkbox" th:field="*{serviceIds}" th:value="${service.id}" th:data-price="${service.price}" th:data-duration="${service.duration}" th:data-name="${service.name}">
-                    <span class="flex-grow-1 d-flex flex-column align-items-start">
+                    <span class="flex-grow-1">
                       <strong th:text="${service.name}">Tên dịch vụ</strong>
-                      <small th:text="${service.duration} + ' phút'">0 phút</small>
-                      <b class="price mt-1" th:text="${#numbers.formatDecimal(service.price,0,'POINT',0,'COMMA')} + ' ₫'">0 ₫</b>
+                      <small class="d-inline-block" th:text="${service.duration} + ' phút'">0 phút</small>
+                      <b class="price d-block mt-1" th:text="${#numbers.formatDecimal(service.price,0,'POINT',0,'COMMA')} + ' ₫'">0 ₫</b>
                     </span>
                   </label>
                 </div>
@@ -77,7 +66,8 @@
                   <option th:each="house : ${houses}" th:value="${house.houseId}"
                           th:text="${ui.label(house.recipientName)} + ' · ' + ${house.addressType.label} + (${house.defaultAddress} ? ' (Mặc định)' : '') + ' · ' + ${house.address}">Nhà</option>
                 </select>
-                <a class="small text-link mt-2" th:href="@{/customer/houses}">
+                <p class="small text-danger fw-semibold mt-2 mb-0" id="houseServiceAreaError" role="alert" th:text="${houseServiceAreaError}" th:hidden="${houseServiceAreaError == null}"></p>
+                <a class="small text-link d-inline-block mt-2" th:href="@{/customer/houses}">
                   <span>Quản lý địa chỉ nhà</span>
                   <svg th:replace="~{fragments/icons :: arrow-right}"></svg>
                 </a>
@@ -88,33 +78,56 @@
               </div>
             </section>
 
-            <!-- Step 3: Choose Staff -->
+            <!-- Step 3: Choose Staff & Availability Preference -->
             <section class="surface p-4">
               <div class="step-heading">
                 <span>03</span>
                 <div>
-                  <h2 class="h5 mb-1">
-                    Chọn người chăm sóc tổ ấm
-                  </h2>
-                  <p class="mb-0 small text-secondary">
-                    Mọi dịch vụ trong một lịch hẹn do cùng một nhân viên thực hiện.
-                  </p>
+                  <h2 class="h5 mb-1">Nhân viên & Lịch khả dụng</h2>
+                  <p class="mb-0 small text-secondary">Hệ thống gợi ý ngày còn nhân viên và khung giờ làm phù hợp với dịch vụ bạn chọn.</p>
                 </div>
               </div>
-              <div class="mt-3">
-                <label class="form-label" for="staffId">
-                  Nhân viên phụ trách
-                </label>
-                <select class="form-select" th:field="*{staffId}" required>
-                  <option value="">Chọn nhân viên</option>
-                  <option th:each="person : ${staff}" th:value="${person.id}" th:text="${ui.label(person.name)}">Nhân viên</option>
-                </select>
-                <div class="d-flex align-items-center justify-content-between mt-2">
-                  <a class="small text-link" th:href="@{/customer/staff}">
-                    <span>Xem danh sách nhân viên và yêu thích</span>
-                    <svg th:replace="~{fragments/icons :: arrow-right}"></svg>
-                  </a>
+              <fieldset class="booking-search-preference mt-3" data-booking-preference>
+                <legend class="form-label">Bạn muốn ưu tiên chọn theo</legend>
+                <div class="d-flex gap-3">
+                  <label class="form-check">
+                    <input class="form-check-input" type="radio" name="bookingPreference" value="time" checked>
+                    <span class="form-check-label">Ngày và giờ</span>
+                  </label>
+                  <label class="form-check">
+                    <input class="form-check-input" type="radio" name="bookingPreference" value="staff">
+                    <span class="form-check-label">Nhân viên yêu thích</span>
+                  </label>
                 </div>
+              </fieldset>
+              <div class="mt-3 booking-availability-calendar">
+                <div class="booking-preferred-staff" data-preferred-staff-wrap hidden>
+                  <label class="form-label" for="preferredStaffId">Nhân viên bạn muốn ưu tiên</label>
+                  <select class="form-select" id="preferredStaffId" data-preferred-staff-select>
+                    <option value="">Chọn nhân viên để xem ngày họ làm</option>
+                    <option th:each="person : ${staff}" th:value="${person.id}" th:text="${ui.label(person.name)}" th:data-staff-type="${person.staffType}">Nhân viên</option>
+                  </select>
+                </div>
+                <p class="small text-secondary mb-2" data-calendar-status role="status">Chọn dịch vụ để xem các ngày còn nhân viên và giờ phù hợp.</p>
+                <div class="booking-date-carousel" data-date-carousel>
+                  <button class="booking-date-nav btn btn-outline-secondary btn-sm" type="button" data-date-prev aria-label="Các ngày trước" disabled>‹</button>
+                  <div class="booking-date-track" data-date-track>
+                    <div class="booking-available-dates" data-available-dates aria-label="Các ngày có nhân viên sẵn sàng"></div>
+                  </div>
+                  <button class="booking-date-nav btn btn-outline-secondary btn-sm" type="button" data-date-next aria-label="Các ngày tiếp theo" disabled>›</button>
+                </div>
+                <p class="small text-secondary mb-0 mt-2">Chỉ ngày có nhân viên làm được đủ thời lượng mới hiện. Ngày được chọn sẽ dùng giờ và nhân viên riêng.</p>
+                <div class="booking-selected-dates mt-3" data-selected-booking-dates aria-live="polite"></div>
+                <select data-booking-staff-source hidden>
+                  <option value="">Chọn nhân viên</option>
+                  <option th:each="person : ${staff}" th:value="${person.id}" th:text="${ui.label(person.name)}" th:data-staff-type="${person.staffType}">Nhân viên</option>
+                </select>
+              </div>
+              <div class="d-flex align-items-center justify-content-between mt-3">
+                <a class="small text-link" th:href="@{/customer/staff}">
+                  <span>Xem danh sách nhân viên và yêu thích</span>
+                  <svg th:replace="~{fragments/icons :: arrow-right}"></svg>
+                </a>
               </div>
             </section>
 
@@ -123,53 +136,27 @@
               <div class="step-heading">
                 <span>04</span>
                 <div>
-                  <h2 class="h5 mb-1">
-                    Chọn thời gian phù hợp
-                  </h2>
+                  <h2 class="h5 mb-1">Chọn thời gian phù hợp</h2>
                   <p class="mb-0 small text-secondary">
-                    Tính theo giờ Việt Nam. Giờ bắt đầu theo mốc 30 phút, đặt trước ít nhất 120 phút và trong giờ mở cửa của công ty.
+                    Tính theo giờ Việt Nam. Giờ bắt đầu theo mốc 15 phút, đặt trước ít nhất 120 phút và kết thúc trong khung giờ mở cửa.
                   </p>
                 </div>
               </div>
-              <div class="mt-3">
-                <label class="form-label" for="startAt">
-                  Giờ bắt đầu mong muốn
-                </label>
-                <input id="startAt" type="datetime-local" class="form-control" th:field="*{startAt}" step="1800" required aria-describedby="availability-note">
-                <p class="small text-secondary mt-2 mb-0" id="availability-note">
-                  Nhân viên bán thời gian cần có khoảng sẵn sàng bao gồm giờ bắt đầu. Thời lượng có thể vượt giờ đóng cửa hoặc cuối khoảng sẵn sàng.
-                </p>
+              <p class="small text-secondary mt-3">Mỗi ngày chỉ hiện giờ mà nhân viên có thể nhận đủ thời lượng dịch vụ. Chọn giờ và nhân viên cho từng ngày.</p>
+              <div class="booking-days" data-booking-days aria-live="polite">
+                <p class="small text-secondary mb-0">Thêm ít nhất một ngày để xem lịch.</p>
               </div>
-              <details class="availability-list details-disclosure mt-3">
-                <summary class="details-summary">
-                  <span>Xem khoảng thời gian đang bận của nhân viên</span>
-                  <svg th:replace="~{fragments/icons :: chevron-down}"></svg>
-                </summary>
-                <ul class="list-unstyled mt-3 mb-0">
-                  <li th:each="interval : ${busy}" th:data-staff="${interval.staffId}" th:data-start="${interval.start}" th:data-end="${interval.end}" data-busy-interval>
-                    <span th:text="${interval.label}">Khoảng bận</span>
-                  </li>
-                </ul>
-                <p th:if="${#lists.isEmpty(busy)}" class="small text-secondary mb-0 mt-2">
-                  Chưa có khoảng bận nào được ghi nhận.
-                </p>
-              </details>
+              <p class="small text-secondary mt-2 mb-0">Hệ thống kiểm tra cả thời lượng dịch vụ và thời gian di chuyển từ lịch gần nhất.</p>
             </section>
           </div>
 
           <!-- Sticky Summary Sidebar -->
           <aside class="col-lg-4">
             <div class="surface p-4 booking-summary">
-              <span class="eyebrow mb-2">
-                Tóm tắt lịch hẹn
-              </span>
-              <h2 class="h5 mb-3">
-                Chi tiết dịch vụ
-              </h2>
+              <span class="eyebrow mb-2">Tóm tắt lịch hẹn</span>
+              <h2 class="h5 mb-3">Chi tiết dịch vụ</h2>
               <ul class="list-unstyled summary-services" data-summary-services>
-                <li class="text-secondary small">
-                  Chưa chọn dịch vụ nào
-                </li>
+                <li class="text-secondary small">Chưa chọn dịch vụ nào</li>
               </ul>
               <div class="summary-line">
                 <span class="text-secondary">Tổng thời lượng</span>
@@ -182,13 +169,12 @@
               <p class="small text-secondary mb-3">
                 Giá cuối cùng do hệ thống tính toán tự động khi xác nhận. Bạn chỉ thanh toán sau khi dịch vụ hoàn thành.
               </p>
-              <div class="note-box mb-3">
+              <div class="note-box mb-3 d-flex align-items-start gap-2">
                 <svg th:replace="~{fragments/icons :: check-circle}"></svg>
-                <span>Lịch hợp lệ được xác nhận tức thì sau khi kiểm tra thời gian, không cần chờ xét duyệt thủ công.</span>
+                <span>Mỗi ngày hợp lệ sẽ tạo một lịch hẹn riêng. Nếu một ngày phát sinh xung đột, các ngày khác vẫn được xử lý bình thường.</span>
               </div>
-              <p data-booking-validation class="small text-danger fw-semibold" role="status">
-              </p>
-              <button class="btn btn-primary w-100 btn-lg" type="submit" th:disabled="${#lists.isEmpty(services) or #lists.isEmpty(staff) or #lists.isEmpty(houses)}">
+              <p data-booking-validation class="small text-danger fw-semibold" role="status"></p>
+              <button class="btn btn-primary w-100 btn-lg" type="submit" data-booking-submit disabled th:disabled="${#lists.isEmpty(services) or #lists.isEmpty(houses)}">
                 <span>Xác nhận đặt lịch</span>
                 <svg th:replace="~{fragments/icons :: arrow-right}"></svg>
               </button>
@@ -199,14 +185,14 @@
             </div>
             <noscript>
               <p class="alert alert-info mt-3 small">
-                Bạn vẫn có thể gửi form khi tắt JavaScript; giá, giờ hoạt động và lịch bận luôn được kiểm tra ở máy chủ.
+                Biểu mẫu đặt lịch cần JavaScript để ghép ngày và giờ bạn chọn. Hãy bật JavaScript để tiếp tục.
               </p>
             </noscript>
           </aside>
         </div>
       </form>
+      <script th:inline="javascript" th:if="${bookingRetryState != null}">window.bookingRetryState = /*[[${bookingRetryState}]]*/ null;</script>
     </main>
-    <footer th:replace="~{fragments/layout :: footer}">
-    </footer>
+    <footer th:replace="~{fragments/layout :: footer}"></footer>
   </body>
 </html>

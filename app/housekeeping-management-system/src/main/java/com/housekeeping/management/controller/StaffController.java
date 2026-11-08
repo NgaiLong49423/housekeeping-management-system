@@ -1,8 +1,12 @@
 package com.housekeeping.management.controller;
 
 import com.housekeeping.management.dto.request.PortalForms.AvailabilityForm;
+import com.housekeeping.management.dto.request.PortalForms.AvailabilityBatchForm;
 import com.housekeeping.management.dto.response.PortalViews.StaffCard;
+import com.housekeeping.management.dto.response.PortalViews.ScheduleCard;
+import com.housekeeping.management.dto.response.StaffAvailabilityWeekDay;
 import com.housekeeping.management.service.BookingCompletionService;
+import com.housekeeping.management.service.CompanySettingsService;
 import com.housekeeping.management.service.EvidenceStorageService;
 import com.housekeeping.management.service.PortalQueryService;
 import com.housekeeping.management.service.StaffAvailabilityService;
@@ -15,7 +19,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.DayOfWeek;
+import java.time.temporal.TemporalAdjusters;
+import java.util.Comparator;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
@@ -42,16 +51,18 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 public class StaffController {
     private final PortalQueryService query;
     private final StaffAvailabilityService availability;
+    private final CompanySettingsService companySettings;
     private final StaffFollowService follows;
     private final BookingCompletionService completion;
     private final EvidenceStorageService storage;
     private final Path evidenceRoot;
 
-    public StaffController(PortalQueryService query, StaffAvailabilityService availability, StaffFollowService follows,
+    public StaffController(PortalQueryService query, StaffAvailabilityService availability, CompanySettingsService companySettings, StaffFollowService follows,
             BookingCompletionService completion, EvidenceStorageService storage,
             @Value("${app.evidence.storage-root:./var/evidence}") String evidenceRoot) {
         this.query = query;
         this.availability = availability;
+        this.companySettings = companySettings;
         this.follows = follows;
         this.completion = completion;
         this.storage = storage;
@@ -72,43 +83,163 @@ public class StaffController {
     }
 
     @GetMapping({"/customer/schedules", "/staff/schedules"})
-    String schedules(@AuthenticationPrincipal PortalUser user, Model model) {
-        model.addAttribute("schedules", query.schedules(user));
+    String schedules(@AuthenticationPrincipal PortalUser user, @RequestParam(required = false) LocalDate weekStart, Model model) {
+        List<ScheduleCard> ownSchedules = query.schedules(user);
+        model.addAttribute("schedules", ownSchedules);
         if ("STAFF".equals(user.getRole())) {
             boolean partTime = query.isPartTime(user.getAccountId());
             model.addAttribute("partTime", partTime);
-            if (partTime) model.addAttribute("availabilityForm", new AvailabilityForm(
-                    LocalDate.now(ZoneOffset.ofHours(7)), LocalTime.of(8, 0), LocalTime.of(12, 0)));
+            if (partTime) addAvailabilityFormModel(model, new AvailabilityForm(
+                    LocalDate.now(ZoneOffset.ofHours(7)), LocalTime.of(8, 0), LocalTime.of(12, 0)), ownSchedules, weekStart);
         }
         return "schedules";
     }
 
     @PostMapping("/staff/schedules")
     String addAvailability(@AuthenticationPrincipal PortalUser user,
-            @Valid @ModelAttribute AvailabilityForm form, BindingResult errors, RedirectAttributes flash) {
+            @Valid @ModelAttribute AvailabilityForm form, BindingResult errors, Model model, RedirectAttributes flash,
+            @RequestParam(required = false) LocalDate weekStart) {
         if (errors.hasErrors()) {
-            flash.addFlashAttribute("error", "Ngày và giờ sẵn sàng chưa hợp lệ.");
+            model.addAttribute("error", "Ngày và giờ sẵn sàng chưa hợp lệ.");
+            List<ScheduleCard> ownSchedules=query.schedules(user); model.addAttribute("schedules", ownSchedules); model.addAttribute("partTime", true); addAvailabilityFormModel(model, form,ownSchedules,weekStart);
+            return "schedules";
         } else {
             try {
                 availability.save(user.getUserId(), null, form);
                 flash.addFlashAttribute("success", "Đã đăng ký khoảng sẵn sàng.");
             } catch (IllegalArgumentException | IllegalStateException failure) {
-                flash.addFlashAttribute("error", PortalMessages.business(failure));
+                model.addAttribute("error", PortalMessages.business(failure));
+                List<ScheduleCard> ownSchedules=query.schedules(user); model.addAttribute("schedules", ownSchedules); model.addAttribute("partTime", true); addAvailabilityFormModel(model, form,ownSchedules,weekStart);
+                return "schedules";
             }
         }
-        return "redirect:/staff/schedules";
+        return staffWeekRedirect(weekStart);
     }
 
-    @PostMapping("/staff/schedules/{id}/delete")
-    String deleteAvailability(@PathVariable Long id, @AuthenticationPrincipal PortalUser user,
-            RedirectAttributes flash) {
+    @PostMapping("/staff/schedules/batch")
+    String addAvailabilityBatch(@AuthenticationPrincipal PortalUser user,
+            @Valid @ModelAttribute AvailabilityBatchForm form, BindingResult errors, Model model, RedirectAttributes flash) {
+        if (errors.hasErrors()) {
+            flash.addFlashAttribute("error", "Vui lòng chọn khoảng ngày và giờ hợp lệ.");
+            return "redirect:/staff/schedules";
+        }
         try {
-            availability.delete(user.getUserId(), id);
-            flash.addFlashAttribute("success", "Đã xóa khoảng sẵn sàng.");
+            int added = availability.saveBatch(user.getUserId(), form);
+            flash.addFlashAttribute("success", "Đã đăng ký " + added + " ngày làm việc theo lịch lặp.");
         } catch (IllegalArgumentException | IllegalStateException failure) {
             flash.addFlashAttribute("error", PortalMessages.business(failure));
         }
         return "redirect:/staff/schedules";
+    }
+
+    @PostMapping("/staff/schedules/day")
+    String addAvailabilityForDate(@AuthenticationPrincipal PortalUser user,
+            @RequestParam LocalDate workDate, @RequestParam List<LocalTime> startTimes,
+            @RequestParam List<LocalTime> endTimes, @RequestParam(required = false) LocalDate weekStart,
+            RedirectAttributes flash) {
+        try {
+            int added = availability.saveForDate(user.getUserId(), workDate, startTimes, endTimes);
+            flash.addFlashAttribute("success", "Đã đăng ký " + added + " khoảng giờ trong ngày.");
+        } catch (IllegalArgumentException | IllegalStateException failure) {
+            flash.addFlashAttribute("error", PortalMessages.business(failure));
+        }
+        LocalDate returnWeek = weekStart != null ? weekStart : workDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        return staffWeekRedirect(returnWeek);
+    }
+
+    @PostMapping("/staff/schedules/{id}/replace")
+    String replaceAvailability(@PathVariable Long id, @AuthenticationPrincipal PortalUser user,
+            @Valid @ModelAttribute AvailabilityForm form, BindingResult errors, Model model, RedirectAttributes flash,
+            @RequestParam(required = false) LocalDate weekStart) {
+        LocalDate returnWeek = form.workDate() == null ? weekStart : form.workDate().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        if (errors.hasErrors()) {
+            model.addAttribute("error", "Ngày và giờ sẵn sàng chưa hợp lệ.");
+            List<ScheduleCard> ownSchedules=query.schedules(user); model.addAttribute("schedules", ownSchedules); model.addAttribute("partTime", true); addAvailabilityFormModel(model, form,ownSchedules,returnWeek);
+            return "schedules";
+        }
+        try {
+            availability.replace(user.getUserId(), id, form);
+            flash.addFlashAttribute("success", "Đã cập nhật khoảng sẵn sàng. Lịch sử khoảng cũ vẫn được giữ.");
+        } catch (IllegalArgumentException | IllegalStateException failure) {
+            model.addAttribute("error", PortalMessages.business(failure));
+            List<ScheduleCard> ownSchedules=query.schedules(user); model.addAttribute("schedules", ownSchedules); model.addAttribute("partTime", true); addAvailabilityFormModel(model, form,ownSchedules,returnWeek);
+            return "schedules";
+        }
+        return staffWeekRedirect(returnWeek);
+    }
+
+    private String staffWeekRedirect(LocalDate weekStart) {
+        return weekStart == null ? "redirect:/staff/schedules" : "redirect:/staff/schedules?weekStart=" + weekStart;
+    }
+
+    private void addAvailabilityFormModel(Model model, AvailabilityForm form, List<ScheduleCard> schedules, LocalDate requestedWeekStart) {
+        model.addAttribute("availabilityForm", form);
+        List<CompanySettingsService.ScheduleWindow> allWindows=companySettings.scheduleWindows();
+        model.addAttribute("companyScheduleWindows",allWindows);
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh"));
+        model.addAttribute("businessToday", today);
+        LocalDate currentWeek=today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate selected=requestedWeekStart==null?currentWeek:requestedWeekStart.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        model.addAttribute("staffWeekStart",selected);
+        model.addAttribute("staffWeekEnd",selected.plusDays(6));
+        model.addAttribute("staffPreviousWeek",selected.minusWeeks(1));
+        model.addAttribute("staffNextWeek",selected.plusWeeks(1));
+        model.addAttribute("staffCanNavigateNext",!selected.plusWeeks(1).isAfter(currentWeek.plusWeeks(52)));
+        model.addAttribute("staffWeekReadOnly",selected.isBefore(currentWeek));
+        int minimumDuration=query.services().stream().mapToInt(card->card.duration()).min().orElse(Integer.MAX_VALUE);
+        model.addAttribute("minimumServiceDuration",minimumDuration);
+        LocalDateTime earliestToday=LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh")).plusMinutes(120);
+        int firstAvailableMinute=(int)Math.ceil((earliestToday.getHour()*60+earliestToday.getMinute())/15.0)*15;
+        List<StaffAvailabilityWeekDay> days=new java.util.ArrayList<>();
+        for(int offset=0;offset<7;offset++){
+            LocalDate date=selected.plusDays(offset);
+            if(selected.equals(currentWeek)&&date.isBefore(today))continue;
+            LocalDate effective=allWindows.stream().map(CompanySettingsService.ScheduleWindow::effectiveFrom)
+                    .filter(version->!version.isAfter(date)).max(LocalDate::compareTo).orElse(null);
+            int weekday=date.getDayOfWeek().getValue();
+            List<StaffAvailabilityWeekDay.AdminWindow> adminWindows=effective==null?List.of():allWindows.stream()
+                    .filter(window->window.effectiveFrom().equals(effective)&&window.dayOfWeek()==weekday&&!window.closed()
+                            &&window.openingTime()!=null&&window.closingTime()!=null)
+                    .sorted(Comparator.comparing(CompanySettingsService.ScheduleWindow::openingTime))
+                    .map(window->new StaffAvailabilityWeekDay.AdminWindow(window.openingTime(),window.closingTime())).toList();
+            List<ScheduleCard> registered=schedules.stream().filter(slot->slot.start().toLocalDate().equals(date)).toList();
+            boolean canRegister=date.isAfter(today)&&!adminWindows.isEmpty();
+            if(date.equals(today))canRegister=hasTimeAfterNotice(today,adminWindows,earliestToday,firstAvailableMinute,minimumDuration);
+            LocalTime defaultStart=adminWindows.isEmpty()?null:adminWindows.getFirst().start();
+            LocalTime defaultEnd=adminWindows.isEmpty()?null:adminWindows.getFirst().end();
+            days.add(new StaffAvailabilityWeekDay(date,adminWindows,registered,canRegister,defaultStart,defaultEnd));
+        }
+        model.addAttribute("staffWeekDays",days);
+        LocalDate effectiveToday=allWindows.stream().map(CompanySettingsService.ScheduleWindow::effectiveFrom)
+                .filter(version->!version.isAfter(today)).max(LocalDate::compareTo).orElse(null);
+        int todayWeekday=today.getDayOfWeek().getValue();
+        List<StaffAvailabilityWeekDay.AdminWindow> todayWindows=effectiveToday==null?List.of():allWindows.stream()
+                .filter(window->window.effectiveFrom().equals(effectiveToday)&&window.dayOfWeek()==todayWeekday&&!window.closed()
+                        &&window.openingTime()!=null&&window.closingTime()!=null)
+                .map(window->new StaffAvailabilityWeekDay.AdminWindow(window.openingTime(),window.closingTime())).toList();
+        model.addAttribute("staffTodayEditable",hasTimeAfterNotice(today,todayWindows,earliestToday,firstAvailableMinute,minimumDuration));
+    }
+
+    private boolean hasTimeAfterNotice(LocalDate today,List<StaffAvailabilityWeekDay.AdminWindow> windows,
+            LocalDateTime earliestToday,int firstAvailableMinute,int minimumDuration){
+        if(windows.isEmpty()||earliestToday.toLocalDate().isAfter(today)||minimumDuration==Integer.MAX_VALUE)return false;
+        return windows.stream().anyMatch(window->{
+            int opening=window.start().getHour()*60+window.start().getMinute();
+            int start=Math.max(opening,firstAvailableMinute);
+            return start+minimumDuration<=window.end().getHour()*60+window.end().getMinute();
+        });
+    }
+
+    @PostMapping("/staff/schedules/{id}/delete")
+    String deleteAvailability(@PathVariable Long id, @AuthenticationPrincipal PortalUser user,
+            RedirectAttributes flash, @RequestParam(required = false) LocalDate weekStart) {
+        try {
+            availability.delete(user.getUserId(), id);
+            flash.addFlashAttribute("success", "Đã ngừng hiệu lực khoảng sẵn sàng; lịch sử vẫn được giữ.");
+        } catch (IllegalArgumentException | IllegalStateException failure) {
+            flash.addFlashAttribute("error", PortalMessages.business(failure));
+        }
+        return staffWeekRedirect(weekStart);
     }
 
     @PostMapping("/staff/bookings/{id}/evidence")

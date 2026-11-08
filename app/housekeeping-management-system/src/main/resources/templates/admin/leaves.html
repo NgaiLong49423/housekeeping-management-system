@@ -20,7 +20,7 @@
             <span class="badge rounded-pill bg-light text-secondary border small" th:text="${#lists.size(leaveRequests)} + ' đơn'">0 đơn</span>
           </div>
           <p class="small text-secondary mb-0">
-            Đơn được duyệt sẽ chặn khách đặt lịch mới bắt đầu trong thời gian nghỉ. Hệ thống không tự hủy hay đổi nhân viên cho lịch đã xác nhận; quản trị viên xử lý riêng.
+            Đơn chỉ được duyệt khi không còn lịch hẹn đã xác nhận trong tương lai rơi vào các ngày nghỉ. Mở từng lịch hẹn để đổi nhân viên hoặc hủy trước khi duyệt. Đơn được duyệt sẽ chặn khách đặt lịch mới trong thời gian nghỉ.
           </p>
         </div>
         <div th:if="${#lists.isEmpty(leaveRequests)}" class="empty-state py-5">
@@ -32,12 +32,30 @@
         </div>
         <div class="table-responsive" th:unless="${#lists.isEmpty(leaveRequests)}">
           <table class="table table-zebra table-stack-mobile align-middle">
-            <thead><tr><th>Nhân viên</th><th>Thời gian nghỉ</th><th>Lý do</th><th>Trạng thái</th><th class="text-end">Thao tác</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Nhân viên</th>
+                <th>Thời gian nghỉ</th>
+                <th>Lý do</th>
+                <th>Lịch hẹn bị ảnh hưởng</th>
+                <th>Trạng thái</th>
+                <th class="text-end">Thao tác</th>
+              </tr>
+            </thead>
             <tbody>
               <tr th:each="item : ${leaveRequests}">
                 <td data-label="Nhân viên"><strong class="text-dark" th:text="${ui.label(item.staffName)}">Nhân viên</strong></td>
                 <td data-label="Thời gian nghỉ"><span th:text="${#temporals.format(item.startDate, 'dd/MM/yyyy')}"></span> – <span th:text="${#temporals.format(item.endDate, 'dd/MM/yyyy')}"></span></td>
                 <td data-label="Lý do" class="text-break" th:text="${item.reason}">Lý do</td>
+                <td data-label="Lịch hẹn bị ảnh hưởng">
+                  <span th:if="${!#lists.isEmpty(item.conflictingBookingIds)}" class="text-danger small fw-semibold">
+                    Cần xử lý:
+                    <span th:each="bookingId, stat : ${item.conflictingBookingIds}">
+                      <a class="text-link" th:href="@{/admin/bookings/{id}(id=${bookingId})}" th:text="${'#' + bookingId}">#1</a><span th:if="${!stat.last}">, </span>
+                    </span>
+                  </span>
+                  <span th:if="${#lists.isEmpty(item.conflictingBookingIds)}" class="small text-secondary">Không có</span>
+                </td>
                 <td data-label="Trạng thái"><span class="status-pill" th:classappend="${item.status == 'APPROVED' ? 'confirmed' : (item.status == 'REJECTED' ? 'cancelled' : 'unpaid')}" th:text="${item.status == 'APPROVED' ? 'Đã duyệt' : (item.status == 'REJECTED' ? 'Từ chối' : 'Chờ duyệt')}">Chờ duyệt</span></td>
                 <td data-label="Thao tác" class="text-end">
                   <div th:if="${item.status == 'PENDING'}" class="d-inline-flex gap-2">

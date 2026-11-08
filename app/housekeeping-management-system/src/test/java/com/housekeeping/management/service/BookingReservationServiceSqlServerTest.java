@@ -14,6 +14,7 @@ import com.housekeeping.management.entity.House;
 import com.housekeeping.management.entity.Staff;
 import com.housekeeping.management.entity.User;
 import com.housekeeping.management.repository.BookingPersistenceRepository;
+import com.housekeeping.management.repository.BookingAvailabilityRepository;
 import com.housekeeping.management.repository.HouseRepository;
 import com.housekeeping.management.repository.ServicesRepository;
 import com.housekeeping.management.repository.StaffAccountRepository;
@@ -35,9 +36,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @SpringBootTest
 class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
+    @MockitoBean private VietmapClient vietmap;
     @Autowired private BookingReservationService reservationService;
     @Autowired private UserRepository users;
     @Autowired private StaffAccountRepository staffAccounts;
@@ -52,10 +55,18 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
     @Autowired private FeedbackService feedbackService;
     @Autowired private StaffManagementService staffManagement;
     @Autowired private BookingPersistenceRepository bookingPersistence;
+    @Autowired private BookingAvailabilityRepository bookingAvailability;
     @Autowired private JdbcTemplate jdbc;
 
     @BeforeEach
     void seedCompanyHoursWhenEmpty() {
+        org.mockito.Mockito.when(vietmap.motorcycleMinutes(org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any())).thenReturn(1);
+        org.mockito.Mockito.when(vietmap.motorcycleRoute(org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new VietmapClient.MotorcycleRoute(new java.math.BigDecimal("1000"),1));
+        org.mockito.Mockito.when(vietmap.motorcycleMinutesBeforeArrival(org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any())).thenReturn(1);
         Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Company_Settings", Integer.class);
         if (count == null || count == 0) {
             jdbc.update("""
@@ -110,7 +121,7 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
     }
 
     @Test
-    void sqlServerConflictQueryRejectsOverlapAnd59MinuteGapButAllowsExact60MinuteGap() {
+    void sqlServerOverlapQueryDetectsActualTimeOverlapWithoutAnArbitraryBuffer() {
         String suffix = UUID.randomUUID().toString();
         User customer = users.saveAndFlush(user("buffer-customer-" + suffix, UserRole.CUSTOMER));
         User staffUser = users.saveAndFlush(user("buffer-staff-" + suffix, UserRole.STAFF));
@@ -126,17 +137,53 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
         Long bookingId = reservationService.createBooking(customer.getUserId(), savedStaff.getStaffId(), house.getHouseId(),
                 existingStart, List.of(service.getServiceId()), null);
 
-        assertThat(bookingPersistence.hasConflictingBooking(savedStaff.getStaffId(),
-                existingStart.plusMinutes(30), existingStart.plusMinutes(90))).isTrue();
+        assertThat(bookingPersistence.overlappingAppointments(savedStaff.getStaffId(),
+                existingStart.plusMinutes(30), existingStart.plusMinutes(90), null))
+                .extracting(BookingPersistenceRepository.AppointmentPoint::bookingId).containsExactly(bookingId);
+        assertThat(bookingPersistence.overlappingAppointments(savedStaff.getStaffId(),
+                existingStart.plusMinutes(35), existingStart.plusMinutes(95), null)).isEmpty();
+    }
 
-        LocalDateTime nextSlot = existingStart.plusHours(2);
-        jdbc.update("UPDATE dbo.Bookings SET end_time=? WHERE booking_id=?", existingStart.plusMinutes(61), bookingId);
-        assertThat(bookingPersistence.hasConflictingBooking(savedStaff.getStaffId(),
-                nextSlot, nextSlot.plusMinutes(60))).isTrue();
+    @Test
+    void companyHoursResolveTheLatestVersionAtEveryDateBoundary() {
+        Long companyId=jdbc.queryForObject("SELECT TOP (1) company_id FROM dbo.Company_Settings ORDER BY company_id",Long.class);
+        LocalDate first=LocalDate.of(2040,1,1),second=LocalDate.of(2040,1,10);
+        try {
+            for(LocalDate version:List.of(first,second)) jdbc.batchUpdate("""
+                    INSERT INTO dbo.Company_Operating_Hours(company_id,effective_from,day_of_week,period_no,is_closed,opening_time,closing_time)
+                    VALUES(?,?,?,1,0,?,?)
+                    """,java.util.stream.IntStream.rangeClosed(1,7).boxed().toList(),7,(statement,day)->{
+                statement.setLong(1,companyId);statement.setObject(2,version);statement.setInt(3,day);
+                statement.setTime(4,java.sql.Time.valueOf(version.equals(first)?"13:00:00":"16:00:00"));
+                statement.setTime(5,java.sql.Time.valueOf(version.equals(first)?"17:00:00":"20:00:00"));
+            });
+            assertThat(bookingPersistence.companyAcceptsInterval(first.minusDays(1),LocalTime.of(9,0),LocalTime.of(10,0))).isTrue();
+            assertThat(bookingPersistence.companyAcceptsInterval(first,LocalTime.of(14,0),LocalTime.of(15,0))).isTrue();
+            assertThat(bookingPersistence.companyAcceptsInterval(first,LocalTime.of(9,0),LocalTime.of(10,0))).isFalse();
+            assertThat(bookingPersistence.companyAcceptsInterval(second.minusDays(1),LocalTime.of(14,0),LocalTime.of(15,0))).isTrue();
+            assertThat(bookingPersistence.companyAcceptsInterval(second,LocalTime.of(17,0),LocalTime.of(18,0))).isTrue();
+            assertThat(bookingPersistence.companyAcceptsInterval(second,LocalTime.of(14,0),LocalTime.of(15,0))).isFalse();
+        } finally {
+            jdbc.update("DELETE FROM dbo.Company_Operating_Hours WHERE company_id=? AND effective_from IN (?,?)",companyId,first,second);
+        }
+    }
 
-        jdbc.update("UPDATE dbo.Bookings SET end_time=? WHERE booking_id=?", existingStart.plusMinutes(60), bookingId);
-        assertThat(bookingPersistence.hasConflictingBooking(savedStaff.getStaffId(),
-                nextSlot, nextSlot.plusMinutes(60))).isFalse();
+    @Test
+    void availabilityLookupMapsSqlServerDateTimeValuesAndActiveStaff() {
+        String suffix = UUID.randomUUID().toString();
+        User staffUser = users.saveAndFlush(user("availability-query-" + suffix, UserRole.STAFF));
+        Staff staff = new Staff();
+        staff.setUser(staffUser);
+        staff.setStaffType(StaffType.PART_TIME);
+        Long staffId = staffAccounts.saveAndFlush(staff).getStaffId();
+        LocalDate workDate = LocalDate.now(ZoneOffset.ofHours(7)).plusDays(4);
+        availability.insert(staffId,workDate,LocalTime.of(8,0),LocalTime.of(12,0));
+
+        assertThat(bookingAvailability.activeStaff()).anyMatch(person -> person.id().equals(staffId)
+                && person.staffType().equals("PART_TIME"));
+        assertThat(bookingAvailability.activeAvailability(workDate))
+                .anyMatch(period -> period.staffId().equals(staffId)
+                        && period.start().equals(LocalTime.of(8,0)) && period.end().equals(LocalTime.of(12,0)));
     }
 
     @Test
