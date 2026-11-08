@@ -93,10 +93,10 @@
                   </div>
                   <div class="col-12 position-relative">
                     <label class="form-label" for="vietmapSearch">Tìm địa chỉ (VietMap) <span class="text-danger">*</span></label>
-                    <input class="form-control" id="vietmapSearch" autocomplete="off" placeholder="Nhập tối thiểu 3 ký tự" required>
+                    <input class="form-control" id="vietmapSearch" autocomplete="off" placeholder="Nhập tối thiểu 3 ký tự" th:value="${houseForm.addressDetail}" required>
                     <input type="hidden" th:field="*{vietmapRefId}" id="vietmapRefId">
                     <div id="vietmapSuggestions" class="list-group position-absolute w-100" style="z-index:10"></div>
-                    <p class="small text-secondary mt-2" id="selectedAddress">Chưa chọn kết quả VietMap.</p>
+                    <p class="small text-secondary mt-2" id="selectedAddress" th:text="${houseForm.addressDetail != null and !houseForm.addressDetail.isBlank() ? 'Địa chỉ hiện tại: ' + houseForm.addressDetail + '. (Vui lòng chọn lại từ gợi ý VietMap nếu muốn đổi địa chỉ)' : 'Chưa chọn kết quả VietMap.'}">Chưa chọn kết quả VietMap.</p>
                   </div>
                   <div class="col-12">
                     <label class="form-label" for="addressType">Loại địa chỉ</label>
