@@ -74,7 +74,7 @@ Các route dưới đây là điểm vào MVC của ứng dụng.
 | `/staff/bookings/{id}/evidence` | Multipart `image` | Ownership rồi `EvidenceStorageService.upload` |
 | `/staff/bookings/{id}/complete` | CSRF | `BookingCompletionService.completeBooking` |
 | `/staff/bookings/{id}/cash-payment` | CSRF | Nhân viên được phân công xác nhận đã nhận CASH |
-| `/payments/vnpay/return` | Browser redirect GET từ VNPay; public | Kiểm tra chữ ký rồi tra cứu QueryDR; chỉ xác nhận khi VNPay báo thành công, sau đó về trang chi tiết booking kèm thông báo |
+| `/payments/vnpay/return` | Browser redirect GET từ VNPay; public | Kiểm tra chữ ký rồi tra cứu QueryDR; xác nhận khi VNPay báo thành công (nếu QueryDR không dùng được thì dựa vào dữ liệu trả về có chữ ký, trạng thái `00` và đúng số tiền), sau đó về trang chi tiết booking kèm thông báo |
 | `/payments/vnpay/ipn` | GET server-to-server từ VNPay; public, không dùng session | Kiểm tra chữ ký, đơn và số tiền, xử lý idempotent; trả JSON `RspCode`/`Message` theo quy ước VNPay |
 | `/admin/services`, `/admin/services/{id}` | `name`, `description`, `duration`, `price` | Tạo/cập nhật theo Entity hiện có |
 | `/admin/services/{id}/activate`, `/admin/staff/{id}/activate` | CSRF | Kích hoạt lại dịch vụ hoặc tài khoản Staff đã ngừng hoạt động |

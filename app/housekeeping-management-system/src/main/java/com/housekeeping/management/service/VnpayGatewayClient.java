@@ -30,7 +30,8 @@ public class VnpayGatewayClient {
     private static final ZoneOffset VIETNAM = ZoneOffset.ofHours(7);
     private static final DateTimeFormatter VNPAY_TIME = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
     private static final String VERSION = "2.1.0";
-    private static final int CHECKOUT_MINUTES = 15;
+    /** Lifetime of a VNPay checkout ({@code vnp_ExpireDate}); VNPay refuses to reopen an order it has started. */
+    public static final int CHECKOUT_MINUTES = 15;
     /** VNPay asks for the calling server's IP; the sandbox does not restrict it. */
     private static final String SERVER_IP = "127.0.0.1";
 
@@ -170,6 +171,11 @@ public class VnpayGatewayClient {
         /** VNPay positively reports that no money was taken: the order is unknown (91) or the payment failed (02). */
         public boolean knownUnpaid() {
             return "91".equals(responseCode) || ("00".equals(responseCode) && "02".equals(transactionStatus));
+        }
+
+        /** QueryDR actually answered about the order; any other code means the lookup itself is unavailable. */
+        public boolean answered() {
+            return "00".equals(responseCode) || "91".equals(responseCode);
         }
     }
 }

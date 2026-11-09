@@ -27,6 +27,7 @@ Ghi các thay đổi đáng chú ý theo thứ tự mới nhất trước. File 
 - Bổ sung kiểm tra repository trung lập với framework bằng GitHub Actions.
 
 ### Changed
+- VNPay sandbox verified end to end with the NCB test card: payments are confirmed from the signed return data when QueryDR is unavailable (the new terminal answers QueryDR with 99), a still-open earlier checkout is no longer reopened because VNPay rejects it, and online order codes combine the creation time with the sequence so a database reset or another team machine never resends a `vnp_TxnRef` VNPay already saw that day.
 - Online payment now uses the VNPay sandbox instead of PayOS: signed checkout URLs, confirmation only from VNPay itself (QueryDR lookup on return or signed IPN) so it works on every machine without a public URL, a repeat checkout asks VNPay about the previous attempt to avoid double charges, and a clear message when VNPay is not configured. The PayOS integration and its Postman collection are removed; database and booking statuses are unchanged.
 - Share the post-baseline address migration between primary and demo Flyway locations to avoid maintaining duplicate DDL.
 - Exclude only the two guarded primary/demo baseline scripts from Sonar duplication measurement while retaining the rest of their analysis.

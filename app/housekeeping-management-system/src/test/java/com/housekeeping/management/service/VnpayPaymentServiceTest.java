@@ -86,16 +86,33 @@ class VnpayPaymentServiceTest {
     }
 
     @Test
-    void checkoutResumesAttemptThatIsStillOpenAtVnpay() {
+    void checkoutAsksCustomerToFinishOrWaitWhileEarlierCheckoutIsStillOpen() {
+        // VNPay rejects reopening an order it already started (sandbox error code=01), so it cannot be resumed.
         when(payments.prepareOnlineCheckout(42L, 7L))
                 .thenReturn(new PaymentService.OnlineCheckout(1001L, 150000L, CREATED_AT, true));
         when(gateway.query(1001L, CREATED_AT)).thenReturn(new VnpayGatewayClient.QueryResult("00", "01", new BigDecimal("150000")));
         when(gateway.checkoutOpen(CREATED_AT)).thenReturn(true);
-        when(gateway.paymentUrl(1001L, 150000L, CREATED_AT, "127.0.0.1")).thenReturn(CHECKOUT_URL);
 
-        assertThat(service.checkout(42L, 7L, "127.0.0.1")).isEqualTo(new VnpayPaymentService.Checkout(CHECKOUT_URL, false));
+        IllegalStateException failure = catchThrowableOfType(IllegalStateException.class,
+                () -> service.checkout(42L, 7L, "127.0.0.1"));
+
+        assertThat(PortalMessages.business(failure)).contains("VNPay").contains("10:30");
         verify(payments, never()).failOnlinePayment(anyLong(), any());
-        verify(payments, times(1)).prepareOnlineCheckout(42L, 7L);
+        verify(gateway, never()).paymentUrl(anyLong(), anyLong(), any(), any());
+    }
+
+    @Test
+    void checkoutReplacesAttemptVnpayCannotReportOnceItsCheckoutExpired() {
+        LocalDateTime retriedAt = CREATED_AT.plusMinutes(20);
+        when(payments.prepareOnlineCheckout(42L, 7L))
+                .thenReturn(new PaymentService.OnlineCheckout(1001L, 150000L, CREATED_AT, true))
+                .thenReturn(new PaymentService.OnlineCheckout(1002L, 150000L, retriedAt, false));
+        when(gateway.query(1001L, CREATED_AT)).thenReturn(new VnpayGatewayClient.QueryResult("99", "", null));
+        when(gateway.checkoutOpen(CREATED_AT)).thenReturn(false);
+        when(gateway.paymentUrl(1002L, 150000L, retriedAt, "127.0.0.1")).thenReturn(CHECKOUT_URL + "2");
+
+        assertThat(service.checkout(42L, 7L, "127.0.0.1").redirectUrl()).isEqualTo(CHECKOUT_URL + "2");
+        verify(payments).failOnlinePayment(1001L, new BigDecimal("150000"));
     }
 
     @Test
@@ -117,6 +134,7 @@ class VnpayPaymentServiceTest {
         when(payments.prepareOnlineCheckout(42L, 7L))
                 .thenReturn(new PaymentService.OnlineCheckout(1001L, 150000L, CREATED_AT, true));
         when(gateway.query(1001L, CREATED_AT)).thenReturn(new VnpayGatewayClient.QueryResult("99", "", null));
+        when(gateway.checkoutOpen(CREATED_AT)).thenReturn(true);
 
         IllegalStateException failure = catchThrowableOfType(IllegalStateException.class,
                 () -> service.checkout(42L, 7L, "127.0.0.1"));
@@ -160,6 +178,40 @@ class VnpayPaymentServiceTest {
         assertThat(service.handleReturn(returned).status()).isEqualTo(VnpayPaymentService.ReturnStatus.PENDING);
         verify(payments, never()).confirmOnlinePayment(anyLong(), any());
         verify(payments, never()).failOnlinePayment(anyLong(), any());
+    }
+
+    @Test
+    void returnConfirmsSignedSuccessWhenVnpayQueryIsUnavailable() {
+        // Shape seen on the real sandbox: QueryDR answers 99 for a paid order.
+        Map<String, String> returned = returned("00", "00");
+        when(gateway.hasValidSignature(returned)).thenReturn(true);
+        when(payments.findOnlinePayment(1001L)).thenReturn(Optional.of(attempt("PENDING")));
+        when(gateway.query(1001L, CREATED_AT)).thenReturn(new VnpayGatewayClient.QueryResult("99", "", null));
+
+        assertThat(service.handleReturn(returned).status()).isEqualTo(VnpayPaymentService.ReturnStatus.PAID);
+        verify(payments).confirmOnlinePayment(1001L, new BigDecimal("150000.00"));
+    }
+
+    @Test
+    void returnConfirmsSignedSuccessWhenVnpayQueryCannotBeReached() {
+        Map<String, String> returned = returned("00", "00");
+        when(gateway.hasValidSignature(returned)).thenReturn(true);
+        when(payments.findOnlinePayment(1001L)).thenReturn(Optional.of(attempt("PENDING")));
+        when(gateway.query(1001L, CREATED_AT)).thenThrow(new org.springframework.web.client.ResourceAccessException("timeout"));
+
+        assertThat(service.handleReturn(returned).status()).isEqualTo(VnpayPaymentService.ReturnStatus.PAID);
+        verify(payments).confirmOnlinePayment(1001L, new BigDecimal("150000.00"));
+    }
+
+    @Test
+    void signedReturnWithoutSuccessfulTransactionStatusIsNotTrustedWhenQueryIsUnavailable() {
+        Map<String, String> returned = returned("00", "01");
+        when(gateway.hasValidSignature(returned)).thenReturn(true);
+        when(payments.findOnlinePayment(1001L)).thenReturn(Optional.of(attempt("PENDING")));
+        when(gateway.query(1001L, CREATED_AT)).thenReturn(new VnpayGatewayClient.QueryResult("99", "", null));
+
+        assertThat(service.handleReturn(returned).status()).isEqualTo(VnpayPaymentService.ReturnStatus.PENDING);
+        verify(payments, never()).confirmOnlinePayment(anyLong(), any());
     }
 
     @Test
@@ -266,6 +318,12 @@ class VnpayPaymentServiceTest {
         params.put("vnp_Amount", "15000000");
         params.put("vnp_ResponseCode", responseCode);
         params.put("vnp_SecureHash", "signature");
+        return params;
+    }
+
+    private static Map<String, String> returned(String responseCode, String transactionStatus) {
+        Map<String, String> params = returned(responseCode);
+        params.put("vnp_TransactionStatus", transactionStatus);
         return params;
     }
 

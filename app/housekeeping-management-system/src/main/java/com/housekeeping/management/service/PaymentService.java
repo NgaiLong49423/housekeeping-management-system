@@ -15,6 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class PaymentService {
     private static final ZoneOffset BUSINESS_OFFSET = ZoneOffset.ofHours(7);
+    private static final java.time.format.DateTimeFormatter ORDER_CODE_TIME =
+            java.time.format.DateTimeFormatter.ofPattern("yyMMddHHmmss");
     private final BookingPersistenceRepository bookings;
     private final PaymentPersistenceRepository payments;
 
@@ -48,13 +50,23 @@ public class PaymentService {
 
         BigDecimal amount = bookings.bookingAmount(bookingId);
         long onlineAmount = onlineAmount(amount);
-        Long orderCode = payments.nextOnlineOrderCode();
-        if (orderCode == null || orderCode < 1 || orderCode > Integer.MAX_VALUE) {
+        Long sequence = payments.nextOnlineOrderCode();
+        if (sequence == null || sequence < 1) {
             throw new IllegalStateException("Không cấp được mã đơn thanh toán trực tuyến hợp lệ.");
         }
         LocalDateTime createdAt = now();
+        long orderCode = onlineOrderCode(createdAt, sequence);
         payments.insertPendingOnline(bookingId, amount, orderCode, createdAt);
         return new OnlineCheckout(orderCode, onlineAmount, createdAt, false);
+    }
+
+    /**
+     * yyMMddHHmmss of the attempt followed by the last five sequence digits. The gateway terminal is shared by
+     * every team database and rejects an order code reused on the same day, while each database's sequence
+     * restarts after a local reset; the creation time keeps codes apart across databases and resets.
+     */
+    private static long onlineOrderCode(LocalDateTime createdAt, long sequence) {
+        return Long.parseLong(ORDER_CODE_TIME.format(createdAt) + String.format(java.util.Locale.ROOT, "%05d", sequence % 100_000));
     }
 
     public Optional<PaymentPersistenceRepository.PaymentState> findOnlinePayment(long orderCode) {

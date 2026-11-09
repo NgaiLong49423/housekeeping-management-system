@@ -40,7 +40,9 @@ Danh sách thẻ test khác (thẻ hết tiền, thẻ bị khóa…) ở [trang
 
 1. Staff được phân công bấm hoàn thành công việc. Booking chuyển sang `AWAITING_PAYMENT`.
 2. Customer bấm **Thanh toán trực tuyến qua VNPay**. Backend khóa Booking, tạo một dòng `Payments` `ONLINE/PENDING`, lưu mã đơn (`vnp_TxnRef`) tại `transaction_code`, rồi chuyển trình duyệt sang VNPay bằng URL có chữ ký HMAC-SHA512. Link thanh toán hết hạn sau 15 phút.
-3. Trả xong, VNPay đưa khách về `GET /payments/vnpay/return`. Backend kiểm tra chữ ký, rồi **tự gọi API QueryDR của VNPay** (server gọi server) để hỏi kết quả. Chỉ khi VNPay xác nhận thành công và đúng số tiền, Payment mới thành `SUCCESS` và Booking thành `COMPLETED`. Dữ liệu trình duyệt mang về không bao giờ tự đánh dấu đã trả.
+   Mã đơn có dạng `yyMMddHHmmss` + 5 số cuối của sequence (ví dụ `26110915431800000`). VNPay từ chối `vnp_TxnRef` trùng trong ngày, mà cả nhóm dùng chung một TMN Code và sequence của mỗi database bắt đầu lại sau khi reset; phần thời gian giữ mã không trùng giữa các máy và các lần reset.
+3. Trả xong, VNPay đưa khách về `GET /payments/vnpay/return`. Backend kiểm tra chữ ký, rồi **tự gọi API QueryDR của VNPay** (server gọi server) để hỏi kết quả. Khi VNPay xác nhận thành công và đúng số tiền, Payment thành `SUCCESS` và Booking thành `COMPLETED`.
+   **Dự phòng khi QueryDR không dùng được** (lỗi `99`, không kết nối được): Backend chấp nhận dữ liệu VNPay gửi về nếu chữ ký HMAC-SHA512 hợp lệ (ký bằng Hash Secret, khách không giả mạo được), `vnp_ResponseCode=00`, `vnp_TransactionStatus=00` và số tiền khớp đơn đã lưu. Nếu QueryDR trả lời được thì luôn theo QueryDR. Đã gặp thực tế: QueryDR của terminal sandbox mới trả `99 Unexpected error` cho mọi yêu cầu.
 4. Khách thấy thông báo trên trang chi tiết booking: thành công, thất bại/đã hủy (thanh toán lại được), hoặc VNPay chưa xác nhận (tải lại sau ít phút).
 5. Nếu khách trả tiền mặt, chỉ Staff được phân công xác nhận. Backend ghi Payment `CASH/SUCCESS` và hoàn tất Booking trong cùng transaction; các lần thử ONLINE đang chờ được đánh dấu `FAILED`.
 
@@ -54,9 +56,10 @@ Backend hỏi VNPay về lần trước trước khi làm gì khác, để khác
 |---|---|
 | Đã thanh toán | Ghi nhận thành công, không tạo giao dịch mới |
 | Không tồn tại (`91`) hoặc thất bại (`02`) | Đánh dấu lần trước `FAILED`, tạo giao dịch mới |
-| Chưa hoàn tất (`01`), link còn hạn | Mở lại đúng link cũ |
-| Chưa hoàn tất (`01`), link đã hết hạn | Đánh dấu lần trước `FAILED`, tạo giao dịch mới |
-| Lỗi khác, không trả lời được | Không tạo giao dịch mới; báo khách thử lại sau |
+| Chưa hoàn tất (`01`) hoặc không trả lời được, link **còn hạn** | Không tạo giao dịch mới; báo khách hoàn tất ở trang VNPay đang mở hoặc thử lại sau giờ hết hạn |
+| Chưa hoàn tất (`01`) hoặc không trả lời được, link **đã hết hạn** | Đánh dấu lần trước `FAILED`, tạo giao dịch mới (VNPay không nhận tiền cho link đã hết hạn) |
+
+Không thể mở lại link cũ: VNPay từ chối một đơn đã bắt đầu (`code=01` "Giao dịch đang được xử lý hoặc đã quá thời gian thanh toán").
 
 ### IPN (khi có link công khai)
 
@@ -68,8 +71,10 @@ Backend hỏi VNPay về lần trước trước khi làm gì khác, để khác
 |---|---|
 | Trang VNPay báo lỗi `code=70` | Sai chữ ký: Hash Secret trong `.env` không đúng |
 | Trang VNPay báo lỗi `code=71` | Sai TMN Code |
-| Trang VNPay báo lỗi `code=88` "The terminal is not configured" | Tài khoản sandbox chưa được VNPay kích hoạt/cấu hình xong; kiểm tra email kích hoạt hoặc liên hệ hotrovnpay@vnpay.vn |
-| Bấm thanh toán lại thấy "VNPay chưa trả lời được trạng thái… (mã 99)" | QueryDR của VNPay đang lỗi, thường cùng nguyên nhân với `code=88` |
+| Trang VNPay báo lỗi `code=88` "Điểm thanh toán chưa được cấu hình" | VNPay chưa bật điểm thanh toán cho terminal; khai báo IPN URL trong Merchant Admin rồi email support.vnpayment@vnpay.vn (hotline 1900 55 55 77) nhờ kích hoạt |
+| Trang VNPay báo lỗi `code=01` ngay khi mở | `vnp_TxnRef` đã được dùng trong ngày (code cũ đếm lại từ `100000000` sau khi reset database); bản hiện tại đã ghép thời gian vào mã đơn |
+| Log ghi `VNPay QueryDR … answered 99` | QueryDR chưa được VNPay bật cho terminal; thanh toán vẫn được xác nhận bằng dữ liệu trả về có chữ ký (log `confirming from the signed return data`) |
+| Bấm thanh toán lại thấy "Hãy hoàn tất lần thanh toán VNPay đang mở hoặc thử lại sau HH:mm" | Lần trước chưa được VNPay xác nhận và link chưa hết hạn; chờ tới giờ đó để tạo giao dịch mới |
 
 Log ứng dụng ghi mã trả lời của QueryDR (`VNPay QueryDR for order … answered …`) để chẩn đoán.
 

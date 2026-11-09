@@ -37,12 +37,28 @@ class PaymentServiceTest {
 
         PaymentService.OnlineCheckout created = service.prepareOnlineCheckout(42L, 7L);
         org.mockito.ArgumentCaptor<LocalDateTime> insertedAt = org.mockito.ArgumentCaptor.forClass(LocalDateTime.class);
-        verify(payments).insertPendingOnline(eq(42L), eq(new BigDecimal("150000.00")), eq(1001L), insertedAt.capture());
-        assertThat(created).isEqualTo(new PaymentService.OnlineCheckout(1001L, 150000L, insertedAt.getValue(), false));
+        org.mockito.ArgumentCaptor<Long> insertedCode = org.mockito.ArgumentCaptor.forClass(Long.class);
+        verify(payments).insertPendingOnline(eq(42L), eq(new BigDecimal("150000.00")), insertedCode.capture(), insertedAt.capture());
+        assertThat(created).isEqualTo(new PaymentService.OnlineCheckout(insertedCode.getValue(), 150000L, insertedAt.getValue(), false));
 
         assertThat(service.prepareOnlineCheckout(42L, 7L))
                 .isEqualTo(new PaymentService.OnlineCheckout(1001L, 150000L, storedAt, true));
         verify(payments, times(1)).nextOnlineOrderCode();
+    }
+
+    @Test
+    void onlineOrderCodeCombinesCreationTimeWithSequenceSoItSurvivesDatabaseResets() {
+        // Every team machine shares one VNPay terminal, and VNPay rejects a vnp_TxnRef reused on the same day,
+        // so a fresh database (sequence back at 100000000) must not resend an order code VNPay already saw.
+        when(bookings.lockBooking(42L)).thenReturn(Optional.of(booking(7L, 11L, "AWAITING_PAYMENT")));
+        when(bookings.bookingAmount(42L)).thenReturn(new BigDecimal("150000.00"));
+        when(payments.findForBookingUpdate(42L)).thenReturn(List.of());
+        when(payments.nextOnlineOrderCode()).thenReturn(100000007L);
+
+        PaymentService.OnlineCheckout created = service.prepareOnlineCheckout(42L, 7L);
+
+        String createdAt = created.createdAt().format(java.time.format.DateTimeFormatter.ofPattern("yyMMddHHmmss"));
+        assertThat(created.orderCode()).isEqualTo(Long.parseLong(createdAt + "00007"));
     }
 
     @Test
