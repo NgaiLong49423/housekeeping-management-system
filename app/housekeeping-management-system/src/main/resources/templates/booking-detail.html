@@ -215,6 +215,16 @@
                 <span class="badge bg-light text-dark border small">Thẻ quốc tế</span>
               </div>
               <p class="small text-secondary mt-2 mb-0">Bạn sẽ được chuyển sang cổng VNPay (môi trường thử nghiệm) hỗ trợ quét mã QR ứng dụng ngân hàng hoặc thẻ test NCB. Lịch hẹn hoàn tất ngay khi hệ thống xác minh giao dịch trực tiếp với VNPay.</p>
+              <div class="mt-3 p-3 bg-light rounded-3 border text-start">
+                <div class="fw-semibold small text-primary d-flex align-items-center gap-1 mb-1">
+                  <svg th:replace="~{fragments/icons :: info}"></svg>
+                  <span>Thông tin thử nghiệm (VNPay Sandbox):</span>
+                </div>
+                <div class="small text-secondary" style="font-size: 0.82rem; line-height: 1.5;">
+                  <div>&bull; <strong>Quét mã QR:</strong> Chọn tab VNPAY-QR trên cổng thanh toán.</div>
+                  <div>&bull; <strong>Thẻ test NCB:</strong> <code>9704198526191432198</code> | Tên: <code>NGUYEN VAN A</code> | Ngày: <code>07/15</code> | OTP: <code>123456</code></div>
+                </div>
+              </div>
             </form>
             <form th:if="${currentUser.role == 'STAFF' and booking.status == 'AWAITING_PAYMENT' and booking.paymentStatus != 'SUCCESS'}"
                   method="post" th:action="@{/staff/bookings/{id}/cash-payment(id=${booking.id})}"
