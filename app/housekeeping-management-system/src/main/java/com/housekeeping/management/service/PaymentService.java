@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,6 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class PaymentService {
     private static final ZoneOffset BUSINESS_OFFSET = ZoneOffset.ofHours(7);
+    private static final java.time.format.DateTimeFormatter ORDER_CODE_TIME =
+            java.time.format.DateTimeFormatter.ofPattern("yyMMddHHmmss");
     private final BookingPersistenceRepository bookings;
     private final PaymentPersistenceRepository payments;
 
@@ -40,18 +43,34 @@ public class PaymentService {
         if (!attempts.isEmpty()) {
             var latest = attempts.getFirst();
             if ("ONLINE".equals(latest.method()) && "PENDING".equals(latest.status())) {
-                return new OnlineCheckout(Long.parseLong(latest.transactionCode()), onlineAmount(latest.amount()), true);
+                return new OnlineCheckout(Long.parseLong(latest.transactionCode()), onlineAmount(latest.amount()),
+                        latest.createdAt(), true);
             }
         }
 
         BigDecimal amount = bookings.bookingAmount(bookingId);
         long onlineAmount = onlineAmount(amount);
-        Long orderCode = payments.nextPayosOrderCode();
-        if (orderCode == null || orderCode < 1 || orderCode > Integer.MAX_VALUE) {
-            throw new IllegalStateException("Không cấp được mã đơn thanh toán PayOS hợp lệ.");
+        Long sequence = payments.nextOnlineOrderCode();
+        if (sequence == null || sequence < 1) {
+            throw new IllegalStateException("Không cấp được mã đơn thanh toán trực tuyến hợp lệ.");
         }
-        payments.insertPendingOnline(bookingId, amount, orderCode, now());
-        return new OnlineCheckout(orderCode, onlineAmount, false);
+        LocalDateTime createdAt = now();
+        long orderCode = onlineOrderCode(createdAt, sequence);
+        payments.insertPendingOnline(bookingId, amount, orderCode, createdAt);
+        return new OnlineCheckout(orderCode, onlineAmount, createdAt, false);
+    }
+
+    /**
+     * yyMMddHHmmss of the attempt followed by the last five sequence digits. The gateway terminal is shared by
+     * every team database and rejects an order code reused on the same day, while each database's sequence
+     * restarts after a local reset; the creation time keeps codes apart across databases and resets.
+     */
+    private static long onlineOrderCode(LocalDateTime createdAt, long sequence) {
+        return Long.parseLong(ORDER_CODE_TIME.format(createdAt) + String.format(java.util.Locale.ROOT, "%05d", sequence % 100_000));
+    }
+
+    public Optional<PaymentPersistenceRepository.PaymentState> findOnlinePayment(long orderCode) {
+        return payments.findByOrderCode(orderCode).filter(payment -> "ONLINE".equals(payment.method()));
     }
 
     @Transactional
@@ -103,20 +122,20 @@ public class PaymentService {
     private PaymentPersistenceRepository.PaymentState lockOnlinePayment(long orderCode, BigDecimal amount) {
         Long bookingId = payments.findByOrderCode(orderCode)
                 .map(PaymentPersistenceRepository.PaymentState::bookingId)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy giao dịch PayOS."));
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy giao dịch thanh toán trực tuyến."));
         bookings.lockBooking(bookingId)
                 .orElseThrow(() -> new IllegalArgumentException("Lịch hẹn thanh toán không tồn tại."));
         PaymentPersistenceRepository.PaymentState payment = payments.findByOrderCodeForUpdate(orderCode)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy giao dịch PayOS."));
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy giao dịch thanh toán trực tuyến."));
         if (!"ONLINE".equals(payment.method()) || payment.amount().compareTo(amount) != 0) {
-            throw new IllegalArgumentException("Thông tin giao dịch PayOS không khớp với yêu cầu đã lưu.");
+            throw new IllegalArgumentException("Thông tin giao dịch trực tuyến không khớp với yêu cầu đã lưu.");
         }
         return payment;
     }
 
     private static long onlineAmount(BigDecimal amount) {
         if (amount == null || amount.signum() <= 0) {
-            throw new IllegalStateException("PayOS yêu cầu số tiền thanh toán lớn hơn 0.");
+            throw new IllegalStateException("Số tiền thanh toán trực tuyến phải lớn hơn 0.");
         }
         try {
             return amount.longValueExact();
@@ -129,5 +148,6 @@ public class PaymentService {
         return OffsetDateTime.now(BUSINESS_OFFSET).withNano(0).toLocalDateTime();
     }
 
-    public record OnlineCheckout(long orderCode, long amount, boolean recoverExisting) { }
+    /** {@code createdAt} is the stored attempt time that the gateway needs to look the order up again. */
+    public record OnlineCheckout(long orderCode, long amount, LocalDateTime createdAt, boolean recoverExisting) { }
 }

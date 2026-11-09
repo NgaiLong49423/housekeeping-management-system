@@ -36,12 +36,12 @@ public class SecurityConfig {
         return http.authorizeHttpRequests(access -> access
                     .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                     .requestMatchers("/", "/services", "/login", "/register", "/css/**", "/js/**", "/images/**", "/vendor/**", "/error").permitAll()
-                    .requestMatchers("/payments/payos/webhook", "/payments/payos/return", "/payments/payos/cancel").permitAll()
+                    // VNPay redirects the browser back and calls the IPN with GET requests, so CSRF does not apply.
+                    .requestMatchers("/payments/vnpay/return", "/payments/vnpay/ipn").permitAll()
                     .requestMatchers("/customer/**").hasRole("CUSTOMER")
                     .requestMatchers("/staff/**").hasRole("STAFF")
                     .requestMatchers("/admin/**").hasRole("ADMIN")
                     .anyRequest().authenticated())
-                .csrf(csrf -> csrf.ignoringRequestMatchers("/payments/payos/webhook"))
                 .formLogin(login -> login.loginPage("/login").usernameParameter("email")
                     .defaultSuccessUrl("/portal").failureUrl("/login?error").permitAll())
                 .logout(logout -> logout.logoutSuccessUrl("/login?logout"))

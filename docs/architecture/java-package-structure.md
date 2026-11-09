@@ -1,8 +1,8 @@
 > **Document:** Java Package Structure Guide\
 > **File:** `docs/architecture/java-package-structure.md`\
-> **Version:** v2.3.0\
+> **Version:** v2.4.0\
 > **Created:** 2026-10-24\
-> **Last Updated:** 2026-10-25\
+> **Last Updated:** 2026-11-08\
 > **Status:** Active\
 
 # Hướng dẫn cấu trúc package Java
@@ -63,7 +63,7 @@ controller -> service -> repository -> SQL Server
                  └----> entity/domain types
 ```
 
-Provider PayOS phải nằm sau lớp tích hợp rõ ràng. Chỉ tạo `PaymentGateway` interface nếu nó giúp kiểm thử hoặc cô lập vendor thực tế; DTO/SDK và exception PayOS không được rò vào business contract. Không thêm `IService` cho mọi service, generic repository, fake implementation, hoặc module Maven mới.
+Provider VNPay phải nằm sau lớp tích hợp rõ ràng (`VnpayGatewayClient`, `VnpayPaymentService`). Chỉ tạo `PaymentGateway` interface nếu nó giúp kiểm thử hoặc cô lập vendor thực tế; tham số, chữ ký và exception VNPay không được rò vào business contract của `PaymentService`. Không thêm `IService` cho mọi service, generic repository, fake implementation, hoặc module Maven mới.
 
 ## Áp dụng với code hiện tại
 

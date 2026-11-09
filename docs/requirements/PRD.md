@@ -1,8 +1,8 @@
 > **Document:** Product Requirements Document\
 > **File:** `docs/requirements/PRD.md`\
-> **Version:** v2.0.0\
+> **Version:** v2.1.0\
 > **Created:** 2026-06-14\
-> **Last Updated:** 2026-10-24\
+> **Last Updated:** 2026-11-08\
 > **Status:** Active\
 # PRD — HOME CLEANING BOOKING (CẬP NHẬT THEO BASELINE MỚI)
 
@@ -45,7 +45,7 @@ Hệ thống web cho một công ty dịch vụ dọn dẹp nhà: khách chọn 
 Microservices, React SPA, JWT, admin-approve-job, rating, staff skills, salary, promos, recurring schedules, monthly plans, multi-company, separate Admin/Customer tables, status history, payment gateway table, custom notification platform.
 
 ## G. Constraints and dependencies
-Java 21, Spring Boot, Maven, Thymeleaf, Bootstrap, Spring Security/session, SQL Server, JPA, Flyway, PayOS reused if viable. House addresses are entered manually and do not require Google Maps credentials. Avoid hard-coded production secrets. Apply schema changes only through the append-only SQL Server Flyway migrations; never reset the user's database on startup.
+Java 21, Spring Boot, Maven, Thymeleaf, Bootstrap, Spring Security/session, SQL Server, JPA, Flyway, VNPay sandbox for ONLINE payment. House addresses are entered manually and do not require Google Maps credentials. Avoid hard-coded production secrets. Apply schema changes only through the append-only SQL Server Flyway migrations; never reset the user's database on startup.
 
 ## H. Success criteria
 - Demo 3 roles through user journeys described above; guards and edge conditions enforced by Backend.

@@ -1,8 +1,8 @@
 > **Document:** Housekeeping Management System README\
 > **File:** `README.md`\
-> **Version:** v2.3.0\
+> **Version:** v2.4.0\
 > **Created:** 2026-06-14\
-> **Last Updated:** 2026-10-27\
+> **Last Updated:** 2026-11-08\
 > **Status:** Draft\
 
 # Housekeeping Management System
@@ -26,7 +26,7 @@ Agent và thành viên nhóm cần theo [hướng dẫn cấu trúc package Java
 
 Authentication; Service Management; Staff Profile; Follow Staff; House Management; Booking Management; Staff Availability; Leave Management; Job Execution; Payment; Feedback; System Configuration.
 
-Ba role là `CUSTOMER`, `STAFF`, `ADMIN`. Database có đúng 15 bảng nghiệp vụ theo Data Dictionary. Booking dùng các trạng thái `CONFIRMED`, `AWAITING_PAYMENT`, `COMPLETED`, `CANCELLED`. Payment `CASH` do Staff được giao xác nhận; Payment `ONLINE` qua PayOS được xác nhận bằng webhook hợp lệ.
+Ba role là `CUSTOMER`, `STAFF`, `ADMIN`. Database có đúng 15 bảng nghiệp vụ theo Data Dictionary. Booking dùng các trạng thái `CONFIRMED`, `AWAITING_PAYMENT`, `COMPLETED`, `CANCELLED`. Payment `CASH` do Staff được giao xác nhận; Payment `ONLINE` qua VNPay sandbox chỉ được xác nhận khi VNPay báo thành công (tra cứu QueryDR, IPN có chữ ký, hoặc — khi QueryDR không dùng được — dữ liệu trả về có chữ ký HMAC hợp lệ và đúng số tiền), nên chạy được trên mọi máy mà không cần link công khai.
 
 ## Chạy database chính
 
@@ -73,5 +73,5 @@ app/housekeeping-management-system/
 
 - [PRD](docs/requirements/PRD.md), [SRS](docs/requirements/SRS.md), [SQL Server Data Dictionary](docs/requirements/SQL_SERVER_DATA_DICTIONARY.md)
 - [Kiến trúc package](docs/architecture/java-package-structure.md)
-- [Hướng dẫn cài đặt/demo](docs/demo-setup.md), [hướng dẫn database](database/README.md), [hướng dẫn PayOS](docs/payos-payment.md)
+- [Hướng dẫn cài đặt/demo](docs/demo-setup.md), [hướng dẫn database](database/README.md), [hướng dẫn thanh toán VNPay](docs/vnpay-payment.md)
 - [Quy trình đóng góp](CONTRIBUTING.md)
