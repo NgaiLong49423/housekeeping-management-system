@@ -18,7 +18,7 @@ class HousekeepingManagementSystemApplicationTests extends SqlServerIntegrationT
 
     @Test
     void freshSqlServerSchemaContainsExactlyTheApprovedBusinessTables() {
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("5");
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("8");
         Integer tableCount = jdbc.queryForObject("""
                 SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
                 WHERE TABLE_SCHEMA='dbo' AND TABLE_TYPE='BASE TABLE'
@@ -31,6 +31,13 @@ class HousekeepingManagementSystemApplicationTests extends SqlServerIntegrationT
         assertThat(tableCount).isEqualTo(15);
 
         assertThat(jdbc.queryForObject("SELECT COL_LENGTH('dbo.Bookings', 'customer_arrived_at')", Integer.class)).isNotNull();
+        assertThat(jdbc.queryForObject("SELECT COL_LENGTH('dbo.Bookings', 'staff_arrived_at')", Integer.class)).isNotNull();
+        assertThat(jdbc.queryForObject("SELECT COL_LENGTH('dbo.Bookings', 'incident_reported_at')", Integer.class)).isNotNull();
+        assertThat(jdbc.queryForObject("SELECT COL_LENGTH('dbo.Bookings', 'incident_note')", Integer.class)).isNotNull();
+        assertThat(jdbc.queryForObject("SELECT COL_LENGTH('dbo.Bookings', 'incident_expected_arrival_at')", Integer.class)).isNotNull();
+        assertThat(jdbc.queryForObject("SELECT COL_LENGTH('dbo.Bookings', 'incident_customer_response')", Integer.class)).isNotNull();
+        assertThat(jdbc.queryForObject("SELECT COL_LENGTH('dbo.Bookings', 'work_started_at')", Integer.class)).isNotNull();
+        assertThat(jdbc.queryForObject("SELECT COL_LENGTH('dbo.Bookings', 'delay_discount_amount')", Integer.class)).isNotNull();
         assertThat(jdbc.queryForObject("SELECT COL_LENGTH('dbo.Company_Operating_Hours', 'period_no')", Integer.class)).isNotNull();
         assertThat(jdbc.queryForObject("SELECT COL_LENGTH('dbo.Company_Operating_Hours', 'effective_from')", Integer.class)).isNotNull();
         assertThat(jdbc.queryForObject("SELECT COL_LENGTH('dbo.Staff_Availability', 'is_active')", Integer.class)).isNotNull();
@@ -53,7 +60,7 @@ class HousekeepingManagementSystemApplicationTests extends SqlServerIntegrationT
     }
 
     @Test
-    void demoProfileFlywayLocationsIncludeTheSchedulingUpgradeMigration() throws Exception {
+    void demoProfileFlywayLocationsIncludeSharedBookingUpgradeMigration() throws Exception {
         var properties = new ClassPathResource("application-demo.properties");
         String content;
         try (var input = properties.getInputStream()) {
@@ -62,5 +69,19 @@ class HousekeepingManagementSystemApplicationTests extends SqlServerIntegrationT
         assertThat(content).contains("spring.flyway.locations=classpath:db/refactor,classpath:db/shared");
         assertThat(new ClassPathResource("db/refactor/V4__extend_booking_schedule_and_service_area.sql").exists()).isTrue();
         assertThat(new ClassPathResource("db/shared/V5__add_effective_dates_to_company_hours.sql").exists()).isTrue();
+        assertThat(new ClassPathResource("db/shared/V6__track_booking_arrivals_and_incidents.sql").exists()).isTrue();
+        assertThat(new ClassPathResource("db/shared/V8__handle_staff_delay_acknowledgement_and_compensation.sql").exists()).isTrue();
+        assertThat(new ClassPathResource("db/refactor/V7__seed_demo_arrival_booking.sql").exists()).isTrue();
+        assertThat(content).contains("app.booking.arrival-early-confirmation-minutes=5");
+    }
+
+    @Test
+    void nonDemoProfileKeepsArrivalConfirmationWindowClosedUntilStart() throws Exception {
+        var properties = new ClassPathResource("application.properties");
+        String content;
+        try (var input = properties.getInputStream()) {
+            content = new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        }
+        assertThat(content).contains("app.booking.arrival-early-confirmation-minutes=0");
     }
 }

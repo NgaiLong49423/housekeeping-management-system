@@ -10,6 +10,8 @@ public final class PortalMessages {
         Map.entry("Every detail must use the selected Staff's schedule", "Khoảng sẵn sàng không thuộc nhân viên đã chọn."),
         Map.entry("Every detail must have between one and five valid evidences", "Mỗi dịch vụ cần từ 1 đến 5 ảnh bằng chứng trước khi hoàn thành."),
         Map.entry("Only a confirmed booking can be completed", "Chỉ có thể hoàn thành lịch đang được xác nhận."),
+        Map.entry("Cần tải ít nhất một ảnh minh chứng trước khi xác nhận hoàn thành.", "Cần tải ít nhất một ảnh minh chứng trước khi xác nhận hoàn thành."),
+        Map.entry("Nội dung sự cố phải có từ 1 đến 500 ký tự.", "Nội dung sự cố phải có từ 1 đến 500 ký tự."),
         Map.entry("Evidence must be a non-empty image no larger than 5 MB", "Chọn ảnh không rỗng, tối đa 5 MB."),
         Map.entry("Only JPEG and PNG evidence files are accepted", "Chỉ nhận ảnh JPEG hoặc PNG."),
         Map.entry("File extension does not match the image content", "Nội dung ảnh không khớp phần mở rộng của file."),

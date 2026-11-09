@@ -1,8 +1,8 @@
 > **Document:** SQL Server Data Dictionary\
 > **File:** `docs/requirements/SQL_SERVER_DATA_DICTIONARY.md`\
-> **Version:** v2.2.0\
+> **Version:** v3.1.0\
 > **Created:** 2026-10-24\
-> **Last Updated:** 2026-11-07\
+> **Last Updated:** 2026-11-09\
 > **Status:** Active\
 # Từ điển dữ liệu SQL Server — 15 bảng
 
@@ -15,6 +15,14 @@ Migration mới thêm `period_no` để cho phép nhiều khung mỗi ngày, `is
 ## Migration V5 — lịch tuần có ngày hiệu lực
 
 Migration dùng chung V5 thêm `effective_from DATE NOT NULL DEFAULT '1900-01-01'` vào `Company_Operating_Hours`; toàn bộ giờ cũ trở thành lịch nền. Khóa duy nhất mở rộng thành `(company_id,effective_from,day_of_week,period_no)`. Không thêm bảng nghiệp vụ; tổng số vẫn là 15. Lịch áp dụng cho ngày D là phiên bản có `effective_from` lớn nhất nhưng không sau D; phiên bản đó kết thúc ngay trước ngày hiệu lực kế tiếp.
+
+## Migration V6 — xác nhận Staff đến và báo sự cố
+
+Migration dùng chung V6 thêm `staff_arrived_at`, `incident_reported_at` và `incident_note` vào `Bookings`; tổng số bảng nghiệp vụ giữ nguyên 15. Mỗi Booking lưu tối đa một báo cáo sự cố, gồm nội dung và thời điểm; Staff chỉ gửi khi Booking còn `CONFIRMED` và trước `start_time`. Customer có thể xem báo cáo trên chi tiết Booking. Không có bảng lịch sử sự cố.
+
+## Migration V8 — đồng thuận trễ và giảm trừ
+
+Migration dùng chung V8 thêm `work_started_at`, ETA dự kiến, phản hồi Customer, phút trễ và phần trăm/giá trị giảm trên `Bookings`; không thêm bảng nghiệp vụ, tổng số vẫn là 15. Một báo cáo trễ cần Customer đồng ý rõ ràng trước khi Staff bắt đầu. Từ chối hủy miễn phí nếu công việc chưa bắt đầu. Mức giảm theo số phút trễ được làm tròn lên: 1–15 phút 5%, 16–30 phút 10%, trên 30 phút 20%; tiền giảm làm tròn đến đồng. Thanh toán lưu số tiền sau giảm.
 
 ## Mapping kiểu dữ liệu đề xuất
 | Logical | SQL Server |
@@ -60,8 +68,8 @@ Recommended Java: `Long`, `BigDecimal`, `LocalDate`, `LocalTime`, `LocalDateTime
 `leave_id PK`, `staff_id BIGINT NOT NULL FK -> Staff`, `start_date DATE NOT NULL`, `end_date DATE NOT NULL`, `reason NVARCHAR(500) NOT NULL`, `status VARCHAR(20) NOT NULL DEFAULT PENDING CHECK PENDING/APPROVED/REJECTED`, `created_at DATETIME2(0) NOT NULL DEFAULT SYSDATETIME()`, `reviewed_by BIGINT NULL FK -> Users`, `reviewed_at DATETIME2(0) NULL`. CHECK start<=end; PENDING reviewed fields NULL; APPROVED/REJECTED reviewed fields non-NULL.
 
 ## 10. Bookings
-`booking_id PK`, `customer_id BIGINT NOT NULL FK -> Users`, `staff_id BIGINT NOT NULL FK -> Staff` (**current**), `original_staff_id BIGINT NOT NULL FK -> Staff` (**immutable**), `house_id BIGINT NOT NULL FK -> Houses`, `address_snapshot NVARCHAR(500) NOT NULL`, `latitude_snapshot DECIMAL(10,7) NULL`, `longitude_snapshot DECIMAL(10,7) NULL`, `address_note_snapshot NVARCHAR(500) NULL`, `start_time DATETIME2(0) NOT NULL`, `end_time DATETIME2(0) NOT NULL`, `total_duration_minutes INT NOT NULL`, `total_amount DECIMAL(12,2) NOT NULL`, `area_note NVARCHAR(MAX) NULL`, `status VARCHAR(20) NOT NULL DEFAULT CONFIRMED CHECK CONFIRMED/AWAITING_PAYMENT/COMPLETED/CANCELLED`, `cancelled_at DATETIME2(0) NULL`, `cancelled_by BIGINT NULL FK -> Users`, `cancellation_reason NVARCHAR(500) NULL`, `created_at DATETIME2(0) NOT NULL DEFAULT SYSDATETIME()`, `customer_arrived_at DATETIME2(0) NULL`.
-CHECK end_time>start_time, nonnegative totals, valid coordinate range; status CANCELLED means all cancel fields present, others cancel fields NULL. No updated_at/work_completed_at/history.
+`booking_id PK`, `customer_id BIGINT NOT NULL FK -> Users`, `staff_id BIGINT NOT NULL FK -> Staff` (**current**), `original_staff_id BIGINT NOT NULL FK -> Staff` (**immutable**), `house_id BIGINT NOT NULL FK -> Houses`, `address_snapshot NVARCHAR(500) NOT NULL`, `latitude_snapshot DECIMAL(10,7) NULL`, `longitude_snapshot DECIMAL(10,7) NULL`, `address_note_snapshot NVARCHAR(500) NULL`, `start_time DATETIME2(0) NOT NULL`, `end_time DATETIME2(0) NOT NULL`, `total_duration_minutes INT NOT NULL`, `total_amount DECIMAL(12,2) NOT NULL`, `area_note NVARCHAR(MAX) NULL`, `status VARCHAR(20) NOT NULL DEFAULT CONFIRMED CHECK CONFIRMED/AWAITING_PAYMENT/COMPLETED/CANCELLED`, `cancelled_at DATETIME2(0) NULL`, `cancelled_by BIGINT NULL FK -> Users`, `cancellation_reason NVARCHAR(500) NULL`, `created_at DATETIME2(0) NOT NULL DEFAULT SYSDATETIME()`, `customer_arrived_at DATETIME2(0) NULL`, `staff_arrived_at DATETIME2(0) NULL`, `incident_reported_at DATETIME2(0) NULL`, `incident_note NVARCHAR(500) NULL`, `work_started_at DATETIME2(0) NULL`, `incident_expected_arrival_at DATETIME2(0) NULL`, `incident_customer_response VARCHAR(20) NULL CHECK ACCEPTED/DECLINED`, `incident_customer_responded_at DATETIME2(0) NULL`, `delay_minutes INT NULL CHECK >=0`, `delay_discount_percent DECIMAL(5,2) NOT NULL DEFAULT 0 CHECK IN (0,5,10,20)`, `delay_discount_amount DECIMAL(12,2) NOT NULL DEFAULT 0 CHECK BETWEEN 0 AND total_amount`.
+CHECK end_time>start_time, nonnegative totals, valid coordinate range; status CANCELLED means all cancel fields present, others cancel fields NULL. Incident timestamp and note are both NULL or both present and note is nonblank. No updated_at/work_completed_at/history; incident report is a single Booking-level value.
 
 ## 11. Booking_Details
 `booking_detail_id PK`, `booking_id BIGINT NOT NULL FK -> Bookings`, `service_id BIGINT NOT NULL FK -> Services`, `service_name_snapshot NVARCHAR(150) NOT NULL`, `unit_price DECIMAL(12,2) NOT NULL CHECK>=0`, `duration_minutes INT NOT NULL CHECK>0`. No sequence_no, execution_order, service-specific time. Backend guarantees >=1 details per booking and snapshots/totals in one transaction.

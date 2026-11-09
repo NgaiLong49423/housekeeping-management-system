@@ -1,8 +1,8 @@
 > **Document:** Software Requirements Specification\
 > **File:** `docs/requirements/SRS.md`\
-> **Version:** v4.1.0\
+> **Version:** v5.1.0\
 > **Created:** 2026-06-14\
-> **Last Updated:** 2026-11-08\
+> **Last Updated:** 2026-11-09\
 > **Status:** Active\
 # SRS — SOFTWARE REQUIREMENTS SPECIFICATION
 
@@ -83,37 +83,48 @@ One server-rendered Java Spring MVC web application, single company, SQL Server.
 - Inputs: Customer, own House, chosen ACTIVE Staff, >=1 ACTIVE Services, proposed start, optional area_note. One booking form may include several service dates; each date has its own selected Staff and start time and persists as an independent Booking.
 - Availability calendar only offers dates with at least one Staff and 15-minute start that can fit all selected Services inside Admin hours and the Staff's active interval (for PART_TIME), after leave, existing-booking and 120-minute lead-time checks. When Customer filters by Staff, dates are limited to that Staff's eligible schedule.
 - Validate start alignment to 15-minute slots; now+>=120 minutes; start<=now+30 days; full interval inside a single company window; House within radius; Staff not on approved leave; type-specific availability.
-- Giờ Admin cấu hình và giờ Staff đăng ký là thời điểm nhân viên có mặt tại nhà khách, sẵn sàng bắt đầu phục vụ. Booking đầu ngày đi từ tâm công ty; hệ thống lấy ETA tuyến xe máy VietMap cơ sở + 15 phút để ước tính giờ xuất phát lùi từ giờ booking và truyền thời điểm đó vào Route v4. Giữa hai booking trong cùng ngày, khoảng trống tối thiểu là ETA tuyến VietMap từ địa chỉ booking trước đến địa chỉ sau + 15 phút dự phòng (ví dụ ETA 20 phút cần 35 phút). Quãng đường đường bộ VietMap giữa hai booking cùng Staff không được vượt `serviceRadiusKm` Admin đang cấu hình; đúng bằng ngưỡng thì chấp nhận. Quy tắc này chỉ áp dụng cho chặng giữa booking, không cộng phí; bán kính nhà quanh tâm công ty vẫn được kiểm tra riêng. Booking cùng Staff không được chồng giờ. Thời điểm khởi hành gửi VietMap chỉ hỗ trợ tránh khu vực hạn chế theo giờ, ETA không phải dự báo kẹt xe tương lai. API lỗi/không có tuyến từ chối booking. Nếu dự kiến trễ, Staff báo Admin sớm để Admin liên hệ khách; không tự đổi/hủy lịch hoặc áp dụng quy tắc hoàn tiền mới.
+- Giờ Admin cấu hình và giờ Staff đăng ký là thời điểm nhân viên có mặt tại nhà khách, sẵn sàng bắt đầu phục vụ. Booking đầu ngày đi từ tâm công ty; hệ thống lấy ETA tuyến xe máy VietMap cơ sở + 15 phút để ước tính giờ xuất phát lùi từ giờ booking và truyền thời điểm đó vào Route v4. Giữa hai booking trong cùng ngày, khoảng trống tối thiểu là ETA tuyến VietMap từ địa chỉ booking trước đến địa chỉ sau + 15 phút dự phòng (ví dụ ETA 20 phút cần 35 phút). Quãng đường đường bộ VietMap giữa hai booking cùng Staff không được vượt `serviceRadiusKm` Admin đang cấu hình; đúng bằng ngưỡng thì chấp nhận. Quy tắc này chỉ áp dụng cho chặng giữa booking, không cộng phí; bán kính nhà quanh tâm công ty vẫn được kiểm tra riêng. Booking cùng Staff không được chồng giờ. Thời điểm khởi hành gửi VietMap chỉ hỗ trợ tránh khu vực hạn chế theo giờ, ETA không phải dự báo kẹt xe tương lai. API lỗi/không có tuyến từ chối booking. Nếu dự kiến trễ, Staff phải ghi báo cáo sự cố trên Booking và liên hệ Customer trực tiếp trước giờ bắt đầu; báo cáo hiển thị cho Customer và Admin. Không tự đổi/hủy lịch hoặc áp dụng quy tắc hoàn tiền mới.
 - Khi Customer tra giờ, availability-options bắt buộc nhận `houseId` và xác minh House thuộc Customer đang đăng nhập. Các mốc chồng giờ bị ẩn. Khi kiểm tra một mốc cụ thể, nếu thiếu thời gian di chuyển trước/sau thì loại mốc đó và nêu booking liên quan, khoảng trống hiện có, ETA, 15 phút dự phòng, thời điểm đủ điều kiện sớm nhất hoặc giờ bắt đầu muộn nhất. Lưới chọn vẫn theo 15 phút: đủ điều kiện từ 10:35 thì mốc đầu tiên có thể chọn là 10:45. Lỗi VietMap phải được phân biệt với thiếu thời gian di chuyển. Backend lặp lại cùng kiểm tra khi lưu; lỗi từng ngày giữ nguyên dịch vụ, House, ghi chú, giờ và Staff để Customer chỉnh sửa.
 - On success snapshot House address/lat/lng/address_note and per-Service name/unit price/duration; total_amount=sum unit prices, total_duration_minutes=sum durations, end=start+duration; `original_staff_id=staff_id`; status CONFIRMED.
 - One transaction with reliable concurrency coordination for parallel requests for same Staff. Do not use an unchecked `existsByOverlap` followed by insert alone.
 - Multi-date submission validates/persists each date independently. A date that fails availability or route validation is reported; other valid dates may still be created. The UI must show which dates need correction/removal and the count of successfully created bookings.
+- After a successful booking, remind Customer to confirm Staff arrival; repeat the reminder on each confirmed Booking detail until Customer records arrival.
 - AC-BOOK-01: Valid Booking persists header + >=1 detail atomically with correct totals, duration, snapshots, status, staff references.
 - AC-BOOK-02: Lead time <120min rejects, >=120min accepts when aligned to :00/:15/:30/:45; beyond 30d rejects.
 - AC-BOOK-03: Different Staff can be booked at same time; same Staff is checked against route-aware gap.
 - AC-BOOK-04: End outside current company/Staff interval rejects.
 - AC-BOOK-05: Concurrent requests for same Staff/slot: at most one confirmed successful; no partial write.
+- AC-BOOK-06: Single-date and multi-date success messages remind Customer to confirm Staff arrival; the detail reminder remains until confirmation.
 
 ### FR-CANCEL/REASSIGN — Cancellation and admin assignment
-- Customer self-cancel only when `now <= start_time-120min`; Admin handles later requests. Persist CANCELLED status + cancelled_by/at/reason; not physical delete.
+- Customer self-cancel only when `now <= start_time-120min`; additionally, Customer may cancel a Booking for a reported Staff delay for free while work has not started. Persist CANCELLED status + cancelled_by/at/reason; not physical delete.
 - Confirmed Booking House/time/services changes require cancel+rebook.
 - Admin can replace assigned staff (`staff_id`), preserve immutable `original_staff_id`; verify replacement Staff's eligibility with the relevant rules. No separate reassignment history.
 - AC-CANCEL-01: Exactly -120m allows customer cancellation; -119m rejects; cancellation leaves snapshots/details intact.
 - AC-REASSIGN-01: Admin reassignment changes current staff, not original staff, and cannot create conflicting active booking.
 
-### FR-ARRIVAL — Customer arrival record
-- Customer owning a CONFIRMED Booking may independently record Staff arrival at or after scheduled start. This timestamp does not change Booking status; assigned Staff completion remains separate.
-- AC-ARRIVAL-01: Other Customers, pre-start, non-CONFIRMED and duplicate confirmations are rejected.
+### FR-ARRIVAL — Two-sided arrival record
+- Customer owning a CONFIRMED Booking and its assigned Staff may independently record arrival at or after scheduled start. Each timestamp is stored separately and does not change Booking status. The isolated `demo` profile permits both records from five minutes before start; the default profile keeps the scheduled-start threshold.
+- AC-ARRIVAL-01: Other Customers, pre-start, non-CONFIRMED and duplicate Customer confirmations are rejected.
+- AC-ARRIVAL-02: Unassigned Staff, pre-start, non-CONFIRMED and duplicate Staff confirmations are rejected.
 - Note: status-specific cancellation eligibility after work complete/payment is **TBD**; do not create new refund semantics.
 
+### FR-INCIDENT — Staff delay, Customer consent and compensation
+- Assigned Staff may report one delay incident for a CONFIRMED Booking before work starts. The report stores a required 1–500 character reason, expected arrival time later than scheduled start, and report timestamp. The Customer sees the report, Staff calls directly using the Booking phone, and Admin can review the report and response.
+- Customer must explicitly accept waiting or decline; no response is not consent and blocks work start. Decline cancels the Booking free of charge before work starts. Staff cannot start until Customer accepts a reported delay.
+- On Staff arrival, calculate delay from scheduled start, ceiling partial minutes upward: 1–15 minutes => 5%, 16–30 => 10%, >30 => 20%. Calculate on total service amount and round the discount to whole VND. At >30 minutes Customer may cancel free before work starts or continue with the 20% discount. Payment remains after service and uses total minus discount.
+- AC-INCIDENT-01: Report persists ETA/reason/time and is visible to Customer/Admin; wrong Staff, invalid status, duplicate report, or report after work starts is rejected.
+- AC-INCIDENT-02: Only the owning Customer may accept/decline once. Decline cancels free; missing response blocks Staff start; accepted delay permits start and records tiered discount on arrival.
+- AC-INCIDENT-03: Delay boundaries 0/15/16/30/31 produce 0/5/10/10/20 percent; customer payment uses the discounted amount.
+
 ### FR-JOB — Work execution/evidence
-- Authorized assigned Staff upload multiple image evidence records tied to **Booking**, not Booking_Detail; image_url, uploaded_at. Staff confirms job completion without Admin approval.
-- On valid work completion Booking CONFIRMED -> AWAITING_PAYMENT. No work_completed_at field.
+- Authorized assigned Staff upload multiple image evidence records tied to **Booking**, not Booking_Detail; image_url, uploaded_at. At least one image must exist before Staff confirms job completion. Staff confirms without Admin approval.
+- Staff first records work start; start is allowed only at/after scheduled time, after Staff arrival, and after Customer consent for a reported delay. On valid work completion Booking CONFIRMED -> AWAITING_PAYMENT. No work_completed_at field.
 - AC-JOB-01: Staff A cannot upload image or confirm Staff B's Booking; storage path safe and file validation sane.
-- AC-JOB-02: Successful work confirmation yields AWAITING_PAYMENT, not COMPLETED. Missing image policy beyond 'can upload many' is TBD; do not invent per-detail 1..5 requirement.
+- AC-JOB-02: Completion without any booking image is rejected server-side; with at least one image it yields AWAITING_PAYMENT, not COMPLETED. Evidence is booking-level; no per-detail image minimum is required.
 
 ### FR-PAY — Payments
-- Payment only after work completion; method CASH or ONLINE; Payment records represent attempts, Booking 1:N Payments, at most 1 SUCCESS. Amount matches booking total. Status PENDING/SUCCESS/FAILED; created_at/paid_at rules.
+- Payment only after work completion; method CASH or ONLINE; Payment records represent attempts, Booking 1:N Payments, at most 1 SUCCESS. Amount matches booking total less any approved Staff-delay discount. Status PENDING/SUCCESS/FAILED; created_at/paid_at rules.
 - CASH: assigned Staff confirms physically received money; ONLINE: Backend verifies true gateway result, including integrity/authenticity, amount/order binding, replay/idempotency, and concurrency. Browser redirect alone never marks payment success.
 - If receipt verified and job completed, Payment SUCCESS and Booking COMPLETED atomically. Failed attempt does not complete Booking. ONLINE payments use the VNPay sandbox mapped to ONLINE, no DB `payment_gateway` column; the Backend confirms a payment from VNPay itself (server-to-server QueryDR lookup or a signed IPN); only when QueryDR is unavailable does it accept the return data VNPay signed with the merchant secret (valid HMAC, response and transaction status 00, amount matching the stored attempt). Unsigned or unverified browser data never marks payment success.
 - AC-PAY-01: Create attempts safely; only one SUCCESS per Booking even with concurrent callbacks/requests.
