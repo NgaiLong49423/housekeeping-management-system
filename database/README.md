@@ -1,8 +1,8 @@
 > **Document:** Database Guide\
 > **File:** `database/README.md`\
-> **Version:** v2.5.0\
+> **Version:** v2.6.0\
 > **Created:** 2026-06-14\
-> **Last Updated:** 2026-11-07\
+> **Last Updated:** 2026-11-09\
 > **Status:** Draft\
 
 # Hướng dẫn database
@@ -19,15 +19,18 @@ Only `Housekeeping_Database` and `home_cleaning_demo` on `localhost`, `127.0.0.1
 
 1. Chỉ dùng môi trường SQL Server local dành cho demo/dev.
 2. Chạy [`setup-demo.sql`](setup-demo.sql) bằng SSMS để tạo database mới `home_cleaning_demo` nếu chưa tồn tại. Script không tạo login hoặc chứa password.
-3. Chạy ứng dụng với profile `demo`; Flyway áp dụng schema và dữ liệu mẫu từ `classpath:db/refactor` cùng migration dùng chung trong `classpath:db/shared`. Dữ liệu mẫu được ghi vào database demo bởi migration V3, không được tạo bởi lớp Java lúc khởi động.
+3. Chạy ứng dụng với profile `demo`; Flyway áp dụng schema và dữ liệu mẫu từ `classpath:db/refactor` cùng migration dùng chung trong `classpath:db/shared`. Tài khoản, nhà và dịch vụ mẫu được ghi bởi V3; migration demo-only V7 tạo thêm một Booking để thử xác nhận đến. Booking bắt đầu khoảng 10 phút sau khi seed, hai bên có thể xác nhận từ 5 phút trước giờ bắt đầu. Đây là dữ liệu migration, không được tạo bởi lớp Java lúc khởi động.
 
 Tạo SQL login riêng và map vào database demo; cấp quyền DDL cần thiết để Flyway tạo schema. Lưu credentials trong `.env` cục bộ, không commit. Script không xóa database, không tạo hoặc reset login, không tạo schema history thủ công và không sửa database cũ. Nếu `home_cleaning_demo` đã có schema hoặc Flyway history không phù hợp, dừng lại và dùng database dev mới; không chạy `clean`, không drop và không sửa thủ công history.
 
 ## Flyway và lịch sử schema
 
 - `app/housekeeping-management-system/src/main/resources/db/primary/` là baseline của database chính `Housekeeping_Database`; Flyway ghi nhận lịch sử mới trong `flyway_primary_schema_history` để không sửa hay repair lịch sử cũ. Flyway tạo baseline version `0` rồi áp dụng V1; migration V1 chỉ cho phép database chính/acceptance rỗng (ngoại trừ hai bảng lịch sử Flyway).
-- `app/housekeeping-management-system/src/main/resources/db/refactor/` giữ baseline cho profile demo và bộ kiểm thử của profile đó.
-- `app/housekeeping-management-system/src/main/resources/db/shared/` chứa migration version dùng chung sau baseline; cả profile mặc định và `demo` nạp migration V2 và V5 từ đây. V5 thêm ngày hiệu lực cho phiên bản giờ hoạt động, giữ nguyên 15 bảng nghiệp vụ.
+- `app/housekeeping-management-system/src/main/resources/db/refactor/` giữ baseline cho profile demo và bộ kiểm thử của profile đó; V7 chỉ seed Booking thử trong `home_cleaning_demo`.
+- `app/housekeeping-management-system/src/main/resources/db/shared/` chứa migration version dùng chung sau baseline; cả profile mặc định và `demo` nạp migration V2, V5, V6 và V8 từ đây. V5 thêm ngày hiệu lực cho phiên bản giờ hoạt động.
+- Migration dùng chung V6 thêm thời điểm Staff xác nhận đến và báo sự cố trên `Bookings`; schema vẫn có 15 bảng nghiệp vụ. Báo sự cố chỉ được ghi trước giờ bắt đầu.
+- Migration V8 thêm ETA, phản hồi đồng thuận của Customer, giờ Staff bắt đầu việc và thông tin giảm trừ do đến trễ trên `Bookings`; không thêm bảng nghiệp vụ. Từ chối sự cố hủy miễn phí trước khi bắt đầu; chưa phản hồi thì Staff chưa thể bắt đầu. Mức giảm 5%/10%/20% theo ngưỡng phút đã được phê duyệt, thanh toán vẫn diễn ra sau dịch vụ.
+- Cửa sổ xác nhận đến mặc định là 0 phút (từ giờ bắt đầu); profile `demo` đặt thành 5 phút. Ngưỡng được kiểm tra ở cả giao diện và cập nhật có điều kiện trong database; thời điểm lưu vẫn là lúc người dùng bấm xác nhận.
 - `db/migration/V1__create_initial_schema.sql`, `V2__add_momo_payment_attempts.sql`, `V3__replace_momo_with_payos.sql` là lịch sử của mô hình cũ. Giữ nguyên để bảo toàn lịch sử; không chỉnh nội dung migration đã áp dụng.
 - Database cũ dùng schema/model trước đây không tự động chuyển đổi. Nếu chủ sở hữu xác nhận bỏ dữ liệu cũ trên database chính, chạy [`recreate-primary-schema.sql`](recreate-primary-schema.sql) một lần trong đúng `Housekeeping_Database`; script giữ nguyên lịch sử `flyway_schema_history` cũ, xóa toàn bộ bảng ứng dụng và dữ liệu (kể cả lịch sử Flyway mới nếu có), đồng thời kiểm tra đúng tên database. Sau đó chạy ứng dụng mặc định để baseline mới tạo 15 bảng. Không chạy script ở môi trường có dữ liệu cần giữ.
 - `database/schema.sql` chỉ còn guard báo lỗi cho đường dẫn schema cũ; không dùng làm DDL. Baseline ở `db/primary` cùng migration tại `db/shared` là nguồn DDL cho ứng dụng mặc định.

@@ -81,4 +81,34 @@ public class Booking {
 
     @Column(name = "customer_arrived_at")
     private LocalDateTime customerArrivedAt;
+
+    @Column(name = "staff_arrived_at")
+    private LocalDateTime staffArrivedAt;
+
+    @Column(name = "incident_reported_at")
+    private LocalDateTime incidentReportedAt;
+
+    @Nationalized @Column(name = "incident_note", length = 500)
+    private String incidentNote;
+
+    @Column(name = "incident_expected_arrival_at")
+    private LocalDateTime incidentExpectedArrivalAt;
+
+    @Column(name = "incident_customer_response", length = 10, columnDefinition = "varchar(10)")
+    private String incidentCustomerResponse;
+
+    @Column(name = "incident_customer_responded_at")
+    private LocalDateTime incidentCustomerRespondedAt;
+
+    @Column(name = "work_started_at")
+    private LocalDateTime workStartedAt;
+
+    @Column(name = "delay_minutes")
+    private Integer delayMinutes;
+
+    @Column(name = "delay_discount_percent", precision = 5, scale = 2, nullable = false)
+    private BigDecimal delayDiscountPercent = BigDecimal.ZERO;
+
+    @Column(name = "delay_discount_amount", precision = 12, scale = 2, nullable = false)
+    private BigDecimal delayDiscountAmount = BigDecimal.ZERO;
 }

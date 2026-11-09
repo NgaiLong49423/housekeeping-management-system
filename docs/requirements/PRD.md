@@ -1,8 +1,8 @@
 > **Document:** Product Requirements Document\
 > **File:** `docs/requirements/PRD.md`\
-> **Version:** v2.1.0\
+> **Version:** v2.3.0\
 > **Created:** 2026-06-14\
-> **Last Updated:** 2026-11-08\
+> **Last Updated:** 2026-11-09\
 > **Status:** Active\
 # PRD — HOME CLEANING BOOKING (CẬP NHẬT THEO BASELINE MỚI)
 
@@ -26,13 +26,14 @@ Hệ thống web cho một công ty dịch vụ dọn dẹp nhà: khách chọn 
 6. **Booking Management:** Tạo Booking từ 1+ Service, 1 Staff, 1 House; 30-min starts, lead time 2h/30d horizon, lịch nghỉ, đệm 60min, snapshot địa chỉ văn bản, cancel, reassignment.
 7. **Staff Availability:** FULL_TIME tự động theo công ty; PART_TIME tự đăng ký ngày-khoảng cụ thể, không đè booking.
 8. **Leave Management:** Staff xin nghỉ nguyên ngày; Admin duyệt/từ chối, xử lý booking xung đột.
-9. **Job Execution:** Staff xem việc được giao, tải nhiều ảnh theo Booking, xác nhận hoàn thành -> AWAITING_PAYMENT.
-10. **Payment:** CASH/ONLINE sau khi xong việc; Staff xác nhận CASH; cổng ONLINE xác minh server; attempts và SUCCESS duy nhất; COMPLETED khi đã trả.
-11. **Feedback:** Customer gửi 1 feedback dạng text/Completed Booking; Admin reply và resolve.
-12. **System Configuration:** Thông tin địa điểm công ty và 7 ngày giờ hoạt động. Bán kính/tọa độ cũ được giữ trong database để tương thích nhưng không dùng để chặn booking.
+9. **Arrival and Incident Tracking:** Staff và Customer ghi nhận đã đến độc lập từ giờ bắt đầu; Staff báo nguyên nhân và giờ dự kiến đến, gọi Customer; Customer đồng ý chờ hoặc từ chối trên Booking. Chưa phản hồi thì Staff chưa thể bắt đầu; từ chối hoặc trễ trên 30 phút có thể hủy miễn phí trước khi bắt đầu. Nếu tiếp tục, giảm 5%/10%/20% theo số phút Staff đến thực tế; Admin xem báo cáo và phản hồi.
+10. **Job Execution:** Staff xem việc được giao, tải nhiều ảnh theo Booking (tối thiểu một ảnh), xác nhận hoàn thành -> AWAITING_PAYMENT.
+11. **Payment:** CASH/ONLINE sau khi xong việc; Staff xác nhận CASH; cổng ONLINE xác minh server; khoản giảm do trễ được trừ vào tiền dịch vụ; attempts và SUCCESS duy nhất; COMPLETED khi đã trả.
+12. **Feedback:** Customer gửi 1 feedback dạng text/Completed Booking; Admin reply và resolve.
+13. **System Configuration:** Thông tin địa điểm công ty và 7 ngày giờ hoạt động. Bán kính/tọa độ cũ được giữ trong database để tương thích nhưng không dùng để chặn booking.
 
 ## D. Critical journey
-- Cấu hình công ty và Service/Staff -> Customer lưu House -> chọn Nhà/Staff/Services/start -> hệ thống kiểm tra đầy đủ -> Booking CONFIRMED -> Staff làm và upload ảnh -> AWAITING_PAYMENT -> CASH được Staff xác nhận hoặc ONLINE server verified -> Payment SUCCESS & Booking COMPLETED -> Customer feedback -> Admin reply/resolve.
+- Cấu hình công ty và Service/Staff -> Customer lưu House -> chọn Nhà/Staff/Services/start -> hệ thống kiểm tra đầy đủ -> Booking CONFIRMED và nhắc Customer xác nhận Staff đến -> Staff báo sự cố trước giờ hẹn nếu cần, gọi Customer trực tiếp, ghi nhận đã đến và tải ít nhất một ảnh minh chứng -> xác nhận hoàn thành -> AWAITING_PAYMENT -> CASH được Staff xác nhận hoặc ONLINE server verified -> Payment SUCCESS & Booking COMPLETED -> Customer feedback -> Admin reply/resolve.
 - Hủy đúng hạn do Customer; hủy muộn do Admin; không xóa lịch sử.
 
 ## E. Quy định sản phẩm quyết định được việc nghiệm thu

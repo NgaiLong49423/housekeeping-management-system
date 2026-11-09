@@ -44,6 +44,11 @@ public class BookingImageRepository {
         return key.longValue();
     }
 
+    public boolean hasEvidence(Long bookingId) {
+        Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Booking_Images WHERE booking_id=?", Integer.class, bookingId);
+        return count != null && count > 0;
+    }
+
     public List<String> findAllImageUrls() {
         return jdbc.query("SELECT image_url FROM dbo.Booking_Images", (rs, row) -> rs.getString(1));
     }

@@ -53,9 +53,11 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.context.TestPropertySource;
 
 @WebMvcTest({PortalController.class, AuthController.class, BookingController.class, PaymentController.class, HouseController.class, StaffController.class, PortalAdminController.class, StaffLeaveController.class, AdminLeaveController.class, AdminCompanySettingsController.class, StaffProfileController.class})
 @Import(SecurityConfig.class)
+@TestPropertySource(properties = "app.booking.arrival-early-confirmation-minutes=5")
 class PortalMvcTest {
     @Autowired MockMvc mvc;
     @Autowired PasswordEncoder encoder;
@@ -70,6 +72,7 @@ class PortalMvcTest {
     @MockitoBean BookingReservationService reservations;
     @MockitoBean BookingAvailabilityService bookingAvailability;
     @MockitoBean BookingArrivalService arrival;
+    @MockitoBean BookingIncidentService incidents;
     @MockitoBean BookingCompletionService completion;
     @MockitoBean PaymentService payments;
     @MockitoBean VnpayPaymentService vnpayPayments;
@@ -125,6 +128,7 @@ class PortalMvcTest {
         when(companySettings.hasExactVersion(any())).thenReturn(false);
         when(staffProfiles.findOwnProfile(22L)).thenReturn(new StaffProfileForm(null, "Giới thiệu nhân viên"));
         when(query.booking(eq(42L), any())).thenReturn(card("CONFIRMED", null, null));
+        when(query.bookingImages(eq(42L), any())).thenReturn(List.of());
         when(query.details(eq(42L), any())).thenReturn(List.of(new DetailCard(30L, "Dọn dẹp nhà theo giờ", 1, 120, new BigDecimal("140000"), List.of())));
     }
 
@@ -360,7 +364,13 @@ class PortalMvcTest {
     }
 
     @Test
-    void staffCanConfirmCompletionBeforeScheduledStartWhenEvidenceIsReady() throws Exception {
+    void staffCanConfirmCompletionOnlyAfterWorkStartedAndEvidenceIsReady() throws Exception {
+        BookingCard started = new BookingCard(42L, 1L, 2L, "Khách hàng kiểm thử", "Nhân viên kiểm thử", start,
+                start.plusHours(2), "CONFIRMED", new BigDecimal("140000"), null, null, null, null, null,
+                null, null, null, null, start, "0901234567", start, null, null,
+                null, null, null, start.plusMinutes(5), 0, BigDecimal.ZERO, BigDecimal.ZERO);
+        when(query.booking(eq(42L), any())).thenReturn(started);
+        when(query.bookingImages(eq(42L), any())).thenReturn(List.of(new EvidenceCard(50L, "10:00 · 22/10/2026")));
         when(query.details(eq(42L), any())).thenReturn(List.of(new DetailCard(30L, "Dọn dẹp nhà theo giờ", 1,
                 120, new BigDecimal("140000"), List.of(new EvidenceCard(50L, "10:00 · 22/10/2026")))));
 
@@ -369,8 +379,102 @@ class PortalMvcTest {
                 .andReturn().getResponse().getContentAsString();
 
         assertThat(page).contains("Xác nhận hoàn thành");
-        assertThat(page).doesNotContain("Chưa đến giờ bắt đầu công việc.");
-        assertThat(page).doesNotContain("type=\"submit\" disabled=\"disabled\">");
+        assertThat(page).contains("class=\"btn btn-primary w-100\" type=\"submit\">");
+    }
+
+    @Test
+    void customerAndStaffArrivalButtonsAreVisibleBeforeStartButCannotBeSubmittedYet() throws Exception {
+        String customerPage = mvc.perform(get("/customer/bookings/42").with(user(customer)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(customerPage).contains("Xác nhận nhân viên đã đến", "Nút xác nhận sẽ mở lúc", "disabled=\"disabled\"");
+
+        String staffPage = mvc.perform(get("/staff/bookings/42").with(user(staff)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(staffPage).contains("Tôi đã đến", "Nút xác nhận sẽ mở lúc", "disabled=\"disabled\"");
+    }
+
+    @Test
+    void customerAndStaffArrivalButtonsUnlockFiveMinutesBeforeStartInDemoWindow() throws Exception {
+        OffsetDateTime soon = OffsetDateTime.now(ZoneOffset.ofHours(7)).plusMinutes(3).withNano(0);
+        BookingCard upcoming = new BookingCard(42L, 1L, 2L, "Khách hàng kiểm thử", "Nhân viên kiểm thử",
+                soon, soon.plusHours(2), "CONFIRMED", new BigDecimal("140000"), null, null,
+                null, null, null);
+        when(query.booking(eq(42L), any())).thenReturn(upcoming);
+
+        String customerPage = mvc.perform(get("/customer/bookings/42").with(user(customer)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        String staffPage = mvc.perform(get("/staff/bookings/42").with(user(staff)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+
+        assertThat(customerPage).contains(">Xác nhận nhân viên đã đến</button>").doesNotContain("Nút xác nhận sẽ mở lúc");
+        assertThat(staffPage).contains(">Tôi đã đến</button>").doesNotContain("Nút xác nhận sẽ mở lúc");
+    }
+
+    @Test
+    void staffCanReportIncidentAndConfirmArrivalButCustomerCannotUseStaffRoutes() throws Exception {
+        String eta = start.plusMinutes(15).toLocalDateTime().toString();
+        mvc.perform(post("/staff/bookings/42/incident").with(user(staff)).with(csrf())
+                        .param("note", "Kẹt xe, dự kiến trễ 15 phút").param("expectedArrivalAt", eta))
+                        .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/staff/bookings/42"))
+                .andExpect(flash().attributeExists("success"));
+        verify(incidents).report(42L, 2L, "Kẹt xe, dự kiến trễ 15 phút", java.time.LocalDateTime.parse(eta));
+
+        mvc.perform(post("/staff/bookings/42/arrived").with(user(staff)).with(csrf()))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/staff/bookings/42"));
+        verify(arrival).confirmStaffArrival(42L, 2L);
+
+        mvc.perform(post("/staff/bookings/42/incident").with(user(customer)).with(csrf())
+                        .param("note", "Kẹt xe").param("expectedArrivalAt", eta))
+                .andExpect(status().isForbidden());
+        mvc.perform(post("/staff/bookings/42/arrived").with(user(customer)).with(csrf()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void customerCanSubmitDelayDecisionAndAssignedStaffCanStartThroughOwnRoute() throws Exception {
+        mvc.perform(post("/customer/bookings/42/incident-response").with(user(customer)).with(csrf())
+                        .param("response", "ACCEPTED"))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/customer/bookings/42"));
+        verify(incidents).respond(42L, 1L, "ACCEPTED");
+
+        mvc.perform(post("/staff/bookings/42/start").with(user(staff)).with(csrf()))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/staff/bookings/42"));
+        verify(completion).startBooking(42L, 2L);
+
+        mvc.perform(post("/staff/bookings/42/start").with(user(customer)).with(csrf()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void customerAndAdminCanSeeIncidentWhileAssignedStaffGetsCustomerCallLink() throws Exception {
+        var reportedAt = OffsetDateTime.now(ZoneOffset.ofHours(7));
+        BookingCard incident = new BookingCard(42L, 1L, 2L, "Khách hàng kiểm thử", "Nhân viên kiểm thử",
+                start, start.plusHours(2), "CONFIRMED", new BigDecimal("140000"), null, null, null, null, null,
+                null, null, null, null, null, "0901234567", null, reportedAt, "Kẹt xe, dự kiến trễ 15 phút");
+        when(query.booking(eq(42L), any())).thenReturn(incident);
+
+        String customerPage = mvc.perform(get("/customer/bookings/42").with(user(customer)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(customerPage).contains("Báo cáo sự cố", "Kẹt xe, dự kiến trễ 15 phút")
+                .doesNotContain("tel:0901234567");
+
+        String staffPage = mvc.perform(get("/staff/bookings/42").with(user(staff)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(staffPage).contains("tel:0901234567");
+
+        String adminPage = mvc.perform(get("/admin/bookings/42").with(user(admin)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(adminPage).contains("Báo cáo sự cố", "Kẹt xe, dự kiến trễ 15 phút");
+    }
+
+    @Test
+    void staffCompletionButtonIsDisabledUntilBookingEvidenceExists() throws Exception {
+        when(query.booking(eq(42L), any())).thenReturn(card("CONFIRMED", null, null));
+        when(query.bookingImages(eq(42L), any())).thenReturn(List.of());
+        String page = mvc.perform(get("/staff/bookings/42").with(user(staff)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(page).contains("Bắt đầu công việc", "type=\"submit\" disabled=\"disabled\"")
+                .doesNotContain("Xác nhận hoàn thành");
     }
 
     @Test
@@ -453,10 +557,11 @@ class PortalMvcTest {
     @Test
     void bookingUsesSessionCustomerServerServiceSelectionAndVietnamOffset() throws Exception {
         when(reservations.createBooking(anyLong(), anyLong(), anyLong(), any(), anyList(), any())).thenReturn(42L);
-        mvc.perform(post("/customer/bookings").with(user(customer)).with(csrf())
+        MvcResult created = mvc.perform(post("/customer/bookings").with(user(customer)).with(csrf())
                 .param("customerId", "999").param("totalPrice", "1").param("staffId", "2").param("houseId", "30")
                 .param("startAt", "2026-11-01T08:00").param("serviceIds", "10", "11").param("areaNote", "Entryway"))
-            .andExpect(redirectedUrl("/customer/bookings/42"));
+            .andExpect(redirectedUrl("/customer/bookings/42")).andExpect(flash().attributeExists("success")).andReturn();
+        assertThat(created.getFlashMap().get("success").toString()).contains("xác nhận trên trang chi tiết");
         verify(reservations).createBooking(eq(1L), eq(2L), eq(30L), eq(java.time.LocalDateTime.parse("2026-11-01T08:00")),
                 eq(List.of(10L, 11L)), eq("Entryway"));
     }
@@ -467,13 +572,14 @@ class PortalMvcTest {
                 .thenReturn(42L)
                 .thenThrow(new IllegalStateException("Staff không còn khả dụng."));
 
-        mvc.perform(post("/customer/bookings/multiple").with(user(customer)).with(csrf())
+        MvcResult partial = mvc.perform(post("/customer/bookings/multiple").with(user(customer)).with(csrf())
                         .param("houseId", "30").param("serviceIds", "10").param("areaNote", "Entryway")
                         .param("workDates", "2026-11-10", "2026-11-12")
                         .param("staffIds", "2", "2").param("startTimes", "09:00", "10:00"))
                 .andExpect(redirectedUrl("/customer/bookings/new?houseId=30"))
                 .andExpect(flash().attributeExists("bookingRetryState"))
-                .andExpect(flash().attributeExists("warning"));
+                .andExpect(flash().attributeExists("warning")).andReturn();
+        assertThat(partial.getFlashMap().get("warning").toString()).contains("xác nhận trên từng lịch");
 
         verify(reservations, org.mockito.Mockito.times(2)).createBooking(eq(1L), eq(2L), eq(30L), any(),
                 eq(List.of(10L)), eq("Entryway"));
