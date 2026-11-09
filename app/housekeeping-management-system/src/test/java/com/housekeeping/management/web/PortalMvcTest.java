@@ -72,7 +72,7 @@ class PortalMvcTest {
     @MockitoBean BookingArrivalService arrival;
     @MockitoBean BookingCompletionService completion;
     @MockitoBean PaymentService payments;
-    @MockitoBean PayosPaymentService payosPayments;
+    @MockitoBean VnpayPaymentService vnpayPayments;
     @MockitoBean FeedbackService feedbackService;
     @MockitoBean EvidenceStorageService storage;
     @MockitoBean HouseService houses;
@@ -345,14 +345,15 @@ class PortalMvcTest {
 
     @Test
     void awaitingPaymentOffersOnlineCheckoutAndAssignedStaffCashConfirmation() throws Exception {
-        BookingCard payos = new BookingCard(42L, 1L, 2L, "Khách hàng kiểm thử", "Nhân viên kiểm thử", start,
+        BookingCard awaitingOnline = new BookingCard(42L, 1L, 2L, "Khách hàng kiểm thử", "Nhân viên kiểm thử", start,
                 start.plusHours(2), "AWAITING_PAYMENT", new BigDecimal("140000"), "PENDING", "ONLINE", null, null, null);
-        when(query.booking(eq(42L), any())).thenReturn(payos);
+        when(query.booking(eq(42L), any())).thenReturn(awaitingOnline);
         when(query.details(eq(42L), any())).thenReturn(List.of());
 
         mvc.perform(get("/customer/bookings/42").with(user(customer)))
                 .andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Thanh toán trực tuyến qua PayOS")));
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Thanh toán trực tuyến qua VNPay")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Phương thức: VNPay")));
         mvc.perform(get("/staff/bookings/42").with(user(staff)))
                 .andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("cash-payment")));
@@ -520,27 +521,74 @@ class PortalMvcTest {
         when(query.booking(42L, customer)).thenThrow(new AccessDeniedException("Forbidden"));
         mvc.perform(post("/customer/bookings/42/payment").with(user(customer)).with(csrf()))
                 .andExpect(status().isForbidden());
-        verifyNoInteractions(payosPayments);
+        verifyNoInteractions(vnpayPayments);
     }
 
     @Test
-    void customerPayosChoiceRedirectsToProviderCheckout() throws Exception {
+    void customerOnlinePaymentRedirectsToVnpayCheckout() throws Exception {
+        String checkoutUrl = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?vnp_TxnRef=1001";
         when(query.booking(eq(42L), any())).thenReturn(card("AWAITING_PAYMENT", "PENDING", "ONLINE"));
-        when(payosPayments.checkout(42L, customer.getAccountId())).thenReturn("https://pay.payos.vn/web/payment-link");
+        when(vnpayPayments.checkout(eq(42L), eq(customer.getAccountId()), anyString()))
+                .thenReturn(new VnpayPaymentService.Checkout(checkoutUrl, false));
 
         mvc.perform(post("/customer/bookings/42/payment").with(user(customer)).with(csrf()))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("https://pay.payos.vn/web/payment-link"));
-        verify(payosPayments).checkout(42L, customer.getAccountId());
+                .andExpect(redirectedUrl(checkoutUrl));
+        verify(vnpayPayments).checkout(eq(42L), eq(customer.getAccountId()), anyString());
         verifyNoInteractions(payments);
     }
 
     @Test
-    void payosWebhookIsPublicAndExemptFromCsrfOnlyForProviderCallback() throws Exception {
-        mvc.perform(post("/payments/payos/webhook").contentType(org.springframework.http.MediaType.APPLICATION_JSON)
-                        .content("{\"code\":\"00\",\"desc\":\"success\",\"success\":true,\"data\":{\"orderCode\":123,\"amount\":140000,\"currency\":\"VND\",\"code\":\"00\",\"paymentLinkId\":\"link-123\"},\"signature\":\"test\"}"))
-                .andExpect(status().isNoContent());
-        verify(payosPayments).receiveWebhook(any(PayosWebhookRequest.class));
+    void onlinePaymentForAttemptVnpayAlreadyChargedReturnsToBookingAsPaid() throws Exception {
+        when(query.booking(eq(42L), any())).thenReturn(card("AWAITING_PAYMENT", "PENDING", "ONLINE"));
+        when(vnpayPayments.checkout(eq(42L), eq(customer.getAccountId()), anyString()))
+                .thenReturn(new VnpayPaymentService.Checkout(null, true));
+
+        mvc.perform(post("/customer/bookings/42/payment").with(user(customer)).with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/customer/bookings/42"))
+                .andExpect(flash().attribute("success", org.hamcrest.Matchers.containsString("Thanh toán thành công")));
+    }
+
+    @Test
+    void vnpayReturnIsPublicAndShowsPaidResultOnTheBooking() throws Exception {
+        when(vnpayPayments.handleReturn(anyMap()))
+                .thenReturn(new VnpayPaymentService.ReturnOutcome(42L, VnpayPaymentService.ReturnStatus.PAID));
+
+        mvc.perform(get("/payments/vnpay/return").param("vnp_TxnRef", "1001").param("vnp_ResponseCode", "00"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/customer/bookings/42"))
+                .andExpect(flash().attribute("success", org.hamcrest.Matchers.containsString("Thanh toán thành công")));
+        verify(vnpayPayments).handleReturn(argThat(params -> "1001".equals(params.get("vnp_TxnRef"))));
+    }
+
+    @Test
+    void vnpayReturnForFailedPaymentShowsAnError() throws Exception {
+        when(vnpayPayments.handleReturn(anyMap()))
+                .thenReturn(new VnpayPaymentService.ReturnOutcome(42L, VnpayPaymentService.ReturnStatus.FAILED));
+
+        mvc.perform(get("/payments/vnpay/return").param("vnp_TxnRef", "1001").param("vnp_ResponseCode", "24"))
+                .andExpect(redirectedUrl("/customer/bookings/42"))
+                .andExpect(flash().attribute("error", org.hamcrest.Matchers.containsString("chưa thành công")));
+    }
+
+    @Test
+    void vnpayReturnWithInvalidDataShowsAnErrorInsteadOfAnErrorPage() throws Exception {
+        when(vnpayPayments.handleReturn(anyMap())).thenThrow(new IllegalArgumentException("invalid signature"));
+
+        mvc.perform(get("/payments/vnpay/return").param("vnp_TxnRef", "1001"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/customer/bookings"))
+                .andExpect(flash().attribute("error", org.hamcrest.Matchers.containsString("không hợp lệ")));
+    }
+
+    @Test
+    void vnpayIpnIsPublicAndAnswersInVnpayJsonFormat() throws Exception {
+        when(vnpayPayments.handleIpn(anyMap())).thenReturn(new VnpayPaymentService.IpnResponse("00", "Confirm Success"));
+
+        mvc.perform(get("/payments/vnpay/ipn").param("vnp_TxnRef", "1001"))
+                .andExpect(status().isOk())
+                .andExpect(content().json("{\"RspCode\":\"00\",\"Message\":\"Confirm Success\"}"));
         mvc.perform(post("/customer/bookings/42/cancel").with(user(customer))).andExpect(status().isForbidden());
     }
 

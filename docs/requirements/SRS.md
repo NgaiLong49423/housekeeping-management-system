@@ -1,6 +1,6 @@
 > **Document:** Software Requirements Specification\
 > **File:** `docs/requirements/SRS.md`\
-> **Version:** v4.0.0\
+> **Version:** v4.1.0\
 > **Created:** 2026-06-14\
 > **Last Updated:** 2026-11-08\
 > **Status:** Active\
@@ -115,7 +115,7 @@ One server-rendered Java Spring MVC web application, single company, SQL Server.
 ### FR-PAY — Payments
 - Payment only after work completion; method CASH or ONLINE; Payment records represent attempts, Booking 1:N Payments, at most 1 SUCCESS. Amount matches booking total. Status PENDING/SUCCESS/FAILED; created_at/paid_at rules.
 - CASH: assigned Staff confirms physically received money; ONLINE: Backend verifies true gateway result, including integrity/authenticity, amount/order binding, replay/idempotency, and concurrency. Browser redirect alone never marks payment success.
-- If receipt verified and job completed, Payment SUCCESS and Booking COMPLETED atomically. Failed attempt does not complete Booking. Existing PayOS implementation may be retained via correct mapping of PayOS -> ONLINE, no DB `payment_gateway` column.
+- If receipt verified and job completed, Payment SUCCESS and Booking COMPLETED atomically. Failed attempt does not complete Booking. ONLINE payments use the VNPay sandbox mapped to ONLINE, no DB `payment_gateway` column; the Backend confirms a payment from VNPay itself (server-to-server QueryDR lookup or a signed IPN); only when QueryDR is unavailable does it accept the return data VNPay signed with the merchant secret (valid HMAC, response and transaction status 00, amount matching the stored attempt). Unsigned or unverified browser data never marks payment success.
 - AC-PAY-01: Create attempts safely; only one SUCCESS per Booking even with concurrent callbacks/requests.
 - AC-PAY-02: Staff assigned can confirm CASH; ADMIN cannot replace this rule with manual Admin verification.
 - AC-PAY-03: Valid verified ONLINE SUCCESS marks Booking COMPLETED; tampered/failed/duplicate webhook cannot incorrectly mark completed.
@@ -135,4 +135,4 @@ One server-rendered Java Spring MVC web application, single company, SQL Server.
 - Unit tests for business decisions; integration tests with SQL Server/Testcontainers if runtime available; MVC/security tests for ownership/status. Report checks exactly and do not claim SLA numbers or performance targets unapproved by user.
 
 ## 6. Explicit open points
-- ARCH-03 live-data strategy, payment refunds/cancel-after-success, exact PayOS callback persistence needs while DB has only transaction_code, time zone/currency policy, failure timeout, detailed image constraints, cross-midnight, feedback editing, admin booking reassignment eligibility details. Technical defaults must be documented as implementation choices, not approved BR.
+- ARCH-03 live-data strategy, payment refunds/cancel-after-success, exact VNPay callback persistence needs while DB has only transaction_code, time zone/currency policy, failure timeout, detailed image constraints, cross-midnight, feedback editing, admin booking reassignment eligibility details. Technical defaults must be documented as implementation choices, not approved BR.

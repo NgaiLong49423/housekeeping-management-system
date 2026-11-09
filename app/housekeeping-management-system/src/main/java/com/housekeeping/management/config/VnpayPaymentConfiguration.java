@@ -4,5 +4,5 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@EnableConfigurationProperties(PayosPaymentProperties.class)
-public class PayosPaymentConfiguration { }
+@EnableConfigurationProperties(VnpayPaymentProperties.class)
+public class VnpayPaymentConfiguration { }
