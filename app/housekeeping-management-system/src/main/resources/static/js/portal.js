@@ -458,6 +458,38 @@ if (bookingForm) {
   let calendarError = "";
   let calendarNotice = "";
   let availableDates = [];
+
+  const DRAFT_KEY = "gonnha_booking_draft_v1";
+  let draftSaveTimer = null;
+  const scheduleDraftSave = () => {
+    clearTimeout(draftSaveTimer);
+    draftSaveTimer = setTimeout(() => {
+      try {
+        const chosenServices = services.filter(i => i.checked).map(i => i.value);
+        const daysArr = [...days.entries()].map(([date, d]) => ({
+          date,
+          time: d.time || "",
+          staffId: d.staffId ? String(d.staffId) : ""
+        }));
+        const noteEl = bookingForm.querySelector("#areaNote");
+        const draft = {
+          serviceIds: chosenServices,
+          houseId: house.value || "",
+          bookingPreference: preference,
+          preferredStaffId: preferredStaff.value || "",
+          areaNote: noteEl ? noteEl.value : "",
+          days: daysArr,
+          savedAt: Date.now()
+        };
+        if (chosenServices.length > 0 || house.value || daysArr.length > 0) {
+          sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+        }
+      } catch (e) {}
+    }, 250);
+  };
+  const clearBookingDraft = () => {
+    try { sessionStorage.removeItem(DRAFT_KEY); } catch (e) {}
+  };
   const selectedServices = () => services.filter(input => input.checked);
   const timeFor = (day, time) => day.timeOptions.find(option => option.startTime === time);
   const weekdayDate = value => new Date(`${value}T12:00:00`).toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" });
@@ -487,7 +519,7 @@ if (bookingForm) {
       chip.className = "booking-date-chip";
       const label = document.createElement("span"); label.textContent = weekdayDate(date);
       const remove = document.createElement("button"); remove.type = "button"; remove.className = "btn-close"; remove.setAttribute("aria-label", `Bỏ ngày ${weekdayDate(date)}`);
-      remove.addEventListener("click", () => { days.delete(date); render(); });
+      remove.addEventListener("click", () => { days.delete(date); render(); scheduleDraftSave(); });
       chip.append(label, remove); selectedDates.append(chip);
     });
   };
@@ -665,6 +697,7 @@ if (bookingForm) {
       days.set(date,{date,time:"",staffId:preference==="staff"?preferredStaff.value:"",loading:false,options:null,timeOptions:[],error:"",notice:"",expanded:true});
     }
     render();
+    scheduleDraftSave();
     if(days.has(date))loadDay(days.get(date));
   }
   async function loadDay(day) {
@@ -782,7 +815,7 @@ if (bookingForm) {
     remove.type = "button";
     remove.className = "btn btn-sm btn-outline-danger";
     remove.textContent = "Bỏ ngày";
-    remove.addEventListener("click", () => { days.delete(day.date); render(); });
+    remove.addEventListener("click", () => { days.delete(day.date); render(); scheduleDraftSave(); });
 
     actions.append(edit, remove);
     head.append(titleWrap, actions);
@@ -894,7 +927,7 @@ if (bookingForm) {
               day.time = option.startTime;
               day.stale = false; day.restored = false; day.notice = "";
               day.expanded = false;
-              render(); loadDay(day);
+              render(); scheduleDraftSave(); loadDay(day);
             });
             grid.append(btn);
           });
@@ -954,7 +987,7 @@ if (bookingForm) {
                   day.staffId = "";
                 }
               }
-              render(); loadDay(day);
+              render(); scheduleDraftSave(); loadDay(day);
             });
             grid.append(btn);
           });
@@ -1056,6 +1089,7 @@ if (bookingForm) {
             day.expanded = false;
             day.notice = "";
             render();
+            scheduleDraftSave();
             loadDay(day);
           });
           staffGrid.append(sCard);
@@ -1091,15 +1125,18 @@ if (bookingForm) {
   preferredStaff.addEventListener("change", () => { syncStaffCards();
     days.forEach(day=>{day.time="";day.staffId=preferredStaff.value;day.stale=false;day.restored=false;day.notice="";});
     render(); loadAvailableDates(); days.forEach(loadDay);
+    scheduleDraftSave();
   });
   preferenceInputs.forEach(input => input.addEventListener("change", () => {
     preference=input.value; days.forEach(day=>{day.time="";day.staffId=preference==="staff"?preferredStaff.value:"";day.stale=false;day.restored=false;day.notice="";});
     if(preference==="staff"&&!preferredStaff.value)days.clear(); syncStaffCards();
     render(); loadAvailableDates(); days.forEach(loadDay);
+    scheduleDraftSave();
   }));
   services.forEach(input => input.addEventListener("change", () => {
     days.forEach(day=>{day.time="";day.staffId=preference==="staff"?preferredStaff.value:"";day.stale=false;day.restored=false;day.notice="";});
     render(); loadAvailableDates(); days.forEach(loadDay);
+    scheduleDraftSave();
   }));
   async function checkHouseServiceArea() {
     const request=++houseAreaRequest;
@@ -1125,6 +1162,7 @@ if (bookingForm) {
     checkHouseServiceArea();
     days.forEach(day=>{day.time="";day.staffId=preference==="staff"?preferredStaff.value:"";day.stale=false;day.restored=false;day.notice="";});
     render();days.forEach(loadDay);
+    scheduleDraftSave();
   });
   function refresh() {
     const selected = services.filter(input => input.checked);
@@ -1158,9 +1196,14 @@ if (bookingForm) {
   }
   bookingForm.addEventListener("submit", event => {
     refresh();
-    if (submit.disabled || !bookingForm.reportValidity()) event.preventDefault();
+    if (submit.disabled || !bookingForm.reportValidity()) {
+      event.preventDefault();
+    } else {
+      clearBookingDraft();
+    }
   });
   const retryState=window.bookingRetryState;
+  let restoredFromDraft = false;
   if(retryState){
     if(retryState.houseId)house.value=String(retryState.houseId);
     if(Array.isArray(retryState.serviceIds))services.forEach(input=>input.checked=retryState.serviceIds.map(String).includes(input.value));
@@ -1168,9 +1211,87 @@ if (bookingForm) {
     if(Array.isArray(retryState.days))retryState.days.forEach(item=>{
       if(item&&item.date&&item.staffId&&item.time)days.set(item.date,{date:item.date,time:item.time,staffId:String(item.staffId),loading:false,options:null,timeOptions:[],error:"",notice:"Lịch trước chưa được tạo. Hãy xác nhận lại lựa chọn.",expanded:true,restored:true,stale:false});
     });
+  } else {
+    try {
+      const raw = sessionStorage.getItem(DRAFT_KEY);
+      if (raw) {
+        const draft = JSON.parse(raw);
+        if (draft && typeof draft === "object") {
+          if (Array.isArray(draft.serviceIds) && draft.serviceIds.length > 0) {
+            services.forEach(input => {
+              input.checked = draft.serviceIds.map(String).includes(String(input.value));
+            });
+            restoredFromDraft = true;
+          }
+          if (draft.houseId && [...house.options].some(opt => opt.value === String(draft.houseId))) {
+            house.value = String(draft.houseId);
+            restoredFromDraft = true;
+          }
+          if (draft.bookingPreference) {
+            preference = draft.bookingPreference;
+            const pInput = preferenceInputs.find(i => i.value === preference);
+            if (pInput) pInput.checked = true;
+            preferredStaffWrap.hidden = preference !== "staff";
+            restoredFromDraft = true;
+          }
+          if (draft.preferredStaffId) {
+            preferredStaff.value = String(draft.preferredStaffId);
+          }
+          const note = bookingForm.querySelector("#areaNote");
+          if (note && draft.areaNote) note.value = draft.areaNote;
+          if (Array.isArray(draft.days) && draft.days.length > 0) {
+            draft.days.forEach(item => {
+              if (item && item.date) {
+                days.set(item.date, {
+                  date: item.date,
+                  time: item.time || "",
+                  staffId: item.staffId ? String(item.staffId) : (preference === "staff" ? preferredStaff.value : ""),
+                  loading: false,
+                  options: null,
+                  timeOptions: [],
+                  error: "",
+                  notice: "",
+                  expanded: !item.time || !item.staffId,
+                  restored: true,
+                  stale: false
+                });
+                restoredFromDraft = true;
+              }
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Could not restore booking draft", e);
+    }
   }
+
+  if (restoredFromDraft) {
+    const noticeEl = document.querySelector("#bookingDraftNotice");
+    if (noticeEl) {
+      noticeEl.hidden = false;
+      noticeEl.className = "alert alert-info d-flex align-items-center justify-content-between p-3 mb-3 border-0 shadow-sm rounded-3";
+      noticeEl.style.cssText = "background-color: var(--brand-subtle); color: var(--brand-dark); border-left: 4px solid var(--brand) !important;";
+      noticeEl.innerHTML = `
+        <div class="d-flex align-items-center gap-2">
+          <span style="font-size: 1.15rem;">✨</span>
+          <span>Đã tự động lưu và khôi phục các dịch vụ, nhà và ngày giờ bạn đang điền dang dở.</span>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="clearDraftBtn">Xóa & Làm lại</button>
+      `;
+      noticeEl.querySelector("#clearDraftBtn")?.addEventListener("click", () => {
+        clearBookingDraft();
+        window.location.reload();
+      });
+    }
+  }
+
+  const areaNoteInput = bookingForm.querySelector("#areaNote");
+  if (areaNoteInput) areaNoteInput.addEventListener("input", scheduleDraftSave);
+
   syncStaffCards(); render(); loadAvailableDates(); checkHouseServiceArea();
   if(retryState?.days?.length)retryState.days.forEach(item=>{const day=days.get(item.date);if(day)loadDay(day);});
+  else if (restoredFromDraft && days.size > 0) days.forEach(day => loadDay(day));
 }
 
 if (document.querySelector(".admin-sidebar")) {

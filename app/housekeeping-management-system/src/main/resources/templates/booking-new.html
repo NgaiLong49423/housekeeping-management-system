@@ -4,6 +4,12 @@
   <body>
     <header th:replace="~{fragments/layout :: header('booking')}"></header>
     <main id="main" class="container py-4 py-md-5">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <a href="/customer/bookings" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-2">
+          <svg th:replace="~{fragments/icons :: arrow-left}"></svg>
+          <span>Quay lại lịch của tôi</span>
+        </a>
+      </div>
       <div class="page-heading text-center mb-4">
         <span class="eyebrow justify-content-center">
           <svg th:replace="~{fragments/icons :: sparkles}"></svg>
@@ -14,6 +20,7 @@
       </div>
 
       <div th:replace="~{fragments/layout :: alerts}"></div>
+      <div id="bookingDraftNotice" class="mb-3" hidden></div>
 
       <form method="post" th:action="@{/customer/bookings/multiple}" th:object="${bookingForm}" data-booking-form>
         <div class="row g-4 align-items-start">
@@ -243,10 +250,16 @@
                 <span>Mỗi ngày hợp lệ sẽ tạo một lịch hẹn riêng. Nếu một ngày phát sinh xung đột, các ngày khác vẫn được xử lý bình thường.</span>
               </div>
               <p data-booking-validation class="small text-danger fw-semibold" role="status"></p>
-              <button class="btn btn-primary w-100 btn-lg" type="submit" data-booking-submit disabled th:disabled="${#lists.isEmpty(services) or #lists.isEmpty(houses)}">
-                <span>Xác nhận đặt lịch</span>
-                <svg th:replace="~{fragments/icons :: arrow-right}"></svg>
-              </button>
+              <div class="d-flex flex-column gap-2">
+                <button class="btn btn-primary w-100 btn-lg" type="submit" data-booking-submit disabled th:disabled="${#lists.isEmpty(services) or #lists.isEmpty(houses)}">
+                  <span>Xác nhận đặt lịch</span>
+                  <svg th:replace="~{fragments/icons :: arrow-right}"></svg>
+                </button>
+                <a href="/customer/bookings" class="btn btn-outline-secondary w-100 d-inline-flex align-items-center justify-content-center gap-2">
+                  <svg th:replace="~{fragments/icons :: arrow-left}"></svg>
+                  <span>Quay lại</span>
+                </a>
+              </div>
               <p class="small text-secondary text-center mt-3 mb-0 d-flex align-items-center justify-content-center gap-2">
                 <svg th:replace="~{fragments/icons :: shield-check}"></svg>
                 <span>Hủy lịch miễn phí trước giờ bắt đầu ít nhất 2 giờ.</span>

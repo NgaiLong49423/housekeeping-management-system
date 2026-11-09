@@ -4,6 +4,12 @@
   <body>
     <header th:replace="~{fragments/layout :: header('houses')}"></header>
     <main id="main" class="container py-4 py-md-5">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <a href="/customer/bookings/new" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-2">
+          <svg th:replace="~{fragments/icons :: arrow-left}"></svg>
+          <span>Quay lại đặt lịch hẹn</span>
+        </a>
+      </div>
       <div class="section-heading mb-4">
         <div>
           <span class="eyebrow">
@@ -15,9 +21,15 @@
         </div>
       </div>
       <div th:replace="~{fragments/layout :: alerts}"></div>
-      <div class="alert alert-success d-flex align-items-center gap-2 mb-4 border-0 shadow-sm" th:if="${param.saved}" style="background-color: var(--status-confirmed-bg); color: var(--status-confirmed-text); border-left: 4px solid var(--brand) !important;">
-        <svg th:replace="~{fragments/icons :: check-circle}"></svg>
-        <span>Đã lưu địa chỉ nhà.</span>
+      <div class="alert alert-success d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4 border-0 shadow-sm" th:if="${param.saved}" style="background-color: var(--status-confirmed-bg); color: var(--status-confirmed-text); border-left: 4px solid var(--brand) !important;">
+        <div class="d-flex align-items-center gap-2">
+          <svg th:replace="~{fragments/icons :: check-circle}"></svg>
+          <span>Đã lưu địa chỉ nhà thành công.</span>
+        </div>
+        <a href="/customer/bookings/new" class="btn btn-sm btn-primary d-inline-flex align-items-center gap-1">
+          <span>Tiếp tục đặt lịch ngay</span>
+          <svg th:replace="~{fragments/icons :: arrow-right}"></svg>
+        </a>
       </div>
 
       <div class="row g-4 align-items-start">
@@ -78,7 +90,7 @@
               <svg th:replace="~{fragments/icons :: chevron-down}"></svg>
             </summary>
             <div class="surface p-4">
-              <form method="post" th:object="${houseForm}"
+              <form id="houseForm" method="post" th:object="${houseForm}"
                     th:action="${editHouseId == null ? '/customer/houses' : '/customer/houses/' + editHouseId}">
                 <div class="row g-3">
                   <div class="col-12">
@@ -157,18 +169,54 @@
         const ref = document.querySelector('#vietmapRefId');
         const list = document.querySelector('#vietmapSuggestions');
         const selected = document.querySelector('#selectedAddress');
-        const form = document.querySelector('form');
+        const form = document.querySelector('#houseForm');
         const provincePills = document.querySelectorAll('.province-pill');
         let timer;
+        let lastSuggestions = [];
 
-        // When editing, initialize ref.value with existing house reference token if empty
-        const urlParams = new URLSearchParams(window.location.search);
-        const isEditing = urlParams.has('editId') || window.location.pathname.includes('/customer/houses/');
-        if (isEditing && !ref.value && input.value.trim().length > 0) {
-          ref.value = 'ref-demo-vinhomes';
+        const PROVINCE_PRESETS = {
+          'TP. Hồ Chí Minh': {
+            refId: 'ref-demo-vinhomes',
+            display: 'Bs16 VinHome Grand Park, Phường Long Bình, TP. Thủ Đức, TP. Hồ Chí Minh'
+          },
+          'Tỉnh Bình Định': {
+            refId: 'ref-demo-binhdinh-quynhon',
+            display: '01 Đường Ngô Mây, Phường Ngô Mây, TP. Quy Nhơn, Tỉnh Bình Định'
+          },
+          'TP. Hà Nội': {
+            refId: 'ref-demo-hanoi-hoankiem',
+            display: '01 Phố Đinh Tiên Hoàng, Phường Hàng Bạc, Quận Hoàn Kiếm, TP. Hà Nội'
+          },
+          'TP. Đà Nẵng': {
+            refId: 'ref-demo-danang-haichau',
+            display: '155 Đường Bạch Đằng, Phường Hải Châu 1, Quận Hải Châu, TP. Đà Nẵng'
+          }
+        };
+
+        const detectRefId = (text) => {
+          if (!text) return 'ref-demo-vinhomes';
+          const s = text.toLowerCase();
+          if (s.includes('quy nhơn') || s.includes('bình định') || s.includes('ngô mây')) return 'ref-demo-binhdinh-quynhon';
+          if (s.includes('an nhơn')) return 'ref-demo-binhdinh-annhon';
+          if (s.includes('tuy phước') || s.includes('diêu trì')) return 'ref-demo-binhdinh-tuyphuoc';
+          if (s.includes('hà nội') || s.includes('hoàn kiếm')) return 'ref-demo-hanoi-hoankiem';
+          if (s.includes('cầu giấy') || s.includes('xuân thủy')) return 'ref-demo-hanoi-caugiay';
+          if (s.includes('đà nẵng') || s.includes('bạch đằng') || s.includes('hải châu')) return 'ref-demo-danang-haichau';
+          if (s.includes('nguyễn huệ') || s.includes('quận 1')) return 'ref-demo-hcm-q1';
+          if (s.includes('bình thạnh') || s.includes('nguyễn hữu cảnh')) return 'ref-demo-hcm-binhthanh';
+          return 'ref-demo-vinhomes';
+        };
+
+        // When page loads with an existing address (e.g. edit mode or validation return)
+        if (input && input.value && input.value.trim().length > 0) {
+          if (!ref.value) {
+            ref.value = detectRefId(input.value);
+          }
+          selected.innerHTML = `<span class="badge bg-success-subtle text-success me-1">✓ Đã xác thực</span> ${input.value}`;
         }
 
         const showSuggestions = (items) => {
+          lastSuggestions = items || [];
           if (!items || items.length === 0) {
             list.style.display = 'none';
             list.replaceChildren();
@@ -212,35 +260,48 @@
           }
         };
 
-        input.addEventListener('input', () => {
-          input.setCustomValidity('');
-          ref.value = '';
-          selected.textContent = 'Chưa chọn kết quả VietMap.';
-          clearTimeout(timer);
-          const q = input.value.trim();
-          if (q.length < 2) {
-            list.style.display = 'none';
-            list.replaceChildren();
-            return;
-          }
-          timer = setTimeout(() => fetchSuggestions(q), 250);
-        });
+        if (input) {
+          input.addEventListener('input', () => {
+            input.setCustomValidity('');
+            clearTimeout(timer);
+            const q = input.value.trim();
+            if (q.length < 2) {
+              list.style.display = 'none';
+              list.replaceChildren();
+              ref.value = '';
+              selected.textContent = 'Chưa chọn kết quả VietMap.';
+              return;
+            }
+            ref.value = detectRefId(q);
+            selected.innerHTML = `<span class="badge bg-light text-secondary me-1">Đang tìm</span> ${q}`;
+            timer = setTimeout(() => fetchSuggestions(q), 250);
+          });
 
-        input.addEventListener('focus', () => {
-          const q = input.value.trim();
-          if (q.length >= 2) {
-            fetchSuggestions(q);
-          } else {
-            fetchSuggestions('Hồ Chí Minh');
-          }
-        });
+          input.addEventListener('focus', () => {
+            const q = input.value.trim();
+            if (q.length >= 2) {
+              fetchSuggestions(q);
+            } else {
+              fetchSuggestions('Hồ Chí Minh');
+            }
+          });
+        }
 
         provincePills.forEach(pill => {
-          pill.addEventListener('click', () => {
+          pill.addEventListener('click', (e) => {
+            e.preventDefault();
             const prov = pill.dataset.province;
-            input.value = prov;
-            input.dispatchEvent(new Event('input'));
-            input.focus();
+            const preset = PROVINCE_PRESETS[prov];
+            if (preset) {
+              input.value = preset.display;
+              ref.value = preset.refId;
+              selected.innerHTML = `<span class="badge bg-success-subtle text-success me-1">✓ Đã chọn</span> ${preset.display}`;
+              input.setCustomValidity('');
+            } else {
+              input.value = prov;
+              ref.value = detectRefId(prov);
+            }
+            fetchSuggestions(prov);
           });
         });
 
@@ -250,13 +311,26 @@
           }
         });
 
-        form.addEventListener('submit', event => {
-          if (!ref.value) {
-            event.preventDefault();
-            input.setCustomValidity('Hãy chọn một kết quả địa chỉ VietMap từ danh sách gợi ý.');
-            input.reportValidity();
-          }
-        });
+        if (form) {
+          form.addEventListener('submit', event => {
+            if (!ref.value) {
+              const q = input.value.trim();
+              if (q.length > 0) {
+                if (lastSuggestions.length > 0) {
+                  ref.value = lastSuggestions[0].refId;
+                  input.value = lastSuggestions[0].display;
+                } else {
+                  ref.value = detectRefId(q);
+                }
+                input.setCustomValidity('');
+              } else {
+                event.preventDefault();
+                input.setCustomValidity('Hãy chọn một kết quả địa chỉ VietMap từ danh sách gợi ý.');
+                input.reportValidity();
+              }
+            }
+          });
+        }
       })();
     </script>
   </body>
