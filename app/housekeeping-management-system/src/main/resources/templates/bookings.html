@@ -162,6 +162,11 @@
                   </span>
                 </td>
                 <td data-label="Chi tiết" class="text-end">
+                  <a th:if="${currentUser.role == 'CUSTOMER' and booking.status == 'AWAITING_PAYMENT' and booking.paymentStatus != 'SUCCESS'}"
+                     class="btn btn-primary btn-sm me-1" th:href="@{/customer/bookings/{id}(id=${booking.id})}">
+                    <svg th:replace="~{fragments/icons :: qr-code}"></svg>
+                    <span>Thanh toán QR</span>
+                  </a>
                   <a class="btn btn-light btn-sm" th:href="@{/{role}/bookings/{id}(role=${#strings.toLowerCase(currentUser.role)},id=${booking.id})}">
                     <span>Xem chi tiết</span>
                     <svg th:replace="~{fragments/icons :: arrow-right}"></svg>
