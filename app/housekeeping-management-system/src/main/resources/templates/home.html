@@ -11,7 +11,7 @@
         <div class="container">
           <div class="hero-house-stage">
             <!-- Cấu trúc wrapper .house: container-type: inline-size, position: relative, width: 100%, max-width: 1100px -->
-            <div class="house will-change-anim" id="sketchViewport">
+            <div class="house house-viewport will-change-anim is-visible" id="sketchViewport">
               
               <!-- 1. SVG Ngôi Nhà (Line-Art viewBox="0 0 1000 620", width: 100%, height: auto) -->
               <svg class="house__art sketch-svg sketch-svg--wide" id="houseSketchSvg" viewBox="0 0 1000 620" preserveAspectRatio="xMidYMid meet" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -35,8 +35,21 @@
                 <!-- Mảng màu nước ấm cúng cho không gian phòng khách -->
                 <rect x="70" y="365" width="860" height="210" rx="4" fill="url(#wallWashGrad)" class="item-light fade-fill" />
 
-                <!-- Vệt nắng sớm vàng ấm rọi từ cửa sổ xuống sàn gỗ -->
-                <polygon points="120,375 250,375 460,575 200,575" fill="url(#sunbeamGrad)" class="item-light fade-fill" />
+                <!-- Vệt nắng sớm vàng ấm rọi từ cửa sổ xuống sàn gỗ & Hạt bụi li ti lơ lửng -->
+                <g class="window-light item-light fade-fill">
+                  <polygon class="sunbeam-polygon" points="120,375 250,375 460,575 200,575" fill="url(#sunbeamGrad)" />
+                  <!-- Hạt bụi li ti lơ lửng trong vệt nắng sớm -->
+                  <g class="dust-group">
+                    <circle class="dust dust-1" cx="180" cy="425" r="1.6" fill="#fefae0" />
+                    <circle class="dust dust-2" cx="240" cy="445" r="2.0" fill="#ffffff" />
+                    <circle class="dust dust-3" cx="205" cy="495" r="1.5" fill="#fcf6bd" />
+                    <circle class="dust dust-4" cx="295" cy="480" r="2.2" fill="#fefae0" />
+                    <circle class="dust dust-5" cx="340" cy="520" r="1.7" fill="#ffffff" />
+                    <circle class="dust dust-6" cx="265" cy="540" r="2.4" fill="#fcf6bd" />
+                    <circle class="dust dust-7" cx="380" cy="550" r="1.8" fill="#fefae0" />
+                    <circle class="dust dust-8" cx="225" cy="405" r="2.1" fill="#ffffff" />
+                  </g>
+                </g>
 
                 <!-- Sàn gỗ sồi Bắc Âu -->
                 <rect x="70" y="575" width="860" height="15" fill="#ede1d1" class="item-light fade-fill" />
@@ -54,7 +67,8 @@
                 <path d="M 780 75 L 780 25 L 828 25 L 828 95" stroke="#16211d" stroke-width="2.5" fill="#eddcd0" class="draw-frame draw-path" />
                 <line x1="772" y1="25" x2="836" y2="25" stroke="#16211d" stroke-width="3.5" stroke-linecap="round" class="draw-frame draw-path" />
                 <g class="chimney-smoke">
-                  <path d="M 804 19 Q 814 10 806 3" stroke="rgba(184, 92, 56, 0.55)" stroke-width="2" fill="none" stroke-linecap="round" />
+                  <path class="chimney-smoke-puff chimney-smoke-1" d="M 804 19 Q 814 10 806 3 Q 798 -4 808 -12" stroke="rgba(184, 92, 56, 0.65)" stroke-width="2.2" fill="none" stroke-linecap="round" />
+                  <path class="chimney-smoke-puff chimney-smoke-2" d="M 808 21 Q 800 12 805 4 Q 812 -3 803 -11" stroke="rgba(184, 92, 56, 0.45)" stroke-width="1.8" fill="none" stroke-linecap="round" />
                 </g>
 
                 <!-- Hai bức tường chịu lực ngoài và móng nhà -->
@@ -75,14 +89,19 @@
                   <line x1="110" y1="425" x2="260" y2="425" stroke="#14503f" stroke-width="1.8" />
                   <line x1="110" y1="475" x2="260" y2="475" stroke="#14503f" stroke-width="1.8" />
                   <path d="M 98 525 L 272 525" stroke="#16211d" stroke-width="3.2" stroke-linecap="round" />
-                  <path d="M 110 375 Q 126 450 115 525" stroke="#9bb3aa" stroke-width="2" fill="none" />
-                  <path d="M 260 375 Q 244 450 255 525" stroke="#9bb3aa" stroke-width="2" fill="none" />
+                  <!-- Rèm cửa hai bên phất phơ trong gió -->
+                  <g class="curtain curtain-left">
+                    <path d="M 110 375 Q 126 450 115 525" stroke="#9bb3aa" stroke-width="2" fill="none" />
+                  </g>
+                  <g class="curtain curtain-right">
+                    <path d="M 260 375 Q 244 450 255 525" stroke="#9bb3aa" stroke-width="2" fill="none" />
+                  </g>
                 </g>
 
                 <!-- Tranh tường nghệ thuật trên sofa -->
                 <g class="item-furniture item-art will-change-anim">
                   <rect x="475" y="375" width="105" height="58" rx="4" stroke="#16211d" stroke-width="2" fill="#ffffff" />
-                  <circle cx="527" cy="398" r="12" fill="#f4a261" />
+                  <circle class="painting-sun" cx="527" cy="398" r="12" fill="#f4a261" />
                   <path d="M 485 422 Q 525 408 570 422" stroke="#14503f" stroke-width="2" fill="none" />
                 </g>
 
@@ -91,9 +110,16 @@
                   <line x1="675" y1="405" x2="765" y2="405" stroke="#16211d" stroke-width="3" stroke-linecap="round" />
                   <rect x="685" y="387" width="8" height="18" fill="#b85c38" stroke="#16211d" stroke-width="1.5" />
                   <rect x="696" y="382" width="8" height="23" fill="#14503f" stroke="#16211d" stroke-width="1.5" />
-                  <circle cx="738" cy="394" r="8" stroke="#16211d" stroke-width="1.8" fill="#ffffff" />
-                  <line x1="738" y1="394" x2="738" y2="388" stroke="#16211d" stroke-width="1.5" />
-                  <line x1="738" y1="394" x2="743" y2="394" stroke="#16211d" stroke-width="1.5" />
+                  <!-- Đồng hồ trên kệ: cx=738, cy=394, r=8 -->
+                  <g class="clock" id="shelfClock">
+                    <circle cx="738" cy="394" r="8" stroke="#16211d" stroke-width="1.8" fill="#ffffff" />
+                    <!-- Kim phút dài hơn, quay 360° / 60s -->
+                    <line class="clock-hand clock-hand-minute" x1="738" y1="394" x2="738" y2="388" stroke="#16211d" stroke-width="1.5" stroke-linecap="round" />
+                    <!-- Kim giờ ngắn hơn, quay 360° / 720s -->
+                    <line class="clock-hand clock-hand-hour" x1="738" y1="394" x2="743" y2="394" stroke="#16211d" stroke-width="1.6" stroke-linecap="round" />
+                    <!-- Trục giữa đồng hồ -->
+                    <circle cx="738" cy="394" r="1" fill="#16211d" />
+                  </g>
                 </g>
 
                 <!-- Ghế sofa phòng khách -->
@@ -107,8 +133,13 @@
                   <line x1="430" y1="550" x2="427" y2="575" stroke="#16211d" stroke-width="2.8" stroke-linecap="round" />
                   <line x1="610" y1="550" x2="613" y2="575" stroke="#16211d" stroke-width="2.8" stroke-linecap="round" />
                   <line x1="645" y1="550" x2="650" y2="575" stroke="#16211d" stroke-width="2.8" stroke-linecap="round" />
-                  <rect x="405" y="488" width="28" height="28" rx="5" transform="rotate(-8 405 488)" fill="#b85c38" stroke="#16211d" stroke-width="2" />
-                  <rect x="602" y="488" width="28" height="28" rx="5" transform="rotate(10 602 488)" fill="#14503f" stroke="#16211d" stroke-width="2" />
+                  <!-- Đệm sofa nhún nhẹ tự nhiên -->
+                  <g class="sofa-cushion-1">
+                    <rect x="405" y="488" width="28" height="28" rx="5" transform="rotate(-8 405 488)" fill="#b85c38" stroke="#16211d" stroke-width="2" />
+                  </g>
+                  <g class="sofa-cushion-2">
+                    <rect x="602" y="488" width="28" height="28" rx="5" transform="rotate(10 602 488)" fill="#14503f" stroke="#16211d" stroke-width="2" />
+                  </g>
                 </g>
 
                 <!-- Bàn trà & tách cà phê bốc khói -->
@@ -119,33 +150,52 @@
                   <line x1="355" y1="540" x2="360" y2="575" stroke="#16211d" stroke-width="2.5" stroke-linecap="round" />
                   <ellipse cx="332" cy="532" rx="10" ry="3" fill="#eddcd0" stroke="#16211d" stroke-width="1.5" />
                   <path d="M 326 531 L 327 520 L 337 520 L 338 531 Z" fill="#14503f" stroke="#16211d" stroke-width="1.8" />
-                  <g class="coffee-smoke">
-                    <path d="M 332 516 Q 335 510 330 504" stroke="#b85c38" stroke-width="1.5" fill="none" stroke-linecap="round" />
+                  <!-- Khói ly cà phê 2 làn lệch pha 1.7s -->
+                  <g class="coffee-steam">
+                    <path class="steam-trail steam-trail-1" d="M 331 516 Q 335 509 330 503 Q 326 497 332 491" stroke="#b85c38" stroke-width="1.5" fill="none" stroke-linecap="round" />
+                    <path class="steam-trail steam-trail-2" d="M 334 516 Q 329 508 333 502 Q 337 496 331 490" stroke="#b85c38" stroke-width="1.3" fill="none" stroke-linecap="round" />
                   </g>
                 </g>
 
                 <!-- Cây xanh Monstera -->
-                <g class="item-furniture item-plant will-change-anim">
-                  <rect x="75" y="505" width="42" height="36" rx="5" fill="#f4ebd9" stroke="#16211d" stroke-width="2.2" />
-                  <line x1="71" y1="505" x2="121" y2="505" stroke="#16211d" stroke-width="2.5" stroke-linecap="round" />
-                  <line x1="73" y1="525" x2="73" y2="575" stroke="#16211d" stroke-width="2.5" stroke-linecap="round" />
-                  <line x1="113" y1="525" x2="113" y2="575" stroke="#16211d" stroke-width="2.5" stroke-linecap="round" />
-                  <path d="M 96 505 Q 88 455 72 425" stroke="#14503f" stroke-width="2.5" fill="none" />
-                  <path d="M 96 505 Q 106 445 128 415" stroke="#14503f" stroke-width="2.5" fill="none" />
-                  <path d="M 96 505 Q 96 435 100 395" stroke="#14503f" stroke-width="2.5" fill="none" />
-                  <g class="plant-leaves">
-                    <ellipse cx="68" cy="420" rx="19" ry="26" transform="rotate(-25 68 420)" fill="#14503f" stroke="#16211d" stroke-width="2" />
-                    <ellipse cx="128" cy="410" rx="19" ry="26" transform="rotate(30 128 410)" fill="#52b788" stroke="#16211d" stroke-width="2" />
-                    <ellipse cx="100" cy="390" rx="17" ry="24" transform="rotate(5 100 390)" fill="#2d6a4f" stroke="#16211d" stroke-width="2" />
+                <g class="item-furniture item-plant plant will-change-anim" id="plantGroup">
+                  <g class="plant-pot">
+                    <rect x="75" y="505" width="42" height="36" rx="5" fill="#f4ebd9" stroke="#16211d" stroke-width="2.2" />
+                    <line x1="71" y1="505" x2="121" y2="505" stroke="#16211d" stroke-width="2.5" stroke-linecap="round" />
+                    <line x1="73" y1="525" x2="73" y2="575" stroke="#16211d" stroke-width="2.5" stroke-linecap="round" />
+                    <line x1="113" y1="525" x2="113" y2="575" stroke="#16211d" stroke-width="2.5" stroke-linecap="round" />
+                  </g>
+                  <g class="plant-body">
+                    <!-- Thân và cành -->
+                    <path class="plant-stem" d="M 96 505 Q 88 455 72 425" stroke="#14503f" stroke-width="2.5" fill="none" />
+                    <path class="plant-stem" d="M 96 505 Q 106 445 128 415" stroke="#14503f" stroke-width="2.5" fill="none" />
+                    <path class="plant-stem" d="M 96 505 Q 96 435 100 395" stroke="#14503f" stroke-width="2.5" fill="none" />
+                    <!-- Từng lá cây riêng biệt -->
+                    <g class="plant-leaf plant-leaf-1">
+                      <ellipse cx="68" cy="420" rx="19" ry="26" transform="rotate(-25 68 420)" fill="#14503f" stroke="#16211d" stroke-width="2" />
+                    </g>
+                    <g class="plant-leaf plant-leaf-2">
+                      <ellipse cx="128" cy="410" rx="19" ry="26" transform="rotate(30 128 410)" fill="#52b788" stroke="#16211d" stroke-width="2" />
+                    </g>
+                    <g class="plant-leaf plant-leaf-3">
+                      <ellipse cx="100" cy="390" rx="17" ry="24" transform="rotate(5 100 390)" fill="#2d6a4f" stroke="#16211d" stroke-width="2" />
+                    </g>
                   </g>
                 </g>
 
                 <!-- Đèn cây vòm uốn cong -->
-                <g class="item-furniture item-lamp will-change-anim">
+                <g class="item-furniture item-lamp lamp will-change-anim" id="lampGroup">
+                  <!-- Chân đế và trụ uốn -->
                   <ellipse cx="845" cy="575" rx="20" ry="6" fill="#d5c8b8" stroke="#16211d" stroke-width="2" />
                   <path d="M 845 575 L 845 410 Q 845 355 805 365 L 795 370" stroke="#16211d" stroke-width="2.8" fill="none" stroke-linecap="round" />
-                  <path d="M 782 372 L 812 372 L 824 396 L 770 396 Z" fill="#b85d38" stroke="#16211d" stroke-width="2" />
-                  <polygon points="776,396 818,396 875,550 725,550" fill="url(#sunbeamGrad)" opacity="0.65" class="item-light fade-fill" />
+                  <!-- Chụp đèn đung đưa cực nhẹ -->
+                  <g class="lamp-shade">
+                    <path d="M 782 372 L 812 372 L 824 396 L 770 396 Z" fill="#b85d38" stroke="#16211d" stroke-width="2" />
+                  </g>
+                  <!-- Vùng sáng ấm cúng của đèn cây -->
+                  <g class="lamp-glow">
+                    <polygon points="776,396 818,396 875,550 725,550" fill="url(#sunbeamGrad)" opacity="0.65" class="item-light fade-fill" />
+                  </g>
                 </g>
               </svg>
 

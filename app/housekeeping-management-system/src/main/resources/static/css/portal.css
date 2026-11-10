@@ -1926,6 +1926,13 @@ input[type="checkbox"]:not(.form-check-input) {
   --hero-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --hero-ease-soft: cubic-bezier(0.25, 1, 0.5, 1);
 
+  /* Biến điều khiển Living SVG Animation:
+     --speed: 1    -> Tốc độ chuẩn sống động, thư thái
+     --speed: 0.5  -> Chuyển động nhanh gấp đôi
+     --speed: 1.5  -> Chuyển động chậm rãi, êm đềm */
+  --speed: 1;
+  --ease-soft: cubic-bezier(0.45, 0.05, 0.55, 0.95);
+
   /* Bảng màu nhận diện thương hiệu chuẩn mực */
   --hero-emerald: #14503f;
   --hero-emerald-dark: #0e3b2e;
@@ -2273,30 +2280,372 @@ input[type="checkbox"]:not(.form-check-input) {
   100% { opacity: 1; }
 }
 
-.chimney-smoke,
-.coffee-smoke {
-  transform-origin: center bottom;
-  animation: smokeFloat 4.5s ease-in-out infinite;
-}
-.coffee-smoke { animation-duration: 4s; animation-delay: 0.5s; }
+/* ==========================================================================
+   LIVING SVG MICRO-ANIMATIONS (CHUYỂN ĐỘNG SỐNG ĐỘNG VÔ HẠN)
+   - Kích hoạt qua class .is-alive trên .house sau khi hoàn tất hoạt ảnh xuất hiện ban đầu (~2.8s)
+   - Tự động tạm dừng (paused) khi cuộn ra khỏi màn hình nhờ IntersectionObserver (.house:not(.is-visible))
+   - Tối ưu GPU 100%: chỉ animate transform và opacity, transform-box: fill-box
+   ========================================================================== */
 
-@keyframes smokeFloat {
-  0%, 100% { opacity: 0.35; transform: translateY(0) scaleX(1); }
-  50% { opacity: 0.85; transform: translateY(-5px) scaleX(1.15); }
-}
-
-.plant-leaves {
-  transform-origin: 96px 505px;
-  animation: leafSway 6s ease-in-out infinite;
+/* Tiết kiệm tài nguyên tuyệt đối: dừng animation khi ra ngoài tầm nhìn */
+.house:not(.is-visible) *,
+.house:not(.is-visible) *::before,
+.house:not(.is-visible) *::after {
+  animation-play-state: paused !important;
 }
 
-@keyframes leafSway {
+/* --------------------------------------------------------------------------
+   1. CÂY TRONG CHẬU (.plant, .plant-body, .plant-leaf-1/2/3)
+   - Cả cây đung đưa quanh gốc chậu (50% 100%)
+   - Từng lá dao động lệch pha với nhịp gió thoảng qua ở 80-90%
+   -------------------------------------------------------------------------- */
+.house.is-alive .plant-body {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: plantSway calc(5s * var(--speed)) ease-in-out infinite alternate;
+}
+
+@keyframes plantSway {
+  0% {
+    transform: rotate(-1.5deg);
+  }
+  100% {
+    transform: rotate(1.5deg);
+  }
+}
+
+.house.is-alive .plant-leaf-1 {
+  transform-box: fill-box;
+  transform-origin: 75% 85%;
+  animation: leafGust1 calc(4.2s * var(--speed)) var(--ease-soft) 0s infinite;
+}
+
+@keyframes leafGust1 {
   0%, 100% { transform: rotate(0deg); }
-  33% { transform: rotate(1.5deg); }
-  66% { transform: rotate(-1.5deg); }
+  25%      { transform: rotate(-3.5deg); }
+  50%      { transform: rotate(2.5deg); }
+  70%      { transform: rotate(-1.5deg); }
+  82%      { transform: rotate(5deg); } /* Cơn gió thoảng qua */
+  90%      { transform: rotate(-2deg); }
 }
 
-/* Accessibility */
+.house.is-alive .plant-leaf-2 {
+  transform-box: fill-box;
+  transform-origin: 25% 85%;
+  animation: leafGust2 calc(5.0s * var(--speed)) var(--ease-soft) calc(-1.2s * var(--speed)) infinite;
+}
+
+@keyframes leafGust2 {
+  0%, 100% { transform: rotate(0deg); }
+  20%      { transform: rotate(3deg); }
+  45%      { transform: rotate(-3deg); }
+  70%      { transform: rotate(1.2deg); }
+  84%      { transform: rotate(-4.5deg); } /* Cơn gió thoảng qua */
+  92%      { transform: rotate(2deg); }
+}
+
+.house.is-alive .plant-leaf-3 {
+  transform-box: fill-box;
+  transform-origin: 50% 90%;
+  animation: leafGust3 calc(5.8s * var(--speed)) var(--ease-soft) calc(-2.4s * var(--speed)) infinite;
+}
+
+@keyframes leafGust3 {
+  0%, 100% { transform: rotate(0deg); }
+  22%      { transform: rotate(-2.5deg); }
+  50%      { transform: rotate(3.5deg); }
+  72%      { transform: rotate(-1.2deg); }
+  86%      { transform: rotate(4deg); } /* Cơn gió thoảng qua */
+  94%      { transform: rotate(-1deg); }
+}
+
+/* --------------------------------------------------------------------------
+   2. ĐÈN CÂY GÓC PHẢI (.lamp-shade, .lamp-glow)
+   - Chụp đèn đung đưa cực khẽ quanh đầu cần uốn
+   - Quầng sáng thở êm dịu 3.5s + chớp nhấp nháy dây tóc ấm cúng mỗi ~8s
+   -------------------------------------------------------------------------- */
+.house.is-alive .lamp-shade {
+  transform-box: fill-box;
+  transform-origin: 50% 0%;
+  animation: lampShadeSway calc(6s * var(--speed)) ease-in-out infinite alternate;
+}
+
+@keyframes lampShadeSway {
+  0% {
+    transform: rotate(-0.6deg);
+  }
+  100% {
+    transform: rotate(0.6deg);
+  }
+}
+
+.house.is-alive .lamp-glow {
+  transform-box: fill-box;
+  transform-origin: 50% 0%;
+  animation: lampGlowBreathing calc(8s * var(--speed)) var(--ease-soft) infinite;
+  transition: opacity 400ms ease, filter 400ms ease;
+}
+
+@keyframes lampGlowBreathing {
+  0%   { opacity: 0.75; transform: scale(0.98); }
+  20%  { opacity: 0.95; transform: scale(1.02); }
+  40%  { opacity: 0.78; transform: scale(0.99); }
+  60%  { opacity: 1.00; transform: scale(1.03); }
+  75%  { opacity: 0.82; transform: scale(0.99); }
+  86%  { opacity: 0.96; transform: scale(1.01); }
+  /* Hiệu ứng chớp nhẹ dây tóc ấm cúng */
+  88%  { opacity: 0.60; transform: scale(0.97); }
+  90%  { opacity: 1.00; transform: scale(1.03); }
+  92%  { opacity: 0.80; transform: scale(0.99); }
+  94%  { opacity: 1.00; transform: scale(1.02); }
+  97%  { opacity: 0.85; transform: scale(1.00); }
+  100% { opacity: 0.75; transform: scale(0.98); }
+}
+
+/* --------------------------------------------------------------------------
+   3. ÁNH SÁNG TỪ CỬA SỔ & HẠT BỤI NẮNG (.window-light, .dust)
+   - Vệt nắng dịch chuyển nhẹ 6s như nắng trôi qua mây
+   - 8 hạt bụi lơ lửng trong không gian ấm áp
+   -------------------------------------------------------------------------- */
+.house.is-alive .window-light {
+  animation: sunbeamDrift calc(6s * var(--speed)) ease-in-out infinite alternate;
+}
+
+@keyframes sunbeamDrift {
+  0% {
+    opacity: 0.60;
+    transform: translateX(0);
+  }
+  100% {
+    opacity: 1.00;
+    transform: translateX(6px);
+  }
+}
+
+.house.is-alive .dust {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.house.is-alive .dust-1 { animation: dustFloatA calc(8.5s * var(--speed)) ease-in-out -1.2s infinite alternate; }
+.house.is-alive .dust-2 { animation: dustFloatB calc(11.0s * var(--speed)) ease-in-out -4.5s infinite alternate; }
+.house.is-alive .dust-3 { animation: dustFloatA calc(7.2s * var(--speed)) ease-in-out -2.8s infinite alternate; }
+.house.is-alive .dust-4 { animation: dustFloatB calc(13.5s * var(--speed)) ease-in-out -6.1s infinite alternate; }
+.house.is-alive .dust-5 { animation: dustFloatA calc(9.8s * var(--speed)) ease-in-out -3.4s infinite alternate; }
+.house.is-alive .dust-6 { animation: dustFloatB calc(12.0s * var(--speed)) ease-in-out -7.0s infinite alternate; }
+.house.is-alive .dust-7 { animation: dustFloatA calc(10.5s * var(--speed)) ease-in-out -5.2s infinite alternate; }
+.house.is-alive .dust-8 { animation: dustFloatB calc(8.0s * var(--speed)) ease-in-out -1.8s infinite alternate; }
+
+@keyframes dustFloatA {
+  0% {
+    transform: translate(0, 0);
+    opacity: 0.30;
+  }
+  50% {
+    opacity: 0.75;
+  }
+  100% {
+    transform: translate(8px, -18px);
+    opacity: 0.25;
+  }
+}
+
+@keyframes dustFloatB {
+  0% {
+    transform: translate(0, 0);
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 0.65;
+  }
+  100% {
+    transform: translate(-7px, -15px);
+    opacity: 0.35;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   4. RÈM CỬA (.curtain)
+   - Rèm cửa bay nhẹ theo gió ban công
+   -------------------------------------------------------------------------- */
+.house.is-alive .curtain {
+  transform-box: fill-box;
+  transform-origin: 50% 0%;
+  animation: curtainFlutter calc(7s * var(--speed)) ease-in-out infinite alternate;
+}
+
+.house.is-alive .curtain-right {
+  animation-delay: calc(-3.5s * var(--speed));
+}
+
+@keyframes curtainFlutter {
+  0% {
+    transform: skewX(-1.5deg) scaleX(1);
+  }
+  100% {
+    transform: skewX(1.5deg) scaleX(1.02);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   5. KHÓI CÀ PHÊ & ỐNG KHÓI (.coffee-steam, .chimney-smoke)
+   - Làn khói cà phê uốn lượn bay lên 18px (2 làn lệch pha 1.7s)
+   - Khói ống khói bốc lên 30px (5s)
+   -------------------------------------------------------------------------- */
+.house.is-alive .steam-trail {
+  transform-origin: center bottom;
+  animation: coffeeSteamRise calc(3.5s * var(--speed)) ease-out infinite;
+}
+
+.house.is-alive .steam-trail-2 {
+  animation-delay: calc(-1.7s * var(--speed));
+}
+
+@keyframes coffeeSteamRise {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0;
+  }
+  25% {
+    transform: translate(2px, -6px) scale(1.1);
+    opacity: 0.75;
+  }
+  60% {
+    transform: translate(-2px, -12px) scale(1.2);
+    opacity: 0.45;
+  }
+  100% {
+    transform: translate(3px, -18px) scale(1.3);
+    opacity: 0;
+  }
+}
+
+.house.is-alive .chimney-smoke-puff {
+  transform-origin: center bottom;
+  animation: chimneySmokeRise calc(5s * var(--speed)) ease-out infinite;
+}
+
+.house.is-alive .chimney-smoke-2 {
+  animation-delay: calc(-2.5s * var(--speed));
+}
+
+@keyframes chimneySmokeRise {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0;
+  }
+  30% {
+    transform: translate(3px, -10px) scale(1.15);
+    opacity: 0.75;
+  }
+  70% {
+    transform: translate(-3px, -20px) scale(1.25);
+    opacity: 0.40;
+  }
+  100% {
+    transform: translate(4px, -30px) scale(1.35);
+    opacity: 0;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   6. ĐỒNG HỒ TRÊN KỆ (.clock-hand-minute, .clock-hand-hour)
+   - Kim phút quay đều quanh tâm (738, 394) mỗi 60s
+   - Kim giờ quay đều mỗi 720s
+   -------------------------------------------------------------------------- */
+.house.is-alive .clock-hand-minute {
+  transform-origin: 738px 394px;
+  animation: rotateClockMinute calc(60s * var(--speed)) linear infinite;
+}
+
+.house.is-alive .clock-hand-hour {
+  transform-origin: 738px 394px;
+  animation: rotateClockHour calc(720s * var(--speed)) linear infinite;
+}
+
+@keyframes rotateClockMinute {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes rotateClockHour {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* --------------------------------------------------------------------------
+   7. TRANH TREO TƯỜNG (.painting-sun)
+   - Mặt trời trong tranh thở nhẹ nhàng: scale 1 ↔ 1.06, opacity 0.9 ↔ 1
+   -------------------------------------------------------------------------- */
+.house.is-alive .painting-sun {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: sunBreathing calc(4s * var(--speed)) ease-in-out infinite alternate;
+}
+
+@keyframes sunBreathing {
+  0% {
+    transform: scale(1);
+    opacity: 0.90;
+  }
+  100% {
+    transform: scale(1.06);
+    opacity: 1.00;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   8. ĐỆM SOFA (.sofa-cushion-1, .sofa-cushion-2)
+   - Đệm sofa nhún nhẹ nhàng tự nhiên: translateY(0 ↔ -2px)
+   -------------------------------------------------------------------------- */
+.house.is-alive .sofa-cushion-1,
+.house.is-alive .sofa-cushion-2 {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: cushionSettle calc(5s * var(--speed)) ease-in-out infinite alternate;
+}
+
+.house.is-alive .sofa-cushion-2 {
+  animation-delay: calc(-2.5s * var(--speed));
+}
+
+@keyframes cushionSettle {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-2px);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   TƯƠNG TÁC HOVER:
+   - Rê chuột vào .house: cây đung đưa nhanh hơn ~30%, đèn sáng thêm +0.15
+   -------------------------------------------------------------------------- */
+.house:hover .plant-body {
+  animation-duration: calc(5s * var(--speed) / 1.3);
+}
+
+.house:hover .plant-leaf-1 {
+  animation-duration: calc(4.2s * var(--speed) / 1.3);
+}
+
+.house:hover .plant-leaf-2 {
+  animation-duration: calc(5.0s * var(--speed) / 1.3);
+}
+
+.house:hover .plant-leaf-3 {
+  animation-duration: calc(5.8s * var(--speed) / 1.3);
+}
+
+.house:hover .lamp-glow {
+  filter: brightness(1.22);
+  opacity: 0.95;
+}
+
+/* ==========================================================================
+   ACCESSIBILITY: REDUCED MOTION
+   ========================================================================== */
 @media (prefers-reduced-motion: reduce) {
   .house,
   .house-viewport,
@@ -2308,9 +2657,22 @@ input[type="checkbox"]:not(.form-check-input) {
   .btn-hero-outline,
   .item-furniture,
   .item-light,
-  .chimney-smoke,
-  .coffee-smoke,
-  .plant-leaves {
+  .plant-body,
+  .plant-leaf-1,
+  .plant-leaf-2,
+  .plant-leaf-3,
+  .lamp-shade,
+  .lamp-glow,
+  .window-light,
+  .dust,
+  .curtain,
+  .steam-trail,
+  .chimney-smoke-puff,
+  .clock-hand-minute,
+  .clock-hand-hour,
+  .painting-sun,
+  .sofa-cushion-1,
+  .sofa-cushion-2 {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;

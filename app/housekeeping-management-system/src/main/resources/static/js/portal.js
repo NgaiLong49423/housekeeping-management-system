@@ -1344,22 +1344,51 @@ if (replayHouseSketchBtn) {
     const svg = viewport.querySelector(".sketch-svg");
     if (!svg) return;
 
+    // Tạm gỡ class .is-alive khi vẽ lại
+    viewport.classList.remove("is-alive");
+
     // Replay SVG stroke and fill animations cleanly
     const clone = svg.cloneNode(true);
     svg.parentNode.replaceChild(clone, svg);
 
-    // Re-trigger HTML overlay pins animation
-    const pins = viewport.querySelectorAll(".sketch-pin");
-    pins.forEach(pin => {
-      pin.style.animation = "none";
-      void pin.offsetHeight;
-      pin.style.animation = "";
-    });
+    // Kích hoạt lại .is-alive sau 2.8s
+    setTimeout(() => {
+      viewport.classList.add("is-alive");
+    }, 2800);
   });
 }
 
-// Senior UI/UX Performance: Gỡ bỏ will-change sau khi hoàn tất chuỗi animation xuất hiện (3 giây)
+// Senior UI/UX Performance & Living Animations Controller
 document.addEventListener('DOMContentLoaded', () => {
+  const house = document.getElementById('sketchViewport') || document.querySelector('.house');
+
+  if (house) {
+    // 1. IntersectionObserver: Tạm dừng hoạt ảnh khi Hero cuộn ra khỏi viewport để tối ưu GPU
+    if ('IntersectionObserver' in window) {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            house.classList.add('is-visible');
+          } else {
+            house.classList.remove('is-visible');
+          }
+        });
+      }, {
+        root: null,
+        threshold: 0.05
+      });
+      observer.observe(house);
+    } else {
+      house.classList.add('is-visible');
+    }
+
+    // 2. Kích hoạt hoạt ảnh sống động vô hạn sau khi chuỗi xuất hiện ban đầu hoàn tất (~2.8s)
+    setTimeout(() => {
+      house.classList.add('is-alive');
+    }, 2800);
+  }
+
+  // 3. Gỡ bỏ will-change sau 3 giây để giải phóng GPU memory
   setTimeout(() => {
     document.querySelectorAll('.will-change-anim').forEach(el => {
       el.style.willChange = 'auto';
