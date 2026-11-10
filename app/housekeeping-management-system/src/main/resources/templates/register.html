@@ -47,22 +47,6 @@
           </button>
         </form>
 
-        <!-- Social Section (matching reference image) -->
-        <div class="auth-social-section">
-          <span class="auth-social-label">Hoặc đăng ký nhanh với</span>
-          <div class="auth-social-row">
-            <button type="button" class="auth-social-btn" aria-label="Đăng ký với Google" onclick="showAuthNotice('Đăng ký qua Google sẽ sớm khả dụng.')">
-              <svg th:replace="~{fragments/icons :: brand-google}"></svg>
-            </button>
-            <button type="button" class="auth-social-btn" aria-label="Đăng ký với Apple" onclick="showAuthNotice('Đăng ký qua Apple ID sẽ sớm khả dụng.')">
-              <svg th:replace="~{fragments/icons :: brand-apple}"></svg>
-            </button>
-            <button type="button" class="auth-social-btn" aria-label="Đăng ký với X" onclick="showAuthNotice('Đăng ký qua X sẽ sớm khả dụng.')">
-              <svg th:replace="~{fragments/icons :: brand-x}"></svg>
-            </button>
-          </div>
-        </div>
-
         <!-- Footer terms & Switch link -->
         <div class="auth-card__footer">
           <a th:href="@{/login}" class="auth-footer-link auth-footer-link--action">

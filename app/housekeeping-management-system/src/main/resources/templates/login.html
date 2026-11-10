@@ -48,22 +48,6 @@
           </button>
         </form>
 
-        <!-- Social Sign In Section (matching reference image) -->
-        <div class="auth-social-section">
-          <span class="auth-social-label">Hoặc đăng nhập với</span>
-          <div class="auth-social-row">
-            <button type="button" class="auth-social-btn" aria-label="Đăng nhập với Google" onclick="showAuthNotice('Đăng nhập qua Google sẽ sớm khả dụng.')">
-              <svg th:replace="~{fragments/icons :: brand-google}"></svg>
-            </button>
-            <button type="button" class="auth-social-btn" aria-label="Đăng nhập với Apple" onclick="showAuthNotice('Đăng nhập qua Apple ID sẽ sớm khả dụng.')">
-              <svg th:replace="~{fragments/icons :: brand-apple}"></svg>
-            </button>
-            <button type="button" class="auth-social-btn" aria-label="Đăng nhập với X" onclick="showAuthNotice('Đăng nhập qua X sẽ sớm khả dụng.')">
-              <svg th:replace="~{fragments/icons :: brand-x}"></svg>
-            </button>
-          </div>
-        </div>
-
         <!-- Footer terms & Switch link -->
         <div class="auth-card__footer">
           <a th:href="@{/register}" class="auth-footer-link auth-footer-link--action">
@@ -72,12 +56,6 @@
           <a href="javascript:void(0)" class="auth-footer-link auth-footer-link--agreement" onclick="showAuthNotice('Điều khoản dịch vụ bảo vệ quyền lợi và bảo mật thông tin khách hàng tại Gọn Nhà.')">
             Điều khoản &amp; Thỏa thuận người dùng
           </a>
-        </div>
-
-        <!-- Role distinction info hint -->
-        <div class="auth-card__role-hint">
-          <svg th:replace="~{fragments/icons :: info}"></svg>
-          <span>Nhân viên và quản trị viên sử dụng tài khoản công ty cấp để truy cập hệ thống.</span>
         </div>
       </div>
     </main>
