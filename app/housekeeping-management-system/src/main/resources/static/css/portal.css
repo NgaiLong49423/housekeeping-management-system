@@ -1974,7 +1974,7 @@ input[type="checkbox"]:not(.form-check-input) {
 @media (min-width: 768px) {
   .house-gable-content {
     position: absolute;
-    top: 7%;
+    top: 11%;
     left: 50%;
     transform: translateX(-50%);
     width: 86%;
