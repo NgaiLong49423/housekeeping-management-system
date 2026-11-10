@@ -1,6 +1,30 @@
 /**
  * GooeyNav - Ported to Vanilla JavaScript & WebGL2 from React Bits
  * Features WebGL2 shader physics, SDF droplets, bezier flight curves & liquid gooey pill blending.
+ *
+ * Supports both programmatic instantiation and declarative SSR markup:
+ *
+ * Programmatic usage (matches React Bits <GooeyNav />):
+ * GooeyNav(container, {
+ *   items: [
+ *     { label: 'Home', href: '#' },
+ *     { label: 'Work', href: '#' },
+ *     { label: 'About', href: '#' },
+ *     { label: 'Contact', href: '#' }
+ *   ],
+ *   initialActiveIndex: 0,
+ *   theme: "dark",
+ *   size: "md",
+ *   frame: true,
+ *   particleCount: 15,
+ *   spread: 56,
+ *   animationTime: 600,
+ *   timeVariance: 300,
+ *   gooeyness: 0.5,
+ *   wobble: 0.5,
+ *   hoverEffect: true,
+ *   onChange: (index, item) => console.log(index, item.label)
+ * });
  */
 (() => {
   "use strict";
@@ -12,7 +36,9 @@
       '--gn-frame-highlight': 'rgba(255, 255, 255, 0.07)',
       '--gn-frame-shadow': '0 22px 44px -20px rgba(0, 0, 0, 0.8), 0 6px 16px -8px rgba(0, 0, 0, 0.5)',
       '--gn-ink': '#f4f4f5',
-      '--gn-muted': 'rgba(244, 244, 245, 0.62)'
+      '--gn-muted': 'rgba(244, 244, 245, 0.62)',
+      '--gn-pill': '#9fe3cf',
+      '--gn-active-ink': '#13201c'
     },
     light: {
       '--gn-frame': 'rgba(240, 240, 243, 0.8)',
@@ -20,20 +46,24 @@
       '--gn-frame-highlight': 'rgba(255, 255, 255, 0.95)',
       '--gn-frame-shadow': '0 22px 44px -22px rgba(24, 24, 27, 0.3), 0 6px 16px -10px rgba(24, 24, 27, 0.16)',
       '--gn-ink': '#27272a',
-      '--gn-muted': 'rgba(39, 39, 42, 0.62)'
+      '--gn-muted': 'rgba(39, 39, 42, 0.62)',
+      '--gn-pill': '#27272a',
+      '--gn-active-ink': '#ffffff'
     },
     gonnha: {
-      '--gn-frame': 'rgba(255, 253, 249, 0.07)',
+      '--gn-frame': 'rgba(22, 33, 29, 0.66)',
       '--gn-frame-edge': 'rgba(243, 239, 230, 0.14)',
       '--gn-frame-highlight': 'rgba(255, 255, 255, 0.18)',
       '--gn-frame-shadow': '0 16px 36px -12px rgba(0, 0, 0, 0.45)',
       '--gn-ink': '#ffffff',
-      '--gn-muted': 'rgba(243, 239, 230, 0.82)'
+      '--gn-muted': 'rgba(243, 239, 230, 0.82)',
+      '--gn-pill': '#9fe3cf',
+      '--gn-active-ink': '#13201c'
     }
   };
 
   const PILLS = {
-    dark: { color: '#f4f4f5', hover: 'rgba(255, 255, 255, 0.08)', shadow: 0.4 },
+    dark: { color: '#9fe3cf', hover: 'rgba(255, 255, 255, 0.08)', shadow: 0.4 },
     light: { color: '#27272a', hover: 'rgba(24, 24, 27, 0.06)', shadow: 0.2 },
     gonnha: { color: '#9fe3cf', hover: 'rgba(159, 227, 207, 0.14)', shadow: 0.3 }
   };
@@ -199,18 +229,53 @@ void main() {
     return { program, uniforms, buffer, position: gl.getAttribLocation(program, 'aPosition') };
   };
 
-  function setupGooeyNav(navEl) {
-    if (navEl._gooeyNavInitialized) return;
+  function setupGooeyNav(navEl, userOptions = {}) {
+    if (!navEl) return null;
+    if (navEl._gooeyNavInitialized) return navEl._gooeyNavEngine;
+
+    // Build DOM structure dynamically if items array is passed
+    if (Array.isArray(userOptions.items) && userOptions.items.length) {
+      const sizeClass = `gooey-nav--${userOptions.size || 'md'}`;
+      navEl.classList.add('gooey-nav', sizeClass);
+      if (userOptions.frame !== false) navEl.classList.add('gooey-nav--framed');
+      if (userOptions.className) navEl.className += ' ' + userOptions.className;
+
+      const itemsMarkup = userOptions.items.map((it, idx) => {
+        const isInitActive = idx === (userOptions.initialActiveIndex || 0);
+        const iconMarkup = it.icon ? `<span class="gooey-nav__icon">${it.icon}</span>` : '';
+        const href = it.href || '#';
+        return `
+          <li class="gooey-nav__item ${isInitActive ? 'active' : ''}" data-gooey-index="${idx}" ${isInitActive ? 'data-active=""' : ''}>
+            <a class="gooey-nav__link nav-link" href="${href}">
+              ${iconMarkup}
+              <span class="gooey-nav__label">${it.label || ''}</span>
+            </a>
+          </li>
+        `;
+      }).join('');
+
+      navEl.innerHTML = `
+        ${userOptions.frame !== false ? '<span class="gooey-nav__rim"></span>' : ''}
+        <div class="gooey-nav__stage">
+          <canvas class="gooey-nav__canvas" aria-hidden="true"></canvas>
+          <span class="gooey-nav__fallback" aria-hidden="true"></span>
+          <ul class="gooey-nav__list">
+            ${itemsMarkup}
+          </ul>
+        </div>
+      `;
+    }
+
     navEl._gooeyNavInitialized = true;
 
-    const themeName = navEl.dataset.theme || 'gonnha';
-    const palette = THEMES[themeName] ? themeName : 'gonnha';
-    const pillColor = navEl.dataset.color || PILLS[palette].color;
+    const themeName = userOptions.theme || navEl.dataset.theme || 'dark';
+    const palette = THEMES[themeName] ? themeName : 'dark';
+    const pillColor = userOptions.color || navEl.dataset.color || PILLS[palette].color;
     const pillRgb = parse(pillColor);
-    const textColor = contrastInk(pillRgb);
+    const textColor = userOptions.activeTextColor || navEl.dataset.activeTextColor || contrastInk(pillRgb);
 
     // Apply theme variables
-    const themeVars = THEMES[palette] || THEMES.gonnha;
+    const themeVars = THEMES[palette] || THEMES.dark;
     for (const [k, v] of Object.entries(themeVars)) {
       navEl.style.setProperty(k, v);
     }
@@ -225,7 +290,7 @@ void main() {
     }
 
     const stage = navEl.querySelector('.gooey-nav__stage');
-    if (!stage) return;
+    if (!stage) return null;
 
     let canvas = stage.querySelector('.gooey-nav__canvas');
     if (!canvas) {
@@ -244,40 +309,44 @@ void main() {
     }
 
     const list = stage.querySelector('.gooey-nav__list');
-    if (!list) return;
+    if (!list) return null;
 
     // Index list items and find active index
     const items = Array.from(list.children);
-    let initialActive = 0;
+    let initialActive = userOptions.activeIndex ?? userOptions.initialActiveIndex ?? 0;
+    let foundActiveFromDOM = false;
+
     items.forEach((item, idx) => {
       item.setAttribute('data-gooey-index', String(idx));
       if (item.hasAttribute('data-active') || item.classList.contains('active')) {
         initialActive = idx;
+        foundActiveFromDOM = true;
         item.setAttribute('data-active', '');
       }
     });
 
-    // Create duplicate active overlay list if not present
-    let overlay = null;
+    if (!foundActiveFromDOM && items[initialActive]) {
+      items[initialActive].setAttribute('data-active', '');
+    }
 
     const settings = {
-      animationTime: Number(navEl.dataset.animationTime || 600),
-      particleCount: Number(navEl.dataset.particleCount || 15),
-      timeVariance: Number(navEl.dataset.timeVariance || 300),
-      spread: Number(navEl.dataset.spread || 56),
-      gooeyness: Number(navEl.dataset.gooeyness || 0.5),
-      wobble: Number(navEl.dataset.wobble || 0.5),
-      hoverEffect: navEl.dataset.hoverEffect !== 'false',
+      animationTime: Number(userOptions.animationTime ?? navEl.dataset.animationTime ?? 600),
+      particleCount: Number(userOptions.particleCount ?? navEl.dataset.particleCount ?? 15),
+      timeVariance: Number(userOptions.timeVariance ?? navEl.dataset.timeVariance ?? 300),
+      spread: Number(userOptions.spread ?? navEl.dataset.spread ?? 56),
+      gooeyness: Number(userOptions.gooeyness ?? navEl.dataset.gooeyness ?? 0.5),
+      wobble: Number(userOptions.wobble ?? navEl.dataset.wobble ?? 0.5),
+      hoverEffect: (userOptions.hoverEffect ?? navEl.dataset.hoverEffect) !== false && (userOptions.hoverEffect ?? navEl.dataset.hoverEffect) !== 'false',
       pillRgb,
-      tints: [pillRgb, parse('#b85d38'), parse('#52b788')],
-      hoverRgb: parse(PILLS[palette].hover),
-      shadow: PILLS[palette].shadow
+      tints: (userOptions.colors && userOptions.colors.length) ? userOptions.colors.map(parse) : [pillRgb, parse('#b85d38'), parse('#52b788')],
+      hoverRgb: parse(PILLS[palette]?.hover || PILLS.dark.hover),
+      shadow: PILLS[palette]?.shadow || PILLS.dark.shadow
     };
 
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false });
     const pipeline = gl ? build(gl) : null;
-    fallback.style.display = 'block';
+    fallback.style.display = pipeline ? 'none' : 'block';
     canvas.style.display = pipeline ? 'block' : 'none';
 
     const view = { width: 0, height: 0 };
@@ -320,60 +389,10 @@ void main() {
       });
     };
 
-    const trace = (boxes, blobs, smooth) => {
-      const field = (x, y) => {
-        let d = 1e5;
-        const merge = value => {
-          const h = clamp01(0.5 + (0.5 * (value - d)) / smooth);
-          d = value + (d - value) * h - smooth * h * (1 - h);
-        };
-        for (const box of boxes) {
-          const r = Math.min(box.hw, box.hh);
-          const qx = Math.abs(x - box.cx) - box.hw + r;
-          const qy = Math.abs(y - box.cy) - box.hh + r;
-          merge(Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - r);
-        }
-        for (const blob of blobs) {
-          const px = x - blob.x;
-          const py = y - blob.y;
-          const bx = -blob.tx;
-          const by = -blob.ty;
-          const span = bx * bx + by * by;
-          const h = span > 0.0001 ? clamp01((px * bx + py * by) / span) : 0;
-          const value = Math.hypot(px - bx * h, py - by * h) - blob.r;
-          if (value > d + smooth) continue;
-          merge(value);
-        }
-        return d;
-      };
-      const step = 2;
-      const parts = [];
-      for (let y = 0; y < view.height; y += 1) {
-        const cy = y + 0.5;
-        let previous = field(0, cy);
-        let start = previous < 0 ? 0 : null;
-        for (let x = step; x <= view.width + step; x += step) {
-          const value = field(Math.min(x, view.width), cy);
-          if (previous < 0 !== value < 0) {
-            const cross = x - step + (step * previous) / (previous - value);
-            if (value < 0) start = cross;
-            else if (start !== null) {
-              parts.push(`M${start.toFixed(1)},${y}H${cross.toFixed(1)}V${y + 1}H${start.toFixed(1)}Z`);
-              start = null;
-            }
-          }
-          previous = value;
-        }
-        if (start !== null) parts.push(`M${start.toFixed(1)},${y}H${view.width}V${y + 1}H${start.toFixed(1)}Z`);
-      }
-      return parts.join('');
-    };
-
     const pill = idx => {
       if (!pills.has(idx)) pills.set(idx, { mass: 0, scale: 0, velocity: 0, outgoing: 0 });
       return pills.get(idx);
     };
-
 
     const updateFallback = idx => {
       if (idx < 0 || !rects || !rects[idx]) return;
@@ -384,7 +403,8 @@ void main() {
       fallback.style.height = `${rect.h}px`;
       fallback.style.opacity = '1';
     };
-const shape = (idx, amount) => {
+
+    const shape = (idx, amount) => {
       const rect = rects[idx];
       if (!rect || amount <= 0.002) return null;
       const h = rect.h * Math.min(1.08, 0.42 + 0.58 * Math.sqrt(Math.max(0, amount)));
@@ -481,21 +501,8 @@ const shape = (idx, amount) => {
         });
       }
 
-      const settledPill = boxes.length === 1 && !blobs.length;
-      if (settledPill) {
-        updateFallback(target);
-      } else {
-        updateFallback(target);
-      }
-
       if (!pipeline || !gl) {
-        const box = shape(target, 1);
-        if (box) {
-          fallback.style.transform = `translate(${box.x.toFixed(2)}px, ${box.y.toFixed(2)}px)`;
-          fallback.style.width = `${box.w}px`;
-          fallback.style.height = `${box.h}px`;
-        }
-        fallback.style.opacity = box ? '1' : '0';
+        updateFallback(target);
         return;
       }
 
@@ -660,10 +667,15 @@ const shape = (idx, amount) => {
       state.scale = 1;
       state.velocity = 0;
       items.forEach((el, i) => {
-        if (i === idx) el.setAttribute('data-active', '');
-        else el.removeAttribute('data-active');
+        if (i === idx) {
+          el.setAttribute('data-active', '');
+          el.classList.add('active');
+        } else {
+          el.removeAttribute('data-active');
+          el.classList.remove('active');
+        }
       });
-      updateFallback(idx);
+      if (!pipeline || !gl) updateFallback(idx);
       render();
     };
 
@@ -677,7 +689,7 @@ const shape = (idx, amount) => {
       target = idx;
       current = idx;
       pill(idx);
-      updateFallback(idx);
+      if (!pipeline || !gl) updateFallback(idx);
       for (const drop of drops) {
         drop.index = idx;
         if (drop.state === 'flying') plan(drop, idx, now, false);
@@ -722,10 +734,42 @@ const shape = (idx, amount) => {
       const item = link.closest('[data-gooey-index]');
       if (!item) return;
       const idx = Number(item.dataset.gooeyIndex);
-      items.forEach(el => el.removeAttribute('data-active'));
-      item.setAttribute('data-active', '');
-      updateFallback(idx);
-      go(idx, true);
+      if (isNaN(idx)) return;
+
+      const href = link.getAttribute('href');
+      const isHashOrEmpty = !href || href === '#' || href.startsWith('javascript:');
+
+      // Trigger onChange callback
+      if (typeof userOptions.onChange === 'function') {
+        userOptions.onChange(idx, { label: link.textContent.trim(), href });
+      }
+
+      // Synchronize active attributes
+      items.forEach((el, i) => {
+        if (i === idx) {
+          el.setAttribute('data-active', '');
+          el.classList.add('active');
+        } else {
+          el.removeAttribute('data-active');
+          el.classList.remove('active');
+        }
+      });
+      if (!pipeline || !gl) updateFallback(idx);
+
+      if (isHashOrEmpty) {
+        event.preventDefault();
+        go(idx, true);
+        return;
+      }
+
+      // Normal navigation: trigger gooey liquid droplet flight before navigating
+      if (!event.ctrlKey && !event.metaKey && !event.shiftKey && event.button === 0) {
+        event.preventDefault();
+        go(idx, true);
+        setTimeout(() => {
+          window.location.href = href;
+        }, Math.min(settings.animationTime * 0.45, 280));
+      }
     });
 
     const resizeObserver = new ResizeObserver(() => {
@@ -733,7 +777,7 @@ const shape = (idx, amount) => {
       if (!drops.length) {
         settle(target < 0 ? initialActive : target);
       } else {
-        updateFallback(target);
+        if (!pipeline || !gl) updateFallback(target);
         render();
       }
     });
@@ -749,11 +793,49 @@ const shape = (idx, amount) => {
       measure();
       if (!drops.length) settle(target);
     });
+
+    const engine = {
+      go: index => go(index, true),
+      settle: index => settle(index),
+      refresh: () => {
+        measure();
+        render();
+        wake();
+      }
+    };
+    navEl._gooeyNavEngine = engine;
+    return engine;
   }
 
-  // Auto initialize on DOM ready
+  /**
+   * Universal GooeyNav Component API:
+   *
+   * @param {HTMLElement|string|Object} containerOrOptions Target element or configuration options
+   * @param {Object} [maybeOptions] Configuration options if target element was first argument
+   * @returns {Object|null} GooeyNav engine instance
+   */
+  function GooeyNav(containerOrOptions, maybeOptions) {
+    let target = containerOrOptions;
+    let options = maybeOptions || {};
+    if (typeof containerOrOptions === 'object' && !(containerOrOptions instanceof HTMLElement) && !containerOrOptions.nodeType) {
+      options = containerOrOptions;
+      target = options.target || options.container || null;
+    }
+    if (typeof target === 'string') {
+      target = document.querySelector(target);
+    }
+    if (!target) {
+      target = document.querySelector('.gooey-nav');
+    }
+    if (!target) return null;
+    return setupGooeyNav(target, options);
+  }
+
+  GooeyNav.init = setupGooeyNav;
+
+  // Auto initialize on DOM ready for any .gooey-nav present in template
   const init = () => {
-    document.querySelectorAll('.gooey-nav').forEach(setupGooeyNav);
+    document.querySelectorAll('.gooey-nav').forEach(el => setupGooeyNav(el));
   };
 
   if (document.readyState === 'loading') {
@@ -762,5 +844,5 @@ const shape = (idx, amount) => {
     init();
   }
 
-  window.GooeyNav = { init: setupGooeyNav };
+  window.GooeyNav = GooeyNav;
 })();
