@@ -6,43 +6,15 @@
     <header th:replace="~{fragments/layout :: header('home')}">
     </header>
     <main id="main">
-      <!-- Spotlight Hero: Senior Frontend Engineered Panoramic House Architecture & Staggered Reveal -->
+      <!-- Spotlight Hero: Gọn Nhà Architecture & Proportional Container Query Scale -->
       <section class="hero hero--spotlight">
         <div class="container">
           <div class="hero-house-stage">
-            <!-- Master Card: Hệ padding 8px clamp(24px, 5vw, 64px), bo góc 32px, bóng mờ đa tầng -->
-            <div class="house-viewport will-change-anim" id="sketchViewport">
+            <!-- Cấu trúc wrapper .house: container-type: inline-size, position: relative, width: 100%, max-width: 1100px -->
+            <div class="house will-change-anim" id="sketchViewport">
               
-              <!-- Khối nội dung nổi: Nền kem mờ nhẹ, backdrop-filter: blur(2px) tránh đè nét vẽ, cách dầm mái an toàn -->
-              <div class="house-gable-content text-center">
-                <!-- Badge: Chữ in hoa, letter-spacing 0.06em, viền 1px mờ, padding 8px 16px -->
-                <div class="hero-badge-wrap will-change-anim">
-                  <span class="eyebrow d-inline-flex align-items-center">
-                    <svg th:replace="~{fragments/icons :: sparkles}"></svg>
-                    <span>DỊCH VỤ CHĂM SÓC TỔ ẤM CHUẨN MỰC</span>
-                  </span>
-                </div>
-
-                <!-- Tiêu đề 2 dòng: font-size clamp(2.25rem, 5vw, 4rem), line-height 1.1, text-wrap: balance -->
-                <h1 class="hero-title hero-title--in-house">
-                  <span class="hero-title-line hero-title-line--1 will-change-anim">Nhà gọn gàng.</span>
-                  <em class="hero-title-line hero-title-line--2 will-change-anim">Thảnh thơi tận hưởng.</em>
-                </h1>
-
-                <!-- Nhóm nút CTA: Cao 52px, bo tròn hoàn toàn, gap 16px, padding ngang 28px -->
-                <div class="hero-cta-group d-flex flex-wrap justify-content-center">
-                  <a class="btn btn-hero-primary will-change-anim" th:href="@{/customer/bookings/new}">
-                    <span>Bắt đầu đặt lịch</span>
-                    <svg class="cta-arrow" th:replace="~{fragments/icons :: arrow-up-right}"></svg>
-                  </a>
-                  <a class="btn btn-hero-outline will-change-anim" th:href="@{/services}">
-                    <span>Khám phá dịch vụ</span>
-                  </a>
-                </div>
-              </div>
-
-              <!-- Minh họa kiến trúc ngôi nhà dạng Line-Art SVG (viewBox="0 0 1000 560", preserveAspectRatio="xMidYMid meet") -->
-              <svg class="sketch-svg sketch-svg--wide" id="houseSketchSvg" viewBox="0 0 1000 620" preserveAspectRatio="xMidYMid meet" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- 1. SVG Ngôi Nhà (Line-Art viewBox="0 0 1000 620", width: 100%, height: auto) -->
+              <svg class="house__art sketch-svg sketch-svg--wide" id="houseSketchSvg" viewBox="0 0 1000 620" preserveAspectRatio="xMidYMid meet" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <defs>
                   <linearGradient id="sunbeamGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                     <stop offset="0%" stop-color="#fff0cc" stop-opacity="0.68"/>
@@ -61,10 +33,10 @@
                 <rect width="1000" height="620" fill="url(#archGrid)" />
 
                 <!-- Mảng màu nước ấm cúng cho không gian phòng khách -->
-                <rect x="70" y="325" width="860" height="250" rx="4" fill="url(#wallWashGrad)" class="item-light fade-fill" />
+                <rect x="70" y="365" width="860" height="210" rx="4" fill="url(#wallWashGrad)" class="item-light fade-fill" />
 
                 <!-- Vệt nắng sớm vàng ấm rọi từ cửa sổ xuống sàn gỗ -->
-                <polygon points="120,335 250,335 460,575 200,575" fill="url(#sunbeamGrad)" class="item-light fade-fill" />
+                <polygon points="120,375 250,375 460,575 200,575" fill="url(#sunbeamGrad)" class="item-light fade-fill" />
 
                 <!-- Sàn gỗ sồi Bắc Âu -->
                 <rect x="70" y="575" width="860" height="15" fill="#ede1d1" class="item-light fade-fill" />
@@ -73,7 +45,7 @@
                 <!-- Thảm dệt oval phòng khách -->
                 <ellipse cx="530" cy="573" rx="230" ry="18" fill="#f5eedf" stroke="#c8b59e" stroke-width="1.8" class="item-light fade-fill" />
 
-                <!-- ================= 1. KHUNG VÀ MÁI NHÀ (DRAW FRAME) ================= -->
+                <!-- ================= KHUNG VÀ MÁI NHÀ (DRAW FRAME) ================= -->
                 <!-- Đường viền mái ngói dốc chữ A đôi màu cam đất #b85c38 -->
                 <path d="M 35 130 L 500 16 L 965 130" stroke="#b85c38" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" class="draw-frame draw-path" />
                 <path d="M 35 137 L 500 23 L 965 137" stroke="#8c3f20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="draw-frame draw-path" />
@@ -90,55 +62,56 @@
                 <line x1="930" y1="130" x2="930" y2="590" stroke="#16211d" stroke-width="3.2" stroke-linecap="round" class="draw-frame draw-path" />
                 <line x1="35" y1="590" x2="965" y2="590" stroke="#16211d" stroke-width="3.8" stroke-linecap="round" class="draw-frame draw-path" />
 
-                <!-- Dầm trần kiến trúc ngăn tầng (Dashed mid-beam) & Giá đỡ tam giác -->
-                <line x1="70" y1="325" x2="930" y2="325" stroke="#16211d" stroke-width="2" stroke-dasharray="8 6" class="draw-frame draw-path" />
-                <path d="M 70 325 L 120 325 L 70 285" stroke="rgba(22, 33, 29, 0.15)" stroke-width="1.5" fill="none" class="draw-frame draw-path" />
-                <path d="M 930 325 L 880 325 L 930 285" stroke="rgba(22, 33, 29, 0.15)" stroke-width="1.5" fill="none" class="draw-frame draw-path" />
+                <!-- Dầm trần kiến trúc ngăn tầng (Dashed mid-beam Y=365) & Giá đỡ tam giác -->
+                <line x1="70" y1="365" x2="930" y2="365" stroke="#16211d" stroke-width="2" stroke-dasharray="8 6" class="draw-frame draw-path" />
+                <path d="M 70 365 L 120 365 L 70 325" stroke="rgba(22, 33, 29, 0.15)" stroke-width="1.5" fill="none" class="draw-frame draw-path" />
+                <path d="M 930 365 L 880 365 L 930 325" stroke="rgba(22, 33, 29, 0.15)" stroke-width="1.5" fill="none" class="draw-frame draw-path" />
 
-                <!-- ================= 2. CỬA SỔ BAN CÔNG & RÈM (.item-window) ================= -->
+                <!-- ================= NỘI THẤT PHÒNG KHÁCH (DƯỚI DẦM TRẦN Y=365) ================= -->
+                <!-- Cửa sổ ban công & rèm -->
                 <g class="item-furniture item-window will-change-anim">
-                  <rect x="110" y="335" width="150" height="185" rx="6" stroke="#14503f" stroke-width="2.6" fill="#f0f7f5" />
-                  <line x1="185" y1="335" x2="185" y2="520" stroke="#14503f" stroke-width="2" />
-                  <line x1="110" y1="395" x2="260" y2="395" stroke="#14503f" stroke-width="1.8" />
-                  <line x1="110" y1="460" x2="260" y2="460" stroke="#14503f" stroke-width="1.8" />
-                  <path d="M 98 520 L 272 520" stroke="#16211d" stroke-width="3.2" stroke-linecap="round" />
-                  <path d="M 110 335 Q 126 425 115 520" stroke="#9bb3aa" stroke-width="2" fill="none" />
-                  <path d="M 260 335 Q 244 425 255 520" stroke="#9bb3aa" stroke-width="2" fill="none" />
+                  <rect x="110" y="375" width="150" height="150" rx="6" stroke="#14503f" stroke-width="2.6" fill="#f0f7f5" />
+                  <line x1="185" y1="375" x2="185" y2="525" stroke="#14503f" stroke-width="2" />
+                  <line x1="110" y1="425" x2="260" y2="425" stroke="#14503f" stroke-width="1.8" />
+                  <line x1="110" y1="475" x2="260" y2="475" stroke="#14503f" stroke-width="1.8" />
+                  <path d="M 98 525 L 272 525" stroke="#16211d" stroke-width="3.2" stroke-linecap="round" />
+                  <path d="M 110 375 Q 126 450 115 525" stroke="#9bb3aa" stroke-width="2" fill="none" />
+                  <path d="M 260 375 Q 244 450 255 525" stroke="#9bb3aa" stroke-width="2" fill="none" />
                 </g>
 
-                <!-- ================= 3. TRANH TƯỜNG NGHỆ THUẬT (.item-art) ================= -->
+                <!-- Tranh tường nghệ thuật trên sofa -->
                 <g class="item-furniture item-art will-change-anim">
-                  <rect x="475" y="335" width="105" height="58" rx="4" stroke="#16211d" stroke-width="2" fill="#ffffff" />
-                  <circle cx="527" cy="358" r="12" fill="#f4a261" />
-                  <path d="M 485 382 Q 525 368 570 382" stroke="#14503f" stroke-width="2" fill="none" />
+                  <rect x="475" y="375" width="105" height="58" rx="4" stroke="#16211d" stroke-width="2" fill="#ffffff" />
+                  <circle cx="527" cy="398" r="12" fill="#f4a261" />
+                  <path d="M 485 422 Q 525 408 570 422" stroke="#14503f" stroke-width="2" fill="none" />
                 </g>
 
-                <!-- ================= 4. KỆ SÁCH GẮN TƯỜNG (.item-shelf) ================= -->
+                <!-- Kệ sách gắn tường -->
                 <g class="item-furniture item-shelf will-change-anim">
-                  <line x1="675" y1="355" x2="765" y2="355" stroke="#16211d" stroke-width="3" stroke-linecap="round" />
-                  <rect x="685" y="337" width="8" height="18" fill="#b85c38" stroke="#16211d" stroke-width="1.5" />
-                  <rect x="696" y="332" width="8" height="23" fill="#14503f" stroke="#16211d" stroke-width="1.5" />
-                  <circle cx="738" cy="344" r="8" stroke="#16211d" stroke-width="1.8" fill="#ffffff" />
-                  <line x1="738" y1="344" x2="738" y2="338" stroke="#16211d" stroke-width="1.5" />
-                  <line x1="738" y1="344" x2="743" y2="344" stroke="#16211d" stroke-width="1.5" />
+                  <line x1="675" y1="405" x2="765" y2="405" stroke="#16211d" stroke-width="3" stroke-linecap="round" />
+                  <rect x="685" y="387" width="8" height="18" fill="#b85c38" stroke="#16211d" stroke-width="1.5" />
+                  <rect x="696" y="382" width="8" height="23" fill="#14503f" stroke="#16211d" stroke-width="1.5" />
+                  <circle cx="738" cy="394" r="8" stroke="#16211d" stroke-width="1.8" fill="#ffffff" />
+                  <line x1="738" y1="394" x2="738" y2="388" stroke="#16211d" stroke-width="1.5" />
+                  <line x1="738" y1="394" x2="743" y2="394" stroke="#16211d" stroke-width="1.5" />
                 </g>
 
-                <!-- ================= 5. GHẾ SOFA PHÒNG KHÁCH (.item-sofa) ================= -->
+                <!-- Ghế sofa phòng khách -->
                 <g class="item-furniture item-sofa will-change-anim">
-                  <rect x="400" y="455" width="115" height="58" rx="8" fill="#fdfcf9" stroke="#16211d" stroke-width="2.5" />
-                  <rect x="525" y="455" width="115" height="58" rx="8" fill="#fdfcf9" stroke="#16211d" stroke-width="2.5" />
-                  <rect x="385" y="508" width="270" height="38" rx="8" fill="#f5ece1" stroke="#16211d" stroke-width="2.5" />
-                  <path d="M 372 480 Q 372 468 386 468 L 396 468 L 396 544 L 384 544 Q 372 544 372 532 Z" fill="#ebdacf" stroke="#16211d" stroke-width="2.5" />
-                  <path d="M 644 468 L 654 468 Q 668 468 668 480 L 668 532 Q 668 544 656 544 L 644 544 Z" fill="#ebdacf" stroke="#16211d" stroke-width="2.5" />
-                  <line x1="395" y1="546" x2="390" y2="575" stroke="#16211d" stroke-width="2.8" stroke-linecap="round" />
-                  <line x1="430" y1="546" x2="427" y2="575" stroke="#16211d" stroke-width="2.8" stroke-linecap="round" />
-                  <line x1="610" y1="546" x2="613" y2="575" stroke="#16211d" stroke-width="2.8" stroke-linecap="round" />
-                  <line x1="645" y1="546" x2="650" y2="575" stroke="#16211d" stroke-width="2.8" stroke-linecap="round" />
-                  <rect x="405" y="478" width="30" height="30" rx="5" transform="rotate(-8 405 478)" fill="#b85c38" stroke="#16211d" stroke-width="2" />
-                  <rect x="600" y="478" width="30" height="30" rx="5" transform="rotate(10 600 478)" fill="#14503f" stroke="#16211d" stroke-width="2" />
+                  <rect x="400" y="465" width="115" height="55" rx="8" fill="#fdfcf9" stroke="#16211d" stroke-width="2.5" />
+                  <rect x="525" y="465" width="115" height="55" rx="8" fill="#fdfcf9" stroke="#16211d" stroke-width="2.5" />
+                  <rect x="385" y="515" width="270" height="35" rx="8" fill="#f5ece1" stroke="#16211d" stroke-width="2.5" />
+                  <path d="M 372 490 Q 372 478 386 478 L 396 478 L 396 548 L 384 548 Q 372 548 372 536 Z" fill="#ebdacf" stroke="#16211d" stroke-width="2.5" />
+                  <path d="M 644 478 L 654 478 Q 668 478 668 490 L 668 536 Q 668 548 656 548 L 644 548 Z" fill="#ebdacf" stroke="#16211d" stroke-width="2.5" />
+                  <line x1="395" y1="550" x2="390" y2="575" stroke="#16211d" stroke-width="2.8" stroke-linecap="round" />
+                  <line x1="430" y1="550" x2="427" y2="575" stroke="#16211d" stroke-width="2.8" stroke-linecap="round" />
+                  <line x1="610" y1="550" x2="613" y2="575" stroke="#16211d" stroke-width="2.8" stroke-linecap="round" />
+                  <line x1="645" y1="550" x2="650" y2="575" stroke="#16211d" stroke-width="2.8" stroke-linecap="round" />
+                  <rect x="405" y="488" width="28" height="28" rx="5" transform="rotate(-8 405 488)" fill="#b85c38" stroke="#16211d" stroke-width="2" />
+                  <rect x="602" y="488" width="28" height="28" rx="5" transform="rotate(10 602 488)" fill="#14503f" stroke="#16211d" stroke-width="2" />
                 </g>
 
-                <!-- ================= 6. BÀN TRÀ & TÁCH CÀ PHÊ (.item-table) ================= -->
+                <!-- Bàn trà & tách cà phê bốc khói -->
                 <g class="item-furniture item-table will-change-anim">
                   <ellipse cx="330" cy="535" rx="45" ry="14" fill="#faeedd" stroke="#16211d" stroke-width="2.5" />
                   <line x1="305" y1="540" x2="300" y2="575" stroke="#16211d" stroke-width="2.5" stroke-linecap="round" />
@@ -151,7 +124,7 @@
                   </g>
                 </g>
 
-                <!-- ================= 7. CÂY XANH MONSTERA (.item-plant) ================= -->
+                <!-- Cây xanh Monstera -->
                 <g class="item-furniture item-plant will-change-anim">
                   <rect x="75" y="505" width="42" height="36" rx="5" fill="#f4ebd9" stroke="#16211d" stroke-width="2.2" />
                   <line x1="71" y1="505" x2="121" y2="505" stroke="#16211d" stroke-width="2.5" stroke-linecap="round" />
@@ -167,7 +140,7 @@
                   </g>
                 </g>
 
-                <!-- ================= 8. ĐÈN CÂY VÒM UỐN CONG (.item-lamp) ================= -->
+                <!-- Đèn cây vòm uốn cong -->
                 <g class="item-furniture item-lamp will-change-anim">
                   <ellipse cx="845" cy="575" rx="20" ry="6" fill="#d5c8b8" stroke="#16211d" stroke-width="2" />
                   <path d="M 845 575 L 845 410 Q 845 355 805 365 L 795 370" stroke="#16211d" stroke-width="2.8" fill="none" stroke-linecap="round" />
@@ -175,6 +148,35 @@
                   <polygon points="776,396 818,396 875,550 725,550" fill="url(#sunbeamGrad)" opacity="0.65" class="item-light fade-fill" />
                 </g>
               </svg>
+
+              <!-- 2. Khối nội dung chữ: Định vị % tuyệt đối bên trong .house (top: 14%–15%) -->
+              <div class="house__content house-gable-content">
+                <!-- Badge -->
+                <div class="hero-badge-wrap will-change-anim">
+                  <span class="eyebrow d-inline-flex align-items-center">
+                    <svg th:replace="~{fragments/icons :: sparkles}"></svg>
+                    <span>DỊCH VỤ CHĂM SÓC TỔ ẤM CHUẨN MỰC</span>
+                  </span>
+                </div>
+
+                <!-- Tiêu đề 2 dòng -->
+                <h1 class="hero-title hero-title--in-house">
+                  <span class="hero-title-line hero-title-line--1 will-change-anim">Nhà gọn gàng.</span>
+                  <em class="hero-title-line hero-title-line--2 will-change-anim">Thảnh thơi tận hưởng.</em>
+                </h1>
+
+                <!-- 2 nút CTA -->
+                <div class="hero-cta-group d-flex flex-wrap justify-content-center">
+                  <a class="btn btn-hero-primary will-change-anim" th:href="@{/customer/bookings/new}">
+                    <span>Bắt đầu đặt lịch</span>
+                    <svg class="cta-arrow" th:replace="~{fragments/icons :: arrow-up-right}"></svg>
+                  </a>
+                  <a class="btn btn-hero-outline will-change-anim" th:href="@{/services}">
+                    <span>Khám phá dịch vụ</span>
+                  </a>
+                </div>
+              </div>
+
             </div>
           </div>
         </div>
