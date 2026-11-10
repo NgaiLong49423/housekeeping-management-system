@@ -255,12 +255,137 @@
         </div>
       </section>
 
-      <!-- Trust & Safety Section (iOS Big Card + Glass Widget + Parallax) -->
+      <!-- Trust & Safety Section (iOS Big Card + 3D DriftWall Housekeeping Staff Showcase + Glass Widget) -->
       <section class="container pb-5">
-        <div class="care-banner care-banner--ios row align-items-center g-0">
-          <div class="col-md-5 care-banner__img-col" data-reveal="fly-left" data-delay="0">
-            <div class="care-banner__img-wrap">
-              <img class="care-banner__img" id="parallaxBannerImg" th:src="@{/images/d856e.png}" alt="Nhân viên cùng dụng cụ vệ sinh tại nhà" loading="lazy" width="512" height="279">
+        <div class="care-banner care-banner--ios row align-items-stretch g-0">
+          <div class="col-md-5 care-banner__media-col" data-reveal="fly-left" data-delay="0">
+            <div class="drift-wall-viewport" id="driftWallStage" aria-label="Đội ngũ nhân viên dọn dẹp chuyên nghiệp">
+              <div class="drift-wall-canvas" id="driftWallCanvas">
+                <!-- Column 1 (drift up, ~36s) -->
+                <div class="drift-wall-col drift-wall-col--1">
+                  <div class="drift-wall-group">
+                    <div class="drift-tile" tabindex="0">
+                      <img th:src="@{/images/d856e.png}" alt="Nhân viên dọn dẹp buồng phòng" loading="lazy" width="200" height="132">
+                      <span class="drift-tile__tag">Buồng phòng</span>
+                    </div>
+                    <div class="drift-tile" tabindex="0">
+                      <img th:src="@{/images/b501c.png}" alt="Dọn dẹp phòng khách tươm tất" loading="lazy" width="200" height="132">
+                      <span class="drift-tile__tag">Phòng khách</span>
+                    </div>
+                    <div class="drift-tile" tabindex="0">
+                      <img th:src="@{/images/a4ca0.png}" alt="Đội ngũ thiết bị máy móc chuyên sâu" loading="lazy" width="200" height="132">
+                      <span class="drift-tile__tag">Thiết bị chuyên sâu</span>
+                    </div>
+                    <div class="drift-tile" tabindex="0">
+                      <img th:src="@{/images/19db6.png}" alt="Vệ sinh sofa nệm hơi nước nóng" loading="lazy" width="200" height="132">
+                      <span class="drift-tile__tag">Giặt sofa nệm</span>
+                    </div>
+                  </div>
+                  <div class="drift-wall-group" aria-hidden="true">
+                    <div class="drift-tile">
+                      <img th:src="@{/images/d856e.png}" alt="" loading="lazy" width="200" height="132">
+                      <span class="drift-tile__tag">Buồng phòng</span>
+                    </div>
+                    <div class="drift-tile">
+                      <img th:src="@{/images/b501c.png}" alt="" loading="lazy" width="200" height="132">
+                      <span class="drift-tile__tag">Phòng khách</span>
+                    </div>
+                    <div class="drift-tile">
+                      <img th:src="@{/images/a4ca0.png}" alt="" loading="lazy" width="200" height="132">
+                      <span class="drift-tile__tag">Thiết bị chuyên sâu</span>
+                    </div>
+                    <div class="drift-tile">
+                      <img th:src="@{/images/19db6.png}" alt="" loading="lazy" width="200" height="132">
+                      <span class="drift-tile__tag">Giặt sofa nệm</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Column 2 (drift up, variance speed ~46s) -->
+                <div class="drift-wall-col drift-wall-col--2">
+                  <div class="drift-wall-group">
+                    <div class="drift-tile" tabindex="0">
+                      <img th:src="@{/images/2b96d.png}" alt="Bảo dưỡng vệ sinh điều hòa" loading="lazy" width="200" height="132">
+                      <span class="drift-tile__tag">Bảo dưỡng máy lạnh</span>
+                    </div>
+                    <div class="drift-tile" tabindex="0">
+                      <img th:src="@{/images/858ff.png}" alt="Lau chùi chi tiết bồn rửa bếp" loading="lazy" width="200" height="132">
+                      <span class="drift-tile__tag">Vệ sinh bếp sạch</span>
+                    </div>
+                    <div class="drift-tile" tabindex="0">
+                      <img th:src="@{/images/a7642.png}" alt="Sắp xếp phòng ngủ ngăn nắp" loading="lazy" width="200" height="132">
+                      <span class="drift-tile__tag">Chăm sóc phòng ngủ</span>
+                    </div>
+                    <div class="drift-tile" tabindex="0">
+                      <img th:src="@{/images/5e7a8.png}" alt="Không gian sống sáng bóng" loading="lazy" width="200" height="132">
+                      <span class="drift-tile__tag">Không gian sống</span>
+                    </div>
+                  </div>
+                  <div class="drift-wall-group" aria-hidden="true">
+                    <div class="drift-tile">
+                      <img th:src="@{/images/2b96d.png}" alt="" loading="lazy" width="200" height="132">
+                      <span class="drift-tile__tag">Bảo dưỡng máy lạnh</span>
+                    </div>
+                    <div class="drift-tile">
+                      <img th:src="@{/images/858ff.png}" alt="" loading="lazy" width="200" height="132">
+                      <span class="drift-tile__tag">Vệ sinh bếp sạch</span>
+                    </div>
+                    <div class="drift-tile">
+                      <img th:src="@{/images/a7642.png}" alt="" loading="lazy" width="200" height="132">
+                      <span class="drift-tile__tag">Chăm sóc phòng ngủ</span>
+                    </div>
+                    <div class="drift-tile">
+                      <img th:src="@{/images/5e7a8.png}" alt="" loading="lazy" width="200" height="132">
+                      <span class="drift-tile__tag">Không gian sống</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Column 3 (drift up, speed ~40s) -->
+                <div class="drift-wall-col drift-wall-col--3">
+                  <div class="drift-wall-group">
+                    <div class="drift-tile" tabindex="0">
+                      <img th:src="@{/images/a4ca0.png}" alt="Đội ngũ nhân viên lành nghề" loading="lazy" width="200" height="132">
+                      <span class="drift-tile__tag">Chuẩn mực 5 sao</span>
+                    </div>
+                    <div class="drift-tile" tabindex="0">
+                      <img th:src="@{/images/19db6.png}" alt="Khử khuẩn nội thất" loading="lazy" width="200" height="132">
+                      <span class="drift-tile__tag">Khử khuẩn nội thất</span>
+                    </div>
+                    <div class="drift-tile" tabindex="0">
+                      <img th:src="@{/images/d856e.png}" alt="Nhân viên kiểm tra lý lịch an tâm" loading="lazy" width="200" height="132">
+                      <span class="drift-tile__tag">An tâm 100%</span>
+                    </div>
+                    <div class="drift-tile" tabindex="0">
+                      <img th:src="@{/images/b501c.png}" alt="Phòng khách tinh tươm" loading="lazy" width="200" height="132">
+                      <span class="drift-tile__tag">Tinh tươm sạch mát</span>
+                    </div>
+                  </div>
+                  <div class="drift-wall-group" aria-hidden="true">
+                    <div class="drift-tile">
+                      <img th:src="@{/images/a4ca0.png}" alt="" loading="lazy" width="200" height="132">
+                      <span class="drift-tile__tag">Chuẩn mực 5 sao</span>
+                    </div>
+                    <div class="drift-tile">
+                      <img th:src="@{/images/19db6.png}" alt="" loading="lazy" width="200" height="132">
+                      <span class="drift-tile__tag">Khử khuẩn nội thất</span>
+                    </div>
+                    <div class="drift-tile">
+                      <img th:src="@{/images/d856e.png}" alt="" loading="lazy" width="200" height="132">
+                      <span class="drift-tile__tag">An tâm 100%</span>
+                    </div>
+                    <div class="drift-tile">
+                      <img th:src="@{/images/b501c.png}" alt="" loading="lazy" width="200" height="132">
+                      <span class="drift-tile__tag">Tinh tươm sạch mát</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Vignette & Edge Blending Overlays -->
+              <div class="drift-wall-vignette" aria-hidden="true"></div>
+              <div class="drift-wall-edge-fade" aria-hidden="true"></div>
+
               <!-- iOS Floating Glass Widget -->
               <div class="care-banner__glass-widget" data-reveal="rise-glass" data-delay="240">
                 <div class="glass-widget__icon">

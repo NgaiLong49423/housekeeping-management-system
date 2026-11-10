@@ -3484,7 +3484,7 @@ input[type="checkbox"]:not(.form-check-input) {
 }
 
 /* ==========================================================================
-   BANNER "NGƯỜI BẠN CHỌN. NGÔI NHÀ BẠN YÊU." (APPLE BIG CARD & WIDGET)
+   BANNER "NGƯỜI BẠN CHỌN. NGÔI NHÀ BẠN YÊU." (APPLE BIG CARD & 3D DRIFTWALL)
    ========================================================================== */
 .care-banner,
 .care-banner--ios {
@@ -3493,54 +3493,288 @@ input[type="checkbox"]:not(.form-check-input) {
   border-radius: 32px;
   overflow: hidden;
   box-shadow: var(--shadow-1);
+  position: relative;
 }
 
-.care-banner__img-wrap {
+.care-banner__media-col {
+  position: relative;
+  min-height: 480px;
+  overflow: hidden;
+  display: flex;
+}
+
+@media (max-width: 767.98px) {
+  .care-banner__media-col {
+    min-height: 320px;
+    border-top-left-radius: 32px;
+    border-top-right-radius: 32px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   3D DriftWall Stage & Perspective Engine
+   Spec: columns: 3 | tile: 200x132 | gap: 18 | tilt: 16 | turn: -14 |
+         perspective: 1200 | speed: 42s (variance 0.45) | parallax: 0.6
+   -------------------------------------------------------------------------- */
+.drift-wall-viewport {
   position: relative;
   width: 100%;
   height: 100%;
-  min-height: 380px;
+  min-height: 480px;
+  background-color: #060010;
   overflow: hidden;
+  perspective: 1200px;
+  perspective-origin: 50% 50%;
+  isolation: isolate;
 }
 
 @media (min-width: 768px) {
-  .care-banner__img-wrap {
+  .drift-wall-viewport {
     border-top-left-radius: 32px;
     border-bottom-left-radius: 32px;
   }
 }
 
 @media (max-width: 767.98px) {
-  .care-banner__img-wrap {
+  .drift-wall-viewport {
+    min-height: 320px;
     border-top-left-radius: 32px;
     border-top-right-radius: 32px;
-    min-height: 250px;
   }
 }
 
-.care-banner__img {
+.drift-wall-canvas {
+  --tilt: 16deg;
+  --turn: -14deg;
+  --depth: 0px;
+  position: absolute;
+  top: -35%;
+  left: -22%;
+  width: 144%;
+  height: 175%;
+  display: flex;
+  gap: 18px;
+  justify-content: center;
+  align-items: flex-start;
+  transform-style: preserve-3d;
+  transform: perspective(1200px) rotateX(var(--tilt)) rotateY(var(--turn)) translateZ(var(--depth));
+  transition: transform 220ms cubic-bezier(0.25, 0.8, 0.35, 1);
+  will-change: transform;
+  pointer-events: auto;
+}
+
+@media (max-width: 767.98px) {
+  .drift-wall-canvas {
+    top: -25%;
+    left: -15%;
+    width: 130%;
+    height: 160%;
+    gap: 12px;
+    --tilt: 12deg;
+    --turn: -10deg;
+  }
+}
+
+/* Các cột ảnh trôi liên tục không gián đoạn */
+.drift-wall-col {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  flex-shrink: 0;
+  width: clamp(140px, 14vw, 190px);
+  will-change: transform;
+  transform-style: preserve-3d;
+}
+
+@media (max-width: 767.98px) {
+  .drift-wall-col {
+    gap: 12px;
+    width: clamp(100px, 28vw, 130px);
+  }
+}
+
+.drift-wall-group {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+@media (max-width: 767.98px) {
+  .drift-wall-group {
+    gap: 12px;
+  }
+}
+
+/* Tốc độ trôi vô tận với variance 0.45 */
+.drift-wall-col--1 {
+  animation: driftScrollUp 36s linear infinite;
+}
+
+.drift-wall-col--2 {
+  animation: driftScrollUp 48s linear infinite;
+  animation-delay: -12s;
+}
+
+.drift-wall-col--3 {
+  animation: driftScrollUp 40s linear infinite;
+  animation-delay: -6s;
+}
+
+/* Dừng animation khi banner chưa vào khung nhìn để tiết kiệm 100% GPU */
+.care-banner:not(.is-in) .drift-wall-col {
+  animation-play-state: paused;
+}
+
+/* Khi rê chuột vào cột nào thì chậm lại nhẹ để người dùng ngắm ảnh */
+@media (hover: hover) {
+  .drift-wall-canvas:hover .drift-wall-col {
+    animation-play-state: paused;
+  }
+}
+
+@keyframes driftScrollUp {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-50%);
+  }
+}
+
+/* Thẻ ảnh nhân viên (Drift Tile) tỉ lệ 200x132 */
+.drift-tile {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 200 / 132;
+  border-radius: 16px;
+  overflow: hidden;
+  background-color: #14211c;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.42), 0 2px 6px rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  transform-style: preserve-3d;
+  transform: translateZ(0);
+  transition: transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 320ms cubic-bezier(0.32, 0.72, 0, 1),
+              border-color 250ms ease;
+  cursor: pointer;
+  outline: none;
+}
+
+.drift-tile img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 120ms ease-out;
+  display: block;
+  filter: brightness(0.92) contrast(1.04);
+  transition: filter 300ms ease, transform 400ms var(--ease-ios);
+}
+
+/* Lift interaction (lift={64}) */
+@media (hover: hover) {
+  .drift-tile:hover,
+  .drift-tile:focus-visible {
+    transform: translateZ(56px) scale(1.08);
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.65), 0 0 0 2px rgba(255, 255, 255, 0.6);
+    border-color: rgba(255, 255, 255, 0.9);
+    z-index: 10;
+  }
+
+  .drift-tile:hover img,
+  .drift-tile:focus-visible img {
+    filter: brightness(1.06) contrast(1.08);
+    transform: scale(1.05);
+  }
+}
+
+/* Tag nhãn phong cách Apple Frosted Glass trên mỗi ảnh */
+.drift-tile__tag {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  background: rgba(6, 0, 16, 0.68);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #fbfaf6;
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  pointer-events: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+@media (max-width: 767.98px) {
+  .drift-tile__tag {
+    font-size: 0.6rem;
+    padding: 2px 6px;
+    bottom: 5px;
+    left: 5px;
+  }
+}
+
+/* Cinematic Dark Vignette & Edge Blending (fade={0.6}, dim={0.55}, overlayColor="#060010") */
+.drift-wall-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  background: radial-gradient(ellipse at 42% 50%, rgba(6, 0, 16, 0.22) 0%, rgba(6, 0, 16, 0.62) 100%);
+}
+
+.drift-wall-edge-fade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+  background: linear-gradient(to bottom, rgba(6, 0, 16, 0.82) 0%, transparent 16%, transparent 84%, rgba(6, 0, 16, 0.82) 100%),
+              linear-gradient(to right, transparent 74%, rgba(255, 255, 255, 0.95) 100%);
+}
+
+@media (max-width: 767.98px) {
+  .drift-wall-edge-fade {
+    background: linear-gradient(to bottom, rgba(6, 0, 16, 0.8) 0%, transparent 15%, transparent 80%, #ffffff 100%);
+  }
 }
 
 /* Floating Glass Widget kiểu iOS trên góc ảnh */
 .care-banner__glass-widget {
   position: absolute;
-  bottom: 20px;
-  left: 20px;
-  background: rgba(255, 255, 255, 0.82);
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.7);
-  border-radius: 18px;
-  padding: 10px 16px;
+  bottom: 24px;
+  left: 24px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: saturate(180%) blur(24px);
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 20px;
+  padding: 11px 18px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  box-shadow: 0 8px 24px rgba(20, 33, 28, 0.12);
-  z-index: 2;
+  gap: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28), 0 2px 6px rgba(0, 0, 0, 0.12);
+  z-index: 5;
+  pointer-events: auto;
+}
+
+@media (max-width: 767.98px) {
+  .care-banner__glass-widget {
+    bottom: 14px;
+    left: 14px;
+    padding: 8px 14px;
+    border-radius: 16px;
+    gap: 8px;
+  }
+}
+
+/* Hỗ trợ chế độ giảm chuyển động cho người dùng */
+@media (prefers-reduced-motion: reduce) {
+  .drift-wall-col {
+    animation: none !important;
+  }
+  .drift-wall-canvas {
+    transition: none !important;
+  }
 }
 
 .glass-widget__icon {

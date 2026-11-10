@@ -1395,11 +1395,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }, 3000);
 
-  // 4. Khởi tạo Apple/iOS Header, Segmented Control, Bottom Sheet & Scroll Reveal
+  // 4. Khởi tạo Apple/iOS Header, Segmented Control, Bottom Sheet, Scroll Reveal & 3D DriftWall
   initAppleHeaderAndScroll();
   initSegmentedControl();
   initMobileSheet();
   initScrollReveal();
+  initDriftWall();
 });
 
 // ==========================================================================
@@ -1589,4 +1590,88 @@ function animatePriceCount(priceEl) {
     }
   }
   requestAnimationFrame(step);
+}
+
+// ==========================================================================
+// 5. DriftWall 3D Showcase & Interactive Parallax
+// Spec: tilt: 16 | turn: -14 | perspective: 1200 | parallax: 0.6 | lift: 64
+// ==========================================================================
+function initDriftWall() {
+  const canvas = document.getElementById('driftWallCanvas');
+  const stage = document.getElementById('driftWallStage');
+  if (!canvas || !stage) return;
+
+  const banner = stage.closest('.care-banner') || stage;
+  const isReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (isReducedMotion) return;
+
+  const BASE_TILT = 16;   // rotateX ban đầu
+  const BASE_TURN = -14;  // rotateY ban đầu
+  const PARALLAX_FACTOR = 0.6; // Hệ số di chuột theo spec của người dùng
+
+  let targetTilt = BASE_TILT;
+  let targetTurn = BASE_TURN;
+  let currentTilt = BASE_TILT;
+  let currentTurn = BASE_TURN;
+  let rafId = null;
+  let isHovering = false;
+
+  function updateParallax() {
+    // Nội suy mượt mà kiểu Spring iOS
+    currentTilt += (targetTilt - currentTilt) * 0.12;
+    currentTurn += (targetTurn - currentTurn) * 0.12;
+
+    canvas.style.setProperty('--tilt', `${currentTilt.toFixed(2)}deg`);
+    canvas.style.setProperty('--turn', `${currentTurn.toFixed(2)}deg`);
+
+    const deltaTilt = Math.abs(targetTilt - currentTilt);
+    const deltaTurn = Math.abs(targetTurn - currentTurn);
+
+    if (isHovering || deltaTilt > 0.05 || deltaTurn > 0.05) {
+      rafId = requestAnimationFrame(updateParallax);
+    } else {
+      rafId = null;
+    }
+  }
+
+  banner.addEventListener('mousemove', (e) => {
+    if (window.innerWidth < 768) return; // Chỉ áp dụng parallax góc nhìn trên tablet/desktop
+    const rect = banner.getBoundingClientRect();
+    const xRatio = (e.clientX - rect.left) / rect.width;
+    const yRatio = (e.clientY - rect.top) / rect.height;
+
+    // Chuẩn hóa [-0.5, 0.5] và nhân với biên độ góc nghiêng
+    const deltaX = (xRatio - 0.5) * 2; // -1 đến 1
+    const deltaY = (yRatio - 0.5) * 2; // -1 đến 1
+
+    targetTurn = BASE_TURN + deltaX * (12 * PARALLAX_FACTOR);
+    targetTilt = BASE_TILT - deltaY * (8 * PARALLAX_FACTOR);
+    isHovering = true;
+
+    if (!rafId) {
+      rafId = requestAnimationFrame(updateParallax);
+    }
+  }, { passive: true });
+
+  banner.addEventListener('mouseleave', () => {
+    targetTilt = BASE_TILT;
+    targetTurn = BASE_TURN;
+    isHovering = false;
+    if (!rafId) {
+      rafId = requestAnimationFrame(updateParallax);
+    }
+  });
+
+  // Tối ưu hóa: Dừng loop khi cuộn ra khỏi màn hình
+  if ('IntersectionObserver' in window) {
+    const bannerObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting && rafId) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        }
+      });
+    }, { threshold: 0.05 });
+    bannerObserver.observe(banner);
+  }
 }
