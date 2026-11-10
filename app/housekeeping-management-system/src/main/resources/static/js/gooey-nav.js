@@ -258,18 +258,7 @@ void main() {
     });
 
     // Create duplicate active overlay list if not present
-    let overlay = stage.querySelector('.gooey-nav__list--active');
-    if (!overlay) {
-      overlay = list.cloneNode(true);
-      overlay.className = 'gooey-nav__list gooey-nav__list--active';
-      overlay.setAttribute('aria-hidden', 'true');
-      // Remove interactive event listeners/attributes from cloned links
-      overlay.querySelectorAll('a, button').forEach(el => {
-        el.removeAttribute('href');
-        el.setAttribute('tabindex', '-1');
-      });
-      stage.appendChild(overlay);
-    }
+    let overlay = null;
 
     const settings = {
       animationTime: Number(navEl.dataset.animationTime || 600),
@@ -389,6 +378,7 @@ void main() {
     const updateFallback = idx => {
       if (idx < 0 || !rects || !rects[idx]) return;
       const rect = rects[idx];
+      if (rect.w <= 0 || rect.h <= 0) return;
       fallback.style.transform = `translate(${rect.x.toFixed(1)}px, ${rect.y.toFixed(1)}px)`;
       fallback.style.width = `${rect.w}px`;
       fallback.style.height = `${rect.h}px`;
@@ -493,12 +483,10 @@ const shape = (idx, amount) => {
 
       const settledPill = boxes.length === 1 && !blobs.length;
       if (settledPill) {
-        const box = boxes[0];
-        overlay.style.clipPath = `path('${pillPath(box.cx - box.hw, box.cy - box.hh, box.hw * 2, box.hh * 2)}')`;
+        updateFallback(target);
       } else {
-        overlay.style.clipPath = `path('${trace(boxes, blobs, smooth) || 'M0,0Z'}')`;
+        updateFallback(target);
       }
-      overlay.style.visibility = 'visible';
 
       if (!pipeline || !gl) {
         const box = shape(target, 1);
