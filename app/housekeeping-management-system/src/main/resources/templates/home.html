@@ -6,34 +6,34 @@
     <header th:replace="~{fragments/layout :: header('home')}">
     </header>
     <main id="main">
-      <!-- Asymmetrical Editorial Hero & Interactive House Sketch Drawing -->
-      <section class="hero">
+      <!-- Spotlight Hero: Centered Heading, Buttons & Grand House Architectural Sketch -->
+      <section class="hero hero--spotlight">
         <div class="container">
-          <div class="hero-showcase mx-auto">
-            <div class="hero-editorial-grid">
-              <div class="hero-copy">
-                <span class="eyebrow align-self-start">
-                  <svg th:replace="~{fragments/icons :: sparkles}"></svg>
-                  <span>Dịch vụ chăm sóc tổ ấm chuẩn mực</span>
-                </span>
-                <h1 class="hero-title">
-                  Nhà gọn gàng.
-                  <em>Thảnh thơi tận hưởng.</em>
-                </h1>
-                <div class="d-flex flex-wrap gap-3">
-                  <a class="btn btn-primary btn-lg" th:href="@{/customer/bookings/new}">
-                    <span>Bắt đầu đặt lịch</span>
-                    <svg th:replace="~{fragments/icons :: arrow-up-right}"></svg>
-                  </a>
-                  <a class="btn btn-outline-primary btn-lg" th:href="@{/services}">
-                    <span>Khám phá dịch vụ</span>
-                  </a>
-                </div>
+          <div class="hero-showcase hero-showcase--spotlight mx-auto">
+            <!-- Centered Headline & Action Group -->
+            <div class="hero-header-spotlight text-center">
+              <span class="eyebrow d-inline-flex align-items-center mb-3">
+                <svg th:replace="~{fragments/icons :: sparkles}"></svg>
+                <span>Dịch vụ chăm sóc tổ ấm chuẩn mực</span>
+              </span>
+              <h1 class="hero-title hero-title--spotlight">
+                Nhà gọn gàng.
+                <em>Thảnh thơi tận hưởng.</em>
+              </h1>
+              <div class="d-flex flex-wrap justify-content-center gap-3 hero-cta-group">
+                <a class="btn btn-primary btn-lg" th:href="@{/customer/bookings/new}">
+                  <span>Bắt đầu đặt lịch</span>
+                  <svg th:replace="~{fragments/icons :: arrow-up-right}"></svg>
+                </a>
+                <a class="btn btn-outline-primary btn-lg" th:href="@{/services}">
+                  <span>Khám phá dịch vụ</span>
+                </a>
               </div>
+            </div>
 
-              <!-- Animated Architectural House & Living Room Sketch -->
-              <div class="hero-sketch-stage">
-                <div class="sketch-viewport" id="sketchViewport">
+            <!-- Spotlight House Sketch Stage -->
+            <div class="hero-sketch-stage hero-sketch-stage--spotlight">
+              <div class="sketch-viewport" id="sketchViewport">
                   <svg class="sketch-svg" id="houseSketchSvg" viewBox="0 0 680 500" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <defs>
                       <linearGradient id="sunbeamGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -235,7 +235,6 @@
               </div>
             </div>
           </div>
-        </div>
       </section>
 
       <!-- Services Catalog Section -->
