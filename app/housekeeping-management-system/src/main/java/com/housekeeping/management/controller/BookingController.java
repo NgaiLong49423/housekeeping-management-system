@@ -12,28 +12,31 @@ import com.housekeeping.management.service.FeedbackService;
 import com.housekeeping.management.service.HouseService;
 import com.housekeeping.management.service.BookingCancellationService;
 import com.housekeeping.management.service.BookingArrivalService;
+import com.housekeeping.management.service.BookingIncidentService;
 import com.housekeeping.management.service.PortalQueryService;
 import com.housekeeping.management.service.BookingAvailabilityService;
 import com.housekeeping.management.web.PortalMessages;
 import com.housekeeping.management.web.PortalUser;
 import jakarta.validation.Valid;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.util.List;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 @Controller
 public class BookingController {
@@ -44,10 +47,14 @@ public class BookingController {
     private final HouseService houses;
     private final BookingArrivalService arrival;
     private final BookingAvailabilityService bookingAvailability;
+    private final int arrivalEarlyConfirmationMinutes;
+    private final BookingIncidentService incidents;
 
     public BookingController(PortalQueryService query, BookingCancellationService cancellation,
             BookingReservationService reservations, FeedbackService feedbackService, HouseService houses, BookingArrivalService arrival,
-            BookingAvailabilityService bookingAvailability) {
+            BookingAvailabilityService bookingAvailability,
+            @Value("${app.booking.arrival-early-confirmation-minutes:0}") int arrivalEarlyConfirmationMinutes,
+            BookingIncidentService incidents) {
         this.query = query;
         this.cancellation = cancellation;
         this.reservations = reservations;
@@ -55,6 +62,8 @@ public class BookingController {
         this.houses = houses;
         this.arrival = arrival;
         this.bookingAvailability = bookingAvailability;
+        this.arrivalEarlyConfirmationMinutes = arrivalEarlyConfirmationMinutes;
+        this.incidents = incidents;
     }
 
     @PostMapping("/customer/bookings/{id}/arrived")
@@ -142,11 +151,12 @@ public class BookingController {
 
     @PostMapping("/customer/bookings")
     String create(@AuthenticationPrincipal PortalUser user, @Valid @ModelAttribute BookingForm bookingForm,
-            BindingResult errors, Model model) {
+            BindingResult errors, Model model, RedirectAttributes flash) {
         if (errors.hasErrors()) return newBooking(user, bookingForm.houseId(), model);
         try {
             Long id = reservations.createBooking(user.getUserId(), bookingForm.staffId(), bookingForm.houseId(),
                     bookingForm.startAt(), bookingForm.serviceIds(), bookingForm.areaNote());
+            flash.addFlashAttribute("success", "Đã đặt lịch thành công. Khi nhân viên đến, hãy xác nhận trên trang chi tiết để tiện theo dõi.");
             return "redirect:/customer/bookings/" + id;
         } catch (IllegalArgumentException | IllegalStateException failure) {
             model.addAttribute("error", PortalMessages.business(failure));
@@ -187,12 +197,12 @@ public class BookingController {
         if (!failures.isEmpty()) {
             flash.addFlashAttribute("bookingRetryState",java.util.Map.of("houseId",houseId,"serviceIds",serviceIds,
                     "areaNote",areaNote==null?"":areaNote,"days",retryDays));
-            if (created > 0) flash.addFlashAttribute("warning", "Đã tạo " + created + " lịch; các ngày còn lại chưa đặt được: " + String.join("; ",failures));
+            if (created > 0) flash.addFlashAttribute("warning", "Đã tạo " + created + " lịch. Khi nhân viên đến, hãy xác nhận trên từng lịch để tiện theo dõi. Các ngày còn lại chưa đặt được: " + String.join("; ",failures));
             else flash.addFlashAttribute("error", serviceAreaFailure ? "Chưa tạo được lịch nào vì địa chỉ nằm ngoài bán kính phục vụ." : "Chưa tạo được lịch nào. " + String.join("; ",failures));
             if(serviceAreaFailure)flash.addFlashAttribute("houseServiceAreaError", "Địa chỉ nhà này nằm ngoài bán kính phục vụ của công ty. Hãy chọn địa chỉ khác hoặc liên hệ Admin.");
             return "redirect:/customer/bookings/new?houseId=" + houseId;
         }
-        if (created > 0) flash.addFlashAttribute("success", "Đã tạo " + created + " lịch hẹn riêng cho các ngày bạn chọn.");
+        if (created > 0) flash.addFlashAttribute("success", "Đã tạo " + created + " lịch hẹn riêng cho các ngày bạn chọn. Khi nhân viên đến, hãy xác nhận trên từng lịch để tiện theo dõi.");
         return "redirect:/customer/bookings";
     }
 
@@ -205,6 +215,13 @@ public class BookingController {
         BookingCard booking = query.booking(id, user);
         List<DetailCard> details = query.details(id, user);
         model.addAttribute("booking", booking);
+        model.addAttribute("now", OffsetDateTime.now(java.time.ZoneOffset.ofHours(7)));
+        model.addAttribute("arrivalEarlyConfirmationMinutes", arrivalEarlyConfirmationMinutes);
+        model.addAttribute("staffCanStartWork", "CONFIRMED".equals(booking.status())
+                && booking.staffArrivedAt() != null && booking.workStartedAt() == null
+                && !booking.start().isAfter(OffsetDateTime.now(java.time.ZoneOffset.ofHours(7)))
+                && (booking.incidentReportedAt() == null || "ACCEPTED".equals(booking.incidentCustomerResponse()))
+                && (!booking.staffArrivedAt().isAfter(booking.start()) || "ACCEPTED".equals(booking.incidentCustomerResponse())));
         model.addAttribute("details", details);
         model.addAttribute("bookingImages", query.bookingImages(id, user));
         if ("ADMIN".equals(user.getRole())) model.addAttribute("assignableStaff", query.staff(null));
@@ -212,6 +229,20 @@ public class BookingController {
             model.addAttribute("feedbackForm", new FeedbackForm(""));
         }
         return "booking-detail";
+    }
+
+    @PostMapping("/customer/bookings/{id}/incident-response")
+    String respondToIncident(@PathVariable Long id, @RequestParam String response,
+            @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
+        try {
+            incidents.respond(id, user.getAccountId(), response);
+            flash.addFlashAttribute("success", "DECLINED".equals(response)
+                    ? "Đã hủy miễn phí lịch do Staff đến trễ. Admin có thể xem lại sự cố."
+                    : "Đã ghi nhận bạn đồng ý chờ. Mức giảm sẽ tính theo thời điểm Staff thực tế đến.");
+        } catch (IllegalArgumentException | IllegalStateException failure) {
+            flash.addFlashAttribute("error", PortalMessages.business(failure));
+        }
+        return "redirect:/customer/bookings/" + id;
     }
 
     @PostMapping("/customer/bookings/{id}/cancel")

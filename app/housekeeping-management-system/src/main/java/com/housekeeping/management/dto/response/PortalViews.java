@@ -35,17 +35,34 @@ public final class PortalViews {
     public record BookingCard(Long id, Long customerId, Long staffId, String customerName, String staffName,
             OffsetDateTime start, OffsetDateTime end, String status, BigDecimal amount,
             String paymentStatus, String method, String feedbackContent, String adminReply, String feedbackStatus,
-            String addressSnapshot, String addressNoteSnapshot, String areaNote, String cancellationReason, OffsetDateTime customerArrivedAt) {
+            String addressSnapshot, String addressNoteSnapshot, String areaNote, String cancellationReason, OffsetDateTime customerArrivedAt,
+            String customerPhone, OffsetDateTime staffArrivedAt, OffsetDateTime incidentReportedAt, String incidentNote,
+            OffsetDateTime incidentExpectedArrivalAt, String incidentCustomerResponse, OffsetDateTime incidentCustomerRespondedAt,
+            OffsetDateTime workStartedAt, Integer delayMinutes, BigDecimal delayDiscountPercent, BigDecimal delayDiscountAmount) {
+        public BookingCard(Long id, Long customerId, Long staffId, String customerName, String staffName,
+                OffsetDateTime start, OffsetDateTime end, String status, BigDecimal amount,
+                String paymentStatus, String method, String feedbackContent, String adminReply, String feedbackStatus,
+                String addressSnapshot, String addressNoteSnapshot, String areaNote, String cancellationReason,
+                OffsetDateTime customerArrivedAt, String customerPhone, OffsetDateTime staffArrivedAt,
+                OffsetDateTime incidentReportedAt, String incidentNote) {
+            this(id, customerId, staffId, customerName, staffName, start, end, status, amount, paymentStatus, method,
+                    feedbackContent, adminReply, feedbackStatus, addressSnapshot, addressNoteSnapshot, areaNote,
+                    cancellationReason, customerArrivedAt, customerPhone, staffArrivedAt, incidentReportedAt,
+                    incidentNote, null, null, null, null, null, BigDecimal.ZERO, BigDecimal.ZERO);
+        }
         public BookingCard(Long id, Long customerId, Long staffId, String customerName, String staffName,
                 OffsetDateTime start, OffsetDateTime end, String status, BigDecimal amount,
                 String paymentStatus, String method, String feedbackContent, String adminReply, String feedbackStatus) {
             this(id, customerId, staffId, customerName, staffName, start, end, status, amount,
                     paymentStatus, method, feedbackContent, adminReply, feedbackStatus,
-                    null, null, null, null, null);
+                    null, null, null, null, null, null, null, null, null,
+                    null, null, null, null, null, BigDecimal.ZERO, BigDecimal.ZERO);
         }
         public String getStartLabel() { return time(start); }
         public String getEndLabel() { return time(end); }
         public String getArrivalLabel() { return customerArrivedAt == null ? null : time(customerArrivedAt); }
+        public String getStaffArrivalLabel() { return staffArrivedAt == null ? null : time(staffArrivedAt); }
+        public String getIncidentReportedLabel() { return incidentReportedAt == null ? null : time(incidentReportedAt); }
         public String getStatusLabel() {
             return switch (status) {
                 case "CONFIRMED" -> "Đã xác nhận";
@@ -64,7 +81,12 @@ public final class PortalViews {
                 default -> "cancelled";
             };
         }
-        public boolean isCancellable() { return status.equals("CONFIRMED") && !OffsetDateTime.now().isAfter(start.minusHours(2)); }
+        public BigDecimal getPayableAmount() { return amount.subtract(delayDiscountAmount == null ? BigDecimal.ZERO : delayDiscountAmount); }
+        public BigDecimal getDiscountedPercent() { return delayDiscountPercent == null ? BigDecimal.ZERO : delayDiscountPercent; }
+        public boolean isCancellable() {
+            return status.equals("CONFIRMED") && (incidentReportedAt != null && workStartedAt == null
+                    || !OffsetDateTime.now().isAfter(start.minusHours(2)));
+        }
     }
     public record EvidenceCard(Long id, String uploadedAt) { }
     public record FeedbackCard(Long id, Long bookingId, String customerName, String content,

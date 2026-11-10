@@ -122,10 +122,10 @@
             </thead>
             <tbody>
               <tr th:each="booking : ${bookings}" th:data-status="${booking.status}" data-booking-row>
-                <td data-label="Mã lịch hẹn">
+<td data-label="Mã lịch hẹn">
                   <div>
                     <strong class="d-block text-dark" th:text="'#GN-' + ${booking.id}">#GN-0</strong>
-                    <small class="text-muted" th:text="${#numbers.formatDecimal(booking.amount,0,'POINT',0,'COMMA')} + ' ₫'">0 ₫</small>
+                    <small class="text-muted" th:text="${#numbers.formatDecimal(booking.payableAmount,0,'POINT',0,'COMMA')} + ' ₫'">0 ₫</small>
                   </div>
                 </td>
                 <td data-label="Khách / Nhân viên">

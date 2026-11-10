@@ -171,7 +171,11 @@ public class PortalQueryService {
                        b.total_amount,
                        payment.status AS payment_status, payment.payment_method, f.content AS feedback_content,
                        f.admin_reply, f.status AS feedback_status,
-                       b.address_snapshot, b.address_note_snapshot, b.area_note, b.cancellation_reason, b.customer_arrived_at
+                       b.address_snapshot, b.address_note_snapshot, b.area_note, b.cancellation_reason,
+                       b.customer_arrived_at, customer.phone AS customer_phone, b.staff_arrived_at,
+                       b.incident_reported_at, b.incident_note, b.incident_expected_arrival_at,
+                       b.incident_customer_response, b.incident_customer_responded_at, b.work_started_at,
+                       b.delay_minutes, b.delay_discount_percent, b.delay_discount_amount
                 FROM dbo.Bookings b
                 JOIN dbo.Users customer ON customer.user_id=b.customer_id
                 JOIN dbo.Staff selected_staff ON selected_staff.staff_id=b.staff_id
@@ -189,6 +193,16 @@ public class PortalQueryService {
                     rs.getString("admin_reply"), rs.getString("feedback_status"),
                     rs.getString("address_snapshot"), rs.getString("address_note_snapshot"),
                     rs.getString("area_note"), rs.getString("cancellation_reason"),
-                    rs.getObject("customer_arrived_at", LocalDateTime.class) == null ? null : rs.getObject("customer_arrived_at", LocalDateTime.class).atOffset(ZoneOffset.ofHours(7))), params);
+                    rs.getObject("customer_arrived_at", LocalDateTime.class) == null ? null : rs.getObject("customer_arrived_at", LocalDateTime.class).atOffset(ZoneOffset.ofHours(7)),
+                    rs.getString("customer_phone"),
+                    rs.getObject("staff_arrived_at", LocalDateTime.class) == null ? null : rs.getObject("staff_arrived_at", LocalDateTime.class).atOffset(ZoneOffset.ofHours(7)),
+                    rs.getObject("incident_reported_at", LocalDateTime.class) == null ? null : rs.getObject("incident_reported_at", LocalDateTime.class).atOffset(ZoneOffset.ofHours(7)),
+                    rs.getString("incident_note"),
+                    rs.getObject("incident_expected_arrival_at", LocalDateTime.class) == null ? null : rs.getObject("incident_expected_arrival_at", LocalDateTime.class).atOffset(ZoneOffset.ofHours(7)),
+                    rs.getString("incident_customer_response"),
+                    rs.getObject("incident_customer_responded_at", LocalDateTime.class) == null ? null : rs.getObject("incident_customer_responded_at", LocalDateTime.class).atOffset(ZoneOffset.ofHours(7)),
+                    rs.getObject("work_started_at", LocalDateTime.class) == null ? null : rs.getObject("work_started_at", LocalDateTime.class).atOffset(ZoneOffset.ofHours(7)),
+                    (Integer) rs.getObject("delay_minutes"), rs.getBigDecimal("delay_discount_percent"),
+                    rs.getBigDecimal("delay_discount_amount")), params);
     }
 }

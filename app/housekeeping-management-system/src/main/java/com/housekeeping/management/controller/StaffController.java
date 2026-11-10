@@ -5,7 +5,9 @@ import com.housekeeping.management.dto.request.PortalForms.AvailabilityBatchForm
 import com.housekeeping.management.dto.response.PortalViews.StaffCard;
 import com.housekeeping.management.dto.response.PortalViews.ScheduleCard;
 import com.housekeeping.management.dto.response.StaffAvailabilityWeekDay;
+import com.housekeeping.management.service.BookingArrivalService;
 import com.housekeeping.management.service.BookingCompletionService;
+import com.housekeeping.management.service.BookingIncidentService;
 import com.housekeeping.management.service.CompanySettingsService;
 import com.housekeeping.management.service.EvidenceStorageService;
 import com.housekeeping.management.service.PortalQueryService;
@@ -43,6 +45,7 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
@@ -54,17 +57,21 @@ public class StaffController {
     private final CompanySettingsService companySettings;
     private final StaffFollowService follows;
     private final BookingCompletionService completion;
+    private final BookingArrivalService arrival;
+    private final BookingIncidentService incidents;
     private final EvidenceStorageService storage;
     private final Path evidenceRoot;
 
     public StaffController(PortalQueryService query, StaffAvailabilityService availability, CompanySettingsService companySettings, StaffFollowService follows,
-            BookingCompletionService completion, EvidenceStorageService storage,
+            BookingCompletionService completion, BookingArrivalService arrival, BookingIncidentService incidents, EvidenceStorageService storage,
             @Value("${app.evidence.storage-root:./var/evidence}") String evidenceRoot) {
         this.query = query;
         this.availability = availability;
         this.companySettings = companySettings;
         this.follows = follows;
         this.completion = completion;
+        this.arrival = arrival;
+        this.incidents = incidents;
         this.storage = storage;
         this.evidenceRoot = Path.of(evidenceRoot).toAbsolutePath().normalize();
     }
@@ -249,6 +256,44 @@ public class StaffController {
         try {
             storage.upload(id, user.getAccountId(), image);
             flash.addFlashAttribute("success", "Đã lưu ảnh minh chứng cho lịch hẹn.");
+        } catch (IllegalArgumentException | IllegalStateException failure) {
+            flash.addFlashAttribute("error", PortalMessages.business(failure));
+        }
+        return "redirect:/staff/bookings/" + id;
+    }
+
+    @PostMapping("/staff/bookings/{id}/arrived")
+    String confirmArrival(@PathVariable Long id, @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
+        query.booking(id, user);
+        try {
+            arrival.confirmStaffArrival(id, user.getAccountId());
+            flash.addFlashAttribute("success", "Đã ghi nhận bạn đến địa điểm.");
+        } catch (IllegalStateException failure) {
+            flash.addFlashAttribute("error", PortalMessages.business(failure));
+        }
+        return "redirect:/staff/bookings/" + id;
+    }
+
+    @PostMapping("/staff/bookings/{id}/incident")
+    String reportIncident(@PathVariable Long id, @RequestParam String note,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime expectedArrivalAt,
+            @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
+        query.booking(id, user);
+        try {
+            incidents.report(id, user.getAccountId(), note, expectedArrivalAt);
+            flash.addFlashAttribute("success", "Đã gửi giờ đến dự kiến cho khách. Hãy gọi khách để xác nhận.");
+        } catch (IllegalArgumentException | IllegalStateException failure) {
+            flash.addFlashAttribute("error", PortalMessages.business(failure));
+        }
+        return "redirect:/staff/bookings/" + id;
+    }
+
+    @PostMapping("/staff/bookings/{id}/start")
+    String start(@PathVariable Long id, @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
+        query.booking(id, user);
+        try {
+            completion.startBooking(id, user.getAccountId());
+            flash.addFlashAttribute("success", "Đã ghi nhận bắt đầu công việc.");
         } catch (IllegalArgumentException | IllegalStateException failure) {
             flash.addFlashAttribute("error", PortalMessages.business(failure));
         }

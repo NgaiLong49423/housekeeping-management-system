@@ -34,19 +34,23 @@ class PortalOwnershipTest {
         BookingPersistenceRepository persistence = mock(BookingPersistenceRepository.class);
         BookingCancellationService cancellation = new BookingCancellationService(persistence);
         LocalDateTime now = LocalDateTime.now(ZoneOffset.ofHours(7)).withNano(0);
-        var booking = new BookingPersistenceRepository.BookingState(42L, 1L, 2L, 3L,
-                now.plusHours(3), now.plusHours(4), "CONFIRMED");
-        when(persistence.lockBooking(42L)).thenReturn(Optional.of(booking));
+        var booking = workflow(1L, "CONFIRMED", now.plusHours(3), null, null);
+        when(persistence.lockBookingWorkflow(42L)).thenReturn(Optional.of(booking));
         assertThatThrownBy(() -> cancellation.cancelByCustomer(42L, 9L)).isInstanceOf(AccessDeniedException.class);
-        when(persistence.lockBooking(42L)).thenReturn(Optional.of(new BookingPersistenceRepository.BookingState(42L, 1L, 2L, 3L,
-                now.plusHours(3), now.plusHours(4), "COMPLETED")));
+        when(persistence.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(1L, "COMPLETED", now.plusHours(3), null, null)));
         assertThatThrownBy(() -> cancellation.cancelByCustomer(42L, 1L)).isInstanceOf(IllegalStateException.class);
-        when(persistence.lockBooking(42L)).thenReturn(Optional.of(new BookingPersistenceRepository.BookingState(42L, 1L, 2L, 3L,
-                now.plusMinutes(119), now.plusHours(2), "CONFIRMED")));
+        when(persistence.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(1L, "CONFIRMED", now.plusMinutes(119), null, null)));
         assertThatThrownBy(() -> cancellation.cancelByCustomer(42L, 1L)).isInstanceOf(IllegalStateException.class);
-        when(persistence.lockBooking(42L)).thenReturn(Optional.of(booking));
+        when(persistence.lockBookingWorkflow(42L)).thenReturn(Optional.of(booking));
         when(persistence.cancel(anyLong(), anyLong(), anyString(), any(LocalDateTime.class))).thenReturn(1);
         cancellation.cancelByCustomer(42L, 1L);
         verify(persistence).cancel(anyLong(), anyLong(), anyString(), any(LocalDateTime.class));
+    }
+
+    private BookingPersistenceRepository.BookingWorkflowState workflow(Long customerId, String status, LocalDateTime start,
+            LocalDateTime incidentAt, LocalDateTime workStartedAt) {
+        return new BookingPersistenceRepository.BookingWorkflowState(42L, customerId, 2L, start, start.plusHours(1), status,
+                new BigDecimal("150000.00"), null, workStartedAt, incidentAt, incidentAt == null ? null : "kẹt xe",
+                incidentAt == null ? null : start.plusMinutes(30), null, null, null, BigDecimal.ZERO, BigDecimal.ZERO);
     }
 }
