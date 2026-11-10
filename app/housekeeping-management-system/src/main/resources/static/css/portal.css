@@ -1956,6 +1956,19 @@ input[type="checkbox"]:not(.form-check-input) {
 .house-gable-content {
   text-align: center;
   z-index: 10;
+  opacity: 0;
+  animation: houseTitleReveal 1.6s cubic-bezier(0.22, 1, 0.36, 1) 1.2s forwards;
+}
+
+@keyframes houseTitleReveal {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(14px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
 }
 
 @media (min-width: 768px) {
@@ -1978,6 +1991,18 @@ input[type="checkbox"]:not(.form-check-input) {
     transform: none;
     width: 100%;
     margin-bottom: var(--space-4);
+    animation-name: houseTitleRevealMobile;
+  }
+
+  @keyframes houseTitleRevealMobile {
+    0% {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 }
 
@@ -2191,37 +2216,45 @@ input[type="checkbox"]:not(.form-check-input) {
   filter: drop-shadow(0 4px 14px rgba(22, 33, 29, 0.03));
 }
 
-/* Sequential Line Drawing Animation */
+/* Sequential Progressive Architectural Sketch Phases - Smooth & Deliberate */
 .draw-path {
   stroke-dasharray: 2400;
   stroke-dashoffset: 2400;
-  animation: drawLineAnim 1.8s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+  fill-opacity: 0;
+  animation: drawLineAnim 2.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
-.draw-p1 { animation-delay: 0.15s; animation-duration: 1.4s; }
-.draw-p2 { animation-delay: 0.75s; animation-duration: 1.5s; }
-.draw-p3 { animation-delay: 1.5s; animation-duration: 1.4s; }
-.draw-p4 { animation-delay: 2.1s; animation-duration: 1.3s; }
+.draw-p1 { animation-delay: 0.25s; animation-duration: 2.5s; }
+.draw-p2 { animation-delay: 2.2s;  animation-duration: 2.4s; }
+.draw-p3 { animation-delay: 4.0s;  animation-duration: 2.6s; }
+.draw-p4 { animation-delay: 5.8s;  animation-duration: 2.2s; }
 
 @keyframes drawLineAnim {
-  to {
+  0% {
+    stroke-dashoffset: 2400;
+    fill-opacity: 0;
+  }
+  75% {
+    fill-opacity: 0;
+  }
+  100% {
     stroke-dashoffset: 0;
+    fill-opacity: 1;
   }
 }
 
-/* Soft Warm Watercolor Fills */
+/* Soft Warm Watercolor Fills - Blooms in naturally after lines are drawn */
 .fade-fill {
   opacity: 0;
-  animation: fillRevealAnim 1.2s ease-out forwards;
+  animation: fillRevealAnim 1.8s cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
-.fill-p2 { animation-delay: 1.6s; }
-.fill-p3 { animation-delay: 2.4s; }
-.fill-p4 { animation-delay: 2.9s; }
+.fill-p2 { animation-delay: 3.4s; }
+.fill-p3 { animation-delay: 5.4s; }
+.fill-p4 { animation-delay: 6.8s; }
 
 @keyframes fillRevealAnim {
-  to {
-    opacity: 1;
-  }
+  0% { opacity: 0; }
+  100% { opacity: 1; }
 }
 
 /* Sparkle Twinkles */
