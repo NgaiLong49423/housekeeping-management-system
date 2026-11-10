@@ -1395,13 +1395,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }, 3000);
 
-  // 4. Khởi tạo Apple/iOS Header, Segmented Control, Bottom Sheet, Scroll Reveal, 3D OrbitImages & Staff Picker
+  // 4. Khởi tạo Apple/iOS Header, Segmented Control, Bottom Sheet, Scroll Reveal & 3D OrbitImages
   initAppleHeaderAndScroll();
   initSegmentedControl();
   initMobileSheet();
   initScrollReveal();
   initOrbitImages();
-  initStaffPicker();
 });
 
 // ==========================================================================
@@ -1769,12 +1768,9 @@ function initOrbitImages() {
     item.addEventListener('mouseenter', () => { isHovered = true; });
     item.addEventListener('mouseleave', () => { isHovered = false; });
 
-    // Click vào ảnh trong quỹ đạo thì tự động chọn nhân viên ở bảng dưới
+    // Click vào ảnh trong quỹ đạo thì chuyển đến trang danh sách nhân viên yêu thích
     item.addEventListener('click', () => {
-      const staffId = item.getAttribute('data-staff-id');
-      if (staffId && window.selectStaffPick) {
-        window.selectStaffPick(staffId);
-      }
+      window.location.href = '/customer/staff';
     });
   });
 

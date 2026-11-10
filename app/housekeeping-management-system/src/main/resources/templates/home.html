@@ -334,7 +334,7 @@
         </div>
 
         <!-- 2. Section Title & Description (Below Orbit) -->
-        <div class="orbit-showcase-heading text-center mt-3" data-reveal="fade-up" data-delay="100">
+        <div class="orbit-showcase-heading text-center mt-4" data-reveal="fade-up" data-delay="100">
           <span class="eyebrow mx-auto mb-2">
             <svg th:replace="~{fragments/icons :: shield-check}"></svg>
             <span>An tâm từ lựa chọn đầu tiên</span>
@@ -343,142 +343,13 @@
             Người bạn chọn.
             <span class="text-brand">Ngôi nhà bạn yêu.</span>
           </h2>
-        </div>
-
-        <!-- 3. Ô Chọn Nhân Viên Yêu Thích (Interactive Favorite Staff Picker) -->
-        <div class="staff-picker-wrap" data-reveal="fade-up" data-delay="200">
-          <div class="staff-picker-header d-flex align-items-center justify-content-between mb-3">
-            <div class="d-flex align-items-center gap-2">
-              <span class="staff-picker-badge-heart">
-                <svg th:replace="~{fragments/icons :: heart}"></svg>
-              </span>
-              <strong class="staff-picker-label">Nhân viên được yêu thích hàng đầu</strong>
-            </div>
-            <a class="text-link text-link--ios" th:href="@{/customer/staff}">
-              <span>Tất cả nhân viên</span>
-              <svg class="text-link-arrow" th:replace="~{fragments/icons :: arrow-right}"></svg>
-            </a>
-          </div>
-
-          <!-- 4 Interactive Staff Cards -->
-          <div class="staff-picker-grid" id="staffPickerGrid">
-            <!-- Staff 1 -->
-            <div class="staff-pick-card is-active" data-staff-id="1" data-staff-name="Nguyễn Thị Mai" tabindex="0" role="button">
-              <div class="staff-pick-card__top">
-                <img class="staff-pick-card__avatar" th:src="@{/images/d856e.png}" alt="Nguyễn Thị Mai" width="56" height="56">
-                <div class="staff-pick-card__info">
-                  <div class="d-flex align-items-center gap-1">
-                    <h3 class="staff-pick-card__name">Nguyễn Thị Mai</h3>
-                    <span class="staff-pick-card__check" title="Đã xác minh 100%">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12"><polyline points="20 6 9 17 4 12"/></svg>
-                    </span>
-                  </div>
-                  <span class="staff-pick-card__type">Toàn thời gian</span>
-                </div>
-                <button type="button" class="staff-pick-card__heart is-loved" aria-label="Yêu thích Nguyễn Thị Mai">
-                  <svg th:replace="~{fragments/icons :: heart-solid}"></svg>
-                </button>
-              </div>
-              <div class="staff-pick-card__meta">
-                <span class="staff-pick-card__rating">⭐ 5.0 <em>(48 lượt)</em></span>
-                <span class="staff-pick-card__skill">Buồng phòng &amp; Chung cư</span>
-              </div>
-              <div class="staff-pick-card__radio">
-                <span class="staff-pick-radio-dot"></span>
-                <span class="staff-pick-radio-text">Đang chọn</span>
-              </div>
-            </div>
-
-            <!-- Staff 2 -->
-            <div class="staff-pick-card" data-staff-id="2" data-staff-name="Lê Hoàng Cường" tabindex="0" role="button">
-              <div class="staff-pick-card__top">
-                <img class="staff-pick-card__avatar" th:src="@{/images/2b96d.png}" alt="Lê Hoàng Cường" width="56" height="56">
-                <div class="staff-pick-card__info">
-                  <div class="d-flex align-items-center gap-1">
-                    <h3 class="staff-pick-card__name">Lê Hoàng Cường</h3>
-                    <span class="staff-pick-card__check" title="Đã xác minh 100%">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12"><polyline points="20 6 9 17 4 12"/></svg>
-                    </span>
-                  </div>
-                  <span class="staff-pick-card__type">Toàn thời gian</span>
-                </div>
-                <button type="button" class="staff-pick-card__heart is-loved" aria-label="Yêu thích Lê Hoàng Cường">
-                  <svg th:replace="~{fragments/icons :: heart-solid}"></svg>
-                </button>
-              </div>
-              <div class="staff-pick-card__meta">
-                <span class="staff-pick-card__rating">⭐ 4.9 <em>(56 lượt)</em></span>
-                <span class="staff-pick-card__skill">Tổng vệ sinh &amp; Kính</span>
-              </div>
-              <div class="staff-pick-card__radio">
-                <span class="staff-pick-radio-dot"></span>
-                <span class="staff-pick-radio-text">Chọn nhân viên này</span>
-              </div>
-            </div>
-
-            <!-- Staff 3 -->
-            <div class="staff-pick-card" data-staff-id="3" data-staff-name="Phạm Thị Dung" tabindex="0" role="button">
-              <div class="staff-pick-card__top">
-                <img class="staff-pick-card__avatar" th:src="@{/images/a7642.png}" alt="Phạm Thị Dung" width="56" height="56">
-                <div class="staff-pick-card__info">
-                  <div class="d-flex align-items-center gap-1">
-                    <h3 class="staff-pick-card__name">Phạm Thị Dung</h3>
-                    <span class="staff-pick-card__check" title="Đã xác minh 100%">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12"><polyline points="20 6 9 17 4 12"/></svg>
-                    </span>
-                  </div>
-                  <span class="staff-pick-card__type">Bán thời gian</span>
-                </div>
-                <button type="button" class="staff-pick-card__heart is-loved" aria-label="Yêu thích Phạm Thị Dung">
-                  <svg th:replace="~{fragments/icons :: heart-solid}"></svg>
-                </button>
-              </div>
-              <div class="staff-pick-card__meta">
-                <span class="staff-pick-card__rating">⭐ 4.95 <em>(32 lượt)</em></span>
-                <span class="staff-pick-card__skill">Sắp xếp không gian sống</span>
-              </div>
-              <div class="staff-pick-card__radio">
-                <span class="staff-pick-radio-dot"></span>
-                <span class="staff-pick-radio-text">Chọn nhân viên này</span>
-              </div>
-            </div>
-
-            <!-- Staff 4 -->
-            <div class="staff-pick-card" data-staff-id="4" data-staff-name="Trần Văn Nam" tabindex="0" role="button">
-              <div class="staff-pick-card__top">
-                <img class="staff-pick-card__avatar" th:src="@{/images/b501c.png}" alt="Trần Văn Nam" width="56" height="56">
-                <div class="staff-pick-card__info">
-                  <div class="d-flex align-items-center gap-1">
-                    <h3 class="staff-pick-card__name">Trần Văn Nam</h3>
-                    <span class="staff-pick-card__check" title="Đã xác minh 100%">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12"><polyline points="20 6 9 17 4 12"/></svg>
-                    </span>
-                  </div>
-                  <span class="staff-pick-card__type">Bán thời gian</span>
-                </div>
-                <button type="button" class="staff-pick-card__heart is-loved" aria-label="Yêu thích Trần Văn Nam">
-                  <svg th:replace="~{fragments/icons :: heart-solid}"></svg>
-                </button>
-              </div>
-              <div class="staff-pick-card__meta">
-                <span class="staff-pick-card__rating">⭐ 4.85 <em>(40 lượt)</em></span>
-                <span class="staff-pick-card__skill">Nhà bếp &amp; Thiết bị</span>
-              </div>
-              <div class="staff-pick-card__radio">
-                <span class="staff-pick-radio-dot"></span>
-                <span class="staff-pick-radio-text">Chọn nhân viên này</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Bottom Action Buttons Group -->
-          <div class="staff-picker-actions d-flex flex-wrap align-items-center justify-content-center gap-3 mt-4">
-            <a class="btn btn-primary btn-ios-primary" id="bookWithStaffBtn" th:href="@{/customer/bookings/new(staffId=1)}">
-              <span id="bookWithStaffText">Đặt lịch với Nguyễn Thị Mai</span>
+          <p class="orbit-showcase-desc mx-auto">
+            Bạn chủ động chọn nhân viên yêu thích theo thời gian và nhu cầu thực tế của gia đình. Lịch hợp lệ được xác nhận ngay sau khi kiểm tra, không cần chờ đợi.
+          </p>
+          <div class="d-flex justify-content-center mt-4" data-reveal="fade-up" data-delay="160">
+            <a class="btn btn-primary btn-ios-primary" th:href="@{/customer/staff}">
+              <span>Tìm nhân viên yêu thích</span>
               <svg th:replace="~{fragments/icons :: arrow-right}"></svg>
-            </a>
-            <a class="btn btn-ios-secondary" th:href="@{/customer/bookings/new}">
-              <span>Đặt lịch nhanh (Không chỉ định)</span>
             </a>
           </div>
         </div>
