@@ -1394,4 +1394,199 @@ document.addEventListener('DOMContentLoaded', () => {
       el.style.willChange = 'auto';
     });
   }, 3000);
+
+  // 4. Khởi tạo Apple/iOS Header, Segmented Control, Bottom Sheet & Scroll Reveal
+  initAppleHeaderAndScroll();
+  initSegmentedControl();
+  initMobileSheet();
+  initScrollReveal();
 });
+
+// ==========================================================================
+// APPLE/IOS UI CONTROLLER: Header, Segmented Control, Bottom Sheet & Reveal
+// ==========================================================================
+
+// Đánh dấu JS đã sẵn sàng cho HTML
+document.documentElement.classList.add('js');
+
+// 1. Header Sticky, .is-scrolled (>24px) và Apple Scroll Progress Bar
+function initAppleHeaderAndScroll() {
+  const header = document.getElementById('siteHeader') || document.querySelector('.site-header');
+  const progressBar = document.getElementById('headerScrollProgress');
+  const bannerImg = document.getElementById('parallaxBannerImg');
+
+  let ticking = false;
+  window.addEventListener('scroll', () => {
+    if (!ticking) {
+      window.requestAnimationFrame(() => {
+        const scrollY = window.scrollY || window.pageYOffset;
+
+        // Thu gọn chiều cao header & viền kính mờ
+        if (header) {
+          if (scrollY > 24) header.classList.add('is-scrolled');
+          else header.classList.remove('is-scrolled');
+        }
+
+        // Cập nhật thanh tiến độ cuộn 3px
+        if (progressBar) {
+          const total = document.documentElement.scrollHeight - window.innerHeight;
+          const ratio = total > 0 ? Math.min(1, Math.max(0, scrollY / total)) : 0;
+          progressBar.style.transform = `scaleX(${ratio})`;
+        }
+
+        // Parallax ảnh banner
+        if (bannerImg && window.innerWidth >= 768) {
+          const banner = bannerImg.closest('.care-banner');
+          if (banner) {
+            const rect = banner.getBoundingClientRect();
+            const vh = window.innerHeight;
+            if (rect.bottom >= 0 && rect.top <= vh) {
+              const centerDiff = (rect.top + rect.height / 2) - (vh / 2);
+              const offset = Math.max(-20, Math.min(20, -centerDiff * 0.06));
+              bannerImg.style.transform = `translateY(${offset.toFixed(1)}px) scale(1.05)`;
+            }
+          }
+        }
+
+        ticking = false;
+      });
+      ticking = true;
+    }
+  }, { passive: true });
+}
+
+// 2. iOS Segmented Control: Viên thuốc trượt theo tab hoạt động
+function initSegmentedControl() {
+  const controls = document.querySelectorAll('.ios-segmented-control');
+  controls.forEach(control => {
+    const indicator = control.querySelector('.ios-segmented-indicator');
+    const items = control.querySelectorAll('.ios-segmented-item');
+    if (!indicator || !items.length) return;
+
+    function moveTo(item) {
+      if (!item) return;
+      indicator.style.width = `${item.offsetWidth}px`;
+      indicator.style.transform = `translateX(${item.offsetLeft}px)`;
+    }
+
+    const activeItem = control.querySelector('.ios-segmented-item.active') || items[0];
+
+    // Căn vị trí ban đầu
+    indicator.style.transition = 'none';
+    moveTo(activeItem);
+
+    requestAnimationFrame(() => {
+      indicator.style.transition = '';
+    });
+
+    items.forEach(item => {
+      item.addEventListener('mouseenter', () => moveTo(item));
+      item.addEventListener('mouseleave', () => moveTo(activeItem));
+    });
+
+    window.addEventListener('resize', () => {
+      const cur = control.querySelector('.ios-segmented-item.active') || items[0];
+      moveTo(cur);
+    }, { passive: true });
+  });
+}
+
+// 3. Mobile iOS Bottom Sheet (< 768px)
+function initMobileSheet() {
+  const toggleBtn = document.getElementById('iosMenuToggleBtn');
+  const sheet = document.getElementById('iosMobileSheet');
+  const backdrop = document.getElementById('iosSheetBackdrop');
+  const closeBtn = document.getElementById('iosSheetCloseBtn');
+  if (!toggleBtn || !sheet) return;
+
+  function openSheet() {
+    sheet.classList.add('is-open');
+    sheet.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeSheet() {
+    sheet.classList.remove('is-open');
+    sheet.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+
+  toggleBtn.addEventListener('click', openSheet);
+  if (backdrop) backdrop.addEventListener('click', closeSheet);
+  if (closeBtn) closeBtn.addEventListener('click', closeSheet);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && sheet.classList.contains('is-open')) {
+      closeSheet();
+    }
+  });
+}
+
+// 4. Scroll Reveal PowerPoint Slide Style & Price Counter Animation
+function initScrollReveal() {
+  const revealElements = document.querySelectorAll('[data-reveal]');
+  if (!revealElements.length) return;
+
+  if (!('IntersectionObserver' in window)) {
+    revealElements.forEach(el => el.classList.add('is-in'));
+    return;
+  }
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const el = entry.target;
+        const delay = parseInt(el.getAttribute('data-delay') || '0', 10);
+        if (delay > 0) {
+          el.style.transitionDelay = `${delay}ms`;
+        }
+        el.classList.add('is-in');
+        observer.unobserve(el);
+
+        // Kích hoạt animation đếm số cho giá tiền khi thẻ xuất hiện
+        const prices = el.querySelectorAll ? el.querySelectorAll('.price[data-price-val]') : [];
+        if (el.matches && el.matches('.price[data-price-val]')) {
+          animatePriceCount(el);
+        }
+        prices.forEach(p => animatePriceCount(p));
+
+        // Giải phóng will-change sau khi animation kết thúc
+        setTimeout(() => {
+          el.style.willChange = 'auto';
+        }, 1100 + delay);
+      }
+    });
+  }, {
+    threshold: 0.12,
+    rootMargin: '0px 0px -10% 0px'
+  });
+
+  revealElements.forEach(el => observer.observe(el));
+}
+
+// Hàm đếm số giá tiền từ 0 đến giá trị thực trong 900ms
+function animatePriceCount(priceEl) {
+  const raw = priceEl.getAttribute('data-price-val');
+  if (!raw) return;
+  const target = parseFloat(raw);
+  if (isNaN(target)) return;
+
+  const duration = 900;
+  const startTime = performance.now();
+  const formatter = new Intl.NumberFormat('vi-VN');
+
+  function step(now) {
+    const elapsed = now - startTime;
+    const progress = Math.min(1, elapsed / duration);
+    // Ease-out quad nảy nhẹ
+    const ease = 1 - (1 - progress) * (1 - progress);
+    const current = Math.round(target * ease);
+    priceEl.textContent = `${formatter.format(current)} ₫`;
+    if (progress < 1) {
+      requestAnimationFrame(step);
+    } else {
+      priceEl.textContent = `${formatter.format(target)} ₫`;
+    }
+  }
+  requestAnimationFrame(step);
+}

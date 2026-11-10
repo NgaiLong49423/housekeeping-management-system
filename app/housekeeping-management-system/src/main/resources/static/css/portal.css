@@ -8,6 +8,20 @@
    1. CSS CUSTOM PROPERTIES (COLORS, TYPOGRAPHY, 4/8PX SPACING, MOTION)
    -------------------------------------------------------------------------- */
 :root {
+  /* ==========================================================================
+     APPLE/IOS DESIGN SYSTEM TOKENS
+     ========================================================================== */
+  --r-sm: 14px;
+  --r-md: 20px;
+  --r-lg: 28px;
+  --shadow-1: 0 1px 2px rgba(20, 33, 28, 0.04), 0 4px 16px rgba(20, 33, 28, 0.05);
+  --shadow-2: 0 2px 4px rgba(20, 33, 28, 0.05), 0 16px 40px rgba(20, 33, 28, 0.10);
+  --glass: rgba(255, 255, 255, 0.72);
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-ios: cubic-bezier(0.32, 0.72, 0, 1);
+  --reveal-dur: 900ms;
+  --stagger: 120ms;
+
   /* Typography System */
   --font-display: "Fraunces", Georgia, "Times New Roman", serif;
   --font-sans: "Plus Jakarta Sans", "Be Vietnam Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -356,9 +370,15 @@ button, input, select, textarea {
 }
 
 :focus-visible {
-  outline: 2px solid var(--brand);
-  outline-offset: 2px;
-  box-shadow: 0 0 0 4px var(--brand-glow);
+  outline: none !important;
+  box-shadow: 0 0 0 4px rgba(20, 80, 63, 0.25) !important;
+}
+
+/* Nút bấm kiểu Apple/iOS: nảy lò xo var(--spring), scale 0.96 khi nhấn */
+button:active,
+.btn:active {
+  transform: scale(0.96) !important;
+  transition: transform 120ms ease !important;
 }
 
 [hidden] {
@@ -366,18 +386,44 @@ button, input, select, textarea {
 }
 
 /* --------------------------------------------------------------------------
-   4. HEADER NAVIGATION (CENTERED CAPSULE Â· MATCHING FOOTER CHROME)
+   4. APPLE/IOS HEADER NAVIGATION (FROSTED GLASS, SCROLL PROGRESS & SEGMENTED CONTROL)
    -------------------------------------------------------------------------- */
 .site-header {
-  background: rgba(19, 32, 28, 0.97);
-  border-bottom: 1px solid var(--chrome-border);
   position: sticky;
   top: 0;
   z-index: 1020;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  box-shadow: 0 6px 24px -8px rgba(10, 18, 15, 0.35);
-  transition: background var(--motion-fast), box-shadow var(--motion-fast);
+  height: 72px;
+  background: rgba(19, 32, 28, 0.72);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  transition: height 300ms var(--ease-ios), background 300ms var(--ease-ios), box-shadow 300ms var(--ease-ios), border-color 300ms var(--ease-ios);
+  display: flex;
+  align-items: center;
+}
+
+/* Header co lại khi cuộn trang > 24px */
+.site-header.is-scrolled {
+  height: 60px;
+  background: rgba(19, 32, 28, 0.86);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.28);
+}
+
+/* Thanh tiến độ cuộn 3px ở mép dưới header (Apple Scroll Progress) */
+.header-scroll-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: var(--chrome-accent);
+  transform-origin: left;
+  transform: scaleX(0);
+  transition: transform 60ms linear;
+  pointer-events: none;
+  z-index: 1021;
 }
 
 .brand {
@@ -387,7 +433,7 @@ button, input, select, textarea {
   color: var(--chrome-text);
   text-decoration: none;
   flex-shrink: 0;
-  transition: opacity var(--motion-fast);
+  transition: opacity 250ms var(--ease-ios);
 }
 
 .brand:hover {
@@ -422,46 +468,118 @@ button, input, select, textarea {
   letter-spacing: 0.03em;
 }
 
-.site-header .navbar-toggler {
-  color: var(--chrome-text);
-  padding: var(--space-2);
-  border-radius: var(--radius-sm);
-  transition: background var(--motion-fast);
-}
-
-.site-header .navbar-toggler:hover {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.site-header .navbar-nav {
-  display: flex;
+/* iOS Segmented Control cho Desktop */
+.ios-segmented-control {
+  position: relative;
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  padding: 3px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  margin: 0 auto;
 }
 
-.navbar .nav-link {
-  font-family: var(--font-sans);
-  font-size: var(--text-sm);
+.ios-segmented-indicator {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 0;
+  background: var(--chrome-accent);
+  border-radius: 9999px;
+  box-shadow: 0 2px 8px rgba(159, 227, 207, 0.35);
+  pointer-events: none;
+  transition: transform 400ms var(--ease-ios), width 400ms var(--ease-ios);
+  z-index: 1;
+}
+
+.ios-segmented-list {
+  display: flex;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  position: relative;
+  z-index: 2;
+}
+
+.ios-segmented-item {
+  display: inline-flex;
+}
+
+.ios-segmented-link {
+  display: block;
+  padding: 6px 18px;
+  font-size: 0.84rem;
   font-weight: 500;
-  padding: 0.44rem 0.92rem;
-  white-space: nowrap;
   color: rgba(243, 239, 230, 0.78);
-  border: 1px solid transparent;
-  border-radius: var(--radius-pill);
-  transition: color var(--motion-fast), background-color var(--motion-fast), border-color var(--motion-fast);
+  border-radius: 9999px;
+  text-decoration: none;
+  transition: color 250ms var(--ease-ios);
+  white-space: nowrap;
 }
 
-.navbar .nav-link:hover {
-  color: #ffffff;
-  background-color: rgba(243, 239, 230, 0.08);
-}
-
-.navbar .nav-link.active {
+.ios-segmented-item.active .ios-segmented-link {
   color: #13201c !important;
   font-weight: 600;
-  background-color: var(--chrome-accent);
-  border-color: var(--chrome-accent);
-  box-shadow: 0 2px 8px rgba(159, 227, 207, 0.22);
+}
+
+.ios-segmented-item:hover .ios-segmented-link {
+  color: #ffffff;
+}
+
+/* Nút bấm kiểu iOS trong Header */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.btn-glass-pill {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  border-radius: 9999px;
+  padding: 7px 18px;
+  font-size: 0.84rem;
+  font-weight: 500;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 250ms var(--ease-ios), border-color 250ms var(--ease-ios), transform 350ms var(--spring);
+}
+
+.btn-glass-pill:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.35);
+  color: #ffffff;
+}
+
+.btn-cta-prominent {
+  background: #fbfaf6;
+  color: #14503f;
+  border-radius: 9999px;
+  padding: 7px 20px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  transition: background 250ms var(--ease-ios), color 250ms var(--ease-ios), transform 350ms var(--spring), box-shadow 250ms var(--ease-ios);
+}
+
+.btn-cta-prominent:hover {
+  background: #ffffff;
+  color: #0e3b2e;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  transform: translateY(-1px);
 }
 
 /* True 3-Column Symmetric Centering on Desktop (>= 992px) */
@@ -481,78 +599,99 @@ button, input, select, textarea {
     justify-self: start;
   }
 
-  .site-header .navbar-nav {
-    justify-self: center;
-    margin: 0 !important;
-    flex-direction: row;
-    justify-content: center;
-    padding: var(--space-1);
-    gap: var(--space-1);
-    background: rgba(255, 253, 249, 0.055);
-    border: 1px solid rgba(243, 239, 230, 0.11);
-    border-radius: var(--radius-pill);
-  }
-
   .site-header .header-actions {
     justify-self: end;
   }
 }
 
-@media (min-width: 992px) and (max-width: 1199.98px) {
-  .site-header > .navbar.container {
-    max-width: 100%;
-    padding-inline: var(--space-5);
-  }
-
-  .site-header .navbar-nav {
-    gap: 2px;
-    padding: 3px;
-  }
-
-  .navbar .nav-link {
-    font-size: 0.8125rem;
-    padding: 0.38rem 0.68rem;
-  }
-
-  .header-actions .btn {
-    font-size: 0.8125rem;
-    padding: 0.42rem 0.84rem;
-  }
-}
-
-.header-actions {
+/* Mobile iOS Bottom Sheet (< 768px) */
+.ios-bottom-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
   display: flex;
-  align-items: center;
-  gap: var(--space-2);
+  flex-direction: column;
+  justify-content: flex-end;
+  visibility: hidden;
+  pointer-events: none;
+  transition: visibility 300ms var(--ease-ios);
 }
 
-.header-actions .btn {
-  padding: 0.46rem 1rem;
-  font-size: var(--text-sm);
-  white-space: nowrap;
+.ios-bottom-sheet.is-open {
+  visibility: visible;
+  pointer-events: auto;
 }
 
-.header-actions .btn-outline-primary {
-  color: var(--chrome-text);
-  border-color: rgba(243, 239, 230, 0.24);
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: var(--radius-pill);
-  font-weight: 500;
+.ios-sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 18, 15, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  opacity: 0;
+  transition: opacity 300ms var(--ease-ios);
 }
 
-.header-actions .btn-outline-primary:hover {
-  background: rgba(243, 239, 230, 0.14);
-  color: #ffffff;
-  border-color: rgba(243, 239, 230, 0.55);
+.ios-bottom-sheet.is-open .ios-sheet-backdrop {
+  opacity: 1;
 }
 
-.header-actions .btn-primary {
-  background: #e8dfd1;
-  color: #13201c;
+.ios-sheet-panel {
+  position: relative;
+  z-index: 1;
+  background: rgba(22, 35, 30, 0.96);
+  backdrop-filter: saturate(180%) blur(24px);
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
+  border-top-left-radius: 28px;
+  border-top-right-radius: 28px;
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.35);
+  transform: translateY(100%);
+  transition: transform 400ms var(--ease-ios);
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.ios-bottom-sheet.is-open .ios-sheet-panel {
+  transform: translateY(0);
+}
+
+.ios-sheet-grabber {
+  width: 36px;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.3);
+  margin: 10px auto 4px;
+}
+
+.ios-sheet-title {
+  color: #f3efe6;
   font-weight: 600;
-  border: 1px solid #e8dfd1;
-  border-radius: var(--radius-pill);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
+  font-size: 1.1rem;
+}
+
+.ios-sheet-nav-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.ios-sheet-nav-list li {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ios-sheet-link {
+  display: block;
+  padding: 14px 0;
+  color: #f3efe6;
+  font-size: 1.05rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 200ms ease;
+}
+
+.ios-sheet-link:hover {
+  color: var(--chrome-accent);
 }
 
 .header-actions .btn-primary:hover {
@@ -3131,60 +3270,112 @@ input[type="checkbox"]:not(.form-check-input) {
 }
 
 /* --------------------------------------------------------------------------
-   10. SERVICE CARDS & HOSPITALITY SHOWCASE
+   10. APPLE/IOS SERVICE CARDS GRID & HOSPITALITY SHOWCASE
    -------------------------------------------------------------------------- */
-.service-card {
+
+/* Lưới thẻ dịch vụ tự co giãn: >= 1200px (4 cột), 768-1199px (2 cột), < 768px (App Store Carousel Snap) */
+.services-ios-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: clamp(16px, 2vw, 24px);
+  align-items: stretch;
+}
+
+@media (min-width: 768px) and (max-width: 1199.98px) {
+  .services-ios-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 767.98px) {
+  .services-ios-grid {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    gap: 16px;
+    padding-bottom: 20px;
+    padding-top: 4px;
+    margin-inline: -16px;
+    padding-inline: 16px;
+  }
+
+  .services-ios-grid .service-card--ios {
+    flex: 0 0 84%;
+    max-width: 84%;
+    scroll-snap-align: center;
+  }
+}
+
+/* Thẻ dịch vụ phong cách Apple Card: Bo góc squircle var(--r-md), đổ bóng đa tầng mềm mại */
+.service-card,
+.service-card--ios {
   position: relative;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid rgba(20, 33, 28, 0.06);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-1);
   display: flex;
   flex-direction: column;
-  transition: border-color var(--motion-base), transform var(--motion-base), box-shadow var(--motion-base);
+  height: 100%;
+  transition: transform 700ms var(--ease-ios), box-shadow 700ms var(--ease-ios), border-color 300ms var(--ease-ios);
 }
 
-.service-card:hover {
-  border-color: var(--brand-border);
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-md);
+@media (hover: hover) {
+  .service-card--ios:hover {
+    transform: translateY(-6px);
+    box-shadow: var(--shadow-2);
+    border-color: rgba(20, 80, 63, 0.16);
+  }
+
+  .service-card--ios:hover .service-cover {
+    transform: scale(1.05);
+  }
 }
 
+.service-card--ios:active {
+  transform: scale(0.98) !important;
+  transition: transform 120ms ease !important;
+}
+
+/* Khung ảnh aspect-ratio: 4/3, overflow: hidden riêng cho khung ảnh */
 .service-cover-wrap {
   position: relative;
   overflow: hidden;
+  aspect-ratio: 4 / 3;
+  width: 100%;
   background-color: var(--bg-subtle);
-  border-bottom: 1px solid var(--line);
+  border-top-left-radius: var(--r-md);
+  border-top-right-radius: var(--r-md);
 }
 
 .service-cover {
   width: 100%;
-  height: 208px;
+  height: 100%;
   object-fit: cover;
   object-position: center 42%;
-  transition: transform 420ms var(--ease-out);
+  transition: transform 700ms var(--ease-ios);
 }
 
-.service-card:hover .service-cover {
-  transform: scale(1.04);
-}
-
-.service-duration-badge {
+/* Badge thời lượng kính mờ góc ảnh */
+.service-duration-badge,
+.service-duration-badge--glass {
   position: absolute;
   top: var(--space-3);
   left: var(--space-3);
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 10px;
-  border-radius: var(--radius-pill);
+  padding: 5px 12px;
+  border-radius: 9999px;
   font-size: var(--text-xs);
   font-weight: 600;
-  background: rgba(255, 253, 249, 0.96);
+  background: rgba(255, 255, 255, 0.76);
+  backdrop-filter: saturate(180%) blur(16px);
+  -webkit-backdrop-filter: saturate(180%) blur(16px);
   color: var(--ink);
-  border: 1px solid rgba(22, 33, 29, 0.12);
-  box-shadow: var(--shadow-xs);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .service-duration-badge .ui-icon {
@@ -3193,66 +3384,246 @@ input[type="checkbox"]:not(.form-check-input) {
   color: var(--brand);
 }
 
+.service-card-body {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
 .service-card h3 {
   font-family: var(--font-display);
-  font-size: 1.24rem;
+  font-size: 1.22rem;
   font-weight: 600;
+  letter-spacing: -0.02em;
   margin-top: 2px;
   margin-bottom: var(--space-2);
   color: var(--ink);
-  transition: color var(--motion-fast);
+  transition: color 250ms var(--ease-ios);
 }
 
 .service-card:hover h3 {
   color: var(--brand);
 }
 
+.service-desc,
 .service-card p {
   font-size: var(--text-sm);
   color: var(--muted);
-  line-height: 1.6;
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
   margin-bottom: var(--space-4);
 }
 
-.price {
+.service-pricing-row {
+  border-top: 1px solid rgba(20, 33, 28, 0.06);
+}
+
+.price,
+.price--ios {
   font-family: var(--font-display);
   font-variant-numeric: tabular-nums;
-  color: var(--brand);
-  background: var(--brand-subtle);
-  border: 1px solid var(--brand-border);
+  color: #14503f;
+  background: rgba(20, 80, 63, 0.08);
+  border: 1px solid rgba(20, 80, 63, 0.14);
   padding: 4px 12px;
-  border-radius: var(--radius-pill);
+  border-radius: 9999px;
   font-weight: 600;
   font-size: 1.02rem;
   letter-spacing: -0.01em;
 }
 
-/* Care Banner */
-.care-banner {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  box-shadow: var(--shadow-sm);
+/* Nút Chọn dịch vụ phong cách Apple */
+.btn-service-cta {
+  background: rgba(20, 80, 63, 0.08);
+  color: #14503f;
+  font-weight: 600;
+  border-radius: var(--r-sm);
+  height: 48px;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-decoration: none;
+  transition: background 250ms var(--ease-ios), color 250ms var(--ease-ios), transform 350ms var(--spring);
 }
 
-.care-banner img {
+.btn-service-cta:hover {
+  background: #14503f;
+  color: #ffffff;
+}
+
+.btn-service-cta .service-cta-arrow {
+  transition: transform 250ms var(--ease-ios);
+}
+
+.btn-service-cta:hover .service-cta-arrow {
+  transform: translateX(3px);
+}
+
+/* Link mũi tên trượt */
+.text-link--ios {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--brand);
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 250ms var(--ease-ios);
+}
+
+.text-link--ios .text-link-arrow {
+  transition: transform 250ms var(--ease-ios);
+}
+
+.text-link--ios:hover .text-link-arrow {
+  transform: translateX(3px);
+}
+
+/* ==========================================================================
+   BANNER "NGƯỜI BẠN CHỌN. NGÔI NHÀ BẠN YÊU." (APPLE BIG CARD & WIDGET)
+   ========================================================================== */
+.care-banner,
+.care-banner--ios {
+  background: #ffffff;
+  border: 1px solid rgba(20, 33, 28, 0.06);
+  border-radius: 32px;
+  overflow: hidden;
+  box-shadow: var(--shadow-1);
+}
+
+.care-banner__img-wrap {
+  position: relative;
   width: 100%;
   height: 100%;
-  min-height: 340px;
+  min-height: 380px;
+  overflow: hidden;
+}
+
+@media (min-width: 768px) {
+  .care-banner__img-wrap {
+    border-top-left-radius: 32px;
+    border-bottom-left-radius: 32px;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .care-banner__img-wrap {
+    border-top-left-radius: 32px;
+    border-top-right-radius: 32px;
+    min-height: 250px;
+  }
+}
+
+.care-banner__img {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
+  transition: transform 120ms ease-out;
+}
+
+/* Floating Glass Widget kiểu iOS trên góc ảnh */
+.care-banner__glass-widget {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 18px;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 8px 24px rgba(20, 33, 28, 0.12);
+  z-index: 2;
+}
+
+.glass-widget__icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #14503f;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.glass-widget__text strong {
+  display: block;
+  font-size: 0.82rem;
+  color: #14503f;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.glass-widget__text small {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--muted);
 }
 
 .care-banner h2 {
   font-size: clamp(1.6rem, 2.6vw, 2.25rem);
+  letter-spacing: -0.02em;
   margin-bottom: var(--space-3);
+  line-height: 1.15;
 }
 
 .care-banner p {
   font-size: var(--text-base);
-  line-height: 1.7;
+  line-height: 1.65;
   color: var(--body-text);
   margin-bottom: var(--space-5);
+}
+
+.btn-ios-primary {
+  height: 50px;
+  border-radius: 9999px;
+  padding-inline: 26px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-ios-secondary {
+  height: 50px;
+  border-radius: 9999px;
+  padding-inline: 26px;
+  font-weight: 600;
+  background: rgba(20, 80, 63, 0.08);
+  color: #14503f;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  transition: background 250ms var(--ease-ios), color 250ms var(--ease-ios), transform 350ms var(--spring);
+}
+
+.btn-ios-secondary:hover {
+  background: rgba(20, 80, 63, 0.16);
+  color: #0e3b2e;
+}
+
+@media (max-width: 767.98px) {
+  .care-banner__cta-group {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .care-banner__cta-group .btn {
+    width: 100%;
+    text-align: center;
+    justify-content: center;
+  }
 }
 
 /* Dark Editorial CTA Banner */
@@ -4271,13 +4642,19 @@ tr.hours-row:has(.closed-day-checkbox:checked) .hours-time-input {
 }
 
 /* --------------------------------------------------------------------------
-   17. SITE FOOTER (MATCHING NOCTURNAL PINE CHROME)
+   17. SITE FOOTER (APPLE SHEET UI: BO GÓC 32PX, INSET GROUPED & MINT HOVER)
    -------------------------------------------------------------------------- */
-.site-footer {
-  background: var(--chrome-bg);
-  border-top: 1px solid var(--chrome-border);
-  padding: var(--space-7) 0 var(--space-6);
+.site-footer,
+.site-footer--ios {
+  background: #13201c;
+  border-top-left-radius: 32px;
+  border-top-right-radius: 32px;
+  border-top: 1px solid rgba(230, 224, 212, 0.12);
+  box-shadow: 0 -12px 36px rgba(0, 0, 0, 0.18);
+  padding: clamp(48px, 6vw, 72px) 0 36px;
   color: var(--chrome-muted);
+  position: relative;
+  z-index: 10;
 }
 
 .footer-brand .brand span {
@@ -4305,38 +4682,72 @@ tr.hours-row:has(.closed-day-checkbox:checked) .hours-time-input {
   margin-bottom: var(--space-4);
 }
 
-.footer-links {
+.footer-links,
+.footer-links--ios {
   list-style: none;
   padding: 0;
   margin: 0;
 }
 
-.footer-links li {
+.footer-links li,
+.footer-links--ios li {
   margin-bottom: var(--space-2);
   color: var(--chrome-muted);
   font-size: var(--text-sm);
 }
 
-.footer-links li .ui-icon {
-  width: 16px;
-  height: 16px;
-  color: var(--chrome-accent);
-}
-
-.footer-links a {
+.footer-links a,
+.footer-links--ios a {
+  display: inline-block;
   color: var(--chrome-muted);
   font-size: var(--text-sm);
-  transition: color var(--motion-fast);
+  text-decoration: none;
+  transition: color 250ms var(--ease-ios), transform 250ms var(--ease-ios);
 }
 
-.footer-links a:hover {
-  color: #ffffff;
+/* Link hover: đổi màu sang xanh bạc hà + trượt nhẹ 2px */
+.footer-links--ios a:hover {
+  color: var(--chrome-accent) !important;
+  transform: translateX(2px);
+}
+
+/* Nhóm danh sách "Cam kết chất lượng" kiểu iOS Inset Grouped: hàng 48px, ngăn cách 0.08 */
+.ios-inset-group {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+
+.ios-inset-row {
+  min-height: 48px;
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--chrome-muted);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+
+.ios-inset-row:last-child {
+  border-bottom: none;
+}
+
+.ios-inset-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(159, 227, 207, 0.14);
+  color: var(--chrome-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .footer-bottom {
   margin-top: var(--space-6);
   padding-top: var(--space-5);
-  border-top: 1px solid var(--chrome-border);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
   font-size: var(--text-xs);
   color: var(--chrome-muted);
 }
@@ -4345,13 +4756,174 @@ tr.hours-row:has(.closed-day-checkbox:checked) .hours-time-input {
   color: var(--chrome-muted);
 }
 
-.footer-bottom .text-link {
+.footer-bottom .text-link,
+.text-link--mint {
   color: var(--chrome-accent);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  transition: color 250ms var(--ease-ios);
 }
 
-.footer-bottom .text-link:hover {
+.footer-bottom .text-link:hover,
+.text-link--mint:hover {
   color: #ffffff;
-  border-bottom-color: #ffffff;
+}
+
+.text-link--mint:hover .text-link-arrow {
+  transform: translateX(3px);
+}
+
+/* ==========================================================================
+   SCROLL REVEAL ENGINE (POWERPOINT SLIDE / APPLE KEYNOTE STYLE)
+   - Kích hoạt khi có class .js trên html (khi tắt JS thì nội dung hiển thị bình thường)
+   - Các hiệu ứng: fade-up, fly-left, fly-right, zoom-in, blur-in, rise-glass
+   - GPU-accelerated: chỉ animate opacity, transform và blur
+   ========================================================================== */
+html.js [data-reveal] {
+  opacity: 0;
+  transition-property: opacity, transform, filter;
+  transition-duration: var(--reveal-dur, 900ms);
+  transition-timing-function: var(--ease-ios);
+  will-change: opacity, transform;
+}
+
+html.js [data-reveal="fade-up"] {
+  transform: translateY(32px);
+}
+
+html.js [data-reveal="fly-left"] {
+  transform: translateX(-48px);
+}
+
+html.js [data-reveal="fly-right"] {
+  transform: translateX(48px);
+}
+
+html.js [data-reveal="zoom-in"] {
+  transform: scale(0.92);
+}
+
+html.js [data-reveal="blur-in"] {
+  transform: translateY(20px);
+  filter: blur(8px);
+}
+
+html.js [data-reveal="rise-glass"] {
+  transform: translateY(40px) scale(0.97);
+}
+
+/* Trạng thái phần tử đã vào viewport */
+html.js [data-reveal].is-in {
+  opacity: 1 !important;
+  transform: none !important;
+  filter: none !important;
+}
+
+/* Khả năng tiếp cận: Tắt toàn bộ dịch chuyển khi người dùng bật reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  html.js [data-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    transition: none !important;
+  }
+}
+
+/* ==========================================================================
+   IOS INSET GROUPED FORMS (SETTINGS STYLE)
+   ========================================================================== */
+.ios-form-group {
+  background: #ffffff;
+  border-radius: var(--r-md);
+  border: 1px solid rgba(20, 33, 28, 0.08);
+  box-shadow: var(--shadow-1);
+  overflow: hidden;
+  margin-bottom: var(--space-4);
+}
+
+.ios-form-row {
+  position: relative;
+  min-height: 52px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 8px 16px;
+  border-bottom: 1px solid rgba(20, 33, 28, 0.06);
+  transition: background-color 200ms ease;
+}
+
+.ios-form-row:last-child {
+  border-bottom: none;
+}
+
+.ios-form-row:focus-within {
+  background-color: rgba(20, 80, 63, 0.02);
+}
+
+.ios-floating-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+
+.ios-form-input {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  font-size: 0.95rem;
+  color: var(--ink);
+  background: transparent !important;
+  width: 100%;
+}
+
+/* iOS Toggle Switch */
+.ios-toggle {
+  position: relative;
+  display: inline-block;
+  width: 51px;
+  height: 31px;
+}
+
+.ios-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.ios-toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: #e5e5ea;
+  border-radius: 31px;
+  transition: background-color 300ms var(--ease-ios);
+}
+
+.ios-toggle-slider::before {
+  position: absolute;
+  content: "";
+  height: 27px;
+  width: 27px;
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  border-radius: 50%;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+  transition: transform 350ms var(--spring);
+}
+
+.ios-toggle input:checked + .ios-toggle-slider {
+  background-color: #34c759;
+}
+
+.ios-toggle input:checked + .ios-toggle-slider::before {
+  transform: translateX(20px);
 }
 
 /* --------------------------------------------------------------------------

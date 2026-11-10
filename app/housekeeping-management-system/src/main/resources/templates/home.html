@@ -232,54 +232,68 @@
         </div>
       </section>
 
-      <!-- Services Catalog Section -->
-      <section class="container section-space">
-        <div class="section-heading">
+      <!-- Services Catalog Section (iOS Scroll Reveal + Flexible Staggered Grid) -->
+      <section class="container section-space services-catalog-section">
+        <div class="section-heading mb-4 mb-md-5">
           <div>
-            <span class="eyebrow">
+            <span class="eyebrow" data-reveal="fade-up" data-delay="0">
               Chúng tôi có thể giúp gì cho bạn?
             </span>
-            <h2>
+            <h2 data-reveal="blur-in" data-delay="120">
               Chăm sóc nhà cửa, theo cách của bạn
             </h2>
-            <p>
+            <p data-reveal="fade-up" data-delay="240">
               Chọn dịch vụ và thời lượng phù hợp với không gian sống của bạn.
             </p>
           </div>
-          <a class="text-link" th:href="@{/services}">
+          <a class="text-link text-link--ios" th:href="@{/services}" data-reveal="fade-up" data-delay="360">
             <span>Tất cả dịch vụ</span>
-            <svg th:replace="~{fragments/icons :: arrow-right}"></svg>
+            <svg class="text-link-arrow" th:replace="~{fragments/icons :: arrow-right}"></svg>
           </a>
         </div>
         <div th:replace="~{fragments/services :: cards}">
         </div>
       </section>
 
-      <!-- Trust & Safety Section -->
+      <!-- Trust & Safety Section (iOS Big Card + Glass Widget + Parallax) -->
       <section class="container pb-5">
-        <div class="care-banner row align-items-center g-0">
-          <div class="col-md-5">
-            <img th:src="@{/images/d856e.png}" alt="Nhân viên cùng dụng cụ vệ sinh tại nhà" loading="lazy" width="512" height="279">
+        <div class="care-banner care-banner--ios row align-items-center g-0">
+          <div class="col-md-5 care-banner__img-col" data-reveal="fly-left" data-delay="0">
+            <div class="care-banner__img-wrap">
+              <img class="care-banner__img" id="parallaxBannerImg" th:src="@{/images/d856e.png}" alt="Nhân viên cùng dụng cụ vệ sinh tại nhà" loading="lazy" width="512" height="279">
+              <!-- iOS Floating Glass Widget -->
+              <div class="care-banner__glass-widget" data-reveal="rise-glass" data-delay="240">
+                <div class="glass-widget__icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </div>
+                <div class="glass-widget__text">
+                  <strong>Đã xác minh · An tâm 100%</strong>
+                  <small>Nhân viên kiểm tra lý lịch rõ ràng</small>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="col-md-7 p-4 p-lg-5">
-            <span class="eyebrow">
+          <div class="col-md-7 p-4 p-lg-5 care-banner__content">
+            <span class="eyebrow" data-reveal="fly-right" data-delay="0">
               <svg th:replace="~{fragments/icons :: shield-check}"></svg>
               <span>An tâm từ lựa chọn đầu tiên</span>
             </span>
-            <h2>
+            <h2 data-reveal="fly-right" data-delay="120">
               Người bạn chọn.
               <br>
               Ngôi nhà bạn yêu.
             </h2>
-            <p>
+            <p data-reveal="fly-right" data-delay="240">
               Bạn chủ động chọn nhân viên bán thời gian của công ty và khoảng thời gian phù hợp. Lịch hợp lệ được xác nhận ngay sau khi kiểm tra, không cần chờ đợi.
             </p>
-            <div class="d-flex flex-wrap gap-3">
-              <a class="btn btn-primary" th:href="@{/customer/staff}">
+            <div class="d-flex flex-wrap gap-3 care-banner__cta-group" data-reveal="fade-up" data-delay="360">
+              <a class="btn btn-primary btn-ios-primary" th:href="@{/customer/staff}">
                 <span>Tìm nhân viên phù hợp</span>
                 <svg th:replace="~{fragments/icons :: arrow-right}"></svg>
               </a>
-              <a class="btn btn-white" th:href="@{/customer/bookings/new}">
+              <a class="btn btn-ios-secondary" th:href="@{/customer/bookings/new}">
                 <span>Đặt lịch nhanh</span>
               </a>
             </div>
