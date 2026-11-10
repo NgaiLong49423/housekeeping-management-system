@@ -1994,69 +1994,223 @@ input[type="checkbox"]:not(.form-check-input) {
   color: var(--brand);
 }
 
-.hero-visual {
+/* Interactive Animated House & Room Architectural Sketch */
+.hero-sketch-stage {
   position: relative;
   display: flex;
-  padding: var(--space-4) var(--space-4) var(--space-4) 0;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--space-4);
   background: var(--surface);
 }
 
-.hero-visual-frame {
+.sketch-viewport {
   position: relative;
-  width: 100%;
-  min-height: 356px;
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  background: var(--chrome-bg);
+  background: #fdfbf7;
   border: 1px solid var(--line);
-  box-shadow: var(--shadow-sm);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1rem 0.65rem;
+  box-shadow: inset 0 2px 8px rgba(22, 33, 29, 0.02), 0 8px 24px -6px rgba(22, 33, 29, 0.05);
+  overflow: hidden;
 }
 
-.hero-visual img {
+.sketch-svg {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
-  opacity: 0.94;
-  transition: transform 600ms var(--ease-out);
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 4px 14px rgba(22, 33, 29, 0.03));
 }
 
-.hero-showcase:hover .hero-visual img {
-  transform: scale(1.03);
+/* Sequential Line Drawing Animation */
+.draw-path {
+  stroke-dasharray: 1200;
+  stroke-dashoffset: 1200;
+  animation: drawLineAnim 1.8s cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
 
-.hero-floating-card {
+.draw-p1 { animation-delay: 0.15s; animation-duration: 1.4s; }
+.draw-p2 { animation-delay: 0.75s; animation-duration: 1.5s; }
+.draw-p3 { animation-delay: 1.5s; animation-duration: 1.4s; }
+.draw-p4 { animation-delay: 2.1s; animation-duration: 1.3s; }
+
+@keyframes drawLineAnim {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Soft Warm Watercolor Fills */
+.fade-fill {
+  opacity: 0;
+  animation: fillRevealAnim 1.2s ease-out forwards;
+}
+.fill-p2 { animation-delay: 1.6s; }
+.fill-p3 { animation-delay: 2.4s; }
+.fill-p4 { animation-delay: 2.9s; }
+
+@keyframes fillRevealAnim {
+  to {
+    opacity: 1;
+  }
+}
+
+/* Sparkle Twinkles */
+.sparkle {
+  opacity: 0;
+  transform-origin: center;
+  animation: twinkleAnim 2.5s ease-in-out infinite;
+}
+.sp-1 { animation-delay: 3.1s; }
+.sp-2 { animation-delay: 3.5s; }
+.sp-3 { animation-delay: 3.9s; }
+
+@keyframes twinkleAnim {
+  0%, 100% { opacity: 0; transform: scale(0.2) rotate(0deg); }
+  50% { opacity: 1; transform: scale(1.15) rotate(90deg); }
+}
+
+/* Pulsing Radar Underpins */
+.pulse-radar {
+  animation: pulseRadarAnim 2.2s infinite;
+  transform-origin: center;
+}
+
+@keyframes pulseRadarAnim {
+  0%, 100% { transform: scale(1); opacity: 0.35; }
+  50% { transform: scale(1.6); opacity: 0.08; }
+}
+
+/* HTML Overlay Hotspot Pins with Tooltips */
+.sketch-pin {
   position: absolute;
-  left: var(--space-3);
-  right: var(--space-3);
-  bottom: var(--space-3);
-  max-width: 380px;
-  padding: 0.68rem 0.95rem;
-  background: rgba(255, 253, 249, 0.96);
+  z-index: 10;
+  opacity: 0;
+  transform: translateY(8px);
+  animation: pinPopAnim 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  cursor: pointer;
+}
+
+.pin-window { animation-delay: 2.6s; }
+.pin-living { animation-delay: 2.9s; }
+.pin-plant  { animation-delay: 3.2s; }
+.pin-relax  { animation-delay: 3.5s; }
+
+@keyframes pinPopAnim {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.pin-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.94);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(22, 33, 29, 0.1);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-
-.hero-floating-card strong {
-  display: block;
-  font-family: var(--font-display);
-  font-size: 0.96rem;
-  line-height: 1.25;
+  border: 1px solid rgba(22, 33, 29, 0.14);
+  border-radius: var(--radius-pill);
+  padding: 4px 11px;
+  font-size: 0.74rem;
+  font-weight: 700;
   color: var(--ink);
+  box-shadow: 0 4px 14px rgba(22, 33, 29, 0.08);
+  white-space: nowrap;
+  transition: all 200ms ease;
 }
 
-.hero-floating-card small {
-  display: block;
-  color: var(--muted);
+.sketch-pin:hover .pin-badge {
+  transform: scale(1.05) translateY(-2px);
+  border-color: var(--brand);
+  color: var(--brand);
+  box-shadow: 0 6px 18px rgba(184, 93, 56, 0.18);
+}
+
+.pin-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background: var(--ink);
+  color: #ffffff;
+  padding: 6px 12px;
+  border-radius: 8px;
   font-size: 0.72rem;
   line-height: 1.35;
-  margin-top: 2px;
+  width: max-content;
+  max-width: 210px;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 200ms ease;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+  z-index: 20;
+}
+
+.pin-tooltip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 5px;
+  border-style: solid;
+  border-color: var(--ink) transparent transparent transparent;
+}
+
+.sketch-pin:hover .pin-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Control & Replay Bar */
+.sketch-footer-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 0.65rem;
+  margin-top: 0.4rem;
+  border-top: 1px dashed var(--line);
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
+.sketch-caption {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.sketch-caption .ui-icon {
+  width: 13px;
+  height: 13px;
+  color: var(--brand);
+}
+
+.btn-replay-sketch {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  color: var(--ink-secondary);
+  padding: 4px 11px;
+  border-radius: var(--radius-pill);
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 180ms ease;
+}
+
+.btn-replay-sketch:hover {
+  background: #f7f3ec;
+  border-color: var(--brand);
+  color: var(--brand);
+  transform: translateY(-1px);
 }
 
 /* 3-Step Architectural Workflow Ledger */

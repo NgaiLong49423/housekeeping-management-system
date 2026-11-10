@@ -6,7 +6,7 @@
     <header th:replace="~{fragments/layout :: header('home')}">
     </header>
     <main id="main">
-      <!-- Asymmetrical Editorial Hero & Connected Booking Process Ledger -->
+      <!-- Asymmetrical Editorial Hero & Interactive House Sketch Drawing -->
       <section class="hero">
         <div class="container">
           <div class="hero-showcase mx-auto">
@@ -25,7 +25,7 @@
                 </p>
                 <div class="d-flex flex-wrap gap-3">
                   <a class="btn btn-primary btn-lg" th:href="@{/customer/bookings/new}">
-                    <span>Đặt lịch dọn nhà</span>
+                    <span>Bắt đầu đặt lịch</span>
                     <svg th:replace="~{fragments/icons :: arrow-up-right}"></svg>
                   </a>
                   <a class="btn btn-outline-primary btn-lg" th:href="@{/services}">
@@ -48,15 +48,205 @@
                 </div>
               </div>
 
-              <div class="hero-visual">
-                <div class="hero-visual-frame">
-                  <img th:src="@{/images/b501c.png}" alt="Không gian phòng khách sáng thoáng và ngăn nắp" width="512" height="384">
-                  <div class="hero-floating-card">
-                    <div>
-                      <strong>Xác nhận lịch tức thì</strong>
-                      <small>Kiểm tra lịch trống theo giờ Việt Nam</small>
+              <!-- Animated Architectural House & Living Room Sketch -->
+              <div class="hero-sketch-stage">
+                <div class="sketch-viewport" id="sketchViewport">
+                  <svg class="sketch-svg" id="houseSketchSvg" viewBox="0 0 680 500" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                      <linearGradient id="sunbeamGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#fff0cc" stop-opacity="0.55"/>
+                        <stop offset="100%" stop-color="#fff8ea" stop-opacity="0.05"/>
+                      </linearGradient>
+                      <linearGradient id="wallWashGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stop-color="#fdfcf9"/>
+                        <stop offset="100%" stop-color="#f7efe4"/>
+                      </linearGradient>
+                      <pattern id="archGrid" width="20" height="20" patternUnits="userSpaceOnUse">
+                        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(22, 33, 29, 0.03)" stroke-width="1"/>
+                      </pattern>
+                    </defs>
+
+                    <!-- Subtle Architectural Background Grid -->
+                    <rect width="680" height="500" fill="url(#archGrid)" />
+
+                    <!-- Ambient Room Walls (Fill) -->
+                    <rect x="80" y="180" width="520" height="280" rx="4" fill="url(#wallWashGrad)" class="fade-fill fill-p2" />
+
+                    <!-- Warm Sunbeam Streaming from Window -->
+                    <polygon points="120,225 240,225 380,460 200,460" fill="url(#sunbeamGrad)" class="fade-fill fill-p3" />
+
+                    <!-- Wooden Floor Base -->
+                    <rect x="80" y="440" width="520" height="20" fill="#ede1d1" class="fade-fill fill-p2" />
+                    <line x1="80" y1="440" x2="600" y2="440" stroke="#cbb8a3" stroke-width="1.5" class="draw-path draw-p2" />
+
+                    <!-- Nordic Woven Area Rug -->
+                    <ellipse cx="370" cy="445" rx="160" ry="20" fill="#f5eedf" stroke="#c8b59e" stroke-width="1.8" class="fade-fill fill-p3" />
+
+                    <!-- ================= PHASE 1: HOUSE ARCHITECTURE & ROOF ================= -->
+                    <!-- Gable Roof Outer Silhouette -->
+                    <path d="M 50 195 L 340 50 L 630 195" stroke="#b85d38" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" class="draw-path draw-p1" />
+                    <path d="M 50 203 L 340 58 L 630 203" stroke="#8c3f20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="draw-path draw-p1" />
+
+                    <!-- House Outer Walls & Ground Line -->
+                    <line x1="80" y1="195" x2="80" y2="460" stroke="#16211d" stroke-width="3" stroke-linecap="round" class="draw-path draw-p1" />
+                    <line x1="600" y1="195" x2="600" y2="460" stroke="#16211d" stroke-width="3" stroke-linecap="round" class="draw-path draw-p1" />
+                    <line x1="50" y1="460" x2="630" y2="460" stroke="#16211d" stroke-width="3.5" stroke-linecap="round" class="draw-path draw-p1" />
+
+                    <!-- Chimney -->
+                    <path d="M 480 120 L 480 65 L 518 65 L 518 138" stroke="#16211d" stroke-width="2.5" fill="#eddcd0" class="draw-path draw-p1" />
+                    <line x1="474" y1="65" x2="524" y2="65" stroke="#16211d" stroke-width="3" stroke-linecap="round" class="draw-path draw-p1" />
+
+                    <!-- Attic Architectural Round Window -->
+                    <circle cx="340" cy="115" r="22" stroke="#2b5344" stroke-width="2.2" fill="#fffaf2" class="draw-path draw-p1" />
+                    <line x1="340" y1="93" x2="340" y2="137" stroke="#2b5344" stroke-width="1.8" class="draw-path draw-p1" />
+                    <line x1="318" y1="115" x2="362" y2="115" stroke="#2b5344" stroke-width="1.8" class="draw-path draw-p1" />
+
+                    <!-- Ceiling Beam Line -->
+                    <line x1="80" y1="180" x2="600" y2="180" stroke="#16211d" stroke-width="2" stroke-dasharray="6 4" class="draw-path draw-p1" />
+
+                    <!-- ================= PHASE 2: ROOM WINDOW & LIGHT ================= -->
+                    <!-- Window Frame -->
+                    <rect x="115" y="220" width="135" height="180" rx="8" stroke="#2b5344" stroke-width="2.8" fill="#f0f7f5" class="draw-path draw-p2" />
+                    <line x1="115" y1="310" x2="250" y2="310" stroke="#2b5344" stroke-width="2" class="draw-path draw-p2" />
+                    <line x1="182" y1="220" x2="182" y2="400" stroke="#2b5344" stroke-width="2" class="draw-path draw-p2" />
+                    <!-- Window Ledge -->
+                    <path d="M 105 400 L 260 400" stroke="#16211d" stroke-width="3.5" stroke-linecap="round" class="draw-path draw-p2" />
+                    <!-- Curtains -->
+                    <path d="M 115 220 Q 132 300 118 400" stroke="#9bb3aa" stroke-width="2" fill="none" class="draw-path draw-p2" />
+                    <path d="M 250 220 Q 235 300 248 400" stroke="#9bb3aa" stroke-width="2" fill="none" class="draw-path draw-p2" />
+
+                    <!-- ================= PHASE 3: NORDIC SOFA & FURNITURE ================= -->
+                    <!-- Wall Art Poster above Sofa -->
+                    <rect x="375" y="200" width="85" height="60" rx="4" stroke="#16211d" stroke-width="2" fill="#ffffff" class="draw-path draw-p3" />
+                    <circle cx="417" cy="225" r="14" fill="#f4a261" class="fade-fill fill-p3" />
+                    <path d="M 385 250 Q 410 235 448 250" stroke="#2b5344" stroke-width="1.8" fill="none" class="draw-path draw-p3" />
+
+                    <!-- Floating Shelf -->
+                    <line x1="480" y1="250" x2="570" y2="250" stroke="#16211d" stroke-width="3" stroke-linecap="round" class="draw-path draw-p3" />
+                    <!-- Shelf books & clock -->
+                    <rect x="490" y="230" width="8" height="20" fill="#b85d38" stroke="#16211d" stroke-width="1.5" class="fade-fill fill-p3" />
+                    <rect x="500" y="225" width="8" height="25" fill="#2b5344" stroke="#16211d" stroke-width="1.5" class="fade-fill fill-p3" />
+                    <circle cx="540" cy="238" r="9" stroke="#16211d" stroke-width="1.8" fill="#ffffff" class="draw-path draw-p3" />
+                    <line x1="540" y1="238" x2="540" y2="232" stroke="#16211d" stroke-width="1.5" class="draw-path draw-p3" />
+                    <line x1="540" y1="238" x2="544" y2="238" stroke="#16211d" stroke-width="1.5" class="draw-path draw-p3" />
+
+                    <!-- Sofa Cushions & Frame -->
+                    <rect x="320" y="340" width="95" height="55" rx="8" fill="#fdfcf9" stroke="#16211d" stroke-width="2.5" class="draw-path draw-p3" />
+                    <rect x="420" y="340" width="95" height="55" rx="8" fill="#fdfcf9" stroke="#16211d" stroke-width="2.5" class="draw-path draw-p3" />
+                    <rect x="310" y="390" width="215" height="34" rx="8" fill="#f5ece1" stroke="#16211d" stroke-width="2.5" class="draw-path draw-p3" />
+
+                    <!-- Sofa Armrests -->
+                    <path d="M 302 365 Q 302 355 315 355 L 322 355 L 322 422 L 312 422 Q 302 422 302 412 Z" fill="#ebdacf" stroke="#16211d" stroke-width="2.5" class="draw-path draw-p3" />
+                    <path d="M 515 355 L 522 355 Q 535 355 535 365 L 535 412 Q 535 422 525 422 L 515 422 Z" fill="#ebdacf" stroke="#16211d" stroke-width="2.5" class="draw-path draw-p3" />
+
+                    <!-- Sofa Legs -->
+                    <line x1="320" y1="424" x2="314" y2="445" stroke="#16211d" stroke-width="2.5" stroke-linecap="round" class="draw-path draw-p3" />
+                    <line x1="350" y1="424" x2="348" y2="445" stroke="#16211d" stroke-width="2.5" stroke-linecap="round" class="draw-path draw-p3" />
+                    <line x1="485" y1="424" x2="487" y2="445" stroke="#16211d" stroke-width="2.5" stroke-linecap="round" class="draw-path draw-p3" />
+                    <line x1="518" y1="424" x2="524" y2="445" stroke="#16211d" stroke-width="2.5" stroke-linecap="round" class="draw-path draw-p3" />
+
+                    <!-- Pillows on Sofa -->
+                    <rect x="328" y="365" width="28" height="28" rx="5" transform="rotate(-8 328 365)" fill="#b85d38" stroke="#16211d" stroke-width="2" class="fade-fill fill-p3" />
+                    <rect x="475" y="365" width="28" height="28" rx="5" transform="rotate(10 475 365)" fill="#40916c" stroke="#16211d" stroke-width="2" class="fade-fill fill-p3" />
+
+                    <!-- ================= PHASE 4: TABLE, LAMP & PLANTS ================= -->
+                    <!-- Round Coffee Table -->
+                    <ellipse cx="295" cy="415" rx="38" ry="13" fill="#faeedd" stroke="#16211d" stroke-width="2.5" class="draw-path draw-p4" />
+                    <line x1="270" y1="420" x2="264" y2="448" stroke="#16211d" stroke-width="2.5" stroke-linecap="round" class="draw-path draw-p4" />
+                    <line x1="295" y1="424" x2="295" y2="450" stroke="#16211d" stroke-width="2.5" stroke-linecap="round" class="draw-path draw-p4" />
+                    <line x1="320" y1="420" x2="326" y2="448" stroke="#16211d" stroke-width="2.5" stroke-linecap="round" class="draw-path draw-p4" />
+
+                    <!-- Vase with Blossom on Table -->
+                    <path d="M 308 412 L 311 396 Q 315 393 318 393 Q 321 393 324 396 L 327 412 Z" fill="#2b5344" stroke="#16211d" stroke-width="1.8" class="fade-fill fill-p4" />
+                    <path d="M 318 393 Q 312 376 308 368" stroke="#2b5344" stroke-width="1.8" class="draw-path draw-p4" />
+                    <circle cx="308" cy="368" r="4" fill="#b85d38" class="fade-fill fill-p4" />
+                    <circle cx="316" cy="374" r="3" fill="#b85d38" class="fade-fill fill-p4" />
+
+                    <!-- Curved Floor Lamp -->
+                    <ellipse cx="560" cy="448" rx="16" ry="5" fill="#d5c8b8" stroke="#16211d" stroke-width="2" class="draw-path draw-p4" />
+                    <path d="M 560 448 L 560 270 Q 560 220 520 225 L 505 228" stroke="#16211d" stroke-width="2.5" fill="none" stroke-linecap="round" class="draw-path draw-p4" />
+                    <path d="M 495 230 L 520 230 L 530 248 L 485 248 Z" fill="#b85d38" stroke="#16211d" stroke-width="2" class="fade-fill fill-p4" />
+
+                    <!-- Potted Monstera Houseplant -->
+                    <rect x="94" y="415" width="34" height="30" rx="4" fill="#f4ebd9" stroke="#16211d" stroke-width="2" class="draw-path draw-p4" />
+                    <line x1="90" y1="432" x2="90" y2="452" stroke="#16211d" stroke-width="2.5" stroke-linecap="round" class="draw-path draw-p4" />
+                    <line x1="132" y1="432" x2="132" y2="452" stroke="#16211d" stroke-width="2.5" stroke-linecap="round" class="draw-path draw-p4" />
+                    <!-- Stems & Leaves -->
+                    <path d="M 111 415 Q 105 380 92 355" stroke="#2b5344" stroke-width="2.5" fill="none" class="draw-path draw-p4" />
+                    <path d="M 111 415 Q 120 370 135 345" stroke="#2b5344" stroke-width="2.5" fill="none" class="draw-path draw-p4" />
+                    <path d="M 111 415 Q 111 360 115 330" stroke="#2b5344" stroke-width="2.5" fill="none" class="draw-path draw-p4" />
+                    <ellipse cx="90" cy="350" rx="16" ry="22" transform="rotate(-25 90 350)" fill="#40916c" stroke="#16211d" stroke-width="1.8" class="fade-fill fill-p4" />
+                    <ellipse cx="138" cy="342" rx="16" ry="22" transform="rotate(30 138 342)" fill="#52b788" stroke="#16211d" stroke-width="1.8" class="fade-fill fill-p4" />
+                    <ellipse cx="115" cy="325" rx="14" ry="20" transform="rotate(5 115 325)" fill="#2d6a4f" stroke="#16211d" stroke-width="1.8" class="fade-fill fill-p4" />
+
+                    <!-- ================= CLEAN SPARKLE STARS ================= -->
+                    <g class="sparkle sp-1" transform="translate(235, 240)">
+                      <path d="M 0 -8 Q 0 0 8 0 Q 0 0 0 8 Q 0 0 -8 0 Q 0 0 0 -8 Z" fill="#b85d38" />
+                    </g>
+                    <g class="sparkle sp-2" transform="translate(350, 408)">
+                      <path d="M 0 -10 Q 0 0 10 0 Q 0 0 0 10 Q 0 0 -10 0 Q 0 0 0 -10 Z" fill="#2b5344" />
+                    </g>
+                    <g class="sparkle sp-3" transform="translate(450, 320)">
+                      <path d="M 0 -7 Q 0 0 7 0 Q 0 0 0 7 Q 0 0 -7 0 Q 0 0 0 -7 Z" fill="#e76f51" />
+                    </g>
+
+                    <!-- Radar Pulse Markers under Hotspots -->
+                    <circle cx="205" cy="270" r="10" fill="#2b5344" opacity="0.25" class="pulse-radar"/>
+                    <circle cx="205" cy="270" r="4" fill="#2b5344"/>
+
+                    <circle cx="430" cy="360" r="10" fill="#b85d38" opacity="0.25" class="pulse-radar"/>
+                    <circle cx="430" cy="360" r="4" fill="#b85d38"/>
+
+                    <circle cx="115" cy="375" r="10" fill="#40916c" opacity="0.25" class="pulse-radar"/>
+                    <circle cx="115" cy="375" r="4" fill="#40916c"/>
+
+                    <circle cx="310" cy="420" r="10" fill="#b85d38" opacity="0.25" class="pulse-radar"/>
+                    <circle cx="310" cy="420" r="4" fill="#b85d38"/>
+                  </svg>
+
+                  <!-- HTML Overlays: 4 Interactive Theme Pins with Tooltips -->
+                  <!-- Pin 1: Cửa sổ / Ánh sáng -->
+                  <div class="sketch-pin pin-window" style="top: 50%; left: 24%;">
+                    <div class="pin-badge">
+                      <span>🪟 Không gian sáng thoáng</span>
                     </div>
-                    <span class="status-pill confirmed">Minh bạch 100%</span>
+                    <div class="pin-tooltip">Cửa kính trong veo, đón trọn ánh sáng tự nhiên và luồng gió mới.</div>
+                  </div>
+
+                  <!-- Pin 2: Phòng khách / Sofa -->
+                  <div class="sketch-pin pin-living" style="top: 60%; left: 60%;">
+                    <div class="pin-badge">
+                      <span>🛋️ Phòng khách tươm tất</span>
+                    </div>
+                    <div class="pin-tooltip">Sofa, thảm và mọi ngóc ngách được hút bụi, sắp xếp chỉn chu.</div>
+                  </div>
+
+                  <!-- Pin 3: Cây xanh / Không khí tươi -->
+                  <div class="sketch-pin pin-plant" style="top: 68%; left: 8%;">
+                    <div class="pin-badge">
+                      <span>🌿 Không khí trong lành</span>
+                    </div>
+                    <div class="pin-tooltip">Lau sạch bụi từng tán lá, khử ẩm mốc, giữ bầu không khí thơm mát.</div>
+                  </div>
+
+                  <!-- Pin 4: Thảnh thơi tận hưởng -->
+                  <div class="sketch-pin pin-relax" style="top: 78%; left: 40%;">
+                    <div class="pin-badge">
+                      <span>☕ Thảnh thơi tận hưởng</span>
+                    </div>
+                    <div class="pin-tooltip">Bạn trọn vẹn nghỉ ngơi, việc chăm sóc tổ ấm đã có Gọn Nhà chu toàn.</div>
+                  </div>
+
+                  <!-- Control & Replay Bar -->
+                  <div class="sketch-footer-bar">
+                    <span class="sketch-caption">
+                      <svg th:replace="~{fragments/icons :: sparkles}"></svg>
+                      <span>Phác thảo tổ ấm Gọn Nhà &bull; Không gian sạch sẽ, an tâm trọn vẹn</span>
+                    </span>
+                    <button type="button" class="btn-replay-sketch" id="replayHouseSketch" title="Xem lại quá trình vẽ tổ ấm">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                      <span>Vẽ lại nét vẽ</span>
+                    </button>
                   </div>
                 </div>
               </div>

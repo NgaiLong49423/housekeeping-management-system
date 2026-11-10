@@ -1334,3 +1334,26 @@ document.querySelectorAll("form").forEach(form => {
     if (submitter) submitter.classList.add("is-submitting");
   });
 });
+
+// Replay house sketch line-drawing animation on click
+const replayHouseSketchBtn = document.getElementById("replayHouseSketch");
+if (replayHouseSketchBtn) {
+  replayHouseSketchBtn.addEventListener("click", () => {
+    const viewport = document.getElementById("sketchViewport");
+    if (!viewport) return;
+    const svg = viewport.querySelector(".sketch-svg");
+    if (!svg) return;
+
+    // Replay SVG stroke and fill animations cleanly
+    const clone = svg.cloneNode(true);
+    svg.parentNode.replaceChild(clone, svg);
+
+    // Re-trigger HTML overlay pins animation
+    const pins = viewport.querySelectorAll(".sketch-pin");
+    pins.forEach(pin => {
+      pin.style.animation = "none";
+      void pin.offsetHeight;
+      pin.style.animation = "";
+    });
+  });
+}
