@@ -1,0 +1,228 @@
+/* GooeyNav from React Bits - Vanilla CSS & Theme Adaptations for Gọn Nhà */
+.gooey-nav {
+  --gn-pad: 5px;
+  --gn-gap: 4px;
+  --gn-font: 13.5px;
+  --gn-x: 14px;
+  --gn-y: 8px;
+  --gn-frame: rgba(255, 253, 249, 0.07);
+  --gn-frame-edge: rgba(243, 239, 230, 0.14);
+  --gn-frame-highlight: rgba(255, 255, 255, 0.18);
+  --gn-frame-shadow: 0 16px 36px -12px rgba(0, 0, 0, 0.45);
+  --gn-ink: #ffffff;
+  --gn-muted: rgba(243, 239, 230, 0.8);
+  --gn-pill: #9fe3cf;
+  --gn-active-ink: #13201c;
+  position: relative;
+  display: inline-flex;
+  max-width: 100%;
+  font-size: var(--gn-font);
+  line-height: 1.2;
+}
+
+.gooey-nav--sm {
+  --gn-pad: 4px;
+  --gn-gap: 2px;
+  --gn-font: 12.5px;
+  --gn-x: 12px;
+  --gn-y: 6px;
+}
+
+.gooey-nav--lg {
+  --gn-pad: 7px;
+  --gn-gap: 6px;
+  --gn-font: 15px;
+  --gn-x: 18px;
+  --gn-y: 10px;
+}
+
+.gooey-nav--framed {
+  padding: var(--gn-pad);
+  border-radius: 999px;
+  background: var(--gn-frame);
+  box-shadow: var(--gn-frame-shadow);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  backdrop-filter: blur(20px) saturate(1.6);
+}
+
+.gooey-nav__stage {
+  position: relative;
+  max-width: 100%;
+}
+
+.gooey-nav__canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+.gooey-nav__fallback {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: none;
+  border-radius: 999px;
+  background: var(--gn-pill);
+  pointer-events: none;
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), width 0.25s ease, height 0.25s ease, opacity 0.2s ease;
+}
+
+.gooey-nav__list {
+  position: relative;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--gn-gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gooey-nav__list--active {
+  position: absolute;
+  inset: 0;
+  color: var(--gn-active-ink);
+  visibility: hidden;
+  clip-path: inset(100%);
+  pointer-events: none;
+}
+
+.gooey-nav__item {
+  display: flex;
+  margin: 0;
+  padding: 0;
+}
+
+.gooey-nav__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: var(--gn-y) var(--gn-x);
+  border: none;
+  border-radius: 999px;
+  background: none;
+  color: var(--gn-muted);
+  font: inherit;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.gooey-nav__list--active .gooey-nav__link {
+  color: inherit;
+  font-weight: 600;
+}
+
+.gooey-nav__item[data-active] .gooey-nav__link {
+  color: var(--gn-active-ink);
+  font-weight: 600;
+}
+
+.gooey-nav__link:focus-visible {
+  outline: 2px solid var(--gn-ink);
+  outline-offset: 2px;
+}
+
+.gooey-nav__icon {
+  display: inline-flex;
+  flex: none;
+}
+
+.gooey-nav__icon svg {
+  width: 1.15em;
+  height: 1.15em;
+}
+
+.gooey-nav__rim {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 0 0 1px var(--gn-frame-edge),
+    inset 0 1px 0 var(--gn-frame-highlight);
+  pointer-events: none;
+}
+
+/* Theme Presets */
+.gooey-nav[data-theme="dark"],
+.gooey-nav--dark {
+  --gn-frame: rgba(38, 35, 46, 0.66);
+  --gn-frame-edge: rgba(255, 255, 255, 0.08);
+  --gn-frame-highlight: rgba(255, 255, 255, 0.07);
+  --gn-frame-shadow: 0 22px 44px -20px rgba(0, 0, 0, 0.8), 0 6px 16px -8px rgba(0, 0, 0, 0.5);
+  --gn-ink: #f4f4f5;
+  --gn-muted: rgba(244, 244, 245, 0.62);
+  --gn-pill: #f4f4f5;
+  --gn-active-ink: #18161d;
+}
+
+.gooey-nav[data-theme="light"],
+.gooey-nav--light {
+  --gn-frame: rgba(240, 240, 243, 0.8);
+  --gn-frame-edge: rgba(24, 24, 27, 0.07);
+  --gn-frame-highlight: rgba(255, 255, 255, 0.95);
+  --gn-frame-shadow: 0 22px 44px -22px rgba(24, 24, 27, 0.3), 0 6px 16px -10px rgba(24, 24, 27, 0.16);
+  --gn-ink: #27272a;
+  --gn-muted: rgba(39, 39, 42, 0.62);
+  --gn-pill: #27272a;
+  --gn-active-ink: #ffffff;
+}
+
+.gooey-nav[data-theme="gonnha"],
+.gooey-nav--gonnha {
+  --gn-frame: rgba(255, 253, 249, 0.07);
+  --gn-frame-edge: rgba(243, 239, 230, 0.14);
+  --gn-frame-highlight: rgba(255, 255, 255, 0.18);
+  --gn-frame-shadow: 0 16px 36px -12px rgba(0, 0, 0, 0.45);
+  --gn-ink: #ffffff;
+  --gn-muted: rgba(243, 239, 230, 0.8);
+  --gn-pill: #9fe3cf;
+  --gn-active-ink: #13201c;
+}
+
+@media (hover: hover) {
+  .gooey-nav__link:hover {
+    color: var(--gn-ink);
+  }
+}
+
+/* Responsive adjustments inside Bootstrap navbar */
+@media (max-width: 991.98px) {
+  .gooey-nav {
+    display: flex;
+    width: 100%;
+    border-radius: var(--radius-md);
+  }
+  .gooey-nav--framed {
+    border-radius: var(--radius-md);
+  }
+  .gooey-nav__list {
+    flex-direction: column;
+    width: 100%;
+  }
+  .gooey-nav__item {
+    width: 100%;
+  }
+  .gooey-nav__link {
+    width: 100%;
+    border-radius: 8px;
+    padding: 10px 14px;
+  }
+  .gooey-nav__canvas {
+    display: none !important;
+  }
+  .gooey-nav__fallback {
+    display: none !important;
+  }
+  .gooey-nav__list--active {
+    display: none !important;
+  }
+  .gooey-nav__item[data-active] .gooey-nav__link {
+    background: rgba(159, 227, 207, 0.16);
+    color: var(--gn-pill);
+  }
+}
