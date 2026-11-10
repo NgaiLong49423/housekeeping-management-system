@@ -288,7 +288,7 @@ void main() {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false });
     const pipeline = gl ? build(gl) : null;
-    fallback.style.display = pipeline ? 'none' : 'block';
+    fallback.style.display = 'block';
     canvas.style.display = pipeline ? 'block' : 'none';
 
     const view = { width: 0, height: 0 };
@@ -385,7 +385,16 @@ void main() {
       return pills.get(idx);
     };
 
-    const shape = (idx, amount) => {
+
+    const updateFallback = idx => {
+      if (idx < 0 || !rects || !rects[idx]) return;
+      const rect = rects[idx];
+      fallback.style.transform = `translate(${rect.x.toFixed(1)}px, ${rect.y.toFixed(1)}px)`;
+      fallback.style.width = `${rect.w}px`;
+      fallback.style.height = `${rect.h}px`;
+      fallback.style.opacity = '1';
+    };
+const shape = (idx, amount) => {
       const rect = rects[idx];
       if (!rect || amount <= 0.002) return null;
       const h = rect.h * Math.min(1.08, 0.42 + 0.58 * Math.sqrt(Math.max(0, amount)));
@@ -662,6 +671,7 @@ void main() {
       state.mass = 1;
       state.scale = 1;
       state.velocity = 0;
+      updateFallback(idx);
       render();
     };
 
@@ -675,6 +685,7 @@ void main() {
       target = idx;
       current = idx;
       pill(idx);
+      updateFallback(idx);
       for (const drop of drops) {
         drop.index = idx;
         if (drop.state === 'flying') plan(drop, idx, now, false);
@@ -726,8 +737,12 @@ void main() {
 
     const resizeObserver = new ResizeObserver(() => {
       measure();
-      if (!drops.length) settle(target < 0 ? initialActive : target);
-      else render();
+      if (!drops.length) {
+        settle(target < 0 ? initialActive : target);
+      } else {
+        updateFallback(target);
+        render();
+      }
     });
     resizeObserver.observe(stage);
     resizeObserver.observe(list);
