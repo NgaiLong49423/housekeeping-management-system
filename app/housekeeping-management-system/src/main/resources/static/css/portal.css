@@ -1948,7 +1948,7 @@ input[type="checkbox"]:not(.form-check-input) {
   box-shadow:
     0 24px 60px -16px rgba(22, 33, 29, 0.08),
     0 4px 16px -2px rgba(22, 33, 29, 0.04);
-  padding: 1rem 1rem 0.85rem;
+  padding: 1rem 1rem 1.15rem;
   overflow: hidden;
 }
 
