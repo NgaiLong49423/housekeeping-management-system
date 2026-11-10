@@ -1917,7 +1917,7 @@ input[type="checkbox"]:not(.form-check-input) {
 }
 
 .hero--spotlight {
-  padding: clamp(1.5rem, 3.5vw, 2.75rem) 0 var(--space-6);
+  padding: clamp(1.25rem, 3vw, 2.25rem) 0 var(--space-6);
 }
 
 .hero-house-stage {
@@ -1931,7 +1931,7 @@ input[type="checkbox"]:not(.form-check-input) {
   content: "";
   position: absolute;
   inset: -24px -28px;
-  background: radial-gradient(ellipse at 50% 25%, rgba(159, 227, 207, 0.35) 0%, rgba(184, 93, 56, 0.08) 55%, transparent 75%);
+  background: radial-gradient(ellipse at 50% 18%, rgba(159, 227, 207, 0.38) 0%, rgba(184, 93, 56, 0.08) 55%, transparent 75%);
   border-radius: calc(var(--radius-xl) + 24px);
   filter: blur(34px);
   z-index: 0;
@@ -1946,13 +1946,13 @@ input[type="checkbox"]:not(.form-check-input) {
   border: 1px solid rgba(22, 33, 29, 0.12);
   border-radius: var(--radius-xl);
   box-shadow:
-    0 28px 70px -16px rgba(22, 33, 29, 0.1),
-    0 4px 18px -2px rgba(22, 33, 29, 0.04);
-  padding: 1.25rem 1.25rem 0.85rem;
+    0 24px 60px -16px rgba(22, 33, 29, 0.08),
+    0 4px 16px -2px rgba(22, 33, 29, 0.04);
+  padding: 1rem 1rem 0.85rem;
   overflow: hidden;
 }
 
-/* In-House Title, Eyebrow & Action Buttons embedded inside the House Gable */
+/* In-House Title, Eyebrow & Action Buttons embedded cleanly in the Attic Gable */
 .house-gable-content {
   text-align: center;
   z-index: 10;
@@ -1961,11 +1961,11 @@ input[type="checkbox"]:not(.form-check-input) {
 @media (min-width: 768px) {
   .house-gable-content {
     position: absolute;
-    top: 5.2%;
+    top: 5.5%;
     left: 50%;
     transform: translateX(-50%);
-    width: 88%;
-    max-width: 680px;
+    width: 86%;
+    max-width: 620px;
     pointer-events: auto;
   }
 }
@@ -1982,23 +1982,28 @@ input[type="checkbox"]:not(.form-check-input) {
 }
 
 .house-gable-content .eyebrow {
-  margin: 0 auto 0.4rem;
-  background: rgba(255, 255, 255, 0.94);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  margin: 0 auto 0.25rem;
+  padding: 4px 14px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border: 1px solid rgba(22, 33, 29, 0.12);
   box-shadow: 0 2px 8px rgba(184, 93, 56, 0.08);
 }
 
 .hero-title--in-house {
   font-family: var(--font-display);
-  font-size: clamp(2rem, 3.8vw, 3.35rem);
+  font-size: clamp(1.85rem, 3.1vw, 2.65rem);
   font-weight: 700;
-  line-height: 1.14;
-  letter-spacing: -0.03em;
+  line-height: 1.16;
+  letter-spacing: -0.025em;
   color: var(--ink);
-  margin: 0 0 0.85rem;
+  margin: 0.25rem 0 0.85rem;
   text-align: center;
+  text-shadow: 0 1px 3px rgba(255, 255, 255, 0.9);
 }
 
 .hero-title--in-house em {
@@ -2010,11 +2015,11 @@ input[type="checkbox"]:not(.form-check-input) {
 }
 
 .house-gable-content .hero-cta-group {
-  margin-top: 0.5rem;
+  margin-top: 0.45rem;
 }
 
 .house-gable-content .hero-cta-group .btn-lg {
-  padding: 0.72rem 1.55rem;
+  padding: 0.68rem 1.45rem;
   font-size: var(--text-md);
   font-weight: 600;
   border-radius: var(--radius-pill);
@@ -2188,8 +2193,8 @@ input[type="checkbox"]:not(.form-check-input) {
 
 /* Sequential Line Drawing Animation */
 .draw-path {
-  stroke-dasharray: 1200;
-  stroke-dashoffset: 1200;
+  stroke-dasharray: 2400;
+  stroke-dashoffset: 2400;
   animation: drawLineAnim 1.8s cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
 
