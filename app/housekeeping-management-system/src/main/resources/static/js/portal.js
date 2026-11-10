@@ -1357,3 +1357,12 @@ if (replayHouseSketchBtn) {
     });
   });
 }
+
+// Senior UI/UX Performance: Gỡ bỏ will-change sau khi hoàn tất chuỗi animation xuất hiện (3 giây)
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => {
+    document.querySelectorAll('.will-change-anim').forEach(el => {
+      el.style.willChange = 'auto';
+    });
+  }, 3000);
+});

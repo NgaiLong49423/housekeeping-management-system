@@ -1910,79 +1910,130 @@ input[type="checkbox"]:not(.form-check-input) {
 }
 
 /* --------------------------------------------------------------------------
-   9. ASYMMETRICAL EDITORIAL HERO & 3-STEP WORKFLOW LEDGER
+   9. SENIOR FRONTEND UPGRADE: PANORAMIC HOUSE HERO & STAGGERED REVEAL
    -------------------------------------------------------------------------- */
-.hero {
-  padding: clamp(2rem, 4vw, 3.25rem) 0 var(--space-5);
+
+:root {
+  /* ==========================================================================
+     HERO ANIMATION SPEED & TIMING CONFIGURATION
+     Đổi tốc độ toàn bộ animation chỉ bằng 1 biến --hero-speed:
+     --hero-speed: 1    -> Tốc độ chuẩn (~2.8s mượt mà, thư thái)
+     --hero-speed: 0.5  -> Tốc độ gấp đôi (~1.4s)
+     --hero-speed: 1.5  -> Chậm rãi (~4.2s)
+     ========================================================================== */
+  --hero-speed: 1;
+  --hero-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --hero-ease-soft: cubic-bezier(0.25, 1, 0.5, 1);
+
+  /* Bảng màu nhận diện thương hiệu chuẩn mực */
+  --hero-emerald: #14503f;
+  --hero-emerald-dark: #0e3b2e;
+  --hero-terracotta: #b85c38;
+  --hero-cream-card: #fdfbf7;
+  --hero-ink: #16211d;
+
+  /* Hệ 8px kích thước & khoảng cách */
+  --hero-card-max-w: 1160px;
+  --hero-card-radius: 32px;
+  --hero-btn-height: 52px;
+  --hero-btn-pad-x: 28px;
+  --hero-gap-badge-title: 20px;
+  --hero-gap-title-cta: 32px;
 }
 
+/* Nền hero section với gradient rất nhạt kem -> xanh bạc hà tạo chiều sâu */
 .hero--spotlight {
-  padding: clamp(0.75rem, 2vw, 1.5rem) 0 var(--space-4);
+  padding: clamp(1rem, 2.5vw, 2.5rem) 0 var(--space-4);
+  background: radial-gradient(ellipse at 50% 0%, rgba(20, 80, 63, 0.04) 0%, rgba(251, 250, 246, 0.8) 60%, transparent 100%);
+  overflow-x: hidden;
 }
 
+/* Khung bọc căn giữa ngang toàn bộ card */
 .hero-house-stage {
   width: 100%;
-  max-width: 1060px;
+  max-width: var(--hero-card-max-w);
   margin: 0 auto;
   position: relative;
 }
 
+/* Vầng hào quang màu nước mềm mại phía sau card */
 .hero-house-stage::before {
   content: "";
   position: absolute;
-  inset: -20px -24px;
-  background: radial-gradient(ellipse at 50% 18%, rgba(159, 227, 207, 0.38) 0%, rgba(184, 93, 56, 0.08) 55%, transparent 75%);
-  border-radius: calc(var(--radius-xl) + 20px);
-  filter: blur(30px);
+  inset: -24px;
+  background: radial-gradient(ellipse at 50% 20%, rgba(159, 227, 207, 0.32) 0%, rgba(184, 92, 56, 0.06) 55%, transparent 75%);
+  border-radius: calc(var(--hero-card-radius) + 20px);
+  filter: blur(35px);
   z-index: 0;
   pointer-events: none;
 }
 
-.house-viewport,
-.sketch-viewport {
+/* 1. Card nền chính: bo góc 32px, hệ padding 8px clamp(24px, 5vw, 64px), bóng mờ đa tầng */
+.house-viewport {
   position: relative;
   z-index: 1;
-  background: #fdfbf7;
+  background: var(--hero-cream-card);
   border: 1px solid rgba(22, 33, 29, 0.12);
-  border-radius: var(--radius-xl);
+  border-radius: var(--hero-card-radius);
   box-shadow:
-    0 20px 50px -16px rgba(22, 33, 29, 0.08),
-    0 4px 16px -2px rgba(22, 33, 29, 0.04);
-  padding: 0.85rem 1rem 1rem;
+    0 1px 2px rgba(20, 40, 30, 0.04),
+    0 12px 40px rgba(20, 40, 30, 0.08);
+  padding: clamp(16px, 2.5vw, 28px) clamp(16px, 2.5vw, 28px) clamp(16px, 2vw, 24px);
   overflow: hidden;
+  animation: heroCardEntry calc(0.9s * var(--hero-speed)) var(--hero-ease) calc(0s * var(--hero-speed)) both;
 }
 
-/* In-House Title, Eyebrow & Action Buttons embedded cleanly in the Attic Gable */
-.house-gable-content {
-  text-align: center;
-  z-index: 10;
-  opacity: 0;
-  animation: houseTitleReveal 1.6s cubic-bezier(0.22, 1, 0.36, 1) 1.2s forwards;
-}
-
-@keyframes houseTitleReveal {
+@keyframes heroCardEntry {
   0% {
     opacity: 0;
-    transform: translateX(-50%) translateY(12px);
+    transform: translateY(24px);
   }
   100% {
     opacity: 1;
-    transform: translateX(-50%) translateY(0);
+    transform: translateY(0);
   }
 }
 
+/* Khối nội dung nổi: Badge -> Tiêu đề -> Nút CTA căn giữa tuyệt đối */
+.house-gable-content {
+  text-align: center;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+
+@media (min-width: 768px) and (max-width: 1023.98px) {
+  .house-gable-content {
+    top: clamp(40px, 9%, 56px);
+    width: 95%;
+    max-width: 660px;
+  }
+  .hero-title--in-house {
+    margin: 0 0 24px;
+  }
+  .hero-badge-wrap {
+    margin-bottom: 16px;
+  }
+}
+
+/* Desktop & Tablet: Đặt trong phần mái nhà, có khoảng cách dầm mái an toàn và lớp nền kem mờ nhẹ */
 @media (min-width: 768px) {
   .house-gable-content {
     position: absolute;
-    top: 11%;
+    top: clamp(54px, 10.5%, 74px);
     left: 50%;
     transform: translateX(-50%);
-    width: 86%;
-    max-width: 620px;
+    width: 90%;
+    max-width: 760px;
+    padding: 0;
+    background: transparent;
     pointer-events: auto;
   }
 }
 
+/* Mobile: Xếp trên tự nhiên */
 @media (max-width: 767.98px) {
   .house-gable-content {
     position: relative;
@@ -1991,71 +2042,322 @@ input[type="checkbox"]:not(.form-check-input) {
     transform: none;
     width: 100%;
     margin-bottom: var(--space-4);
-    animation-name: houseTitleRevealMobile;
-  }
-
-  @keyframes houseTitleRevealMobile {
-    0% {
-      opacity: 0;
-      transform: translateY(12px);
-    }
-    100% {
-      opacity: 1;
-      transform: translateY(0);
-    }
   }
 }
 
-.house-gable-content .eyebrow {
-  margin: 0 auto 0.2rem;
-  padding: 3px 12px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  background: rgba(255, 255, 255, 0.96);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(22, 33, 29, 0.12);
-  box-shadow: 0 2px 8px rgba(184, 93, 56, 0.08);
+/* 2. Badge: Chữ in hoa, letter-spacing 0.06em, viền 1px mờ, padding 8px 16px */
+.hero-badge-wrap {
+  margin-bottom: var(--hero-gap-badge-title);
+  animation: heroFadeUp16 calc(0.7s * var(--hero-speed)) var(--hero-ease) calc(0.6s * var(--hero-speed)) both;
 }
 
+.hero-badge-wrap .eyebrow {
+  margin: 0;
+  padding: 8px 16px;
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--hero-terracotta);
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(184, 92, 56, 0.22);
+  border-radius: var(--radius-pill);
+  box-shadow: 0 2px 8px rgba(184, 92, 56, 0.06);
+}
+
+.hero-badge-wrap .eyebrow svg {
+  width: 14px;
+  height: 14px;
+  margin-right: 6px;
+  color: var(--hero-terracotta);
+}
+
+/* 3. Tiêu đề 2 dòng: font-size clamp(2.25rem, 5vw, 4rem), line-height 1.1, text-wrap: balance */
 .hero-title--in-house {
   font-family: var(--font-display);
-  font-size: clamp(1.65rem, 2.7vw, 2.25rem);
+  font-size: clamp(1.75rem, 3.5vw, 3.5rem);
   font-weight: 700;
-  line-height: 1.15;
-  letter-spacing: -0.025em;
-  color: var(--ink);
-  margin: 0.15rem 0 0.65rem;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--hero-ink);
+  margin: 0 0 var(--hero-gap-title-cta);
   text-align: center;
-  text-shadow: 0 1px 3px rgba(255, 255, 255, 0.9);
+  text-wrap: balance;
 }
 
-.hero-title--in-house em {
+.hero-title-line {
   display: block;
+}
+
+.hero-title-line--1 {
+  animation: heroTitleRevealLine calc(0.9s * var(--hero-speed)) var(--hero-ease) calc(0.8s * var(--hero-speed)) both;
+}
+
+.hero-title-line--2 {
   font-style: italic;
-  font-weight: 700;
-  color: var(--brand);
-  margin-top: 2px;
+  color: var(--hero-emerald);
+  margin-top: 4px;
+  animation: heroTitleRevealLine calc(0.9s * var(--hero-speed)) var(--hero-ease) calc(1.0s * var(--hero-speed)) both;
 }
 
-.house-gable-content .hero-cta-group {
-  margin-top: 0.35rem;
+@keyframes heroTitleRevealLine {
+  0% {
+    opacity: 0;
+    transform: translateY(24px);
+    filter: blur(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
 }
 
-.house-gable-content .hero-cta-group .btn-lg {
-  padding: 0.58rem 1.35rem;
-  font-size: 0.9375rem;
-  font-weight: 600;
+@keyframes heroFadeUp16 {
+  0% {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 4. Hai nút CTA: cao 52px, padding ngang 28px, bo tròn hoàn toàn, gap 16px */
+.hero-cta-group {
+  gap: 16px;
+  width: 100%;
+}
+
+.btn-hero-primary,
+.btn-hero-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--hero-btn-height);
+  padding: 0 var(--hero-btn-pad-x);
   border-radius: var(--radius-pill);
-  box-shadow: 0 4px 14px rgba(22, 33, 29, 0.12);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 300ms cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 200ms ease,
+              border-color 200ms ease,
+              color 200ms ease;
 }
 
+.btn-hero-primary:focus-visible,
+.btn-hero-outline:focus-visible {
+  outline: 2px solid var(--hero-emerald);
+  outline-offset: 3px;
+}
+
+.btn-hero-primary:active,
+.btn-hero-outline:active {
+  transform: scale(0.98);
+}
+
+/* Nút CTA Chính (Bắt đầu đặt lịch) */
+.btn-hero-primary {
+  background: var(--hero-emerald);
+  color: #ffffff !important;
+  border: 1px solid var(--hero-emerald);
+  box-shadow: 0 4px 16px rgba(20, 80, 63, 0.18);
+  animation: heroFadeUp16 calc(0.8s * var(--hero-speed)) var(--hero-ease) calc(1.3s * var(--hero-speed)) both;
+}
+
+.btn-hero-primary:hover {
+  background: var(--hero-emerald-dark);
+  border-color: var(--hero-emerald-dark);
+  color: #ffffff !important;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(20, 80, 63, 0.28);
+}
+
+.btn-hero-primary .cta-arrow {
+  width: 16px;
+  height: 16px;
+  margin-left: 8px;
+  transition: transform 300ms ease;
+}
+
+.btn-hero-primary:hover .cta-arrow {
+  transform: translate(3px, -3px);
+}
+
+/* Nút CTA Phụ (Khám phá dịch vụ) */
+.btn-hero-outline {
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--hero-emerald) !important;
+  border: 1.5px solid rgba(20, 80, 63, 0.28);
+  box-shadow: 0 2px 10px rgba(22, 33, 29, 0.04);
+  animation: heroFadeUp16 calc(0.8s * var(--hero-speed)) var(--hero-ease) calc(1.45s * var(--hero-speed)) both;
+}
+
+.btn-hero-outline:hover {
+  background: #ffffff;
+  border-color: var(--hero-emerald);
+  color: var(--hero-emerald-dark) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(22, 33, 29, 0.08);
+}
+
+/* Mobile: Xếp dọc 100% (max-width 320px) trên màn hình < 600px */
+@media (max-width: 599.98px) {
+  .hero-cta-group {
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 320px;
+    margin: 0 auto;
+  }
+
+  .btn-hero-primary,
+  .btn-hero-outline {
+    width: 100%;
+  }
+}
+
+/* ==========================================================================
+   MINH HỌA NGÔI NHÀ SVG & HIỆU ỨNG TỪNG PHẦN (STAGGER)
+   ========================================================================== */
 .sketch-svg--wide {
   width: 100%;
   height: auto;
   display: block;
-  filter: drop-shadow(0 4px 16px rgba(22, 33, 29, 0.03));
+  filter: drop-shadow(0 4px 16px rgba(22, 33, 29, 0.025));
+}
+
+/* 1. Nét vẽ mái nhà + khung nhà (stroke-dasharray / stroke-dashoffset) */
+.draw-frame {
+  stroke-dasharray: 2400;
+  stroke-dashoffset: 2400;
+  animation: heroDrawFrame calc(1.6s * var(--hero-speed)) var(--hero-ease) calc(0.2s * var(--hero-speed)) both;
+}
+
+@keyframes heroDrawFrame {
+  0% {
+    stroke-dashoffset: 2400;
+    fill-opacity: 0;
+  }
+  75% {
+    fill-opacity: 0;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    fill-opacity: 1;
+  }
+}
+
+/* 2. Đồ nội thất (cây, sofa, đèn, bàn, tranh, kệ): fade + scale(0.96 -> 1), stagger 120ms */
+.item-furniture {
+  transform-origin: center bottom;
+  animation: heroFurnitureEntry calc(0.7s * var(--hero-speed)) var(--hero-ease) both;
+}
+
+@keyframes heroFurnitureEntry {
+  0% {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.item-window { animation-delay: calc(1.50s * var(--hero-speed)); }
+.item-art    { animation-delay: calc(1.62s * var(--hero-speed)); }
+.item-shelf  { animation-delay: calc(1.74s * var(--hero-speed)); }
+.item-sofa   { animation-delay: calc(1.86s * var(--hero-speed)); }
+.item-table  { animation-delay: calc(1.98s * var(--hero-speed)); }
+.item-plant  { animation-delay: calc(2.10s * var(--hero-speed)); }
+.item-lamp   { animation-delay: calc(2.22s * var(--hero-speed)); }
+
+/* 3. Ánh sáng từ đèn và cửa sổ: fade-in opacity 0 -> 1 */
+.item-light {
+  animation: heroFadeIn calc(1.2s * var(--hero-speed)) var(--hero-ease-soft) calc(2.0s * var(--hero-speed)) both;
+}
+
+@keyframes heroFadeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* 4. Hiệu ứng vi mô lặp chậm: Khói cà phê & khói ống khói */
+.chimney-smoke,
+.coffee-smoke {
+  transform-origin: center bottom;
+  animation: smokeFloat 4.5s ease-in-out infinite;
+}
+
+.coffee-smoke {
+  animation-duration: 4s;
+  animation-delay: 0.5s;
+}
+
+@keyframes smokeFloat {
+  0%, 100% {
+    opacity: 0.35;
+    transform: translateY(0) scaleX(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: translateY(-5px) scaleX(1.15);
+  }
+}
+
+/* Cây lá đung đưa rất nhẹ (rotate ±1.5°) */
+.plant-leaves {
+  transform-origin: 96px 445px;
+  animation: leafSway 6s ease-in-out infinite;
+}
+
+@keyframes leafSway {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  33% {
+    transform: rotate(1.5deg);
+  }
+  66% {
+    transform: rotate(-1.5deg);
+  }
+}
+
+/* ==========================================================================
+   ACCESSIBILITY: PREFERS REDUCED MOTION
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  .house-viewport,
+  .draw-frame,
+  .hero-badge-wrap,
+  .hero-title-line--1,
+  .hero-title-line--2,
+  .btn-hero-primary,
+  .btn-hero-outline,
+  .item-furniture,
+  .item-light,
+  .chimney-smoke,
+  .coffee-smoke,
+  .plant-leaves {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    stroke-dashoffset: 0 !important;
+    filter: none !important;
+  }
 }
 
 .hero-editorial-grid {
