@@ -1410,11 +1410,9 @@ document.addEventListener('DOMContentLoaded', () => {
 // Đánh dấu JS đã sẵn sàng cho HTML
 document.documentElement.classList.add('js');
 
-// 1. Header Sticky, .is-scrolled (>24px) và Apple Scroll Progress Bar
+// 1. Header Sticky & .is-scrolled (>24px)
 function initAppleHeaderAndScroll() {
   const header = document.getElementById('siteHeader') || document.querySelector('.site-header');
-  const progressBar = document.getElementById('headerScrollProgress');
-  const bannerImg = document.getElementById('parallaxBannerImg');
 
   let ticking = false;
   window.addEventListener('scroll', () => {
@@ -1426,27 +1424,6 @@ function initAppleHeaderAndScroll() {
         if (header) {
           if (scrollY > 24) header.classList.add('is-scrolled');
           else header.classList.remove('is-scrolled');
-        }
-
-        // Cập nhật thanh tiến độ cuộn 3px
-        if (progressBar) {
-          const total = document.documentElement.scrollHeight - window.innerHeight;
-          const ratio = total > 0 ? Math.min(1, Math.max(0, scrollY / total)) : 0;
-          progressBar.style.transform = `scaleX(${ratio})`;
-        }
-
-        // Parallax ảnh banner
-        if (bannerImg && window.innerWidth >= 768) {
-          const banner = bannerImg.closest('.care-banner');
-          if (banner) {
-            const rect = banner.getBoundingClientRect();
-            const vh = window.innerHeight;
-            if (rect.bottom >= 0 && rect.top <= vh) {
-              const centerDiff = (rect.top + rect.height / 2) - (vh / 2);
-              const offset = Math.max(-20, Math.min(20, -centerDiff * 0.06));
-              bannerImg.style.transform = `translateY(${offset.toFixed(1)}px) scale(1.05)`;
-            }
-          }
         }
 
         ticking = false;

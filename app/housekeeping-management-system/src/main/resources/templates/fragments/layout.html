@@ -114,8 +114,6 @@
       <!-- ===== 2. KHÁCH HÀNG, NHÂN VIÊN & KHÁCH VÃNG LAI: CENTERED TOP NAVBAR (APPLE/IOS FROSTED GLASS & SEGMENTED CONTROL) ===== -->
       <header class="site-header site-header--ios" id="siteHeader" th:unless="${currentUser != null and currentUser.role == 'ADMIN'}">
         <a class="skip-link" href="#main">Đến nội dung chính</a>
-        <!-- Thanh tiến độ cuộn mảnh 3px mép dưới header (Apple scroll progress) -->
-        <div class="header-scroll-progress" id="headerScrollProgress" aria-hidden="true"></div>
 
         <nav class="navbar navbar-expand-lg container py-2" aria-label="Điều hướng chính">
           <a class="brand" th:href="@{/}">
