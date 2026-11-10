@@ -1675,3 +1675,20 @@ function initDriftWall() {
     bannerObserver.observe(banner);
   }
 }
+
+// 6. Thông báo Toast nhẹ nhàng cho trang Đăng nhập / Đăng ký
+window.showAuthNotice = function(msg) {
+  let toast = document.getElementById('authNoticeToast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'authNoticeToast';
+    toast.className = 'auth-toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.classList.add('is-visible');
+  clearTimeout(window._authToastTimer);
+  window._authToastTimer = setTimeout(() => {
+    toast.classList.remove('is-visible');
+  }, 3200);
+};

@@ -4823,7 +4823,365 @@ tr.hours-row:has(.closed-day-checkbox:checked) .hours-time-input {
 }
 
 /* --------------------------------------------------------------------------
-   16. SPLIT-SCREEN AUTHENTICATION SHOWCASE
+   16. NEUMORPHIC FLOATING AUTH CARD & SIGN-IN SHOWCASE
+   Spec: Floating pill neumorphic card, pill inputs, brand glow button,
+         circular dark social icons (Google, Apple, X) with soft diffuse shadow
+   -------------------------------------------------------------------------- */
+.auth-body {
+  background-color: #fbfaf6;
+  min-height: 100vh;
+}
+
+.auth-page-wrap {
+  position: relative;
+  min-height: calc(100vh - 160px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(32px, 6vw, 64px) 16px;
+  overflow: hidden;
+}
+
+/* Hiệu ứng vầng sáng ambient mờ phía sau thẻ card */
+.auth-ambient-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(540px, 92vw);
+  height: min(540px, 92vw);
+  background: radial-gradient(circle, rgba(20, 80, 63, 0.08) 0%, rgba(184, 92, 56, 0.04) 45%, transparent 70%);
+  filter: blur(48px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Thẻ đăng nhập / đăng ký nổi phong cách Neumorphic & iOS Soft Shadow */
+.auth-card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 440px;
+  background: #ffffff;
+  border-radius: 36px;
+  padding: 48px 36px 40px;
+  box-shadow: 0 24px 60px rgba(20, 80, 63, 0.08), 
+              0 6px 20px rgba(0, 0, 0, 0.03),
+              0 0 0 1px rgba(255, 255, 255, 0.9);
+  text-align: center;
+  transition: transform 300ms var(--ease-ios), box-shadow 300ms var(--ease-ios);
+}
+
+.auth-card--register {
+  max-width: 480px;
+  padding: 42px 36px 36px;
+}
+
+@media (max-width: 575.98px) {
+  .auth-card {
+    border-radius: 28px;
+    padding: 36px 20px 30px;
+  }
+  .auth-card--register {
+    padding: 32px 18px 28px;
+  }
+}
+
+/* Tiêu đề lớn, đậm, chuẩn phong cách ảnh mẫu */
+.auth-card__title {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4vw, 2.35rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #14503f;
+  margin-bottom: 26px;
+  line-height: 1.15;
+}
+
+.auth-card__subtitle {
+  color: #64748b;
+  font-size: 0.88rem;
+  margin-top: -18px;
+  margin-bottom: 24px;
+  line-height: 1.45;
+}
+
+/* Danh sách form */
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  text-align: left;
+}
+
+.auth-field-wrap {
+  position: relative;
+  width: 100%;
+}
+
+/* Ô nhập liệu dạng viên thuốc (Signature Pill Input) chuẩn ảnh mẫu */
+.auth-input {
+  width: 100%;
+  height: 52px;
+  padding: 0 24px;
+  font-size: 0.96rem;
+  font-family: inherit;
+  color: #14211c;
+  background-color: #ffffff;
+  border: 1px solid rgba(20, 80, 63, 0.1);
+  border-radius: 9999px !important;
+  box-shadow: 0 4px 16px rgba(20, 80, 63, 0.05), inset 0 1px 2px rgba(255, 255, 255, 0.9);
+  outline: none;
+  transition: border-color 220ms ease, box-shadow 220ms ease, background-color 220ms ease;
+}
+
+.auth-input::placeholder {
+  color: #94a3b8;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
+.auth-input:focus {
+  background-color: #ffffff;
+  border-color: #14503f;
+  box-shadow: 0 0 0 4px rgba(20, 80, 63, 0.12), 0 6px 20px rgba(20, 80, 63, 0.08);
+}
+
+.auth-field-error {
+  color: #dc2626;
+  font-size: 0.78rem;
+  font-weight: 500;
+  margin-top: 6px;
+  padding-left: 20px;
+}
+
+/* Liên kết Quên mật khẩu nằm sát bên trái ô Password */
+.auth-sub-links {
+  display: flex;
+  justify-content: flex-start;
+  padding-left: 14px;
+  margin-top: -4px;
+  margin-bottom: 6px;
+}
+
+.auth-link-forgot {
+  color: #14503f;
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 200ms ease, opacity 200ms ease;
+}
+
+.auth-link-forgot:hover {
+  color: #1e6b55;
+  text-decoration: underline;
+}
+
+/* Nút CTA chính (Viên thuốc, màu xanh thương hiệu website & ánh sáng khuếch tán) */
+.auth-btn-primary {
+  width: 100%;
+  height: 52px;
+  border: none;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #14503f 0%, #1e6b55 100%);
+  color: #ffffff;
+  font-size: 1.04rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(20, 80, 63, 0.32), 0 2px 6px rgba(20, 80, 63, 0.16);
+  transition: transform 250ms var(--spring), box-shadow 250ms var(--ease-ios), filter 200ms ease;
+  margin-top: 6px;
+}
+
+.auth-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px rgba(20, 80, 63, 0.42), 0 4px 8px rgba(20, 80, 63, 0.2);
+  filter: brightness(1.03);
+}
+
+.auth-btn-primary:active {
+  transform: scale(0.97);
+  box-shadow: 0 6px 14px rgba(20, 80, 63, 0.28);
+}
+
+/* Khu vực mạng xã hội ("Or Sign in with") */
+.auth-social-section {
+  margin-top: 28px;
+  text-align: center;
+}
+
+.auth-social-label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #94a3b8;
+  margin-bottom: 16px;
+}
+
+.auth-social-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+/* Nút tròn màu đen / than chì với ánh sáng phát quang bên dưới (Google, Apple, X) */
+.auth-social-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: none;
+  background-color: #14211c;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(20, 80, 63, 0.26), 0 2px 6px rgba(0, 0, 0, 0.14);
+  transition: transform 250ms var(--spring), box-shadow 250ms var(--ease-ios), background-color 200ms ease;
+}
+
+.auth-social-btn:hover {
+  transform: translateY(-3px) scale(1.08);
+  box-shadow: 0 12px 24px rgba(20, 80, 63, 0.4), 0 4px 8px rgba(0, 0, 0, 0.18);
+  background-color: #1a2e26;
+}
+
+.auth-social-btn:active {
+  transform: scale(0.95);
+}
+
+.auth-social-btn .social-icon {
+  width: 19px;
+  height: 19px;
+  fill: currentColor;
+}
+
+/* Liên kết chân thẻ */
+.auth-card__footer {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: center;
+}
+
+.auth-footer-link {
+  font-size: 0.84rem;
+  color: #64748b;
+  text-decoration: none;
+  transition: color 200ms ease;
+}
+
+.auth-footer-link--action {
+  color: #14211c;
+}
+
+.auth-footer-link--action strong {
+  color: #14503f;
+  font-weight: 700;
+}
+
+.auth-footer-link--action:hover strong {
+  text-decoration: underline;
+  color: #1e6b55;
+}
+
+.auth-footer-link--agreement {
+  color: #14503f;
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.auth-footer-link--agreement:hover {
+  text-decoration: underline;
+}
+
+/* Hộp ghi chú phân quyền */
+.auth-card__role-hint {
+  margin-top: 20px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background-color: rgba(20, 80, 63, 0.05);
+  border: 1px solid rgba(20, 80, 63, 0.08);
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  text-align: left;
+  font-size: 0.75rem;
+  color: #475569;
+  line-height: 1.4;
+}
+
+.auth-card__role-hint svg {
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+  color: #14503f;
+  margin-top: 2px;
+}
+
+/* Thông báo lỗi / thành công dạng badge bo cong mềm mại */
+.auth-alert {
+  padding: 12px 18px;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.84rem;
+  font-weight: 500;
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.auth-alert--danger {
+  background-color: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.auth-alert--success {
+  background-color: #f0fdf4;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+/* Toast thông báo nhẹ nhàng cho click social / quên mật khẩu */
+.auth-toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%) translateY(30px);
+  background: rgba(20, 33, 28, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: #ffffff;
+  padding: 12px 24px;
+  border-radius: 9999px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+  opacity: 0;
+  visibility: hidden;
+  transition: transform 300ms var(--spring), opacity 300ms ease, visibility 300ms;
+  z-index: 9999;
+  max-width: 90vw;
+  text-align: center;
+  pointer-events: none;
+}
+
+.auth-toast.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* --------------------------------------------------------------------------
+   16.B LEGACY FALLBACK
    -------------------------------------------------------------------------- */
 .login-grid {
   display: grid;

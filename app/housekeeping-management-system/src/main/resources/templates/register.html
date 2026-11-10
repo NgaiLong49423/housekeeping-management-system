@@ -1,64 +1,84 @@
 <!DOCTYPE html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
-  <head th:replace="~{fragments/layout :: head('Đăng ký tài khoản khách hàng')}"></head>
-  <body>
-    <header th:replace="~{fragments/layout :: header('register')}"></header>
-    <main id="main" class="container d-flex align-items-center justify-content-center py-5">
-      <div class="login-grid surface overflow-hidden mx-auto w-100">
-        <div class="login-photo">
-          <img th:src="@{/images/d856e.png}" alt="Không gian nhà bếp sạch sẽ" width="512" height="279">
-          <div class="p-4 p-lg-5">
-            <span class="eyebrow">Gọn Nhà</span>
-            <h2>Nhà sạch hơn.<br>Ngày nhẹ hơn.</h2>
-            <p class="mb-0">Tạo tài khoản khách hàng để đặt lịch chăm sóc ngôi nhà của bạn.</p>
+  <head th:replace="~{fragments/layout :: head('Đăng ký tài khoản khách hàng')}">
+  </head>
+  <body class="auth-body">
+    <header th:replace="~{fragments/layout :: header('register')}">
+    </header>
+
+    <main id="main" class="auth-page-wrap">
+      <!-- Ambient Glow Behind Card -->
+      <div class="auth-ambient-glow" aria-hidden="true"></div>
+
+      <div class="auth-card auth-card--register" data-reveal="fade-up">
+        <!-- Title matching image -->
+        <h1 class="auth-card__title">Đăng ký</h1>
+        <p class="auth-card__subtitle">Tạo tài khoản để trải nghiệm dịch vụ chăm sóc tổ ấm chuẩn mực</p>
+
+        <!-- Registration Form with Signature Pill Inputs -->
+        <form th:action="@{/register}" th:object="${registrationForm}" method="post" class="auth-form">
+          <div class="auth-field-wrap">
+            <input id="name" type="text" th:field="*{name}" class="auth-input" maxlength="150" autocomplete="name" required placeholder="Họ và tên">
+            <div th:if="${#fields.hasErrors('name')}" th:errors="*{name}" class="auth-field-error"></div>
+          </div>
+
+          <div class="auth-field-wrap">
+            <input id="email" type="email" th:field="*{email}" class="auth-input" maxlength="254" autocomplete="email" required placeholder="E-mail">
+            <div th:if="${#fields.hasErrors('email')}" th:errors="*{email}" class="auth-field-error"></div>
+          </div>
+
+          <div class="auth-field-wrap">
+            <input id="phone" type="tel" th:field="*{phone}" class="auth-input" maxlength="20" autocomplete="tel" required placeholder="Số điện thoại">
+            <div th:if="${#fields.hasErrors('phone')}" th:errors="*{phone}" class="auth-field-error"></div>
+          </div>
+
+          <div class="auth-field-wrap">
+            <input id="password" name="password" type="password" class="auth-input" minlength="8" maxlength="72" autocomplete="new-password" required placeholder="Mật khẩu (8 - 72 ký tự)">
+            <div th:if="${#fields.hasErrors('password')}" th:errors="*{password}" class="auth-field-error"></div>
+          </div>
+
+          <div class="auth-field-wrap">
+            <input id="confirmPassword" name="confirmPassword" type="password" class="auth-input" maxlength="72" autocomplete="new-password" required placeholder="Nhập lại mật khẩu">
+            <div th:if="${#fields.hasErrors('confirmPassword')}" th:errors="*{confirmPassword}" class="auth-field-error"></div>
+          </div>
+
+          <button type="submit" class="auth-btn-primary">
+            <span>Tạo tài khoản</span>
+          </button>
+        </form>
+
+        <!-- Social Section (matching reference image) -->
+        <div class="auth-social-section">
+          <span class="auth-social-label">Hoặc đăng ký nhanh với</span>
+          <div class="auth-social-row">
+            <button type="button" class="auth-social-btn" aria-label="Đăng ký với Google" onclick="showAuthNotice('Đăng ký qua Google sẽ sớm khả dụng.')">
+              <svg th:replace="~{fragments/icons :: brand-google}"></svg>
+            </button>
+            <button type="button" class="auth-social-btn" aria-label="Đăng ký với Apple" onclick="showAuthNotice('Đăng ký qua Apple ID sẽ sớm khả dụng.')">
+              <svg th:replace="~{fragments/icons :: brand-apple}"></svg>
+            </button>
+            <button type="button" class="auth-social-btn" aria-label="Đăng ký với X" onclick="showAuthNotice('Đăng ký qua X sẽ sớm khả dụng.')">
+              <svg th:replace="~{fragments/icons :: brand-x}"></svg>
+            </button>
           </div>
         </div>
-        <div class="p-4 p-lg-5 d-flex flex-column justify-content-center">
-          <span class="eyebrow align-self-start">
-            <svg th:replace="~{fragments/icons :: sparkles}"></svg>
-            <span>Bắt đầu với Gọn Nhà</span>
-          </span>
-          <h1 class="h2 mb-2">Đăng ký tài khoản</h1>
-          <p class="text-secondary small mb-4">Dành cho khách hàng đặt dịch vụ. Tài khoản nhân viên và quản trị viên do công ty cấp riêng.</p>
-          <form th:action="@{/register}" th:object="${registrationForm}" method="post" class="vstack gap-3">
-            <div>
-              <label class="form-label" for="name">Họ và tên</label>
-              <input id="name" type="text" th:field="*{name}" class="form-control" maxlength="150" autocomplete="name" required>
-              <div th:if="${#fields.hasErrors('name')}" th:errors="*{name}" class="invalid-feedback d-block"></div>
-            </div>
-            <div>
-              <label class="form-label" for="email">Email</label>
-              <input id="email" type="email" th:field="*{email}" class="form-control" maxlength="254" autocomplete="email" required>
-              <div th:if="${#fields.hasErrors('email')}" th:errors="*{email}" class="invalid-feedback d-block"></div>
-            </div>
-            <div>
-              <label class="form-label" for="phone">Số điện thoại</label>
-              <input id="phone" type="tel" th:field="*{phone}" class="form-control" maxlength="20" autocomplete="tel" required>
-              <div th:if="${#fields.hasErrors('phone')}" th:errors="*{phone}" class="invalid-feedback d-block"></div>
-            </div>
-            <div>
-              <label class="form-label" for="password">Mật khẩu</label>
-              <input id="password" name="password" type="password" class="form-control" minlength="8" maxlength="72" autocomplete="new-password" required>
-              <div class="form-text">Mật khẩu dài từ 8 đến 72 ký tự (hỗ trợ chữ cái, chữ số và ký tự đặc biệt).</div>
-              <div th:if="${#fields.hasErrors('password')}" th:errors="*{password}" class="invalid-feedback d-block"></div>
-            </div>
-            <div>
-              <label class="form-label" for="confirmPassword">Nhập lại mật khẩu</label>
-              <input id="confirmPassword" name="confirmPassword" type="password" class="form-control" maxlength="72" autocomplete="new-password" required>
-              <div th:if="${#fields.hasErrors('confirmPassword')}" th:errors="*{confirmPassword}" class="invalid-feedback d-block"></div>
-            </div>
-            <button type="submit" class="btn btn-primary w-100 mt-2">
-              <span>Tạo tài khoản</span>
-              <svg th:replace="~{fragments/icons :: arrow-right}"></svg>
-            </button>
-          </form>
-          <p class="small text-center text-secondary mt-4 mb-0">
-            Đã có tài khoản?
-            <a th:href="@{/login}">Đăng nhập</a>
-          </p>
+
+        <!-- Footer terms & Switch link -->
+        <div class="auth-card__footer">
+          <a th:href="@{/login}" class="auth-footer-link auth-footer-link--action">
+            Đã có tài khoản? <strong>Đăng nhập ngay</strong>
+          </a>
+          <a href="javascript:void(0)" class="auth-footer-link auth-footer-link--agreement" onclick="showAuthNotice('Bằng cách tạo tài khoản, bạn đồng ý với Điều khoản dịch vụ và Chính sách quyền riêng tư của Gọn Nhà.')">
+            Điều khoản &amp; Thỏa thuận người dùng
+          </a>
         </div>
       </div>
     </main>
-    <footer th:replace="~{fragments/layout :: footer}"></footer>
+
+    <!-- Quick Soft Toast for Social / Notice Click -->
+    <div id="authNoticeToast" class="auth-toast" role="status" aria-live="polite"></div>
+
+    <footer th:replace="~{fragments/layout :: footer}">
+    </footer>
   </body>
 </html>
