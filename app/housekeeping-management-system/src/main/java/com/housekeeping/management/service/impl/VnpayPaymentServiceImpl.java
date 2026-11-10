@@ -1,6 +1,10 @@
-package com.housekeeping.management.service;
+package com.housekeeping.management.service.impl;
 
-import com.housekeeping.management.repository.PaymentPersistenceRepository.PaymentState;
+import com.housekeeping.management.service.VnpayGatewayClient;
+import com.housekeeping.management.service.PaymentService;
+import com.housekeeping.management.service.OnlinePaymentService;
+
+import com.housekeeping.management.service.PaymentService.OnlinePayment;
 import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
@@ -16,14 +20,14 @@ import org.springframework.web.client.RestClientException;
  * When QueryDR is unavailable, the return data VNPay signed with the merchant secret is accepted instead.
  */
 @Service
-public class VnpayPaymentService {
-    private static final Logger log = LoggerFactory.getLogger(VnpayPaymentService.class);
+public class VnpayPaymentServiceImpl implements OnlinePaymentService {
+    private static final Logger log = LoggerFactory.getLogger(VnpayPaymentServiceImpl.class);
     private static final DateTimeFormatter CLOCK = DateTimeFormatter.ofPattern("HH:mm");
 
     private final PaymentService payments;
     private final VnpayGatewayClient gateway;
 
-    public VnpayPaymentService(PaymentService payments, VnpayGatewayClient gateway) {
+    public VnpayPaymentServiceImpl(PaymentService payments, VnpayGatewayClient gateway) {
         this.payments = payments;
         this.gateway = gateway;
     }
@@ -59,7 +63,7 @@ public class VnpayPaymentService {
             throw new IllegalArgumentException("VNPay return data has an invalid signature.");
         }
         long orderCode = orderCode(params);
-        PaymentState attempt = payments.findOnlinePayment(orderCode)
+        OnlinePayment attempt = payments.findOnlinePayment(orderCode)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy giao dịch thanh toán trực tuyến."));
         if ("SUCCESS".equals(attempt.status())) return new ReturnOutcome(attempt.bookingId(), ReturnStatus.PAID);
 
@@ -92,9 +96,9 @@ public class VnpayPaymentService {
         if (!gateway.hasValidSignature(params)) return new IpnResponse("97", "Invalid Checksum");
         try {
             long orderCode = orderCode(params);
-            Optional<PaymentState> found = payments.findOnlinePayment(orderCode);
+            Optional<OnlinePayment> found = payments.findOnlinePayment(orderCode);
             if (found.isEmpty()) return new IpnResponse("01", "Order not found");
-            PaymentState attempt = found.get();
+            OnlinePayment attempt = found.get();
             if (attempt.amount().compareTo(vnpayAmount(params.get("vnp_Amount"))) != 0) {
                 return new IpnResponse("04", "Invalid amount");
             }
@@ -135,13 +139,4 @@ public class VnpayPaymentService {
             throw new IllegalArgumentException("VNPay data contains an invalid amount.", invalid);
         }
     }
-
-    /** Either a VNPay checkout URL, or {@code alreadyPaid} when an earlier attempt turned out to be paid. */
-    public record Checkout(String redirectUrl, boolean alreadyPaid) { }
-
-    public enum ReturnStatus { PAID, FAILED, PENDING }
-
-    public record ReturnOutcome(Long bookingId, ReturnStatus status) { }
-
-    public record IpnResponse(String rspCode, String message) { }
 }

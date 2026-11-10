@@ -22,6 +22,7 @@ canonical_docs:
     - docs/requirements/SRS.md
   data_dictionary: docs/requirements/SQL_SERVER_DATA_DICTIONARY.md
   database_guide: database/README.md
+  java_package_structure: docs/architecture/java-package-structure.md
 agent_assets:
   policy: .agents/POLICY.md
   skills: .agents/skills/
@@ -41,6 +42,7 @@ validation_inputs:
     - CHANGELOG.md
     - .agents/POLICY.md
     - .agents/repo-contract.yml
+    - docs/architecture/java-package-structure.md
     - docs/README.md
     - docs/template-maintenance.md
     - docs/requirements/SQL_SERVER_DATA_DICTIONARY.md

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Đối soát tài chính')}"><title>Đối soát · Gọn Nhà</title></head>
+<body>
+<header th:replace="~{fragments/layout :: header('finance')}"></header>
+<main id="main" class="container py-4 py-md-5">
+  <div class="page-heading finance-page-heading"><span class="eyebrow">Quản lý vận hành · Gọn Nhà</span><h1>Đối soát tài chính</h1>
+    <p class="lead">Theo dõi doanh thu dịch vụ, hoàn tiền, chi phí khắc phục và khoản thu hồi nội bộ theo booking.</p></div>
+  <div th:replace="~{fragments/layout :: alerts}"></div>
+  <section class="surface p-4 mb-4">
+    <h2 class="h5">Tổng hợp dòng tiền thật</h2>
+    <div class="row g-3">
+      <div class="col-md-4">
+        <div class="d-flex flex-column align-items-start gap-1"><span>Doanh thu dịch vụ</span><strong class="text-nowrap" th:text="|${#numbers.formatDecimal(summary.serviceRevenue,0,'POINT',0,'COMMA')} ₫|">0 ₫</strong></div>
+      </div>
+      <div class="col-md-4">
+        <div class="d-flex flex-column align-items-start gap-1"><span>Hoàn/giảm</span><strong class="text-nowrap" th:text="|${#numbers.formatDecimal(summary.refundsAndReductions,0,'POINT',0,'COMMA')} ₫|">0 ₫</strong></div>
+      </div>
+      <div class="col-md-4">
+        <div class="d-flex flex-column align-items-start gap-1"><span>Khắc phục/bồi thường</span><strong class="text-nowrap" th:text="|${#numbers.formatDecimal(summary.remediationAndCompensation,0,'POINT',0,'COMMA')} ₫|">0 ₫</strong></div>
+      </div>
+      <div class="col-md-4">
+        <div class="d-flex flex-column align-items-start gap-1"><span>Thu hồi nội bộ</span><strong class="text-nowrap" th:text="|${#numbers.formatDecimal(summary.staffRecovery,0,'POINT',0,'COMMA')} ₫|">0 ₫</strong></div>
+      </div>
+      <div class="col-md-4">
+        <div class="d-flex flex-column align-items-start gap-1"><span>Ròng</span><strong class="text-nowrap" th:text="|${#numbers.formatDecimal(summary.net,0,'POINT',0,'COMMA')} ₫|">0 ₫</strong></div>
+      </div>
+      <div class="col-md-4">
+        <div class="d-flex flex-column align-items-start gap-1"><span>Giao dịch mô phỏng (không tính dòng tiền thật)</span><strong class="text-nowrap" th:text="|${#numbers.formatDecimal(summary.simulated,0,'POINT',0,'COMMA')} ₫|">0 ₫</strong></div>
+      </div>
+    </div>
+  </section>
+  <section class="surface p-4 mb-4">
+    <h2 class="h5">Lập khoản thu/chi gắn với booking</h2>
+    <p class="small text-secondary" th:if="${currentUser.manager}">Manager duyệt hoặc từ chối đề xuất để bảo đảm tách biệt quyền hạn. Admin lập khoản thu/chi mới.</p>
+    <form th:unless="${currentUser.manager}" method="post" th:action="@{/admin/financial-entries}" class="row g-3">
+      <div class="col-md-3"><label class="form-label">Mã booking<input class="form-control" name="bookingId" type="number" min="1" required></label></div>
+      <div class="col-md-3"><label class="form-label">Mã hồ sơ sự cố (nếu có)<input class="form-control" name="caseId" type="number" min="1"></label></div>
+      <div class="col-md-3"><label class="form-label">Loại khoản<select class="form-select" name="entryType" required><option value="REFUND">Hoàn tiền</option><option value="PRICE_REDUCTION">Giảm giá</option><option value="REMEDIATION_COST">Chi phí khắc phục</option><option value="COMPENSATION">Bồi thường</option><option value="STAFF_RECOVERY">Thu hồi nội bộ</option></select></label></div>
+      <div class="col-md-3"><label class="form-label">Số tiền (VND)<input class="form-control" name="amount" type="number" min="0.01" step="0.01" required></label></div>
+      <div class="col-12"><label class="form-label">Lý do<textarea class="form-control" name="reason" maxlength="1000" required></textarea></label></div>
+      <div class="col-12"><button class="btn btn-primary" type="submit">Lập khoản chờ duyệt</button></div>
+    </form>
+  </section>
+  <section class="surface p-4">
+    <h2 class="h5">Sổ khoản thu/chi</h2>
+    <p th:if="${#lists.isEmpty(entries)}" class="text-secondary">Chưa có khoản thu/chi nào.</p>
+    <article th:each="entry : ${entries}" class="border-bottom py-3">
+      <div class="d-flex flex-wrap justify-content-between gap-2"><strong th:text="|Booking #${entry.bookingId} · ${entry.type} · ${#numbers.formatDecimal(entry.amount,0,'POINT',0,'COMMA')} ₫|">Khoản tiền</strong><span class="badge text-bg-secondary" th:text="${entry.status}">PENDING_APPROVAL</span></div>
+      <p class="mb-2" th:text="${entry.reason}">Lý do</p>
+      <p class="small text-secondary" th:text="|Mã tham chiếu: ${entry.reference ?: '—'} · ${entry.simulated ? 'Mô phỏng' : 'Dòng tiền thật'}|">Thông tin đối soát</p>
+      <p class="small text-secondary" th:text="|Người lập #${entry.createdBy} · Người duyệt #${entry.approvedBy ?: '—'} · Người quyết toán #${entry.settledBy ?: '—'}|">Người thực hiện</p>
+      <p class="small text-danger" th:if="${entry.rejectionReason != null}" th:text="|Lý do từ chối: ${entry.rejectionReason}|"></p>
+      <p class="small text-secondary" th:if="${entry.cancellationReason != null}" th:text="|Lý do hủy: ${entry.cancellationReason}|"></p>
+      <a th:if="${entry.receiptPath != null}" th:href="@{/admin/financial-entries/{id}/receipt(id=${entry.id})}" target="_blank">Xem hóa đơn/biên nhận</a>
+      <div th:if="${currentUser.manager and entry.status == 'PENDING_APPROVAL'}" class="d-flex flex-wrap gap-2 mt-2">
+        <form method="post" th:action="@{/admin/financial-entries/{id}/approve(id=${entry.id})}"><button class="btn btn-outline-success" type="submit">Manager duyệt (khác người lập)</button></form>
+        <form method="post" th:action="@{/admin/financial-entries/{id}/reject(id=${entry.id})}" class="d-flex gap-2"><input class="form-control" name="reason" placeholder="Lý do từ chối" required maxlength="1000"><button class="btn btn-outline-danger" type="submit">Từ chối</button></form>
+      </div>
+      <form th:if="${entry.status == 'APPROVED' and entry.receiptPath == null}" method="post" enctype="multipart/form-data" th:action="@{/admin/financial-entries/{id}/receipt(id=${entry.id})}" class="mt-2">
+        <label class="form-label">Tải hóa đơn/biên nhận (PDF/JPEG/PNG, tối đa 5 MB)<input class="form-control" type="file" name="file" accept="application/pdf,image/jpeg,image/png" required></label><button class="btn btn-outline-primary" type="submit">Lưu chứng từ</button>
+      </form>
+      <form th:if="${entry.status == 'APPROVED' and entry.receiptPath != null}" method="post" th:action="@{/admin/financial-entries/{id}/settle(id=${entry.id})}" class="row g-2 mt-2">
+        <div class="col-md-3"><select class="form-select" name="method" required><option value="BANK_TRANSFER">Chuyển khoản</option><option value="CASH">Tiền mặt</option><option value="ONLINE">Cổng online</option><option value="OTHER">Khác</option></select></div>
+        <div class="col-md-5"><input class="form-control" name="reference" placeholder="Mã giao dịch / số phiếu" required></div>
+        <div class="col-md-2 form-check align-self-center"><input class="form-check-input" type="checkbox" name="simulated" value="true" th:id="|simulated-${entry.id}|"><label class="form-check-label" th:for="|simulated-${entry.id}|">Mô phỏng</label></div>
+        <div class="col-md-2"><button class="btn btn-primary" type="submit">Ghi nhận đã chi/hoàn</button></div>
+      </form>
+      <form th:if="${entry.status == 'PROPOSED' or entry.status == 'PENDING_APPROVAL' or entry.status == 'APPROVED'}" method="post" th:action="@{/admin/financial-entries/{id}/cancel(id=${entry.id})}" class="d-flex gap-2 mt-2"><input class="form-control" name="reason" placeholder="Lý do hủy khoản" required maxlength="1000"><button class="btn btn-outline-secondary" type="submit">Hủy khoản</button></form>
+    </article>
+  </section>
+</main>
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

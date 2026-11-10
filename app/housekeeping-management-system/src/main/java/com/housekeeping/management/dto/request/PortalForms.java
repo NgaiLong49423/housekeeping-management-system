@@ -17,11 +17,31 @@ public final class PortalForms {
             @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startAt,
             @NotEmpty List<@NotNull @Positive Long> serviceIds,
             @Size(max = 2000) String areaNote) { }
-    public record FeedbackForm(@NotBlank String content) { }
-    public record FeedbackReplyForm(@NotBlank String reply) { }
+    public record FeedbackForm(@NotNull @Min(1) @Max(5) Integer rating,
+            @Size(max = 6) List<@NotBlank @Size(max = 30) String> topics,
+            @Size(max = 4000) String content) { }
+    public record FeedbackReplyForm(@NotBlank(message = "Vui lòng nhập nội dung phản hồi khách hàng.")
+            @jakarta.validation.constraints.Size(max = 4000, message = "Phản hồi tối đa 4.000 ký tự.") String reply) { }
+    public record FeedbackIncidentForm(@NotEmpty List<@NotBlank @Size(max = 30) String> incidentTypes,
+            @NotBlank @Size(max = 4000) String description) { }
+    public record IncidentReviewForm(
+            @NotBlank(message = "Hãy chọn trạng thái xác minh.") @Size(max = 30, message = "Trạng thái xác minh không hợp lệ.") String caseStatus,
+            @Size(max = 30, message = "Mã biện pháp khắc phục không hợp lệ.") String remedyType,
+            @Size(max = 4000, message = "Kết quả/cách xử lý khách sẽ thấy tối đa 4.000 ký tự.") String customerOutcome,
+            @Size(max = 4000, message = "Kết luận nội bộ tối đa 4.000 ký tự.") String internalFinding,
+            boolean remedyCompleted,
+            @Size(max = 30, message = "Mức xử lý Staff không hợp lệ.") String staffAction,
+            @Size(max = 1000, message = "Thông báo riêng cho Staff tối đa 1.000 ký tự.") String staffNotice) { }
+    public record FinancialEntryForm(@NotBlank @Size(max = 30) String entryType,
+            @NotNull @DecimalMin(value = "0.01") @Digits(integer = 10, fraction = 2) BigDecimal amount,
+            @NotBlank @Size(max = 1000) String reason, @Size(max = 20) String paymentMethod,
+            @Size(max = 255) String transactionReference, boolean simulated) { }
     public record CustomerRegistrationForm(@NotBlank @Size(max = 150) String name,
             @NotBlank @Email @Size(max = 255) String email, @NotBlank @Size(max = 20) String phone,
             @NotBlank @Size(min = 8, max = 72) String password, @NotBlank @Size(max = 72) String confirmPassword) { }
+    public record AdminAccountForm(@NotBlank @Size(max = 150) String name,
+            @NotBlank @Email @Size(max = 255) String email, @NotBlank @Size(max = 20) String phone,
+            @NotBlank @Size(min = 8, max = 72) String password) { }
     public record ServiceForm(@NotBlank @Size(max = 150) String name, @Size(max = 1000) String description,
             @Min(1) int duration, @NotNull @DecimalMin("0") @Digits(integer = 10, fraction = 2) BigDecimal price,
             @Size(max = 500) @Pattern(regexp = "^$|https://\\S+$", message = "URL ảnh phải bắt đầu bằng https://.") String imageUrl) {
@@ -62,6 +82,9 @@ public final class PortalForms {
             @Size(min = 7, max = 56) List<@Valid OperatingHoursForm> operatingHours) { }
     public record CompanyLocationForm(@NotBlank @Size(max = 500) String vietmapRefId,
             @NotNull @DecimalMin("0.01") @Digits(integer = 4, fraction = 2) BigDecimal serviceRadiusKm) { }
+    public record BookingDelayTierForm(@NotNull @Min(1) Integer minDelayMinutes,
+            @Min(1) Integer maxDelayMinutes, @NotNull @Min(0) @Max(100) Integer discountPercent) { }
+    public record BookingDelaySettingsForm(@NotEmpty List<@Valid BookingDelayTierForm> tiers) { }
     public record OperatingHoursForm(@NotNull @Min(1) @Max(7) Integer dayOfWeek, boolean closed,
             @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime openingTime,
             @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime closingTime) { }

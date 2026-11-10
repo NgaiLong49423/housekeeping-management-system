@@ -4,7 +4,10 @@ import com.housekeeping.management.dto.request.PortalForms;
 import com.housekeeping.management.dto.request.PortalForms.CompanyLocationForm;
 import com.housekeeping.management.dto.request.PortalForms.CompanyScheduleVersionForm;
 import com.housekeeping.management.dto.request.PortalForms.CompanySettingsForm;
+import com.housekeeping.management.dto.request.PortalForms.BookingDelaySettingsForm;
+import com.housekeeping.management.dto.request.PortalForms.BookingDelayTierForm;
 import com.housekeeping.management.service.CompanySettingsService;
+import com.housekeeping.management.service.BookingDelayCompensationSettingsService;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
 import java.util.List;
@@ -23,7 +26,9 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 @RequestMapping("/admin/settings")
 public class AdminCompanySettingsController {
     private final CompanySettingsService settings;
-    public AdminCompanySettingsController(CompanySettingsService settings){this.settings=settings;}
+    private final BookingDelayCompensationSettingsService delaySettings;
+    public AdminCompanySettingsController(CompanySettingsService settings,
+            BookingDelayCompensationSettingsService delaySettings){this.settings=settings;this.delaySettings=delaySettings;}
 
     @GetMapping String view(@RequestParam(required=false) LocalDate effectiveFrom,Model model){
         LocalDate today=settings.today();
@@ -38,6 +43,9 @@ public class AdminCompanySettingsController {
         CompanySettingsForm location=settings.get();
         CompanyLocationForm locationForm=new CompanyLocationForm("",location.serviceRadiusKm());
         model.addAttribute("settingsForm",locationForm);
+        model.addAttribute("delaySettingsForm", new BookingDelaySettingsForm(delaySettings.get().stream()
+                .map(tier -> new BookingDelayTierForm(tier.minDelayMinutes(), tier.maxDelayMinutes(), tier.discountPercent()))
+                .toList()));
         model.addAttribute("currentCompanyAddress",location.companyAddress());
         model.addAttribute("scheduleForm",schedule);
         List<LocalDate> versionDates=settings.versionDates();
@@ -100,5 +108,24 @@ public class AdminCompanySettingsController {
         try{settings.cancelSchedule(effectiveFrom);flash.addFlashAttribute("success","Đã hủy phiên bản lịch. Các khoảng Staff không phù hợp đã được ngừng hiệu lực.");}
         catch(IllegalArgumentException|IllegalStateException ex){flash.addFlashAttribute("error",ex.getMessage());}
         return "redirect:/admin/settings?effectiveFrom="+effectiveFrom;
+    }
+
+    @PostMapping("/delay-compensation") String saveDelayCompensation(
+            @Valid @ModelAttribute("delaySettingsForm") BookingDelaySettingsForm form,
+            BindingResult errors, RedirectAttributes flash) {
+        if (errors.hasErrors()) {
+            flash.addFlashAttribute("error", "Vui lòng nhập đầy đủ ngưỡng phút và phần trăm giảm hợp lệ.");
+            return "redirect:/admin/settings#delay-compensation";
+        }
+        try {
+            delaySettings.save(form.tiers().stream()
+                    .map(tier -> new com.housekeeping.management.domain.BookingDelayCompensation.Tier(
+                            tier.minDelayMinutes(), tier.maxDelayMinutes(), tier.discountPercent()))
+                    .toList());
+            flash.addFlashAttribute("success", "Đã lưu các mức giảm do nhân viên đến trễ.");
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            flash.addFlashAttribute("error", ex.getMessage());
+        }
+        return "redirect:/admin/settings#delay-compensation";
     }
 }

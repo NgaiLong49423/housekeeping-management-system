@@ -19,7 +19,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 class HouseServiceTest {
     private final HouseRepository houses = mock(HouseRepository.class);
     private final JdbcTemplate jdbc = mock(JdbcTemplate.class);
-    private final HouseService service = new HouseService(houses, jdbc, mock(VietmapClient.class));
+    private final HouseService service = new com.housekeeping.management.service.impl.HouseServiceImpl(houses, jdbc, mock(VietmapClient.class));
 
     @Test
     void haversineMeasuresDistanceBetweenCoordinatesInKilometers() {

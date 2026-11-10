@@ -16,7 +16,7 @@
   <body>
     <header class="site-header" th:fragment="header(active)">
       <a class="skip-link" href="#main">Đến nội dung chính</a>
-      <nav class="navbar navbar-expand-lg container py-3" aria-label="Điều hướng chính">
+      <nav class="navbar navbar-expand-lg container py-3" th:classappend="${currentUser != null and currentUser.admin} ? ' admin-navbar-shell'" aria-label="Điều hướng chính">
         <a class="brand" th:href="@{/}">
           <img th:src="@{/images/5e7a8.png}" alt="Logo Gọn Nhà" width="40" height="40">
           <span>
@@ -27,7 +27,7 @@
         <button class="navbar-toggler border-0 shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#navigation" aria-controls="navigation" aria-expanded="false" aria-label="Mở menu">
           <span class="navbar-toggler-icon"></span>
         </button>
-        <div class="collapse navbar-collapse" id="navigation">
+        <div class="collapse navbar-collapse" id="navigation" th:classappend="${currentUser != null and currentUser.admin} ? ' admin-navigation'">
           <div class="navbar-nav mx-auto gap-lg-1" th:if="${currentUser == null or currentUser.role == 'CUSTOMER'}">
             <a class="nav-link" th:classappend="${active == 'home'} ? 'active'" th:href="@{/}">Trang chủ</a>
             <a class="nav-link" th:classappend="${active == 'services'} ? 'active'" th:href="@{/services}">Dịch vụ</a>
@@ -40,8 +40,9 @@
             <a class="nav-link" th:classappend="${active == 'schedules'} ? 'active'" th:href="@{/staff/schedules}">Lịch sẵn sàng</a>
             <a class="nav-link" th:classappend="${active == 'leaves'} ? 'active'" th:href="@{/staff/leaves}">Đơn nghỉ</a>
             <a class="nav-link" th:classappend="${active == 'profile'} ? 'active'" th:href="@{/staff/profile}">Hồ sơ của tôi</a>
+            <a class="nav-link" th:href="@{/staff/incident-actions}">Thông báo nội bộ</a>
           </div>
-          <div class="navbar-nav mx-auto gap-lg-1" th:if="${currentUser != null and currentUser.role == 'ADMIN'}">
+          <div class="navbar-nav mx-auto gap-lg-1 admin-nav-links" th:if="${currentUser != null and currentUser.admin}">
             <a class="nav-link" th:classappend="${active == 'bookings'} ? 'active'" th:href="@{/admin/bookings}">Tổng quan</a>
             <a class="nav-link" th:classappend="${active == 'staff'} ? 'active'" th:href="@{/admin/staff}">Nhân viên</a>
             <a class="nav-link" th:classappend="${active == 'services'} ? 'active'" th:href="@{/admin/services}">Dịch vụ</a>
@@ -49,6 +50,7 @@
             <a class="nav-link" th:classappend="${active == 'leaves'} ? 'active'" th:href="@{/admin/leaves}">Duyệt nghỉ</a>
             <a class="nav-link" th:classappend="${active == 'settings'} ? 'active'" th:href="@{/admin/settings}">Cấu hình công ty</a>
             <a class="nav-link" th:classappend="${active == 'feedback'} ? 'active'" th:href="@{/admin/feedback}">Phản hồi</a>
+            <a class="nav-link" th:href="@{/admin/finance}">Đối soát tài chính</a>
           </div>
           <div class="header-actions">
             <a th:if="${currentUser == null}" class="btn btn-outline-primary" th:href="@{/login}">
@@ -65,6 +67,7 @@
               <summary th:text="${currentUser.displayName}">Tài khoản</summary>
               <div class="account-popover">
                 <span class="eyebrow w-100 justify-content-center" th:text="${currentUser.role}"></span>
+                <a th:if="${currentUser.manager}" class="btn btn-light w-100 mb-2" th:href="@{/admin/accounts}">Tài khoản Admin</a>
                 <form method="post" th:action="@{/logout}">
                   <button class="btn btn-light w-100" type="submit">
                     Đăng xuất

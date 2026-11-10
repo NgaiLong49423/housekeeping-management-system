@@ -14,6 +14,7 @@ import com.housekeeping.management.dto.request.PortalForms.HouseForm;
 import com.housekeeping.management.entity.House;
 import com.housekeeping.management.dto.request.PortalForms.AvailabilityForm;
 import com.housekeeping.management.controller.PortalAdminController;
+import com.housekeeping.management.controller.AdminAccountController;
 import com.housekeeping.management.controller.PortalController;
 import com.housekeeping.management.controller.AuthController;
 import com.housekeeping.management.controller.BookingController;
@@ -53,11 +54,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.mock.web.MockMultipartFile;
-import org.springframework.test.context.TestPropertySource;
 
-@WebMvcTest({PortalController.class, AuthController.class, BookingController.class, PaymentController.class, HouseController.class, StaffController.class, PortalAdminController.class, StaffLeaveController.class, AdminLeaveController.class, AdminCompanySettingsController.class, StaffProfileController.class})
+@WebMvcTest({PortalController.class, AuthController.class, BookingController.class, PaymentController.class, HouseController.class, StaffController.class, PortalAdminController.class, AdminAccountController.class, StaffLeaveController.class, AdminLeaveController.class, AdminCompanySettingsController.class, StaffProfileController.class, com.housekeeping.management.controller.FeedbackAttachmentController.class})
 @Import(SecurityConfig.class)
-@TestPropertySource(properties = "app.booking.arrival-early-confirmation-minutes=5")
 class PortalMvcTest {
     @Autowired MockMvc mvc;
     @Autowired PasswordEncoder encoder;
@@ -73,20 +72,29 @@ class PortalMvcTest {
     @MockitoBean BookingAvailabilityService bookingAvailability;
     @MockitoBean BookingArrivalService arrival;
     @MockitoBean BookingIncidentService incidents;
+    @MockitoBean CustomerDelayReportService customerDelayReports;
     @MockitoBean BookingCompletionService completion;
     @MockitoBean PaymentService payments;
-    @MockitoBean VnpayPaymentService vnpayPayments;
+    @MockitoBean OnlinePaymentService onlinePayments;
     @MockitoBean FeedbackService feedbackService;
+    @MockitoBean FeedbackCaseService feedbackCases;
+    @MockitoBean BookingFinancialService financials;
+    @MockitoBean CaseAttachmentStorageService caseAttachments;
     @MockitoBean EvidenceStorageService storage;
     @MockitoBean HouseService houses;
     @MockitoBean LeaveManagementService leaveManagement;
     @MockitoBean CompanySettingsService companySettings;
+    @MockitoBean BookingDelayCompensationSettingsService delayCompensationSettings;
     @MockitoBean StaffProfileService staffProfiles;
+    @MockitoBean StaffIncidentNoticeService incidentNotices;
     @MockitoBean AdminBookingManagementService adminBookingManagement;
+    @MockitoBean AdminAccountService adminAccounts;
+    @MockitoBean AccountAuthorizationService accountAuthorization;
 
     private final PortalUser customer = account(1L, "CUSTOMER", "Khách hàng kiểm thử");
     private final PortalUser staff = new PortalUser(2L, 22L, "staff@example.test", "unused-hash", "Nhân viên kiểm thử", "STAFF");
     private final PortalUser admin = account(3L, "ADMIN", "Quản trị kiểm thử");
+    private final PortalUser manager = account(5L, "MANAGER", "Quản lý kiểm thử");
     private final OffsetDateTime start = OffsetDateTime.now(ZoneOffset.ofHours(7)).plusDays(2).withHour(8).withMinute(0).withSecond(0).withNano(0);
 
     static PortalUser account(Long id, String role, String name) {
@@ -95,6 +103,13 @@ class PortalMvcTest {
 
     @BeforeEach
     void data() {
+        when(accountAuthorization.isActiveAdmin(3L)).thenReturn(true);
+        when(accountAuthorization.isActiveAdmin(5L)).thenReturn(true);
+        when(adminAccounts.findAll(5L)).thenReturn(List.of());
+        when(delayCompensationSettings.get()).thenReturn(List.of(
+                new com.housekeeping.management.domain.BookingDelayCompensation.Tier(1, 15, 5),
+                new com.housekeeping.management.domain.BookingDelayCompensation.Tier(16, 30, 10),
+                new com.housekeeping.management.domain.BookingDelayCompensation.Tier(31, null, 20)));
         when(query.services()).thenReturn(List.of(
             new ServiceCard(10L, "Dọn dẹp nhà theo giờ", "Làm sạch không gian sống, chăm chút từng góc nhỏ.", 120, new BigDecimal("140000"), true),
             new ServiceCard(11L, "Tổng vệ sinh nhà cửa", "Làm sạch kỹ lưỡng để tổ ấm thêm trong lành.", 180, new BigDecimal("350000"), true),
@@ -130,6 +145,20 @@ class PortalMvcTest {
         when(query.booking(eq(42L), any())).thenReturn(card("CONFIRMED", null, null));
         when(query.bookingImages(eq(42L), any())).thenReturn(List.of());
         when(query.details(eq(42L), any())).thenReturn(List.of(new DetailCard(30L, "Dọn dẹp nhà theo giờ", 1, 120, new BigDecimal("140000"), List.of())));
+    }
+
+    @Test
+    void managerInheritsAdminAccessAndAloneCanOpenAdminAccountManagement() throws Exception {
+        mvc.perform(get("/admin/bookings").with(user(manager))).andExpect(status().isOk());
+        mvc.perform(get("/admin/accounts").with(user(manager))).andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Tạo tài khoản Admin")));
+        mvc.perform(get("/admin/bookings").with(user(staff))).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void adminSessionIsRevokedWhenAccountBecomesInactive() throws Exception {
+        when(accountAuthorization.isActiveAdmin(3L)).thenReturn(false);
+        mvc.perform(get("/admin/bookings").with(user(admin))).andExpect(status().isForbidden());
     }
 
     BookingCard card(String status, String payment, String method) {
@@ -328,16 +357,28 @@ class PortalMvcTest {
     }
 
     @Test
-    void customerFeedbackAcceptsTextWithoutRatingAndAdminCanOpenFeedbackInbox() throws Exception {
+    void customerCanSubmitRatedFeedbackAndAdminCanOpenFeedbackInbox() throws Exception {
         mvc.perform(post("/customer/bookings/42/feedback").with(user(customer)).with(csrf())
+                        .param("rating", "4").param("topics", "CLEANING_QUALITY")
                         .param("content", "Nhân viên làm việc cẩn thận."))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/customer/bookings/42"));
-        verify(feedbackService).submit(42L, 1L, "Nhân viên làm việc cẩn thận.");
+        verify(feedbackService).submit(42L, 1L, 4, List.of("CLEANING_QUALITY"), "Nhân viên làm việc cẩn thận.");
 
+        when(query.booking(eq(42L), any())).thenReturn(card("COMPLETED", "SUCCESS", "CASH"));
+        mvc.perform(get("/customer/bookings/42").with(user(customer)))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Rất không hài lòng")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Dịch vụ có xứng với giá tiền?")));
+
+        when(query.feedback()).thenReturn(List.of(new FeedbackCard(90L, 42L, "Khách kiểm thử", 4,
+                List.of("Đúng giờ", "Chất lượng dọn dẹp"), "Nhân viên làm việc cẩn thận.", null, "OPEN",
+                "COMPLETED", java.time.LocalDateTime.now(), new BigDecimal("140000"), "Nhân viên kiểm thử")));
         mvc.perform(get("/admin/feedback").with(user(admin)))
                 .andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Phản hồi khách hàng")));
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Phản hồi khách hàng")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("4/5 sao")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Nhân viên kiểm thử")));
 
         mvc.perform(post("/admin/feedback/90/reply").with(user(admin)).with(csrf()).param("reply", "Cảm ơn bạn đã góp ý."))
                 .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/admin/feedback"));
@@ -345,6 +386,93 @@ class PortalMvcTest {
         mvc.perform(post("/admin/feedback/90/resolve").with(user(admin)).with(csrf()))
                 .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/admin/feedback"));
         verify(feedbackService).resolve(90L, 3L);
+    }
+
+    @Test
+    void feedbackFormsShowSpecificValidationErrorsInsteadOfGenericServiceErrors() throws Exception {
+        mvc.perform(post("/admin/feedback/90/reply").with(user(admin)).with(csrf()).param("reply", ""))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(flash().attribute("error", "Vui lòng nhập nội dung phản hồi khách hàng."));
+
+        mvc.perform(post("/admin/feedback/cases/99/review").with(user(admin)).with(csrf())
+                        .param("caseStatus", "VERIFIED")
+                        .param("remedyCompleted", "false")
+                        .param("customerOutcome", "x".repeat(4001)))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(flash().attribute("error", "Kết quả/cách xử lý khách sẽ thấy tối đa 4.000 ký tự."));
+        verify(feedbackCases, never()).review(anyLong(), anyLong(), any());
+    }
+
+    @Test
+    void customerCanOpenMultiIssueCaseAndStaffCannotAccessFinanceOrFeedbackEvidence() throws Exception {
+        when(feedbackCases.open(eq(42L),eq(1L),anyList(),eq("Đồ bị hư và nhà chưa sạch"))).thenReturn(99L);
+        mvc.perform(post("/customer/bookings/42/feedback/incident").with(user(customer)).with(csrf())
+                        .param("incidentTypes","PROPERTY_DAMAGE","CLEANLINESS")
+                        .param("description","Đồ bị hư và nhà chưa sạch"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/customer/bookings/42"));
+        verify(feedbackCases).open(42L,1L,List.of("PROPERTY_DAMAGE","CLEANLINESS"),"Đồ bị hư và nhà chưa sạch");
+
+        mvc.perform(get("/admin/finance").with(user(staff))).andExpect(status().isForbidden());
+        mvc.perform(get("/feedback-case-evidence/1").with(user(staff))).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void customerAndAdminCanAppendIncidentConversationMessages() throws Exception {
+        when(feedbackCases.addCustomerMessage(99L,42L,1L,"Bổ sung chi tiết",false)).thenReturn(501L);
+        mvc.perform(post("/customer/bookings/42/feedback/incident/99/messages").with(user(customer)).with(csrf())
+                        .param("message","Bổ sung chi tiết"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/customer/bookings/42"));
+        verify(feedbackCases).addCustomerMessage(99L,42L,1L,"Bổ sung chi tiết",false);
+
+        mvc.perform(post("/customer/bookings/42/feedback/incident/99/messages").with(user(staff)).with(csrf())
+                        .param("message","Không được phép"))
+                .andExpect(status().isForbidden());
+
+        when(feedbackCases.addAdminMessage(99L,3L,"Đã tiếp nhận, chúng tôi sẽ xác minh.",false)).thenReturn(502L);
+        mvc.perform(post("/admin/feedback/cases/99/messages").with(user(admin)).with(csrf())
+                        .param("message","Đã tiếp nhận, chúng tôi sẽ xác minh."))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/feedback#case-99"));
+        verify(feedbackCases).addAdminMessage(99L,3L,"Đã tiếp nhận, chúng tôi sẽ xác minh.",false);
+    }
+
+    @Test
+    void managerSeesIncidentConversationAndCanReviewLinkedFinancialEntry() throws Exception {
+        when(query.feedback()).thenReturn(List.of(new FeedbackCard(90L,42L,"Khách kiểm thử",1,List.of("Mục khác"),
+                "Đồ bị hư",null,"OPEN","COMPLETED",java.time.LocalDateTime.now(),new BigDecimal("140000"),"Nhân viên kiểm thử")));
+        when(feedbackCases.adminCase(90L,5L)).thenReturn(new IncidentCard(99L,90L,42L,1L,2L,
+                List.of("MISSING_PROPERTY"),"Mất đồ","RECEIVED",null,null,null,false,null,null,null,null,null,
+                java.time.LocalDateTime.now(),null));
+        when(feedbackCases.adminMessages(99L,5L)).thenReturn(List.of(new FeedbackCaseMessageCard(501L,99L,1L,
+                "CUSTOMER","Khách kiểm thử","Mất đồ",java.time.LocalDateTime.now(),false,false,List.of())));
+        when(feedbackCases.actions(99L,5L)).thenReturn(List.of());
+        when(financials.forBooking(42L,5L)).thenReturn(List.of(new FinancialEntryCard(700L,42L,99L,
+                "COMPENSATION",new BigDecimal("250000"),"Bồi thường tài sản", "PENDING_APPROVAL",null,null,null,
+                false,3L,null,null,null,null,java.time.LocalDateTime.now(),null)));
+
+        mvc.perform(get("/admin/feedback").with(user(manager)))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Mất đồ")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Khách hàng: Khách kiểm thử")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Đã tiếp nhận")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("250.000 ₫")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Manager duyệt")));
+    }
+
+    @Test
+    void staffSeesAndAcknowledgesOnlyTheirApprovedIncidentNotice() throws Exception {
+        when(incidentNotices.ownApprovedActions(2L)).thenReturn(List.of(new PortalViews.StaffActionNoticeCard(
+                77L,"COACHING","Cần kiểm tra kỹ mặt bàn sau khi dọn.",java.time.LocalDateTime.now(),java.time.LocalDateTime.now(),null)));
+        mvc.perform(get("/staff/incident-actions").with(user(staff)))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Cần kiểm tra kỹ mặt bàn")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("không đồng nghĩa với thừa nhận lỗi")));
+        mvc.perform(post("/staff/incident-actions/77/acknowledge").with(user(staff)).with(csrf()))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/staff/incident-actions"));
+        verify(incidentNotices).acknowledge(77L,2L);
+        mvc.perform(get("/staff/incident-actions").with(user(customer))).andExpect(status().isForbidden());
     }
 
     @Test
@@ -383,31 +511,25 @@ class PortalMvcTest {
     }
 
     @Test
-    void customerAndStaffArrivalButtonsAreVisibleBeforeStartButCannotBeSubmittedYet() throws Exception {
+    void customerAndStaffMayConfirmArrivalBeforeScheduledStart() throws Exception {
         String customerPage = mvc.perform(get("/customer/bookings/42").with(user(customer)))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
-        assertThat(customerPage).contains("Xác nhận nhân viên đã đến", "Nút xác nhận sẽ mở lúc", "disabled=\"disabled\"");
+        assertThat(customerPage).contains("Xác nhận nhân viên đã đến", "xác nhận tùy chọn")
+                .doesNotContain("Nút xác nhận sẽ mở lúc");
 
         String staffPage = mvc.perform(get("/staff/bookings/42").with(user(staff)))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
-        assertThat(staffPage).contains("Tôi đã đến", "Nút xác nhận sẽ mở lúc", "disabled=\"disabled\"");
-    }
+        assertThat(staffPage).contains("type=\"submit\">Tôi đã đến</button>", "bạn có thể bắt đầu ngay hoặc chờ đến giờ hẹn")
+                .doesNotContain("Nút xác nhận sẽ mở lúc");
 
-    @Test
-    void customerAndStaffArrivalButtonsUnlockFiveMinutesBeforeStartInDemoWindow() throws Exception {
-        OffsetDateTime soon = OffsetDateTime.now(ZoneOffset.ofHours(7)).plusMinutes(3).withNano(0);
-        BookingCard upcoming = new BookingCard(42L, 1L, 2L, "Khách hàng kiểm thử", "Nhân viên kiểm thử",
-                soon, soon.plusHours(2), "CONFIRMED", new BigDecimal("140000"), null, null,
-                null, null, null);
-        when(query.booking(eq(42L), any())).thenReturn(upcoming);
-
-        String customerPage = mvc.perform(get("/customer/bookings/42").with(user(customer)))
+        BookingCard arrivedEarly = new BookingCard(42L, 1L, 2L, "Khách hàng kiểm thử", "Nhân viên kiểm thử",
+                start, start.plusHours(2), "CONFIRMED", new BigDecimal("140000"), null, null, null, null, null,
+                null, null, null, null, null, "0901234567", OffsetDateTime.now(ZoneOffset.ofHours(7)),
+                null, null, null, null, null, null, null, BigDecimal.ZERO, BigDecimal.ZERO, null, List.of(), List.of(), null);
+        when(query.booking(eq(42L), any())).thenReturn(arrivedEarly);
+        String readyToStart = mvc.perform(get("/staff/bookings/42").with(user(staff)))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
-        String staffPage = mvc.perform(get("/staff/bookings/42").with(user(staff)))
-                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
-
-        assertThat(customerPage).contains(">Xác nhận nhân viên đã đến</button>").doesNotContain("Nút xác nhận sẽ mở lúc");
-        assertThat(staffPage).contains(">Tôi đã đến</button>").doesNotContain("Nút xác nhận sẽ mở lúc");
+        assertThat(readyToStart).contains(">Bắt đầu công việc</button>").doesNotContain("Chỉ bắt đầu từ giờ hẹn");
     }
 
     @Test
@@ -627,28 +749,28 @@ class PortalMvcTest {
         when(query.booking(42L, customer)).thenThrow(new AccessDeniedException("Forbidden"));
         mvc.perform(post("/customer/bookings/42/payment").with(user(customer)).with(csrf()))
                 .andExpect(status().isForbidden());
-        verifyNoInteractions(vnpayPayments);
+        verifyNoInteractions(onlinePayments);
     }
 
     @Test
     void customerOnlinePaymentRedirectsToVnpayCheckout() throws Exception {
         String checkoutUrl = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?vnp_TxnRef=1001";
         when(query.booking(eq(42L), any())).thenReturn(card("AWAITING_PAYMENT", "PENDING", "ONLINE"));
-        when(vnpayPayments.checkout(eq(42L), eq(customer.getAccountId()), anyString()))
-                .thenReturn(new VnpayPaymentService.Checkout(checkoutUrl, false));
+        when(onlinePayments.checkout(eq(42L), eq(customer.getAccountId()), anyString()))
+                .thenReturn(new OnlinePaymentService.Checkout(checkoutUrl, false));
 
         mvc.perform(post("/customer/bookings/42/payment").with(user(customer)).with(csrf()))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl(checkoutUrl));
-        verify(vnpayPayments).checkout(eq(42L), eq(customer.getAccountId()), anyString());
+        verify(onlinePayments).checkout(eq(42L), eq(customer.getAccountId()), anyString());
         verifyNoInteractions(payments);
     }
 
     @Test
     void onlinePaymentForAttemptVnpayAlreadyChargedReturnsToBookingAsPaid() throws Exception {
         when(query.booking(eq(42L), any())).thenReturn(card("AWAITING_PAYMENT", "PENDING", "ONLINE"));
-        when(vnpayPayments.checkout(eq(42L), eq(customer.getAccountId()), anyString()))
-                .thenReturn(new VnpayPaymentService.Checkout(null, true));
+        when(onlinePayments.checkout(eq(42L), eq(customer.getAccountId()), anyString()))
+                .thenReturn(new OnlinePaymentService.Checkout(null, true));
 
         mvc.perform(post("/customer/bookings/42/payment").with(user(customer)).with(csrf()))
                 .andExpect(status().is3xxRedirection())
@@ -658,20 +780,20 @@ class PortalMvcTest {
 
     @Test
     void vnpayReturnIsPublicAndShowsPaidResultOnTheBooking() throws Exception {
-        when(vnpayPayments.handleReturn(anyMap()))
-                .thenReturn(new VnpayPaymentService.ReturnOutcome(42L, VnpayPaymentService.ReturnStatus.PAID));
+        when(onlinePayments.handleReturn(anyMap()))
+                .thenReturn(new OnlinePaymentService.ReturnOutcome(42L, OnlinePaymentService.ReturnStatus.PAID));
 
         mvc.perform(get("/payments/vnpay/return").param("vnp_TxnRef", "1001").param("vnp_ResponseCode", "00"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/customer/bookings/42"))
                 .andExpect(flash().attribute("success", org.hamcrest.Matchers.containsString("Thanh toán thành công")));
-        verify(vnpayPayments).handleReturn(argThat(params -> "1001".equals(params.get("vnp_TxnRef"))));
+        verify(onlinePayments).handleReturn(argThat(params -> "1001".equals(params.get("vnp_TxnRef"))));
     }
 
     @Test
     void vnpayReturnForFailedPaymentShowsAnError() throws Exception {
-        when(vnpayPayments.handleReturn(anyMap()))
-                .thenReturn(new VnpayPaymentService.ReturnOutcome(42L, VnpayPaymentService.ReturnStatus.FAILED));
+        when(onlinePayments.handleReturn(anyMap()))
+                .thenReturn(new OnlinePaymentService.ReturnOutcome(42L, OnlinePaymentService.ReturnStatus.FAILED));
 
         mvc.perform(get("/payments/vnpay/return").param("vnp_TxnRef", "1001").param("vnp_ResponseCode", "24"))
                 .andExpect(redirectedUrl("/customer/bookings/42"))
@@ -680,7 +802,7 @@ class PortalMvcTest {
 
     @Test
     void vnpayReturnWithInvalidDataShowsAnErrorInsteadOfAnErrorPage() throws Exception {
-        when(vnpayPayments.handleReturn(anyMap())).thenThrow(new IllegalArgumentException("invalid signature"));
+        when(onlinePayments.handleReturn(anyMap())).thenThrow(new IllegalArgumentException("invalid signature"));
 
         mvc.perform(get("/payments/vnpay/return").param("vnp_TxnRef", "1001"))
                 .andExpect(status().is3xxRedirection())
@@ -690,7 +812,7 @@ class PortalMvcTest {
 
     @Test
     void vnpayIpnIsPublicAndAnswersInVnpayJsonFormat() throws Exception {
-        when(vnpayPayments.handleIpn(anyMap())).thenReturn(new VnpayPaymentService.IpnResponse("00", "Confirm Success"));
+        when(onlinePayments.handleIpn(anyMap())).thenReturn(new OnlinePaymentService.IpnResponse("00", "Confirm Success"));
 
         mvc.perform(get("/payments/vnpay/ipn").param("vnp_TxnRef", "1001"))
                 .andExpect(status().isOk())

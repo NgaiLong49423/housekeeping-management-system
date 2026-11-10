@@ -50,7 +50,11 @@ public class BookingImageRepository {
     }
 
     public List<String> findAllImageUrls() {
-        return jdbc.query("SELECT image_url FROM dbo.Booking_Images", (rs, row) -> rs.getString(1));
+        return jdbc.query("""
+                SELECT image_url FROM dbo.Booking_Images
+                UNION SELECT image_path FROM dbo.Feedback_Case_Evidence
+                UNION SELECT receipt_path FROM dbo.Booking_Financial_Entries WHERE receipt_path IS NOT NULL
+                """, (rs, row) -> rs.getString(1));
     }
 
     public record BookingAccess(Long staffId, String status) { }

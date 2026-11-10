@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class BookingDelayCompensationTest {
@@ -21,19 +22,24 @@ class BookingDelayCompensationTest {
 
     @Test
     void roundsAnyPartialMinuteUpAndRoundsDiscountToWholeDong() {
-        var result = BookingDelayCompensation.calculate(START, START.plusMinutes(15).plusSeconds(1), PRICE);
+        var result = BookingDelayCompensation.calculate(START, START.plusMinutes(15).plusSeconds(1), PRICE, defaultTiers());
         assertThat(result.delayedMinutes()).isEqualTo(16);
         assertThat(result.discountPercent()).isEqualTo(10);
         assertThat(result.discountAmount()).isEqualByComparingTo("15000.00");
 
-        var rounded = BookingDelayCompensation.calculate(START, START.plusMinutes(1), new BigDecimal("100011.00"));
+        var rounded = BookingDelayCompensation.calculate(START, START.plusMinutes(1), new BigDecimal("100011.00"), defaultTiers());
         assertThat(rounded.discountAmount()).isEqualByComparingTo("5001.00");
     }
 
     private static void assertCompensation(int minutes, int percent, String amount) {
-        var result = BookingDelayCompensation.calculate(START, START.plusMinutes(minutes), PRICE);
+        var result = BookingDelayCompensation.calculate(START, START.plusMinutes(minutes), PRICE, defaultTiers());
         assertThat(result.delayedMinutes()).isEqualTo(minutes);
         assertThat(result.discountPercent()).isEqualTo(percent);
         assertThat(result.discountAmount()).isEqualByComparingTo(amount);
+    }
+
+    private static List<BookingDelayCompensation.Tier> defaultTiers() {
+        return List.of(new BookingDelayCompensation.Tier(1, 15, 5),
+                new BookingDelayCompensation.Tier(16, 30, 10), new BookingDelayCompensation.Tier(31, null, 20));
     }
 }

@@ -16,9 +16,7 @@ import com.housekeeping.management.dto.request.PortalForms.LeaveRequestForm;
 import com.housekeeping.management.entity.Staff;
 import com.housekeeping.management.entity.StaffLeave;
 import com.housekeeping.management.entity.User;
-import com.housekeeping.management.repository.StaffAccountRepository;
 import com.housekeeping.management.repository.StaffLeaveRepository;
-import com.housekeeping.management.repository.UserRepository;
 import java.time.LocalDate;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,17 +25,19 @@ import org.springframework.security.access.AccessDeniedException;
 
 class LeaveManagementServiceTest {
     private final StaffLeaveRepository leaves = mock(StaffLeaveRepository.class);
-    private final StaffAccountRepository staffAccounts = mock(StaffAccountRepository.class);
-    private final UserRepository users = mock(UserRepository.class);
-    private final LeaveManagementService service = new LeaveManagementService(leaves, staffAccounts, users);
+    private final StaffManagementService staffManagement = mock(StaffManagementService.class);
+    private final AuthService auth = mock(AuthService.class);
+    private final BookingReservationService bookings = mock(BookingReservationService.class);
+    private final LeaveManagementService service = new com.housekeeping.management.service.impl.LeaveManagementServiceImpl(leaves, staffManagement, auth, bookings);
     private final Staff staff = activeStaff();
     private final User admin = activeAdmin();
 
     @BeforeEach
     void setUp() {
-        when(staffAccounts.findActiveByStaffIdForUpdate(7L)).thenReturn(Optional.of(staff));
-        when(staffAccounts.findByStaffIdForUpdate(7L)).thenReturn(Optional.of(staff));
-        when(users.findById(3L)).thenReturn(Optional.of(admin));
+        when(staffManagement.findActiveForBookingUpdate(7L)).thenReturn(staff);
+        when(staffManagement.findByStaffIdForUpdate(7L)).thenReturn(staff);
+        when(staffManagement.findActiveByStaffId(7L)).thenReturn(staff);
+        when(auth.findActiveAdmin(3L)).thenReturn(admin);
     }
 
     @Test
@@ -77,7 +77,7 @@ class LeaveManagementServiceTest {
         assertThat(request.getStatus()).isEqualTo(LeaveStatus.APPROVED);
         assertThat(request.getReviewedBy()).isEqualTo(3L);
         assertThat(request.getReviewedAt()).isNotNull();
-        verify(staffAccounts).findByStaffIdForUpdate(7L);
+        verify(staffManagement).findByStaffIdForUpdate(7L);
     }
 
     @Test
@@ -85,7 +85,7 @@ class LeaveManagementServiceTest {
         User customer = new User();
         customer.setRole(UserRole.CUSTOMER);
         customer.setStatus(UserStatus.ACTIVE);
-        when(users.findById(4L)).thenReturn(Optional.of(customer));
+        when(auth.findActiveAdmin(4L)).thenThrow(new AccessDeniedException("forbidden"));
 
         assertThatThrownBy(() -> service.reviewLeaveRequest(21L, 4L, LeaveStatus.REJECTED))
                 .isInstanceOf(AccessDeniedException.class);

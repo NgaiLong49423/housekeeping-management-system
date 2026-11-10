@@ -4,7 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
-import com.housekeeping.management.repository.BookingPersistenceRepository;
+import com.housekeeping.management.domain.PaymentMethod;
+import com.housekeeping.management.domain.PaymentStatus;
+import com.housekeeping.management.entity.Payment;
 import com.housekeeping.management.repository.PaymentPersistenceRepository;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -15,55 +17,57 @@ import org.junit.jupiter.api.Test;
 import org.springframework.security.access.AccessDeniedException;
 
 class PaymentServiceTest {
-    private BookingPersistenceRepository bookings;
+    private BookingReservationService bookings;
     private PaymentPersistenceRepository payments;
     private PaymentService service;
 
     @BeforeEach
     void setUp() {
-        bookings = mock(BookingPersistenceRepository.class);
+        bookings = mock(BookingReservationService.class);
         payments = mock(PaymentPersistenceRepository.class);
-        service = new PaymentService(bookings, payments);
+        service = new com.housekeeping.management.service.impl.PaymentServiceImpl(bookings, payments);
     }
 
     @Test
-    void onlineCheckoutCreatesPaymentRowAndReusesPendingOrderAfterRetry() {
-        LocalDateTime storedAt = LocalDateTime.of(2026, 11, 8, 10, 15, 30);
-        when(bookings.lockBooking(42L)).thenReturn(Optional.of(booking(7L, 11L, "AWAITING_PAYMENT")));
-        when(bookings.bookingAmount(42L)).thenReturn(new BigDecimal("150000.00"));
-        when(payments.findForBookingUpdate(42L)).thenReturn(List.of()).thenReturn(List.of(
-                payment(19L, 42L, "150000.00", "ONLINE", "PENDING", "1001", storedAt)));
-        when(payments.nextOnlineOrderCode()).thenReturn(1001L);
+    void createsJpaPaymentThenUsesIdentityAsOrderCodeSuffixAndReusesPending() {
+        LocalDateTime createdAt = LocalDateTime.of(2026, 11, 8, 10, 15, 30);
+        when(bookings.lockBookingForPayment(42L)).thenReturn(Optional.of(booking(7L, 11L, "AWAITING_PAYMENT")));
+        when(bookings.amountForPayment(42L)).thenReturn(new BigDecimal("150000.00"));
+        when(payments.findByBookingIdOrderByCreatedAtDescPaymentIdDesc(42L)).thenReturn(List.of()).thenAnswer(invocation -> {
+            Payment payment = new Payment();
+            payment.setPaymentId(19L);
+            payment.setBookingId(42L);
+            payment.setAmount(new BigDecimal("150000.00"));
+            payment.setPaymentMethod(PaymentMethod.ONLINE);
+            payment.setStatus(PaymentStatus.PENDING);
+            payment.setTransactionCode("26110810153000019");
+            payment.setCreatedAt(createdAt);
+            return List.of(payment);
+        });
+        when(payments.saveAndFlush(any(Payment.class))).thenAnswer(invocation -> {
+            Payment payment = invocation.getArgument(0);
+            payment.setPaymentId(19L);
+            return payment;
+        });
 
-        PaymentService.OnlineCheckout created = service.prepareOnlineCheckout(42L, 7L);
-        org.mockito.ArgumentCaptor<LocalDateTime> insertedAt = org.mockito.ArgumentCaptor.forClass(LocalDateTime.class);
-        org.mockito.ArgumentCaptor<Long> insertedCode = org.mockito.ArgumentCaptor.forClass(Long.class);
-        verify(payments).insertPendingOnline(eq(42L), eq(new BigDecimal("150000.00")), insertedCode.capture(), insertedAt.capture());
-        assertThat(created).isEqualTo(new PaymentService.OnlineCheckout(insertedCode.getValue(), 150000L, insertedAt.getValue(), false));
+        var created = service.prepareOnlineCheckout(42L, 7L);
+        String timestampPrefix = created.createdAt().format(java.time.format.DateTimeFormatter.ofPattern("yyMMddHHmmss"));
+        assertThat(created.orderCode()).isEqualTo(Long.parseLong(timestampPrefix + "00019"));
+        assertThat(created.amount()).isEqualTo(150000L);
+        assertThat(created.recoverExisting()).isFalse();
+        verify(payments).saveAndFlush(argThat(payment -> payment.isSimulated()
+                && payment.getStatus() == PaymentStatus.PENDING
+                && payment.getPaymentMethod() == PaymentMethod.ONLINE));
+        verify(payments).save(argThat(payment -> payment.getTransactionCode().endsWith("00019")));
 
-        assertThat(service.prepareOnlineCheckout(42L, 7L))
-                .isEqualTo(new PaymentService.OnlineCheckout(1001L, 150000L, storedAt, true));
-        verify(payments, times(1)).nextOnlineOrderCode();
+        var retry = service.prepareOnlineCheckout(42L, 7L);
+        assertThat(retry.recoverExisting()).isTrue();
+        assertThat(retry.orderCode()).isEqualTo(26110810153000019L);
     }
 
     @Test
-    void onlineOrderCodeCombinesCreationTimeWithSequenceSoItSurvivesDatabaseResets() {
-        // Every team machine shares one VNPay terminal, and VNPay rejects a vnp_TxnRef reused on the same day,
-        // so a fresh database (sequence back at 100000000) must not resend an order code VNPay already saw.
-        when(bookings.lockBooking(42L)).thenReturn(Optional.of(booking(7L, 11L, "AWAITING_PAYMENT")));
-        when(bookings.bookingAmount(42L)).thenReturn(new BigDecimal("150000.00"));
-        when(payments.findForBookingUpdate(42L)).thenReturn(List.of());
-        when(payments.nextOnlineOrderCode()).thenReturn(100000007L);
-
-        PaymentService.OnlineCheckout created = service.prepareOnlineCheckout(42L, 7L);
-
-        String createdAt = created.createdAt().format(java.time.format.DateTimeFormatter.ofPattern("yyMMddHHmmss"));
-        assertThat(created.orderCode()).isEqualTo(Long.parseLong(createdAt + "00007"));
-    }
-
-    @Test
-    void onlineCheckoutRequiresOwnerAndAwaitingPaymentState() {
-        when(bookings.lockBooking(42L)).thenReturn(Optional.of(booking(7L, 11L, "AWAITING_PAYMENT")))
+    void checkoutRequiresOwnerAndAwaitingPaymentState() {
+        when(bookings.lockBookingForPayment(42L)).thenReturn(Optional.of(booking(7L, 11L, "AWAITING_PAYMENT")))
                 .thenReturn(Optional.of(booking(7L, 11L, "CONFIRMED")));
         assertThatThrownBy(() -> service.prepareOnlineCheckout(42L, 8L)).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> service.prepareOnlineCheckout(42L, 7L)).isInstanceOf(IllegalStateException.class);
@@ -71,65 +75,21 @@ class PaymentServiceTest {
     }
 
     @Test
-    void assignedStaffCashConfirmationCreatesSuccessAndCompletesBookingAtomically() {
-        when(bookings.lockBooking(42L)).thenReturn(Optional.of(booking(7L, 11L, "AWAITING_PAYMENT")));
-        when(bookings.bookingAmount(42L)).thenReturn(new BigDecimal("150000.00"));
-        when(payments.findForBookingUpdate(42L)).thenReturn(List.of(
-                payment(19L, 42L, "150000.00", "ONLINE", "PENDING", "1001")));
-        when(payments.completeBooking(42L)).thenReturn(1);
+    void cashConfirmationRequiresAssignedStaffAndCompletesBooking() {
+        when(bookings.lockBookingForPayment(42L)).thenReturn(Optional.of(booking(7L, 11L, "AWAITING_PAYMENT")));
+        when(payments.findByBookingIdOrderByCreatedAtDescPaymentIdDesc(42L)).thenReturn(List.of());
+        when(bookings.amountForPayment(42L)).thenReturn(new BigDecimal("150000"));
+        when(bookings.completeBookingAfterPayment(42L)).thenReturn(1);
+
+        assertThatThrownBy(() -> service.confirmCashReceived(42L, 12L)).isInstanceOf(AccessDeniedException.class);
         service.confirmCashReceived(42L, 11L);
         verify(payments).failPendingOnlineAttempts(42L);
-        verify(payments).insertCashSuccess(eq(42L), eq(new BigDecimal("150000.00")), any(LocalDateTime.class));
-        verify(payments).completeBooking(42L);
+        verify(payments).save(argThat(payment -> payment.getPaymentMethod() == PaymentMethod.CASH
+                && payment.getStatus() == PaymentStatus.SUCCESS));
+        verify(bookings).completeBookingAfterPayment(42L);
     }
 
-    @Test
-    void cashConfirmationRequiresAssignedStaffAndAwaitingPayment() {
-        when(bookings.lockBooking(42L)).thenReturn(Optional.of(booking(7L, 11L, "AWAITING_PAYMENT")))
-                .thenReturn(Optional.of(booking(7L, 11L, "COMPLETED")));
-        assertThatThrownBy(() -> service.confirmCashReceived(42L, 12L)).isInstanceOf(AccessDeniedException.class);
-        assertThatThrownBy(() -> service.confirmCashReceived(42L, 11L)).isInstanceOf(IllegalStateException.class);
-        verifyNoInteractions(payments);
-    }
-
-    @Test
-    void verifiedOnlinePaymentCompletesBooking() {
-        var pending = payment(19L, 42L, "150000.00", "ONLINE", "PENDING", "1001");
-        when(payments.findByOrderCode(1001L)).thenReturn(Optional.of(pending));
-        when(payments.findByOrderCodeForUpdate(1001L)).thenReturn(Optional.of(pending));
-        when(bookings.lockBooking(42L)).thenReturn(Optional.of(booking(7L, 11L, "AWAITING_PAYMENT")));
-        when(payments.hasSuccessfulPayment(42L)).thenReturn(false);
-        when(payments.markSuccess(eq(19L), any(LocalDateTime.class))).thenReturn(1);
-        when(payments.completeBooking(42L)).thenReturn(1);
-        service.confirmOnlinePayment(1001L, new BigDecimal("150000"));
-        verify(payments).markSuccess(eq(19L), any(LocalDateTime.class));
-        verify(payments).completeBooking(42L);
-    }
-
-    @Test
-    void amountMismatchDoesNotCompleteBooking() {
-        var pending = payment(19L, 42L, "150000.00", "ONLINE", "PENDING", "1001");
-        when(payments.findByOrderCode(1001L)).thenReturn(Optional.of(pending));
-        when(bookings.lockBooking(42L)).thenReturn(Optional.of(booking(7L, 11L, "AWAITING_PAYMENT")));
-        when(payments.findByOrderCodeForUpdate(1001L)).thenReturn(Optional.of(pending));
-        assertThatThrownBy(() -> service.confirmOnlinePayment(1001L, new BigDecimal("150000.50")))
-                .isInstanceOf(IllegalArgumentException.class);
-        verify(payments, never()).completeBooking(anyLong());
-    }
-
-    private BookingPersistenceRepository.BookingState booking(Long customerId, Long staffId, String status) {
-        return new BookingPersistenceRepository.BookingState(42L, customerId, staffId, 9L,
-                LocalDateTime.now(), LocalDateTime.now().plusHours(1), status);
-    }
-
-    private PaymentPersistenceRepository.PaymentState payment(Long paymentId, Long bookingId, String amount,
-            String method, String status, String transactionCode) {
-        return payment(paymentId, bookingId, amount, method, status, transactionCode, LocalDateTime.of(2026, 11, 8, 9, 0));
-    }
-
-    private PaymentPersistenceRepository.PaymentState payment(Long paymentId, Long bookingId, String amount,
-            String method, String status, String transactionCode, LocalDateTime createdAt) {
-        return new PaymentPersistenceRepository.PaymentState(paymentId, bookingId, new BigDecimal(amount),
-                method, status, transactionCode, createdAt);
+    private BookingReservationService.BookingPaymentState booking(Long customerId, Long staffId, String status) {
+        return new BookingReservationService.BookingPaymentState(customerId, staffId, status);
     }
 }

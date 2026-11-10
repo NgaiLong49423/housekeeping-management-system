@@ -16,10 +16,6 @@ import com.housekeeping.management.entity.Services;
 import com.housekeeping.management.entity.Staff;
 import com.housekeeping.management.entity.User;
 import com.housekeeping.management.repository.BookingPersistenceRepository;
-import com.housekeeping.management.repository.HouseRepository;
-import com.housekeeping.management.repository.ServicesRepository;
-import com.housekeeping.management.repository.StaffAccountRepository;
-import com.housekeeping.management.repository.UserRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -31,15 +27,14 @@ import org.junit.jupiter.api.Test;
 
 class BookingReservationServiceTest {
     private final LocalDateTime now = LocalDateTime.parse("2026-11-01T08:00:00");
-    private final UserRepository users = mock(UserRepository.class);
-    private final StaffAccountRepository staffAccounts = mock(StaffAccountRepository.class);
-    private final HouseRepository houses = mock(HouseRepository.class);
-    private final ServicesRepository services = mock(ServicesRepository.class);
     private final BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
     private final HouseService houseService = mock(HouseService.class);
+    private final AuthService auth = mock(AuthService.class);
+    private final StaffManagementService staffManagement = mock(StaffManagementService.class);
+    private final ServiceManagementService serviceManagement = mock(ServiceManagementService.class);
     private final VietmapClient vietmap = mock(VietmapClient.class);
-    private final BookingReservationService service = new BookingReservationService(users, staffAccounts, houses,
-            services, bookings, houseService, vietmap);
+    private final BookingReservationService service = new com.housekeeping.management.service.impl.BookingReservationServiceImpl(
+            bookings, houseService, auth, staffManagement, serviceManagement, vietmap);
 
     @Test
     void acceptsExactMinimumLeadTimeAndMaximumHorizon() {
@@ -71,22 +66,22 @@ class BookingReservationServiceTest {
         User customer = new User();
         customer.setRole(UserRole.CUSTOMER);
         customer.setStatus(UserStatus.ACTIVE);
-        when(users.findById(12L)).thenReturn(Optional.of(customer));
+        when(auth.findActiveCustomer(12L)).thenReturn(customer);
 
         House house = new House();
         house.setLatitude(new BigDecimal("10.0000000"));
         house.setLongitude(new BigDecimal("106.0000000"));
-        when(houses.findLockedByHouseIdAndCustomerIdAndDeletedFalse(31L, 12L)).thenReturn(Optional.of(house));
+        when(houseService.findCustomerHouseForUpdate(12L, 31L)).thenReturn(house);
 
         Staff staff = new Staff();
         staff.setStaffId(7L);
         staff.setStaffType(StaffType.FULL_TIME);
-        when(staffAccounts.findActiveByStaffIdForUpdate(7L)).thenReturn(Optional.of(staff));
+        when(staffManagement.findActiveForBookingUpdate(7L)).thenReturn(staff);
         LocalDateTime closedStart = LocalDate.now(ZoneOffset.ofHours(7)).plusDays(1).atTime(20, 0);
         when(bookings.companyAcceptsInterval(org.mockito.ArgumentMatchers.eq(closedStart.toLocalDate()),
                 org.mockito.ArgumentMatchers.eq(closedStart.toLocalTime()), org.mockito.ArgumentMatchers.any())).thenReturn(false);
         Services active = service(5L, "Dọn", "10.00", 60);
-        when(services.findAllById(java.util.List.of(5L))).thenReturn(java.util.List.of(active));
+        when(serviceManagement.findByIds(java.util.List.of(5L))).thenReturn(java.util.List.of(active));
 
         assertThatThrownBy(() -> service.createBooking(12L, 7L, 31L, closedStart, java.util.List.of(5L), null))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("khung giờ hoạt động");
@@ -100,19 +95,19 @@ class BookingReservationServiceTest {
         customer.setUserId(12L);
         customer.setRole(UserRole.CUSTOMER);
         customer.setStatus(UserStatus.ACTIVE);
-        when(users.findById(12L)).thenReturn(Optional.of(customer));
+        when(auth.findActiveCustomer(12L)).thenReturn(customer);
 
         House house = new House();
         house.setHouseId(31L);
         house.setAddress("12 Đường Mẫu, Quận 1");
         house.setLatitude(new BigDecimal("10.0000000"));
         house.setLongitude(new BigDecimal("106.0000000"));
-        when(houses.findLockedByHouseIdAndCustomerIdAndDeletedFalse(31L, 12L)).thenReturn(Optional.of(house));
+        when(houseService.findCustomerHouseForUpdate(12L, 31L)).thenReturn(house);
 
         Staff staff = new Staff();
         staff.setStaffId(7L);
         staff.setStaffType(StaffType.FULL_TIME);
-        when(staffAccounts.findActiveByStaffIdForUpdate(7L)).thenReturn(Optional.of(staff));
+        when(staffManagement.findActiveForBookingUpdate(7L)).thenReturn(staff);
 
         LocalDateTime start = LocalDateTime.now(ZoneOffset.ofHours(7)).plusDays(3)
                 .withHour(10).withMinute(0).withSecond(0).withNano(0);
@@ -121,7 +116,7 @@ class BookingReservationServiceTest {
         when(bookings.isOnApprovedLeave(7L, start.toLocalDate())).thenReturn(false);
         Services inactive = service(5L, "Dọn phòng", "100.00", 60);
         inactive.setStatus(Services.Status.INACTIVE);
-        when(services.findAllById(java.util.List.of(5L))).thenReturn(java.util.List.of(inactive));
+        when(serviceManagement.findByIds(java.util.List.of(5L))).thenReturn(java.util.List.of(inactive));
 
         assertThatThrownBy(() -> service.createBooking(12L, 7L, 31L, start, java.util.List.of(5L), null))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("ngừng hoạt động");
@@ -144,19 +139,19 @@ class BookingReservationServiceTest {
         customer.setUserId(12L);
         customer.setRole(UserRole.CUSTOMER);
         customer.setStatus(UserStatus.ACTIVE);
-        when(users.findById(12L)).thenReturn(Optional.of(customer));
+        when(auth.findActiveCustomer(12L)).thenReturn(customer);
 
         House house = new House();
         house.setHouseId(31L);
         house.setAddress("12 Đường Mẫu, Quận 1");
         house.setLatitude(new BigDecimal("10.0000000"));
         house.setLongitude(new BigDecimal("106.0000000"));
-        when(houses.findLockedByHouseIdAndCustomerIdAndDeletedFalse(31L, 12L)).thenReturn(Optional.of(house));
+        when(houseService.findCustomerHouseForUpdate(12L, 31L)).thenReturn(house);
 
         Staff staff = new Staff();
         staff.setStaffId(7L);
         staff.setStaffType(StaffType.FULL_TIME);
-        when(staffAccounts.findActiveByStaffIdForUpdate(7L)).thenReturn(Optional.of(staff));
+        when(staffManagement.findActiveForBookingUpdate(7L)).thenReturn(staff);
 
         Services first = service(5L, "Dọn phòng", "100.00", 90);
         Services second = service(6L, "Lau bếp", "200.00", 90);
@@ -164,7 +159,7 @@ class BookingReservationServiceTest {
         LocalTime companyClosingTime = LocalTime.of(18, 0);
         assertThat(start.toLocalTime()).isBefore(companyClosingTime);
         assertThat(start.plusMinutes(180).toLocalTime()).isAfter(companyClosingTime);
-        when(services.findAllById(java.util.List.of(5L, 6L))).thenReturn(java.util.List.of(first, second));
+        when(serviceManagement.findByIds(java.util.List.of(5L, 6L))).thenReturn(java.util.List.of(first, second));
         when(bookings.companyAcceptsInterval(start.toLocalDate(), LocalTime.of(17, 30), LocalTime.of(20, 30))).thenReturn(false);
         when(bookings.isOnApprovedLeave(7L, start.toLocalDate())).thenReturn(false);
         when(bookings.hasConflictingBooking(org.mockito.ArgumentMatchers.eq(7L), org.mockito.ArgumentMatchers.any(),
@@ -188,19 +183,19 @@ class BookingReservationServiceTest {
         customer.setUserId(12L);
         customer.setRole(UserRole.CUSTOMER);
         customer.setStatus(UserStatus.ACTIVE);
-        when(users.findById(12L)).thenReturn(Optional.of(customer));
+        when(auth.findActiveCustomer(12L)).thenReturn(customer);
 
         House house = new House();
         house.setHouseId(31L);
         house.setAddress("12 Đường Mẫu, Quận 1");
         house.setLatitude(new BigDecimal("10.0000000"));
         house.setLongitude(new BigDecimal("106.0000000"));
-        when(houses.findLockedByHouseIdAndCustomerIdAndDeletedFalse(31L, 12L)).thenReturn(Optional.of(house));
+        when(houseService.findCustomerHouseForUpdate(12L, 31L)).thenReturn(house);
 
         Staff staff = new Staff();
         staff.setStaffId(7L);
         staff.setStaffType(StaffType.PART_TIME);
-        when(staffAccounts.findActiveByStaffIdForUpdate(7L)).thenReturn(Optional.of(staff));
+        when(staffManagement.findActiveForBookingUpdate(7L)).thenReturn(staff);
 
         LocalDateTime start = LocalDate.now(ZoneOffset.ofHours(7)).plusDays(1).atTime(17, 30);
         LocalTime availabilityEnd = LocalTime.of(18, 0);
@@ -211,7 +206,7 @@ class BookingReservationServiceTest {
         when(bookings.isOnApprovedLeave(7L, start.toLocalDate())).thenReturn(false);
         when(bookings.partTimeAcceptsInterval(7L, start.toLocalDate(), start.toLocalTime(), start.plusMinutes(180).toLocalTime())).thenReturn(false);
         Services cleaning = service(5L, "Dọn phòng", "100.00", 180);
-        when(services.findAllById(java.util.List.of(5L))).thenReturn(java.util.List.of(cleaning));
+        when(serviceManagement.findByIds(java.util.List.of(5L))).thenReturn(java.util.List.of(cleaning));
 
         assertThatThrownBy(() -> service.createBooking(12L, 7L, 31L, start, java.util.List.of(5L), null))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("khoảng sẵn sàng đang hiệu lực");

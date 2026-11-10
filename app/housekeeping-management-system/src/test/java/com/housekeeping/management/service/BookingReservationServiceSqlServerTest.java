@@ -87,6 +87,34 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
     }
 
     @Test
+    void feedbackConversationIncidentAndFinancialMigrationsKeepTwentyOneBusinessTablesAndConstraints() {
+        Integer tables=jdbc.queryForObject("""
+                SELECT COUNT(*) FROM sys.tables t JOIN sys.schemas s ON s.schema_id=t.schema_id
+                WHERE s.name='dbo' AND t.name<>'flyway_primary_schema_history'
+                """,Integer.class);
+        assertThat(tables).isEqualTo(21);
+        Integer v10Columns=jdbc.queryForObject("""
+                SELECT COUNT(*) FROM sys.columns WHERE object_id=OBJECT_ID('dbo.Payments') AND name='is_simulated'
+                """,Integer.class);
+        assertThat(v10Columns).isEqualTo(1);
+        Integer constraints=jdbc.queryForObject("""
+                SELECT COUNT(*) FROM sys.check_constraints
+                WHERE name IN ('CK_Feedback_Cases_Types','CK_Booking_Financial_Entries_Approval',
+                               'CK_Booking_Financial_Entries_Paid','CK_Staff_Incident_Actions_Separation')
+                """,Integer.class);
+        assertThat(constraints).isEqualTo(4);
+        Integer conversationTable=jdbc.queryForObject("SELECT COUNT(*) FROM sys.tables WHERE object_id=OBJECT_ID('dbo.Feedback_Case_Messages')",Integer.class);
+        assertThat(conversationTable).isEqualTo(1);
+        Integer messageChecks=jdbc.queryForObject("SELECT COUNT(*) FROM sys.check_constraints WHERE name IN ('CK_Feedback_Case_Messages_Role','CK_Feedback_Case_Messages_Text')",Integer.class);
+        assertThat(messageChecks).isEqualTo(2);
+        Integer cases=jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Feedback_Cases",Integer.class);
+        Integer initialMessages=jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Feedback_Case_Messages WHERE sender_role='CUSTOMER' AND legacy_imported=1",Integer.class);
+        assertThat(initialMessages).isEqualTo(cases);
+        Integer unlinkedEvidence=jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Feedback_Case_Evidence WHERE message_id IS NULL",Integer.class);
+        assertThat(unlinkedEvidence).isZero();
+    }
+
+    @Test
     void concurrentRequestsForSameStaffAndIntervalAllowOnlyOneBooking() throws Exception {
         String suffix = UUID.randomUUID().toString();
         User firstCustomer = users.saveAndFlush(user("first-" + suffix, UserRole.CUSTOMER));
@@ -338,7 +366,7 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
             throw new IllegalStateException("Concurrent feedback test did not start");
         }
         try {
-            feedbackService.submit(bookingId, customerId, content);
+            feedbackService.submit(bookingId, customerId, 4, List.of(), content);
             return true;
         } catch (IllegalStateException alreadySubmitted) {
             return false;

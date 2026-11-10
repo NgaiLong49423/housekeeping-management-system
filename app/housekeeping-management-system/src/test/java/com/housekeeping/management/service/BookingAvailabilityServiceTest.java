@@ -10,7 +10,6 @@ import com.housekeeping.management.entity.Services;
 import com.housekeeping.management.entity.House;
 import com.housekeeping.management.repository.BookingAvailabilityRepository;
 import com.housekeeping.management.repository.BookingAvailabilityRepository.Interval;
-import com.housekeeping.management.repository.ServicesRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -27,7 +26,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class BookingAvailabilityServiceTest {
     @Mock BookingAvailabilityRepository availability;
     @Mock CompanySettingsService companySettings;
-    @Mock ServicesRepository services;
+    @Mock ServiceManagementService services;
     @Mock HouseService houses;
     @Mock BookingReservationService reservations;
     BookingAvailabilityService service;
@@ -35,10 +34,10 @@ class BookingAvailabilityServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new BookingAvailabilityService(availability,companySettings,services,houses,reservations);
+        service = new com.housekeeping.management.service.impl.BookingAvailabilityServiceImpl(availability,companySettings,services,houses,reservations);
         date = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")).plusDays(3);
         int day = date.getDayOfWeek().getValue();
-        org.mockito.Mockito.lenient().when(services.findAllById(List.of(1L))).thenReturn(List.of(activeService(1L,60)));
+        org.mockito.Mockito.lenient().when(services.findActiveByIds(List.of(1L))).thenReturn(List.of(activeService(1L,60)));
         org.mockito.Mockito.lenient().when(companySettings.operatingHoursForDate(date)).thenReturn(List.of(
                 new OperatingHoursForm(day,false,LocalTime.of(8,0),LocalTime.of(12,0))));
         org.mockito.Mockito.lenient().when(availability.activeStaff()).thenReturn(List.of(
@@ -82,7 +81,7 @@ class BookingAvailabilityServiceTest {
     void availableDatesOnlyReturnsDatesWithAnEligibleRegisteredStaffSlot() {
         LocalDate from=LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh"));
         LocalDate through=from.plusDays(30);
-        when(services.findAllById(List.of(1L))).thenReturn(List.of(activeService(1L,60)));
+        when(services.findActiveByIds(List.of(1L))).thenReturn(List.of(activeService(1L,60)));
         when(availability.activeStaff()).thenReturn(List.of(new BookingAvailabilityRepository.StaffOption(11L,"Part time","PART_TIME")));
         when(availability.activeAvailability(from,through)).thenReturn(List.of(
                 new BookingAvailabilityRepository.DatedInterval(from.plusDays(1),11L,LocalTime.of(9,0),LocalTime.of(12,0))));

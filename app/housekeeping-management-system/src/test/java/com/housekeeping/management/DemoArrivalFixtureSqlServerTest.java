@@ -52,6 +52,6 @@ class DemoArrivalFixtureSqlServerTest extends SqlServerIntegrationTest {
                     'Bookings', 'Booking_Details', 'Booking_Images', 'Payments', 'Feedbacks', 'Staff_Follows'
                   )
                 """, Integer.class)).isEqualTo(15);
-        assertThat(demoFlyway.info().current().getVersion().getVersion()).isEqualTo("8");
+        assertThat(demoFlyway.info().current().getVersion().getVersion()).isEqualTo("13");
     }
 }

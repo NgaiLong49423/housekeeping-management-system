@@ -18,7 +18,7 @@ class HousekeepingManagementSystemApplicationTests extends SqlServerIntegrationT
 
     @Test
     void freshSqlServerSchemaContainsExactlyTheApprovedBusinessTables() {
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("8");
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("13");
         Integer tableCount = jdbc.queryForObject("""
                 SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
                 WHERE TABLE_SCHEMA='dbo' AND TABLE_TYPE='BASE TABLE'
@@ -41,6 +41,10 @@ class HousekeepingManagementSystemApplicationTests extends SqlServerIntegrationT
         assertThat(jdbc.queryForObject("SELECT COL_LENGTH('dbo.Company_Operating_Hours', 'period_no')", Integer.class)).isNotNull();
         assertThat(jdbc.queryForObject("SELECT COL_LENGTH('dbo.Company_Operating_Hours', 'effective_from')", Integer.class)).isNotNull();
         assertThat(jdbc.queryForObject("SELECT COL_LENGTH('dbo.Staff_Availability', 'is_active')", Integer.class)).isNotNull();
+        assertThat(jdbc.queryForObject("SELECT COL_LENGTH('dbo.Feedbacks', 'rating')", Integer.class)).isNotNull();
+        assertThat(jdbc.queryForObject("SELECT COL_LENGTH('dbo.Feedbacks', 'topics')", Integer.class)).isNotNull();
+        String workStartConstraint = jdbc.queryForObject("SELECT definition FROM sys.check_constraints WHERE name='CK_Bookings_Work_Start'", String.class);
+        assertThat(workStartConstraint).contains("staff_arrived_at IS NOT NULL").doesNotContain("start_time");
 
         Integer obsoleteTables = jdbc.queryForObject("""
                 SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
@@ -71,17 +75,9 @@ class HousekeepingManagementSystemApplicationTests extends SqlServerIntegrationT
         assertThat(new ClassPathResource("db/shared/V5__add_effective_dates_to_company_hours.sql").exists()).isTrue();
         assertThat(new ClassPathResource("db/shared/V6__track_booking_arrivals_and_incidents.sql").exists()).isTrue();
         assertThat(new ClassPathResource("db/shared/V8__handle_staff_delay_acknowledgement_and_compensation.sql").exists()).isTrue();
+        assertThat(new ClassPathResource("db/shared/V9__add_customer_feedback_ratings_and_topics.sql").exists()).isTrue();
+        assertThat(new ClassPathResource("db/shared/V12__allow_staff_early_work_start.sql").exists()).isTrue();
+        assertThat(new ClassPathResource("db/shared/V13__add_customer_staff_delay_report.sql").exists()).isTrue();
         assertThat(new ClassPathResource("db/refactor/V7__seed_demo_arrival_booking.sql").exists()).isTrue();
-        assertThat(content).contains("app.booking.arrival-early-confirmation-minutes=5");
-    }
-
-    @Test
-    void nonDemoProfileKeepsArrivalConfirmationWindowClosedUntilStart() throws Exception {
-        var properties = new ClassPathResource("application.properties");
-        String content;
-        try (var input = properties.getInputStream()) {
-            content = new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
-        }
-        assertThat(content).contains("app.booking.arrival-early-confirmation-minutes=0");
     }
 }

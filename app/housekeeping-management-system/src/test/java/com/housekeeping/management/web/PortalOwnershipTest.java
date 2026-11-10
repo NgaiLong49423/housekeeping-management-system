@@ -5,6 +5,7 @@ import static org.mockito.Mockito.*;
 import com.housekeeping.management.dto.response.PortalViews;
 import com.housekeeping.management.service.BookingCancellationService;
 import com.housekeeping.management.service.PortalQueryService;
+import com.housekeeping.management.service.FeedbackService;
 import com.housekeeping.management.repository.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -18,7 +19,7 @@ import org.springframework.security.access.AccessDeniedException;
 class PortalOwnershipTest {
     @Test
     void roleAndIdMustBothMatchToReadBookingOrEvidence() {
-        PortalQueryService query = new PortalQueryService(mock(JdbcTemplate.class), mock(FeedbackRepository.class));
+        PortalQueryService query = new com.housekeeping.management.service.impl.PortalQueryServiceImpl(mock(JdbcTemplate.class), mock(FeedbackService.class));
         var now = OffsetDateTime.now();
         var card = new PortalViews.BookingCard(42L, 1L, 2L, "Customer", "Staff", now, now.plusHours(1), "CONFIRMED", BigDecimal.TEN,
                 null, null, null, null, null);
@@ -32,7 +33,7 @@ class PortalOwnershipTest {
     @Test
     void cancellationCannotChangeAnotherCustomersBookingOrCompletedBooking() {
         BookingPersistenceRepository persistence = mock(BookingPersistenceRepository.class);
-        BookingCancellationService cancellation = new BookingCancellationService(persistence);
+        BookingCancellationService cancellation = new com.housekeeping.management.service.impl.BookingCancellationServiceImpl(persistence);
         LocalDateTime now = LocalDateTime.now(ZoneOffset.ofHours(7)).withNano(0);
         var booking = workflow(1L, "CONFIRMED", now.plusHours(3), null, null);
         when(persistence.lockBookingWorkflow(42L)).thenReturn(Optional.of(booking));
@@ -42,9 +43,9 @@ class PortalOwnershipTest {
         when(persistence.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(1L, "CONFIRMED", now.plusMinutes(119), null, null)));
         assertThatThrownBy(() -> cancellation.cancelByCustomer(42L, 1L)).isInstanceOf(IllegalStateException.class);
         when(persistence.lockBookingWorkflow(42L)).thenReturn(Optional.of(booking));
-        when(persistence.cancel(anyLong(), anyLong(), anyString(), any(LocalDateTime.class))).thenReturn(1);
+        when(persistence.cancelByCustomer(anyLong(), anyLong(), anyString(), any(LocalDateTime.class))).thenReturn(1);
         cancellation.cancelByCustomer(42L, 1L);
-        verify(persistence).cancel(anyLong(), anyLong(), anyString(), any(LocalDateTime.class));
+        verify(persistence).cancelByCustomer(anyLong(), anyLong(), anyString(), any(LocalDateTime.class));
     }
 
     private BookingPersistenceRepository.BookingWorkflowState workflow(Long customerId, String status, LocalDateTime start,

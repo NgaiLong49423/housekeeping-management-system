@@ -1,13 +1,13 @@
 > **Document:** Hướng dẫn môi trường demo\
 > **File:** `docs/demo-setup.md`\
-> **Version:** v2.1.0\
+> **Version:** v2.2.0\
 > **Created:** 2026-10-17\
-> **Last Updated:** 2026-10-25\
+> **Last Updated:** 2026-11-10\
 > **Status:** Draft\
 
 # Chạy môi trường demo
 
-Tài liệu này mô tả cách chạy ứng dụng trên SQL Server local. Profile `demo` dùng database riêng `home_cleaning_demo`; ứng dụng chỉ chạy Flyway migration trong `classpath:db/refactor`. Đây là baseline mới của mô hình Home Cleaning, không phải migration dữ liệu từ database cũ.
+Tài liệu này mô tả cách chạy ứng dụng trên SQL Server local. Profile `demo` dùng database riêng `home_cleaning_demo`; Flyway áp dụng baseline trong `classpath:db/refactor` và các nâng cấp dùng chung trong `classpath:db/shared`. Đây là baseline mới của mô hình Home Cleaning, không phải migration dữ liệu từ database cũ.
 
 ## Chuẩn bị SQL Server
 
@@ -34,7 +34,7 @@ Thông tin database dành cho môi trường demo local:
 | Database | `home_cleaning_demo` |
 | Website | `http://localhost:8080` |
 
-Flyway migration `V3__seed_demo_data.sql` ghi dữ liệu mẫu trực tiếp vào database `home_cleaning_demo`; ứng dụng không còn lớp Java tự chèn dữ liệu mẫu khi khởi động. Migration thêm bốn tài khoản website, hai hồ sơ nhân viên, cấu hình công ty, giờ hoạt động, ba dịch vụ, một địa chỉ nhà và lịch rảnh cho nhân viên part-time. Dữ liệu và mật khẩu của tài khoản đã có không bị ghi đè. Tài khoản mới do migration tạo có mật khẩu ban đầu `Demo@12345`; chỉ dùng trên database demo local. Migration không thay thế quy trình xác minh trên SQL Server.
+Flyway migration `V3__seed_demo_data.sql` ghi dữ liệu mẫu trực tiếp vào database `home_cleaning_demo`; ứng dụng không còn lớp Java tự chèn dữ liệu mẫu khi khởi động. Migration thêm bốn tài khoản website, hai hồ sơ nhân viên, cấu hình công ty, giờ hoạt động, ba dịch vụ, một địa chỉ nhà và lịch rảnh cho nhân viên part-time. V11 thêm tài khoản Manager riêng cho database demo; V15 chuyển tài khoản đó sang role `MANAGER`, có quyền Admin toàn hệ thống và quản lý tài khoản Admin. Tài khoản demo mới có mật khẩu ban đầu `Demo@12345`; chỉ dùng trên database demo local. Dữ liệu và mật khẩu của tài khoản đã có không bị ghi đè. Migration không thay thế quy trình xác minh trên SQL Server.
 
 | Vai trò | Email |
 |---|---|
@@ -42,6 +42,7 @@ Flyway migration `V3__seed_demo_data.sql` ghi dữ liệu mẫu trực tiếp v�
 | Staff part-time | `staff@demo.gonnha.local` |
 | Staff full-time | `staff.fulltime@demo.gonnha.local` |
 | Admin | `admin@demo.gonnha.local` |
+| Manager hệ thống | `manager@demo.gonnha.local` |
 
 Lịch part-time được tạo cho ngày mai theo múi giờ Việt Nam. Đặt lịch cần trước ít nhất 120 phút và trong vòng 30 ngày; nếu lịch được tạo sau giờ hoạt động ngày mai, hãy chọn ngày kế tiếp còn nằm trong cửa sổ cho phép hoặc cập nhật availability qua giao diện Staff.
 

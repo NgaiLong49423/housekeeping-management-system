@@ -21,7 +21,7 @@ class BookingCompletionServiceTest {
     @Test
     void assignedStaffCanStartOnTimeAfterArrival() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
-        var service = new BookingCompletionService(bookings, mock(BookingImageRepository.class));
+        var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, mock(BookingImageRepository.class));
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, "CONFIRMED", start,
                 start, null, null, null)));
         when(bookings.startWork(eq(42L), eq(7L), any())).thenReturn(1);
@@ -32,21 +32,37 @@ class BookingCompletionServiceTest {
     }
 
     @Test
-    void lateArrivalCannotStartWithoutCustomerAcceptance() {
+    void lateArrivalCanStartWithoutOptionalIncidentReport() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
-        var service = new BookingCompletionService(bookings, mock(BookingImageRepository.class));
+        var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, mock(BookingImageRepository.class));
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, "CONFIRMED", start,
-                start.plusMinutes(1), null, start, null)));
+                start.plusMinutes(1), null, null, null)));
+        when(bookings.startWork(eq(42L), eq(7L), any())).thenReturn(1);
 
-        assertThatThrownBy(() -> service.startBooking(42L, 7L))
-                .isInstanceOf(IllegalStateException.class).hasMessageContaining("Customer");
-        verify(bookings, never()).startWork(any(), any(), any());
+        service.startBooking(42L, 7L);
+
+        verify(bookings).startWork(eq(42L), eq(7L), any());
+    }
+
+    @Test
+    void assignedStaffMayStartEarlyAfterConfirmingArrival() {
+        BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
+        var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, mock(BookingImageRepository.class));
+        LocalDateTime futureStart = LocalDateTime.now(java.time.ZoneOffset.ofHours(7)).plusHours(2).withNano(0);
+        LocalDateTime arrivedAt = LocalDateTime.now(java.time.ZoneOffset.ofHours(7)).withNano(0);
+        when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, "CONFIRMED", futureStart,
+                arrivedAt, null, null, null)));
+        when(bookings.startWork(eq(42L), eq(7L), any())).thenReturn(1);
+
+        service.startBooking(42L, 7L);
+
+        verify(bookings).startWork(eq(42L), eq(7L), any());
     }
 
     @Test
     void reportedDelayMustBeAcceptedBeforeWorkStarts() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
-        var service = new BookingCompletionService(bookings, mock(BookingImageRepository.class));
+        var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, mock(BookingImageRepository.class));
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, "CONFIRMED", start,
                 start, null, start.minusMinutes(5), null)));
 
@@ -58,7 +74,7 @@ class BookingCompletionServiceTest {
     @Test
     void wrongStaffCannotStartAndStartBeforeArrivalIsRejected() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
-        var service = new BookingCompletionService(bookings, mock(BookingImageRepository.class));
+        var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, mock(BookingImageRepository.class));
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, "CONFIRMED", start,
                 start, null, null, null))).thenReturn(Optional.of(workflow(7L, "CONFIRMED", start,
                 null, null, null, null)));
@@ -73,7 +89,7 @@ class BookingCompletionServiceTest {
     void startedWorkNeedsEvidenceBeforeMovingToAwaitingPayment() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
         BookingImageRepository images = mock(BookingImageRepository.class);
-        var service = new BookingCompletionService(bookings, images);
+        var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, images);
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, "CONFIRMED", start,
                 start, start.plusMinutes(1), null, null)));
         when(images.hasEvidence(42L)).thenReturn(true);
@@ -88,7 +104,7 @@ class BookingCompletionServiceTest {
     void cannotCompleteBeforeStartOrWithoutEvidence() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
         BookingImageRepository images = mock(BookingImageRepository.class);
-        var service = new BookingCompletionService(bookings, images);
+        var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, images);
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, "CONFIRMED", start,
                 start, null, null, null))).thenReturn(Optional.of(workflow(7L, "CONFIRMED", start,
                 start, start.plusMinutes(1), null, null)));

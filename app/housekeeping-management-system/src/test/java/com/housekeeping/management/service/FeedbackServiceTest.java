@@ -3,52 +3,77 @@ package com.housekeeping.management.service;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
-import com.housekeeping.management.repository.BookingPersistenceRepository;
 import com.housekeeping.management.repository.FeedbackRepository;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.access.AccessDeniedException;
 
 class FeedbackServiceTest {
-    private BookingPersistenceRepository bookings;
+    private BookingReservationService bookings;
     private FeedbackRepository feedback;
     private AccountAuthorizationService authorization;
     private FeedbackService service;
 
     @BeforeEach
     void setUp() {
-        bookings = mock(BookingPersistenceRepository.class);
+        bookings = mock(BookingReservationService.class);
         feedback = mock(FeedbackRepository.class);
         authorization = mock(AccountAuthorizationService.class);
-        service = new FeedbackService(bookings, feedback, authorization);
+        service = new com.housekeeping.management.service.impl.FeedbackServiceImpl(bookings, feedback, authorization);
     }
 
     @Test
-    void customerCanSubmitTextFeedbackOnceAfterSuccessfulPayment() {
-        when(bookings.lockBooking(30L)).thenReturn(Optional.of(booking(4L, "COMPLETED")));
+    void customerCanSubmitRatedFeedbackOnceAfterSuccessfulPayment() {
+        when(bookings.lockBookingForFeedback(30L)).thenReturn(Optional.of(booking(4L, "COMPLETED")));
         when(feedback.existsForBooking(30L)).thenReturn(false);
 
-        service.submit(30L, 4L, "  Nhân viên làm việc cẩn thận.  ");
+        service.submit(30L, 4L, 5, List.of("CLEANING_QUALITY"), "  Nhân viên làm việc cẩn thận.  ");
 
-        verify(feedback).create(30L, 4L, "Nhân viên làm việc cẩn thận.");
+        verify(feedback).create(30L, 4L, 5, List.of("CLEANING_QUALITY"), "Nhân viên làm việc cẩn thận.");
     }
 
     @Test
     void feedbackRequiresBookingOwnershipCompletedStatusAndNoExistingFeedback() {
-        when(bookings.lockBooking(30L)).thenReturn(Optional.of(booking(4L, "COMPLETED")));
-        assertThatThrownBy(() -> service.submit(30L, 5L, "Góp ý"))
+        when(bookings.lockBookingForFeedback(30L)).thenReturn(Optional.of(booking(4L, "COMPLETED")));
+        assertThatThrownBy(() -> service.submit(30L, 5L, 2, List.of(), "Góp ý"))
                 .isInstanceOf(AccessDeniedException.class);
 
-        when(bookings.lockBooking(31L)).thenReturn(Optional.of(booking(4L, "AWAITING_PAYMENT")));
-        assertThatThrownBy(() -> service.submit(31L, 4L, "Góp ý"))
+        when(bookings.lockBookingForFeedback(31L)).thenReturn(Optional.of(booking(4L, "AWAITING_PAYMENT")));
+        assertThatThrownBy(() -> service.submit(31L, 4L, 2, List.of(), "Góp ý"))
                 .isInstanceOf(IllegalStateException.class);
 
         when(feedback.existsForBooking(30L)).thenReturn(true);
-        assertThatThrownBy(() -> service.submit(30L, 4L, "Góp ý"))
+        assertThatThrownBy(() -> service.submit(30L, 4L, 2, List.of(), "Góp ý"))
                 .isInstanceOf(IllegalStateException.class);
-        verify(feedback, never()).create(anyLong(), anyLong(), anyString());
+        verify(feedback, never()).create(anyLong(), anyLong(), anyInt(), anyList(), any());
+    }
+
+    @Test
+    void validatesRatingTopicsAndConditionalMessageAndAllowsEditingBeforeReply() {
+        when(bookings.lockBookingForFeedback(30L)).thenReturn(Optional.of(booking(4L, "COMPLETED")));
+        when(feedback.update(30L, 4L, 5, List.of("TIMELINESS"), null)).thenReturn(1);
+
+        assertThatThrownBy(() -> service.submit(30L, 4L, 0, List.of(), "Bad rating"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.submit(30L, 4L, 2, List.of(), " "))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.submit(30L, 4L, 4, List.of("UNKNOWN"), null))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        service.update(30L, 4L, 5, List.of("TIMELINESS"), " ");
+        verify(feedback).update(30L, 4L, 5, List.of("TIMELINESS"), null);
+    }
+
+    @Test
+    void customerCannotEditAfterAdminReply() {
+        when(bookings.lockBookingForFeedback(30L)).thenReturn(Optional.of(booking(4L, "COMPLETED")));
+        when(feedback.existsForBooking(30L)).thenReturn(true);
+        when(feedback.update(30L, 4L, 5, List.of(), null)).thenReturn(0);
+        assertThatThrownBy(() -> service.update(30L, 4L, 5, List.of(), null))
+                .isInstanceOf(IllegalStateException.class);
     }
 
     @Test
@@ -81,8 +106,7 @@ class FeedbackServiceTest {
         verify(feedback, never()).resolve(anyLong());
     }
 
-    private BookingPersistenceRepository.BookingState booking(Long customerId, String status) {
-        return new BookingPersistenceRepository.BookingState(30L, customerId, 8L, 9L,
-                LocalDateTime.now(), LocalDateTime.now().plusHours(1), status);
+    private BookingReservationService.BookingFeedbackState booking(Long customerId, String status) {
+        return new BookingReservationService.BookingFeedbackState(customerId, status);
     }
 }

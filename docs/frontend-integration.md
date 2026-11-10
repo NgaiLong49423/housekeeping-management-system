@@ -1,8 +1,8 @@
 > **Document:** Frontend–Backend Integration Guide\
 > **File:** `docs/frontend-integration.md`\
-> **Version:** v2.4.0\
+> **Version:** v2.5.1\
 > **Created:** 2026-10-16\
-> **Last Updated:** 2026-11-08\
+> **Last Updated:** 2026-11-10\
 > **Status:** Draft
 
 # Kết Nối Giao Diện Gọn Nhà Với Backend
@@ -15,7 +15,7 @@ Giữ tông xanh ngọc, ảnh, thẻ dịch vụ, khu vực giới thiệu, for
 
 Không sao chép các chức năng ngoài baseline từ mẫu: tự chuyển vai trò trên giao diện, dữ liệu localStorage/mock, đặt lịch định kỳ, tự điều phối nhân viên và các trạng thái pending/assigned/in_progress. Customer chọn địa chỉ từ VietMap; frontend chỉ gọi endpoint backend, tuyệt đối không nhận Services API key. Admin được trả lời và giải quyết Feedback dạng văn bản; không dùng quy trình kiểm duyệt Feedback của mẫu.
 
-Ứng dụng hiện tổ chức theo MVC–N-Layer: Controller nhận request và dựng view model; Service xử lý use case, phân quyền sở hữu và transaction; Repository/JDBC truy vấn SQL Server; Entity ánh xạ 15 bảng của baseline mới. Các luồng được chia theo nghiệp vụ (Booking, Payment, Staff, House, Feedback, Company Settings); không đặt quy tắc nghiệp vụ trong template hoặc Controller. Cấu trúc package mặc định được mô tả trong [hướng dẫn Java](architecture/java-package-structure.md).
+Ứng dụng hiện tổ chức theo MVC–N-Layer: Controller phụ thuộc service interface; implementation xử lý use case, phân quyền sở hữu và transaction trong `service/impl/`; Repository/JDBC truy vấn SQL Server; Entity ánh xạ các bảng JPA trong schema 20 bảng. Cấu hình mức giảm đến trễ được truy vấn bằng JDBC. Các luồng được chia theo nghiệp vụ (Booking, Payment, Staff, House, Feedback, Company Settings); không đặt quy tắc nghiệp vụ trong template hoặc Controller. Cấu trúc package mặc định được mô tả trong [hướng dẫn Java](architecture/java-package-structure.md).
 
 ## Cách kết nối
 

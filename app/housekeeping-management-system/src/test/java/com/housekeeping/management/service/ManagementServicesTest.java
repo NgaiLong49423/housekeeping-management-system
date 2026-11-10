@@ -37,7 +37,7 @@ class ManagementServicesTest {
         EntityManager entities = mock(EntityManager.class);
         PasswordEncoder passwords = mock(PasswordEncoder.class);
         when(passwords.encode("secret")).thenReturn("bcrypt-hash");
-        new RegistrationService(entities, unlockedEmails(), passwords).registerCustomer(
+        new com.housekeeping.management.service.impl.RegistrationServiceImpl(entities, unlockedEmails(), passwords).registerCustomer(
                 new PortalForms.CustomerRegistrationForm(" Customer ", " Customer@Example.test ",
                         " 0900000000 ", "secret", "secret"));
         var captured = org.mockito.ArgumentCaptor.forClass(User.class);
@@ -55,8 +55,8 @@ class ManagementServicesTest {
         EntityManager entities = mock(EntityManager.class);
         PasswordEncoder passwords = mock(PasswordEncoder.class);
         when(passwords.encode("staff-secret")).thenReturn("staff-hash");
-        StaffManagementService service = new StaffManagementService(entities, mock(StaffAccountRepository.class),
-                mock(BookingPersistenceRepository.class),
+        StaffManagementService service = new com.housekeeping.management.service.impl.StaffManagementServiceImpl(entities, mock(StaffAccountRepository.class),
+                mock(BookingStaffEligibilityService.class),
                 unlockedEmails(), passwords, mock(AccountAuthorizationService.class));
         service.create(99L, new PortalForms.StaffCreateForm("Staff Name", "staff@example.test", "staff-secret",
                 "0900000001", StaffType.PART_TIME));
@@ -72,7 +72,7 @@ class ManagementServicesTest {
     @Test
     void deactivationRetainsStaffAndServiceRowsAndAllowsReactivation() {
         StaffAccountRepository staffAccounts = mock(StaffAccountRepository.class);
-        BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
+        BookingStaffEligibilityService bookings = mock(BookingStaffEligibilityService.class);
         ServicesRepository services = mock(ServicesRepository.class);
         User user = new User(); user.setStatus(UserStatus.ACTIVE);
         Staff staff = new Staff(); staff.setUser(user);
@@ -80,9 +80,9 @@ class ManagementServicesTest {
         when(staffAccounts.findByStaffIdForUpdate(9L)).thenReturn(Optional.of(staff));
         when(staffAccounts.findById(9L)).thenReturn(Optional.of(staff));
         when(services.findById(4L)).thenReturn(Optional.of(service));
-        StaffManagementService staffManagement = new StaffManagementService(mock(EntityManager.class), staffAccounts, bookings,
+        StaffManagementService staffManagement = new com.housekeeping.management.service.impl.StaffManagementServiceImpl(mock(EntityManager.class), staffAccounts, bookings,
                 mock(GlobalEmailUniquenessService.class), mock(PasswordEncoder.class), mock(AccountAuthorizationService.class));
-        ServiceManagementService serviceManagement = new ServiceManagementService(services, mock(AccountAuthorizationService.class));
+        ServiceManagementService serviceManagement = new com.housekeeping.management.service.impl.ServiceManagementServiceImpl(services, mock(AccountAuthorizationService.class));
         staffManagement.deactivate(99L, 9L); serviceManagement.deactivate(99L, 4L);
         assertThat(user.getStatus()).isEqualTo(UserStatus.INACTIVE);
         assertThat(service.getStatus()).isEqualTo(Services.Status.INACTIVE);
@@ -94,12 +94,12 @@ class ManagementServicesTest {
     @Test
     void staffCannotBeDeactivatedWhileUnfinishedBookingsRemain() {
         StaffAccountRepository staffAccounts = mock(StaffAccountRepository.class);
-        BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
+        BookingStaffEligibilityService bookings = mock(BookingStaffEligibilityService.class);
         User user = new User(); user.setStatus(UserStatus.ACTIVE);
         Staff staff = new Staff(); staff.setUser(user);
         when(staffAccounts.findByStaffIdForUpdate(9L)).thenReturn(Optional.of(staff));
         when(bookings.hasUnfinishedBookingForStaff(9L)).thenReturn(true);
-        StaffManagementService service = new StaffManagementService(mock(EntityManager.class), staffAccounts, bookings,
+        StaffManagementService service = new com.housekeeping.management.service.impl.StaffManagementServiceImpl(mock(EntityManager.class), staffAccounts, bookings,
                 mock(GlobalEmailUniquenessService.class), mock(PasswordEncoder.class), mock(AccountAuthorizationService.class));
 
         assertThatThrownBy(() -> service.deactivate(99L, 9L))
@@ -112,7 +112,7 @@ class ManagementServicesTest {
     @Test
     void serviceSaveKeepsTheApprovedFieldsAndDefaultsNewServiceToActive() {
         ServicesRepository services = mock(ServicesRepository.class);
-        new ServiceManagementService(services, mock(AccountAuthorizationService.class)).save(99L, null,
+        new com.housekeeping.management.service.impl.ServiceManagementServiceImpl(services, mock(AccountAuthorizationService.class)).save(99L, null,
                 new PortalForms.ServiceForm("  Dọn nhà  ", "Mô tả", 90, new BigDecimal("125000.00")));
         var captured = org.mockito.ArgumentCaptor.forClass(Services.class);
         verify(services).saveAndFlush(captured.capture());
@@ -136,7 +136,7 @@ class ManagementServicesTest {
         when(settings.findOperatingHoursForDate(workDate)).thenReturn(java.util.stream.IntStream.rangeClosed(1,7).mapToObj(day -> new PortalForms.OperatingHoursForm(day, false, LocalTime.of(6,0), LocalTime.of(21,0))).toList());
         when(settings.findSettings()).thenReturn(Optional.of(new PortalForms.CompanySettingsForm("Office", java.math.BigDecimal.ZERO, java.math.BigDecimal.ZERO, java.math.BigDecimal.TEN,
                 java.util.stream.IntStream.rangeClosed(1,7).mapToObj(day -> new PortalForms.OperatingHoursForm(day, false, LocalTime.of(6,0), LocalTime.of(21,0))).toList())));
-        StaffAvailabilityService service = new StaffAvailabilityService(staffAccounts, availability, settings);
+        StaffAvailabilityService service = availabilityService(staffAccounts, availability, settings);
         assertThatThrownBy(() -> service.save(800L, null, new PortalForms.AvailabilityForm(
                 workDate, LocalTime.of(9, 0), LocalTime.of(12, 0))))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("bị chồng");
@@ -152,7 +152,7 @@ class ManagementServicesTest {
         staff.setStaffId(8L);
         when(staffAccounts.findActiveByUserIdForUpdate(800L)).thenReturn(Optional.of(staff));
         when(availability.containsExistingBookingStart(25L, 8L)).thenReturn(true);
-        StaffAvailabilityService service = new StaffAvailabilityService(staffAccounts, availability, mock(com.housekeeping.management.repository.CompanySettingsRepository.class));
+        StaffAvailabilityService service = availabilityService(staffAccounts, availability, mock(com.housekeeping.management.repository.CompanySettingsRepository.class));
 
         assertThatThrownBy(() -> service.save(800L, 25L, new PortalForms.AvailabilityForm(
                 LocalDate.of(2026, 11, 3), LocalTime.of(10, 0), LocalTime.of(13, 0))))
@@ -171,7 +171,7 @@ class ManagementServicesTest {
         when(settings.findOperatingHoursForDate(any())).thenReturn(java.util.stream.IntStream.rangeClosed(1, 7)
                 .mapToObj(day -> new PortalForms.OperatingHoursForm(day, false, LocalTime.of(6, 0), LocalTime.of(21, 0))).toList());
         when(availability.insert(eq(8L), any(), eq(LocalTime.of(9, 0)), eq(LocalTime.of(12, 0)))).thenReturn(1);
-        StaffAvailabilityService service = new StaffAvailabilityService(staffAccounts, availability, settings);
+        StaffAvailabilityService service = availabilityService(staffAccounts, availability, settings);
         LocalDate monday = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
         while (monday.getDayOfWeek() != java.time.DayOfWeek.MONDAY) monday = monday.plusDays(1);
 
@@ -195,7 +195,7 @@ class ManagementServicesTest {
         when(settings.findOperatingHoursForDate(workDate)).thenReturn(List.of(
                 new PortalForms.OperatingHoursForm(workDate.getDayOfWeek().getValue(), false, LocalTime.of(6, 0), LocalTime.of(21, 0))));
         when(availability.insert(eq(8L), eq(workDate), any(), any())).thenReturn(1);
-        StaffAvailabilityService service = new StaffAvailabilityService(staffAccounts, availability, settings);
+        StaffAvailabilityService service = availabilityService(staffAccounts, availability, settings);
 
         int inserted = service.saveForDate(800L, workDate,
                 List.of(LocalTime.of(6, 0), LocalTime.of(13, 0)),
@@ -217,7 +217,7 @@ class ManagementServicesTest {
         when(settings.findOperatingHoursForDate(workDate)).thenReturn(List.of(
                 new PortalForms.OperatingHoursForm(workDate.getDayOfWeek().getValue(), false, LocalTime.of(6, 0), LocalTime.of(21, 0))));
         when(availability.insert(eq(8L), eq(workDate), any(), any())).thenReturn(1);
-        StaffAvailabilityService service = new StaffAvailabilityService(staffAccounts, availability, settings);
+        StaffAvailabilityService service = availabilityService(staffAccounts, availability, settings);
 
         assertThatThrownBy(() -> service.saveForDate(800L, workDate,
                 List.of(LocalTime.of(8, 0), LocalTime.of(11, 0)),
@@ -235,7 +235,7 @@ class ManagementServicesTest {
         staff.setStaffId(8L);
         when(staffAccounts.findActiveByUserIdForUpdate(800L)).thenReturn(Optional.of(staff));
         when(availability.containsFutureConfirmedBooking(25L, 8L)).thenReturn(true);
-        StaffAvailabilityService service = new StaffAvailabilityService(staffAccounts, availability, mock(com.housekeeping.management.repository.CompanySettingsRepository.class));
+        StaffAvailabilityService service = availabilityService(staffAccounts, availability, mock(com.housekeeping.management.repository.CompanySettingsRepository.class));
 
         assertThatThrownBy(() -> service.delete(800L, 25L))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("Booking CONFIRMED");
@@ -252,5 +252,15 @@ class ManagementServicesTest {
             return create.apply(GlobalEmailUniquenessService.canonicalize(call.getArgument(0)));
         });
         return emails;
+    }
+
+    private StaffAvailabilityService availabilityService(StaffAccountRepository staffAccounts,
+            StaffAvailabilityRepository availability, com.housekeeping.management.repository.CompanySettingsRepository settings) {
+        StaffManagementService staffManagement = mock(StaffManagementService.class);
+        when(staffManagement.findActiveByUserIdForUpdate(any())).thenAnswer(call ->
+                staffAccounts.findActiveByUserIdForUpdate(call.getArgument(0)).orElseThrow());
+        CompanySettingsService companySettings = mock(CompanySettingsService.class);
+        when(companySettings.operatingHoursForDate(any())).thenAnswer(call -> settings.findOperatingHoursForDate(call.getArgument(0)));
+        return new com.housekeeping.management.service.impl.StaffAvailabilityServiceImpl(staffManagement, availability, companySettings);
     }
 }

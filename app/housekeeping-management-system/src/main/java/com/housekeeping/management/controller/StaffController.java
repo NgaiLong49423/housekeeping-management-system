@@ -13,6 +13,7 @@ import com.housekeeping.management.service.EvidenceStorageService;
 import com.housekeeping.management.service.PortalQueryService;
 import com.housekeeping.management.service.StaffAvailabilityService;
 import com.housekeeping.management.service.StaffFollowService;
+import com.housekeeping.management.service.StaffIncidentNoticeService;
 import com.housekeeping.management.web.PortalMessages;
 import com.housekeeping.management.web.PortalUser;
 import jakarta.validation.Valid;
@@ -60,10 +61,11 @@ public class StaffController {
     private final BookingArrivalService arrival;
     private final BookingIncidentService incidents;
     private final EvidenceStorageService storage;
+    private final StaffIncidentNoticeService incidentNotices;
     private final Path evidenceRoot;
 
     public StaffController(PortalQueryService query, StaffAvailabilityService availability, CompanySettingsService companySettings, StaffFollowService follows,
-            BookingCompletionService completion, BookingArrivalService arrival, BookingIncidentService incidents, EvidenceStorageService storage,
+            BookingCompletionService completion, BookingArrivalService arrival, BookingIncidentService incidents, EvidenceStorageService storage, StaffIncidentNoticeService incidentNotices,
             @Value("${app.evidence.storage-root:./var/evidence}") String evidenceRoot) {
         this.query = query;
         this.availability = availability;
@@ -73,6 +75,7 @@ public class StaffController {
         this.arrival = arrival;
         this.incidents = incidents;
         this.storage = storage;
+        this.incidentNotices=incidentNotices;
         this.evidenceRoot = Path.of(evidenceRoot).toAbsolutePath().normalize();
     }
 
@@ -100,6 +103,19 @@ public class StaffController {
                     LocalDate.now(ZoneOffset.ofHours(7)), LocalTime.of(8, 0), LocalTime.of(12, 0)), ownSchedules, weekStart);
         }
         return "schedules";
+    }
+
+    @GetMapping("/staff/incident-actions")
+    String incidentActions(@AuthenticationPrincipal PortalUser user, Model model) {
+        model.addAttribute("actions",incidentNotices.ownApprovedActions(user.getAccountId()));
+        return "staff/incident-actions";
+    }
+
+    @PostMapping("/staff/incident-actions/{id}/acknowledge")
+    String acknowledgeIncidentAction(@PathVariable Long id, @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
+        try { incidentNotices.acknowledge(id,user.getAccountId()); flash.addFlashAttribute("success","Đã xác nhận đã nhận thông báo; thao tác này không đồng nghĩa thừa nhận lỗi."); }
+        catch (IllegalStateException failure) { flash.addFlashAttribute("error",failure.getMessage()); }
+        return "redirect:/staff/incident-actions";
     }
 
     @PostMapping("/staff/schedules")

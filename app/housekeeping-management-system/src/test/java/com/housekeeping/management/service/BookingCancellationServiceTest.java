@@ -10,12 +10,17 @@ class BookingCancellationServiceTest {
 
     @Test
     void acceptsCancellationAtExactTwoHourBoundary() {
-        assertThat(BookingCancellationService.canCustomerCancel("CONFIRMED", START, START.minusHours(2))).isTrue();
+        assertThat(BookingCancellationService.canCustomerCancel("CONFIRMED", START, START.minusHours(2), null)).isTrue();
     }
 
     @Test
     void rejectsCancellationInsideTwoHourWindowAndNonConfirmedBooking() {
-        assertThat(BookingCancellationService.canCustomerCancel("CONFIRMED", START, START.minusMinutes(119))).isFalse();
-        assertThat(BookingCancellationService.canCustomerCancel("AWAITING_PAYMENT", START, START.minusHours(3))).isFalse();
+        assertThat(BookingCancellationService.canCustomerCancel("CONFIRMED", START, START.minusMinutes(119), null)).isFalse();
+        assertThat(BookingCancellationService.canCustomerCancel("AWAITING_PAYMENT", START, START.minusHours(3), null)).isFalse();
+    }
+
+    @Test
+    void rejectsCustomerCancellationAfterEarlyWorkHasStarted() {
+        assertThat(BookingCancellationService.canCustomerCancel("CONFIRMED", START, START.minusHours(3), START.minusHours(4))).isFalse();
     }
 }

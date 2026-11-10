@@ -8,7 +8,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import java.time.LocalDate;
 
 public interface StaffLeaveRepository extends JpaRepository<StaffLeave, Long> {
     List<StaffLeave> findAllByStaff_StaffIdOrderByCreatedAtDesc(Long staffId);
@@ -20,6 +19,4 @@ public interface StaffLeaveRepository extends JpaRepository<StaffLeave, Long> {
     @Query("select request from StaffLeave request where request.leaveId = :leaveId")
     Optional<StaffLeave> findByIdForUpdate(@Param("leaveId") Long leaveId);
 
-    @Query(value = "SELECT booking_id FROM dbo.Bookings WHERE staff_id=:staffId AND status='CONFIRMED' AND end_time>SYSDATETIME() AND CONVERT(date,start_time) BETWEEN :startDate AND :endDate ORDER BY start_time", nativeQuery = true)
-    List<Long> findFutureConfirmedBookingIds(@Param("staffId") Long staffId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 }

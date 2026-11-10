@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Thông báo xử lý nội bộ')}"><title>Thông báo nội bộ · Gọn Nhà</title></head>
+<body>
+<header th:replace="~{fragments/layout :: header('incident-actions')}"></header>
+<main id="main" class="container py-4 py-md-5">
+  <div class="page-heading"><span class="eyebrow">Nhân viên · Thông tin riêng</span><h1>Thông báo xử lý nội bộ</h1>
+    <p class="lead">Chỉ hiển thị quyết định đã được Manager duyệt. Xác nhận đã nhận không đồng nghĩa với thừa nhận lỗi.</p></div>
+  <div th:replace="~{fragments/layout :: alerts}"></div>
+  <section class="surface p-4">
+    <p th:if="${#lists.isEmpty(actions)}" class="text-secondary mb-0">Chưa có quyết định nội bộ nào được gửi cho bạn.</p>
+    <article th:each="action : ${actions}" class="border-bottom py-4">
+      <h2 class="h6" th:text="${action.typeLabel}">Nhắc nhở</h2>
+      <p style="white-space:pre-wrap" th:text="${action.notice}">Nội dung thông báo</p>
+      <p class="small text-secondary" th:text="|Quyết định ngày ${action.decidedAt}|">Ngày duyệt</p>
+      <form th:if="${action.acknowledgedAt == null}" method="post" th:action="@{/staff/incident-actions/{id}/acknowledge(id=${action.id})}">
+        <button class="btn btn-outline-primary" type="submit">Xác nhận đã nhận</button>
+      </form>
+      <p th:if="${action.acknowledgedAt != null}" class="small text-success">Đã xác nhận nhận thông báo.</p>
+    </article>
+  </section>
+</main>
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

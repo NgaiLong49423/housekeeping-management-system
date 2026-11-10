@@ -47,4 +47,7 @@ public class Payment {
 
     @Column(name = "paid_at")
     private LocalDateTime paidAt;
+
+    @Column(name = "is_simulated", nullable = false)
+    private boolean simulated;
 }

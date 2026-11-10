@@ -20,7 +20,7 @@ class BookingIncidentServiceTest {
     @Test
     void assignedStaffCanReportAnExpectedArrivalAndNoteIsTrimmed() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
-        BookingIncidentService service = new BookingIncidentService(bookings);
+        BookingIncidentService service = new com.housekeeping.management.service.impl.BookingIncidentServiceImpl(bookings);
         var booking = booking(7L, "CONFIRMED", LocalDateTime.now(ZoneOffset.ofHours(7)).plusDays(1), null, null, null);
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(booking));
         when(bookings.reportStaffIncident(eq(42L), eq(7L), eq("kẹt xe"), any(), any())).thenReturn(1);
@@ -34,7 +34,7 @@ class BookingIncidentServiceTest {
     @Test
     void canCompleteLegacyIncidentWithoutEtaByAddingEtaBeforeWorkStarts() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
-        BookingIncidentService service = new BookingIncidentService(bookings);
+        BookingIncidentService service = new com.housekeeping.management.service.impl.BookingIncidentServiceImpl(bookings);
         LocalDateTime start = LocalDateTime.now(ZoneOffset.ofHours(7)).plusMinutes(10).withNano(0);
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(booking(7L, "CONFIRMED", start,
                 start.minusMinutes(1), null, null)));
@@ -48,7 +48,7 @@ class BookingIncidentServiceTest {
     @Test
     void rejectsUnassignedStaffAndInvalidEtaOrNote() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
-        BookingIncidentService service = new BookingIncidentService(bookings);
+        BookingIncidentService service = new com.housekeeping.management.service.impl.BookingIncidentServiceImpl(bookings);
         LocalDateTime start = LocalDateTime.now(ZoneOffset.ofHours(7)).plusDays(1);
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(booking(7L, "CONFIRMED", start, null, null, null)));
 
@@ -65,7 +65,7 @@ class BookingIncidentServiceTest {
     @Test
     void rejectsReportAfterWorkStartsAndDuplicateReport() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
-        BookingIncidentService service = new BookingIncidentService(bookings);
+        BookingIncidentService service = new com.housekeeping.management.service.impl.BookingIncidentServiceImpl(bookings);
         LocalDateTime start = LocalDateTime.now(ZoneOffset.ofHours(7)).plusDays(1);
         when(bookings.lockBookingWorkflow(42L))
                 .thenReturn(Optional.of(booking(7L, "CONFIRMED", start, null, start, null)))
@@ -80,7 +80,7 @@ class BookingIncidentServiceTest {
     @Test
     void customerAcceptanceStoresResponseAndCalculatedDiscount() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
-        BookingIncidentService service = new BookingIncidentService(bookings);
+        BookingIncidentService service = new com.housekeeping.management.service.impl.BookingIncidentServiceImpl(bookings);
         LocalDateTime start = LocalDateTime.now(ZoneOffset.ofHours(7)).minusMinutes(20).withNano(0);
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(booking(7L, "CONFIRMED", start,
                 start.plusMinutes(20), null, start.plusMinutes(25))));
@@ -98,7 +98,7 @@ class BookingIncidentServiceTest {
     @Test
     void declineCancelsWithoutAnyDiscountAndNonOwnerCannotRespond() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
-        BookingIncidentService service = new BookingIncidentService(bookings);
+        BookingIncidentService service = new com.housekeeping.management.service.impl.BookingIncidentServiceImpl(bookings);
         LocalDateTime start = LocalDateTime.now(ZoneOffset.ofHours(7)).plusMinutes(10).withNano(0);
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(booking(7L, "CONFIRMED", start, null, null, start.plusMinutes(15))))
                 .thenReturn(Optional.of(new BookingPersistenceRepository.BookingWorkflowState(42L, 8L, 7L,

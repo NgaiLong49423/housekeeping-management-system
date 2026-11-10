@@ -25,6 +25,34 @@
         </section>
         <button class="btn btn-primary company-save-button mb-4" type="submit">▣ <span>Lưu vị trí và bán kính</span></button>
       </form>
+      <section id="delay-compensation" class="company-settings-panel mb-4">
+        <div class="company-settings-panel-heading"><span class="settings-section-icon" aria-hidden="true">%</span><div><h2>Mức giảm khi nhân viên đến trễ</h2><p>Áp dụng cho booking chưa ghi nhận nhân viên đến. Booking đã tính giảm giữ nguyên phần trăm và số tiền đã lưu.</p></div></div>
+        <form method="post" th:action="@{/admin/settings/delay-compensation}" th:object="${delaySettingsForm}" class="p-3 p-md-4">
+          <div class="table-responsive">
+            <table class="table align-middle">
+              <thead><tr><th scope="col">Từ phút trễ</th><th scope="col">Đến phút trễ</th><th scope="col">Giảm (%)</th><th scope="col"><span class="visually-hidden">Thao tác</span></th></tr></thead>
+              <tbody id="delay-tier-rows">
+                <tr th:each="tier, stat : *{tiers}" data-delay-tier>
+                  <td><input class="form-control" type="number" min="1" step="1" required th:field="*{tiers[__${stat.index}__].minDelayMinutes}" aria-label="Từ phút trễ"></td>
+                  <td><input class="form-control" type="number" min="1" step="1" th:field="*{tiers[__${stat.index}__].maxDelayMinutes}" aria-label="Đến phút trễ" placeholder="Không giới hạn"></td>
+                  <td><input class="form-control" type="number" min="0" max="100" step="1" required th:field="*{tiers[__${stat.index}__].discountPercent}" aria-label="Phần trăm giảm"></td>
+                  <td><button class="btn btn-outline-danger" type="button" data-remove-delay-tier>Xóa</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <template id="delay-tier-template"><tr data-delay-tier>
+            <td><input class="form-control" type="number" min="1" step="1" required data-delay-min aria-label="Từ phút trễ"></td>
+            <td><input class="form-control" type="number" min="1" step="1" data-delay-max aria-label="Đến phút trễ" placeholder="Không giới hạn"></td>
+            <td><input class="form-control" type="number" min="0" max="100" step="1" required data-delay-percent aria-label="Phần trăm giảm"></td>
+            <td><button class="btn btn-outline-danger" type="button" data-remove-delay-tier>Xóa</button></td>
+          </tr></template>
+          <div class="d-flex flex-wrap gap-2">
+            <button id="add-delay-tier" class="btn btn-outline-primary" type="button">＋ Thêm mức</button>
+            <button class="btn btn-primary" type="submit">Lưu mức giảm</button>
+          </div>
+        </form>
+      </section>
       <section class="company-settings-panel mb-4">
         <div class="company-settings-panel-heading"><span class="settings-section-icon" aria-hidden="true">▦</span><div><h2>Phiên bản lịch tuần</h2><p>Lịch cũ tự áp dụng đến trước ngày hiệu lực kế tiếp.</p></div></div>
         <div class="p-3 d-flex flex-wrap gap-2 align-items-center">
@@ -82,6 +110,26 @@
         </fieldset>
       </form>
     </main>
+    <script>
+      (() => {
+        const rows = document.querySelector('#delay-tier-rows');
+        const template = document.querySelector('#delay-tier-template');
+        const reindex = () => rows.querySelectorAll('[data-delay-tier]').forEach((row, index) => {
+          row.querySelector('[data-delay-min], input[aria-label="Từ phút trễ"]').name = `tiers[${index}].minDelayMinutes`;
+          row.querySelector('[data-delay-max], input[aria-label="Đến phút trễ"]').name = `tiers[${index}].maxDelayMinutes`;
+          row.querySelector('[data-delay-percent], input[aria-label="Phần trăm giảm"]').name = `tiers[${index}].discountPercent`;
+        });
+        const bindRemove = row => row.querySelector('[data-remove-delay-tier]').addEventListener('click', () => { row.remove(); reindex(); });
+        rows.querySelectorAll('[data-delay-tier]').forEach(bindRemove);
+        document.querySelector('#add-delay-tier').addEventListener('click', () => {
+          const row = template.content.firstElementChild.cloneNode(true);
+          rows.append(row);
+          bindRemove(row);
+          reindex();
+        });
+        reindex();
+      })();
+    </script>
     <script>
       (() => {
         const feedback = document.querySelector('#schedule-save-feedback');

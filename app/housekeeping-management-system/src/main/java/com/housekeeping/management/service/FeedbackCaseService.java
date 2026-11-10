@@ -1,0 +1,25 @@
+package com.housekeeping.management.service;
+
+import com.housekeeping.management.dto.request.PortalForms.IncidentReviewForm;
+import com.housekeeping.management.dto.response.PortalViews.IncidentCard;
+import com.housekeeping.management.dto.response.PortalViews.FeedbackCaseMessageCard;
+public interface FeedbackCaseService {
+
+    public Long open(Long bookingId, Long customerId, java.util.List<String> types, String description);
+    public IncidentCard customerCase(Long bookingId, Long customerId);
+    public IncidentCard adminCase(Long feedbackId, Long adminId);
+    java.util.List<FeedbackCaseMessageCard> customerMessages(Long caseId, Long customerId);
+    java.util.List<FeedbackCaseMessageCard> adminMessages(Long caseId, Long adminId);
+    Long addCustomerMessage(Long caseId, Long bookingId, Long customerId, String text, boolean hasAttachments);
+    Long addAdminMessage(Long caseId, Long adminId, String text, boolean hasAttachments);
+    void confirmAdminMessage(Long caseId, Long messageId, Long adminId);
+    void discardUnsentMessage(Long caseId, Long messageId, Long actorId, boolean admin);
+    public java.util.List<com.housekeeping.management.dto.response.PortalViews.StaffIncidentActionCard> actions(Long caseId, Long adminId);
+    public void review(Long caseId, Long adminId, IncidentReviewForm form);
+    public void decideStaffAction(Long caseId, Long managerId, boolean approve);
+    public void resolve(Long caseId, Long adminId);
+    java.util.List<com.housekeeping.management.dto.response.PortalViews.StaffActionNoticeCard> approvedActionsForStaff(Long staffId);
+    void acknowledgeStaffAction(Long actionId, Long staffId);
+    boolean belongsToBooking(Long caseId, Long bookingId);
+    boolean authorizesStaffRecovery(Long caseId, Long bookingId);
+}

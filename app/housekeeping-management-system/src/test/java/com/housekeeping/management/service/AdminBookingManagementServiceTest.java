@@ -13,7 +13,6 @@ import com.housekeeping.management.entity.Staff;
 import com.housekeeping.management.entity.User;
 import com.housekeeping.management.entity.House;
 import com.housekeeping.management.repository.BookingPersistenceRepository;
-import com.housekeeping.management.repository.StaffAccountRepository;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,11 +20,11 @@ import org.junit.jupiter.api.Test;
 
 class AdminBookingManagementServiceTest {
     private final BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
-    private final StaffAccountRepository staffAccounts = mock(StaffAccountRepository.class);
+    private final StaffManagementService staffManagement = mock(StaffManagementService.class);
     private final AccountAuthorizationService authorization = mock(AccountAuthorizationService.class);
     private final BookingReservationService reservations = mock(BookingReservationService.class);
     private final HouseService houses = mock(HouseService.class);
-    private final AdminBookingManagementService service = new AdminBookingManagementService(bookings, staffAccounts, authorization, reservations, houses);
+    private final AdminBookingManagementService service = new com.housekeeping.management.service.impl.AdminBookingManagementServiceImpl(bookings, staffManagement, authorization, reservations, houses);
 
     @BeforeEach
     void setup() {
@@ -59,7 +58,7 @@ class AdminBookingManagementServiceTest {
 
     @Test
     void reassignmentKeepsOriginalStaffAndRejectsConflictingReplacement() {
-        when(staffAccounts.findActiveByStaffIdForUpdate(13L)).thenReturn(Optional.of(activeStaff(13L, StaffType.FULL_TIME)));
+        when(staffManagement.findActiveForBookingUpdate(13L)).thenReturn(activeStaff(13L, StaffType.FULL_TIME));
         when(bookings.companyAcceptsInterval(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
         when(bookings.isOnApprovedLeave(13L, java.time.LocalDate.of(2026, 11, 1))).thenReturn(false);
         when(bookings.companyAcceptsInterval(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
@@ -79,7 +78,7 @@ class AdminBookingManagementServiceTest {
 
     @Test
     void replacementMustBeAvailableAndOriginalAssignmentRemainsUntouchedUntilAllChecksPass() {
-        when(staffAccounts.findActiveByStaffIdForUpdate(13L)).thenReturn(Optional.of(activeStaff(13L, StaffType.FULL_TIME)));
+        when(staffManagement.findActiveForBookingUpdate(13L)).thenReturn(activeStaff(13L, StaffType.FULL_TIME));
         when(bookings.companyAcceptsInterval(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
         when(bookings.isOnApprovedLeave(13L, java.time.LocalDate.of(2026, 11, 1))).thenReturn(true);
 
@@ -90,7 +89,7 @@ class AdminBookingManagementServiceTest {
 
     @Test
     void eligibleReplacementChangesOnlyCurrentStaffAssignment() {
-        when(staffAccounts.findActiveByStaffIdForUpdate(13L)).thenReturn(Optional.of(activeStaff(13L, StaffType.FULL_TIME)));
+        when(staffManagement.findActiveForBookingUpdate(13L)).thenReturn(activeStaff(13L, StaffType.FULL_TIME));
         when(bookings.companyAcceptsStart(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
         when(bookings.isOnApprovedLeave(13L, java.time.LocalDate.of(2026, 11, 1))).thenReturn(false);
         when(bookings.companyAcceptsInterval(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(true);

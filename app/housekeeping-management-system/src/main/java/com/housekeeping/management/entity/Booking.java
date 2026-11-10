@@ -85,6 +85,9 @@ public class Booking {
     @Column(name = "staff_arrived_at")
     private LocalDateTime staffArrivedAt;
 
+    @Column(name = "customer_delay_reported_at")
+    private LocalDateTime customerDelayReportedAt;
+
     @Column(name = "incident_reported_at")
     private LocalDateTime incidentReportedAt;
 

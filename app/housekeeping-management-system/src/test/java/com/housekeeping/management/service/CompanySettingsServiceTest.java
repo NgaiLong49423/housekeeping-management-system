@@ -23,7 +23,7 @@ import org.junit.jupiter.api.Test;
 class CompanySettingsServiceTest {
     private final CompanySettingsRepository repository = mock(CompanySettingsRepository.class);
     private final VietmapClient vietmap = mock(VietmapClient.class);
-    private final CompanySettingsService service = new CompanySettingsService(repository, vietmap);
+    private final CompanySettingsService service = new com.housekeeping.management.service.impl.CompanySettingsServiceImpl(repository, vietmap);
 
     @Test
     void firstSetupDoesNotInventCompanyLocationOrOpeningHours() {

@@ -1,8 +1,8 @@
 > **Document:** Agent Policy\
 > **File:** `.agents/POLICY.md`\
-> **Version:** v1.0.0\
+> **Version:** v1.1.0\
 > **Created:** 2026-10-09\
-> **Last Updated:** 2026-10-09\
+> **Last Updated:** 2026-11-10\
 > **Status:** Template
 
 # Agent Policy
@@ -13,6 +13,7 @@
 - Treat `AGENTS.md` as the entry point, `CONTRIBUTING.md` as the contributor workflow, and `.agents/repo-contract.yml` as a machine-readable summary. Report contradictions instead of silently choosing a source.
 - Keep work within the requested scope. Do not select a framework, database, architecture, dependency, route, or API on the project's behalf.
 - A plan-only or read-only instruction prohibits file changes and external mutations until the user authorizes them.
+- For Java application work, follow `AGENTS.md` and the canonical `docs/architecture/java-package-structure.md`. Service, repository, DTO, and converter rules live in that guide; do not infer a different pattern from generic template examples.
 
 ## Permissions and GitHub actions
 

@@ -89,11 +89,27 @@ public class BookingPersistenceRepository {
         return jdbc.queryForObject("SELECT total_amount-delay_discount_amount FROM dbo.Bookings WHERE booking_id=?", BigDecimal.class, bookingId);
     }
 
+    public int completeAfterPayment(Long bookingId) {
+        return jdbc.update("UPDATE dbo.Bookings SET status='COMPLETED' WHERE booking_id=? AND status='AWAITING_PAYMENT'", bookingId);
+    }
+
+    public List<Long> futureConfirmedBookingIds(Long staffId, LocalDate startDate, LocalDate endDate) {
+        return jdbc.query("SELECT booking_id FROM dbo.Bookings WHERE staff_id=? AND status='CONFIRMED' AND end_time>SYSDATETIME() AND CONVERT(date,start_time) BETWEEN ? AND ? ORDER BY start_time",
+                (rs, row) -> rs.getLong(1), staffId, startDate, endDate);
+    }
+
     public int cancel(Long bookingId, Long cancelledBy, String reason, LocalDateTime cancelledAt) {
         return jdbc.update("""
                 UPDATE dbo.Bookings SET status='CANCELLED', cancelled_at=?, cancelled_by=?, cancellation_reason=?
                 WHERE booking_id=? AND status='CONFIRMED'
                 """, cancelledAt, cancelledBy, reason, bookingId);
+    }
+
+    public int cancelByCustomer(Long bookingId, Long customerId, String reason, LocalDateTime cancelledAt) {
+        return jdbc.update("""
+                UPDATE dbo.Bookings SET status='CANCELLED', cancelled_at=?, cancelled_by=?, cancellation_reason=?
+                WHERE booking_id=? AND customer_id=? AND status='CONFIRMED' AND work_started_at IS NULL
+                """, cancelledAt, customerId, reason, bookingId, customerId);
     }
 
     public int assignStaff(Long bookingId, Long expectedStaffId, Long replacementStaffId) {
@@ -205,21 +221,32 @@ public class BookingPersistenceRepository {
 
     public record AppointmentPoint(Long bookingId, LocalDateTime start, LocalDateTime end, BigDecimal latitude, BigDecimal longitude) { }
 
-    public int confirmCustomerArrival(Long bookingId, Long customerId, LocalDateTime recordedAt, LocalDateTime eligibleThrough) {
+
+
+    public int confirmCustomerArrival(Long bookingId, Long customerId, LocalDateTime recordedAt) {
         return jdbc.update("""
                 UPDATE dbo.Bookings SET customer_arrived_at=?
-                WHERE booking_id=? AND customer_id=? AND status='CONFIRMED' AND start_time<=? AND customer_arrived_at IS NULL
-                """, recordedAt, bookingId, customerId, eligibleThrough);
+                WHERE booking_id=? AND customer_id=? AND status='CONFIRMED' AND customer_arrived_at IS NULL
+                """, recordedAt, bookingId, customerId);
     }
 
-    public int confirmStaffArrival(Long bookingId, Long staffId, LocalDateTime recordedAt, LocalDateTime eligibleThrough,
+    public int confirmStaffArrival(Long bookingId, Long staffId, LocalDateTime recordedAt,
             int delayMinutes, BigDecimal discountPercent, BigDecimal discountAmount) {
         return jdbc.update("""
                 UPDATE dbo.Bookings SET staff_arrived_at=?, delay_minutes=?,
-                    delay_discount_percent=CASE WHEN incident_customer_response='ACCEPTED' THEN ? ELSE 0 END,
-                    delay_discount_amount=CASE WHEN incident_customer_response='ACCEPTED' THEN ? ELSE 0 END
-                WHERE booking_id=? AND staff_id=? AND status='CONFIRMED' AND start_time<=? AND staff_arrived_at IS NULL
-                """, recordedAt, delayMinutes, discountPercent, discountAmount, bookingId, staffId, eligibleThrough);
+                    delay_discount_percent=CASE WHEN incident_reported_at IS NOT NULL THEN ? ELSE 0 END,
+                    delay_discount_amount=CASE WHEN incident_reported_at IS NOT NULL THEN ? ELSE 0 END
+                WHERE booking_id=? AND staff_id=? AND status='CONFIRMED' AND staff_arrived_at IS NULL
+                """, recordedAt, delayMinutes, discountPercent, discountAmount, bookingId, staffId);
+    }
+
+    public int reportCustomerDelay(Long bookingId, Long customerId, LocalDateTime reportedAt) {
+        return jdbc.update("""
+                UPDATE dbo.Bookings SET customer_delay_reported_at=?
+                WHERE booking_id=? AND customer_id=? AND status='CONFIRMED'
+                  AND start_time<=? AND staff_arrived_at IS NULL AND work_started_at IS NULL
+                  AND incident_reported_at IS NULL AND customer_delay_reported_at IS NULL
+                """, reportedAt, bookingId, customerId, reportedAt);
     }
 
     public int reportStaffIncident(Long bookingId, Long staffId, String note, LocalDateTime expectedArrivalAt,
@@ -258,10 +285,9 @@ public class BookingPersistenceRepository {
         return jdbc.update("""
                 UPDATE dbo.Bookings SET work_started_at=?
                 WHERE booking_id=? AND staff_id=? AND status='CONFIRMED' AND work_started_at IS NULL
-                  AND staff_arrived_at IS NOT NULL AND start_time<=?
+                  AND staff_arrived_at IS NOT NULL
                   AND (incident_reported_at IS NULL OR incident_customer_response='ACCEPTED')
-                  AND (staff_arrived_at<=start_time OR incident_customer_response='ACCEPTED')
-                """, startedAt, bookingId, staffId, startedAt);
+                """, startedAt, bookingId, staffId);
     }
 
     public Long insertBooking(Long customerId, Long staffId, Long houseId, String address,
