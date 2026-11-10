@@ -1395,12 +1395,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }, 3000);
 
-  // 4. Khởi tạo Apple/iOS Header, Segmented Control, Bottom Sheet, Scroll Reveal & 3D DriftWall
+  // 4. Khởi tạo Apple/iOS Header, Segmented Control, Bottom Sheet, Scroll Reveal, 3D OrbitImages & Staff Picker
   initAppleHeaderAndScroll();
   initSegmentedControl();
   initMobileSheet();
   initScrollReveal();
-  initDriftWall();
+  initOrbitImages();
+  initStaffPicker();
 });
 
 // ==========================================================================
@@ -1676,7 +1677,204 @@ function initDriftWall() {
   }
 }
 
-// 6. Thông báo Toast nhẹ nhàng cho trang Đăng nhập / Đăng ký
+// ==========================================================================
+// 6. OrbitImages 3D Elliptical Orbit & Staff Picker
+// Spec: shape: ellipse | radiusX: 340 | radiusY: 80 | rotation: -8deg |
+//       duration: 30s | itemSize: 90px | depth: 0.6 | showPath: true
+// ==========================================================================
+function initOrbitImages() {
+  const stage = document.getElementById('orbitStage');
+  const track = document.getElementById('orbitItemsTrack');
+  if (!stage || !track) return;
+
+  const items = Array.from(track.querySelectorAll('.orbit-item'));
+  if (!items.length) return;
+
+  const isReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const BASE_RX = 340;
+  const BASE_RY = 80;
+  const ROTATION_DEG = -8;
+  const ROTATION_RAD = (ROTATION_DEG * Math.PI) / 180;
+  const DURATION_MS = 30000; // 30s đúng spec
+  const DEPTH = 0.6; // depth: 0.6 đúng spec
+  const cosRot = Math.cos(ROTATION_RAD);
+  const sinRot = Math.sin(ROTATION_RAD);
+
+  let isHovered = false;
+  let isDragging = false;
+  let dragStartX = 0;
+  let dragStartOffset = 0;
+  let currentOffsetAngle = 0;
+  let lastTimestamp = performance.now();
+  let rafId = null;
+  let isVisible = true;
+
+  function getScale() {
+    const w = stage.offsetWidth;
+    return Math.min(1, Math.max(0.42, w / 860));
+  }
+
+  function render(timestamp) {
+    if (!isVisible) {
+      rafId = null;
+      return;
+    }
+
+    const delta = timestamp - lastTimestamp;
+    lastTimestamp = timestamp;
+
+    if (!isHovered && !isDragging && !isReducedMotion) {
+      currentOffsetAngle += (delta * 2 * Math.PI) / DURATION_MS;
+      if (currentOffsetAngle >= 2 * Math.PI) {
+        currentOffsetAngle -= 2 * Math.PI;
+      }
+    }
+
+    const scale = getScale();
+    const rx = BASE_RX * scale;
+    const ry = BASE_RY * scale;
+    const n = items.length;
+
+    for (let i = 0; i < n; i++) {
+      const item = items[i];
+      const theta = currentOffsetAngle + (i * 2 * Math.PI) / n;
+
+      // Tọa độ elip phẳng
+      const x0 = rx * Math.cos(theta);
+      const y0 = ry * Math.sin(theta);
+
+      // Tọa độ xoay nghiêng -8 độ
+      const x = x0 * cosRot - y0 * sinRot;
+      const y = x0 * sinRot + y0 * cosRot;
+
+      // Độ sâu: sin(theta) đại diện cho vị trí trước/sau
+      const normZ = Math.sin(theta); // -1 đến +1
+      const itemScale = 1 + normZ * (DEPTH * 0.32);
+      const opacity = 0.68 + (normZ + 1) * 0.16;
+      // Khi normZ < 0 (nửa sau): z-index <= 9 (nằm sau badge tâm)
+      // Khi normZ > 0 (nửa trước): z-index >= 11 (nằm trước badge tâm)
+      const zIndex = Math.round((normZ + 1) * 10) + 1;
+
+      item.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) scale(${itemScale.toFixed(3)})`;
+      item.style.opacity = opacity.toFixed(2);
+      item.style.zIndex = zIndex;
+    }
+
+    rafId = requestAnimationFrame(render);
+  }
+
+  // Tạm dừng khi rê chuột lên ảnh thẻ
+  items.forEach(item => {
+    item.addEventListener('mouseenter', () => { isHovered = true; });
+    item.addEventListener('mouseleave', () => { isHovered = false; });
+
+    // Click vào ảnh trong quỹ đạo thì tự động chọn nhân viên ở bảng dưới
+    item.addEventListener('click', () => {
+      const staffId = item.getAttribute('data-staff-id');
+      if (staffId && window.selectStaffPick) {
+        window.selectStaffPick(staffId);
+      }
+    });
+  });
+
+  // Kéo vuốt quỹ đạo thủ công (Drag & Swipe)
+  stage.addEventListener('mousedown', (e) => {
+    if (e.target.closest('.orbit-center-badge')) return;
+    isDragging = true;
+    dragStartX = e.clientX;
+    dragStartOffset = currentOffsetAngle;
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    const dx = e.clientX - dragStartX;
+    currentOffsetAngle = dragStartOffset + (dx / 180) * Math.PI;
+  });
+
+  window.addEventListener('mouseup', () => {
+    isDragging = false;
+  });
+
+  // Hỗ trợ Touch trên Mobile
+  stage.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 1 && !e.target.closest('.orbit-center-badge')) {
+      isDragging = true;
+      dragStartX = e.touches[0].clientX;
+      dragStartOffset = currentOffsetAngle;
+    }
+  }, { passive: true });
+
+  window.addEventListener('touchmove', (e) => {
+    if (!isDragging || e.touches.length !== 1) return;
+    const dx = e.touches[0].clientX - dragStartX;
+    currentOffsetAngle = dragStartOffset + (dx / 180) * Math.PI;
+  }, { passive: true });
+
+  window.addEventListener('touchend', () => {
+    isDragging = false;
+  });
+
+  // Tạm dừng khi ra ngoài màn hình để tiết kiệm 100% tài nguyên GPU
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        isVisible = entry.isIntersecting;
+        if (isVisible && !rafId) {
+          lastTimestamp = performance.now();
+          rafId = requestAnimationFrame(render);
+        }
+      });
+    }, { threshold: 0.05 });
+    observer.observe(stage);
+  }
+
+  lastTimestamp = performance.now();
+  rafId = requestAnimationFrame(render);
+}
+
+// 7. Bộ chọn nhân viên yêu thích tương tác (Favorite Staff Picker)
+function initStaffPicker() {
+  const grid = document.getElementById('staffPickerGrid');
+  const bookBtn = document.getElementById('bookWithStaffBtn');
+  const bookText = document.getElementById('bookWithStaffText');
+  if (!grid || !bookBtn) return;
+
+  const cards = grid.querySelectorAll('.staff-pick-card');
+
+  window.selectStaffPick = function(staffId) {
+    cards.forEach(c => {
+      const isTarget = c.getAttribute('data-staff-id') === String(staffId);
+      c.classList.toggle('is-active', isTarget);
+      const radioText = c.querySelector('.staff-pick-radio-text');
+      if (radioText) {
+        radioText.textContent = isTarget ? 'Đang chọn' : 'Chọn nhân viên này';
+      }
+      if (isTarget) {
+        const name = c.getAttribute('data-staff-name') || 'nhân viên';
+        if (bookText) bookText.textContent = `Đặt lịch với ${name}`;
+        bookBtn.href = `/customer/bookings/new?staffId=${staffId}`;
+        c.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
+    });
+  };
+
+  cards.forEach(card => {
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.staff-pick-card__heart')) {
+        const heart = e.target.closest('.staff-pick-card__heart');
+        heart.classList.toggle('is-loved');
+        heart.style.transform = 'scale(1.35)';
+        setTimeout(() => { heart.style.transform = ''; }, 250);
+        return;
+      }
+      const staffId = card.getAttribute('data-staff-id');
+      window.selectStaffPick(staffId);
+    });
+  });
+}
+
+// 8. Thông báo Toast nhẹ nhàng cho trang Đăng nhập / Đăng ký
 window.showAuthNotice = function(msg) {
   let toast = document.getElementById('authNoticeToast');
   if (!toast) {
