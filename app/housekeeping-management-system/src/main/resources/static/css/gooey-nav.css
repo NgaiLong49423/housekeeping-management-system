@@ -74,6 +74,7 @@
 
 .gooey-nav__list {
   position: relative;
+  z-index: 10 !important;
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
@@ -88,12 +89,16 @@
 }
 
 .gooey-nav__item {
+  position: relative;
+  z-index: 11 !important;
   display: flex;
   margin: 0;
   padding: 0;
 }
 
 .gooey-nav__link {
+  position: relative;
+  z-index: 12 !important;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -120,16 +125,6 @@
 .navbar .gooey-nav .nav-link.active {
   color: #13201c !important;
   font-weight: 700 !important;
-}
-
-.gooey-nav__list--active .gooey-nav__link {
-  color: inherit;
-  font-weight: 600;
-}
-
-.gooey-nav__item[data-active] .gooey-nav__link {
-  color: var(--gn-active-ink);
-  font-weight: 600;
 }
 
 .gooey-nav__link:focus-visible {

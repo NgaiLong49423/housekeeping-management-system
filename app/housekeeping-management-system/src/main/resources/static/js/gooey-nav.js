@@ -659,6 +659,10 @@ const shape = (idx, amount) => {
       state.mass = 1;
       state.scale = 1;
       state.velocity = 0;
+      items.forEach((el, i) => {
+        if (i === idx) el.setAttribute('data-active', '');
+        else el.removeAttribute('data-active');
+      });
       updateFallback(idx);
       render();
     };
@@ -720,6 +724,7 @@ const shape = (idx, amount) => {
       const idx = Number(item.dataset.gooeyIndex);
       items.forEach(el => el.removeAttribute('data-active'));
       item.setAttribute('data-active', '');
+      updateFallback(idx);
       go(idx, true);
     });
 
