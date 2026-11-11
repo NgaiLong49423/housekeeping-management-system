@@ -288,7 +288,7 @@ class PortalMvcTest {
         String html=mvc.perform(get("/admin/settings").with(user(admin)).flashAttr("scheduleSuccess","Đã lưu lịch tuần."))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
         assertThat(html.indexOf("Giờ hoạt động")).isLessThan(html.indexOf("Đã lưu lịch tuần."));
-        assertThat(html.indexOf("Đã lưu lịch tuần.")).isLessThan(html.indexOf("Lưu phiên bản lịch"));
+        assertThat(html.indexOf("Đã lưu lịch tuần.")).isLessThan(html.indexOf("Lưu ngày này"));
         assertThat(html).contains("id=\"schedule-save-feedback\"", "role=\"status\"");
     }
 
@@ -580,7 +580,7 @@ class PortalMvcTest {
         mvc.perform(post("/admin/feedback/cases/99/messages").with(user(admin)).with(csrf())
                         .param("message","Đã tiếp nhận, chúng tôi sẽ xác minh."))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/admin/feedback/cases/99"));
+                .andExpect(redirectedUrl("/admin/feedback/cases/99#feedback-messages-99"));
         verify(feedbackCases).addAdminMessage(99L,3L,"Đã tiếp nhận, chúng tôi sẽ xác minh.",false);
     }
 
@@ -644,7 +644,7 @@ class PortalMvcTest {
         mvc.perform(post("/admin/feedback/cases/99/compensation").with(user(admin)).with(csrf())
                         .param("amount","250000.00").param("reason","Bồi thường tài sản bị hỏng"))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/admin/feedback/cases/99"));
+                .andExpect(redirectedUrl("/admin/feedback/cases/99#compensation-entry-0"));
         verify(financials).propose(eq(42L),eq(99L),eq(3L),any());
     }
 

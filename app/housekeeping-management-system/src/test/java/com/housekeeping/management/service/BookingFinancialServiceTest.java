@@ -192,7 +192,7 @@ class BookingFinancialServiceTest {
         assertThatThrownBy(()->service.settle(9L,2L,"CASH","SIM-1",true))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("khoản chi thật");
         assertThatThrownBy(()->service.settle(9L,2L,"CASH","REF-1",false))
-                .isInstanceOf(IllegalStateException.class).hasMessageContaining("xác nhận");
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("Chờ khách chọn");
 
         FinancialPayoutResponse response=new FinancialPayoutResponse();
         response.setEntryId(9L); response.setResponseStatus("ACCEPTED"); response.setPayoutMethod("BANK_TRANSFER");
