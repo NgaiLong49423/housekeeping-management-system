@@ -13,10 +13,12 @@
       <nav class="nav nav-pills gap-2 mb-3" aria-label="Lọc phản hồi theo trạng thái">
         <a class="nav-link" th:classappend="${selectedStatus == 'all'} ? ' active'"
            th:href="@{/admin/feedback(status='all',bookingId=${selectedBookingId})}">Tất cả <span class="badge text-bg-light" th:text="${feedbackCount}">0</span></a>
+        <a class="nav-link" th:classappend="${selectedStatus == 'intake'} ? ' active'" th:href="@{/admin/feedback(status='intake',bookingId=${selectedBookingId})}">Chờ tiếp nhận <span class="badge text-bg-light" th:text="${intakeCount}">0</span></a>
         <a class="nav-link" th:classappend="${selectedStatus == 'processing'} ? ' active'"
            th:href="@{/admin/feedback(status='processing',bookingId=${selectedBookingId})}">Đang xử lý <span class="badge text-bg-light" th:text="${processingCount}">0</span></a>
-        <a class="nav-link" th:classappend="${selectedStatus == 'pending'} ? ' active'"
-           th:href="@{/admin/feedback(status='pending',bookingId=${selectedBookingId})}">Đang chờ duyệt <span class="badge text-bg-light" th:text="${pendingCount}">0</span></a>
+        <a class="nav-link" th:classappend="${selectedStatus == 'customer'} ? ' active'" th:href="@{/admin/feedback(status='customer',bookingId=${selectedBookingId})}">Chờ khách <span class="badge text-bg-light" th:text="${customerCount}">0</span></a>
+        <a class="nav-link" th:classappend="${selectedStatus == 'manager'} ? ' active'" th:href="@{/admin/feedback(status='manager',bookingId=${selectedBookingId})}">Chờ Manager <span class="badge text-bg-light" th:text="${managerCount}">0</span></a>
+        <a class="nav-link" th:classappend="${selectedStatus == 'payout'} ? ' active'" th:href="@{/admin/feedback(status='payout',bookingId=${selectedBookingId})}">Chờ chi trả/xác nhận <span class="badge text-bg-light" th:text="${payoutCount}">0</span></a>
         <a class="nav-link" th:classappend="${selectedStatus == 'resolved'} ? ' active'"
            th:href="@{/admin/feedback(status='resolved',bookingId=${selectedBookingId})}">Đã xử lý <span class="badge text-bg-light" th:text="${resolvedCount}">0</span></a>
       </nav>
@@ -26,8 +28,8 @@
           <div class="d-flex flex-wrap justify-content-between gap-2">
             <h2 class="h6 mb-0"><a class="text-decoration-none" th:href="@{/admin/feedback/{id}(id=${item.id})}"
                   th:text="|${item.customerName} · Lịch #${item.bookingId}|">Khách hàng · Lịch</a></h2>
-            <span class="badge" th:classappend="${queueStatusByFeedback[item.id] == 'resolved'} ? 'text-bg-success' : (${queueStatusByFeedback[item.id] == 'pending'} ? 'text-bg-warning' : 'text-bg-primary')"
-                  th:text="${queueStatusByFeedback[item.id] == 'resolved'} ? 'Đã xử lý' : (${queueStatusByFeedback[item.id] == 'pending'} ? 'Đang chờ duyệt' : 'Đang xử lý')">Đang xử lý</span>
+            <span class="badge" th:classappend="${queueStatusByFeedback[item.id] == 'resolved'} ? 'text-bg-success' : (${queueStatusByFeedback[item.id] == 'intake'} ? 'text-bg-secondary' : (${queueStatusByFeedback[item.id] == 'manager'} ? 'text-bg-warning' : 'text-bg-primary'))"
+                  th:text="${queueStatusByFeedback[item.id] == 'intake'} ? 'Chờ tiếp nhận' : (${queueStatusByFeedback[item.id] == 'customer'} ? 'Chờ khách' : (${queueStatusByFeedback[item.id] == 'manager'} ? 'Chờ Manager' : (${queueStatusByFeedback[item.id] == 'payout'} ? 'Chờ chi trả/xác nhận' : (${queueStatusByFeedback[item.id] == 'resolved'} ? 'Hoàn tất' : 'Đang xử lý'))))">Đang xử lý</span>
           </div>
           <p class="small text-secondary mt-2 mb-0" th:text="|Booking ${item.bookingStatus} · ${item.bookingStartLabel} · Staff: ${item.staffName} · ${#numbers.formatDecimal(item.bookingAmount,0,'POINT',0,'COMMA')} ₫|">Thông tin booking</p>
           <p class="mt-3 mb-0" th:if="${item.rating != null}"><strong>Đánh giá:</strong> <span th:text="|${item.rating}/5 sao|">5/5 sao</span></p>

@@ -32,10 +32,12 @@ public class FeedbackCase {
     private BigDecimal customerEstimatedValue;
     @Column(name = "item_age_months")
     private Integer itemAgeMonths;
-    @Column(name = "case_status", nullable = false, length = 20, columnDefinition = "varchar(20)")
+    @Column(name = "case_status", nullable = false, length = 40, columnDefinition = "varchar(40)")
     private String caseStatus = "RECEIVED";
     @Nationalized @Column(name = "customer_outcome", columnDefinition = "nvarchar(max)")
     private String customerOutcome;
+    @Nationalized @Column(name = "customer_requested_resolution", length = 1000)
+    private String customerRequestedResolution;
     @Column(name = "remedy_type", length = 30, columnDefinition = "varchar(30)")
     private String remedyType;
     @Column(name = "remedy_completed", nullable = false)
@@ -44,7 +46,7 @@ public class FeedbackCase {
     private String internalFinding;
     @Column(name = "staff_action", length = 30, columnDefinition = "varchar(30)")
     private String staffAction;
-    @Column(name = "staff_action_status", nullable = false, length = 20, columnDefinition = "varchar(20)")
+    @Column(name = "staff_action_status", nullable = false, length = 30, columnDefinition = "varchar(30)")
     private String staffActionStatus = "NOT_PROPOSED";
     @Column(name = "staff_action_by")
     private Long staffActionBy;
@@ -58,6 +60,4 @@ public class FeedbackCase {
     private LocalDateTime createdAt;
     @Column(name = "resolved_at")
     private LocalDateTime resolvedAt;
-    @Column(name = "resolution_workflow_required", nullable=false)
-    private boolean resolutionWorkflowRequired;
 }

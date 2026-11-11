@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.doThrow;
 
 import com.housekeeping.management.dto.request.PortalForms.CompanySettingsForm;
 import com.housekeeping.management.dto.request.PortalForms.CompanyScheduleVersionForm;
@@ -28,8 +29,23 @@ class CompanySettingsServiceTest {
     private final BookingQueryService bookings = mock(BookingQueryService.class);
     private final StaffAvailabilityService availability = mock(StaffAvailabilityService.class);
     private final VietmapClient vietmap = mock(VietmapClient.class);
+    private final AccountAuthorizationService authorization = mock(AccountAuthorizationService.class);
     private final CompanySettingsService service = new com.housekeeping.management.service.impl.CompanySettingsServiceImpl(
-            repository, hours, bookings, availability, vietmap);
+            repository, hours, bookings, availability, vietmap, authorization);
+
+    @Test
+    void companyLocationAndScheduleMutationsRequireActiveAdminBeforeReadingOrWriting() {
+        doThrow(new org.springframework.security.access.AccessDeniedException("Admin inactive"))
+                .when(authorization).requireActiveAdmin(99L);
+
+        assertThatThrownBy(() -> service.saveLocation(99L, null)).isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+        assertThatThrownBy(() -> service.saveSchedule(99L, null)).isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+        assertThatThrownBy(() -> service.saveSchedule(99L, null, true)).isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+        assertThatThrownBy(() -> service.cancelSchedule(99L, null)).isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+
+        verify(authorization, org.mockito.Mockito.times(4)).requireActiveAdmin(99L);
+        verifyNoInteractions(repository, hours, bookings, availability, vietmap);
+    }
 
     @Test
     void firstSetupDoesNotInventCompanyLocationOrOpeningHours() {
@@ -97,7 +113,7 @@ class CompanySettingsServiceTest {
         when(bookings.futureActiveBookingsWithLocation()).thenReturn(List.of(
                 new BookingQueryService.BookingLocation(15L, BigDecimal.ZERO, BigDecimal.ZERO),
                 new BookingQueryService.BookingLocation(19L, BigDecimal.ONE, BigDecimal.ONE)));
-        assertThatThrownBy(() -> service.saveLocation(form)).isInstanceOf(IllegalStateException.class).hasMessageContaining("15, 19");
+        assertThatThrownBy(() -> service.saveLocation(1L, form)).isInstanceOf(IllegalStateException.class).hasMessageContaining("15, 19");
         verify(repository, never()).saveAndFlush(org.mockito.ArgumentMatchers.any());
     }
 
@@ -111,7 +127,7 @@ class CompanySettingsServiceTest {
         when(repository.findAllForUpdate()).thenReturn(List.of(existing));
         when(bookings.futureActiveBookingsWithLocation()).thenReturn(List.of());
 
-        service.saveLocation(form);
+        service.saveLocation(1L, form);
 
         verify(repository).saveAndFlush(existing);
         assertThat(existing.getCompanyAddress()).isEqualTo("Verified address");
@@ -122,7 +138,7 @@ class CompanySettingsServiceTest {
         CompanyLocationForm form = new CompanyLocationForm("place-1", BigDecimal.ONE);
         when(vietmap.place("place-1")).thenThrow(new IllegalStateException("VietMap unavailable"));
 
-        assertThatThrownBy(() -> service.saveLocation(form)).isInstanceOf(IllegalStateException.class)
+        assertThatThrownBy(() -> service.saveLocation(1L, form)).isInstanceOf(IllegalStateException.class)
                 .hasMessage("VietMap unavailable");
         verifyNoInteractions(repository);
     }
@@ -136,7 +152,7 @@ class CompanySettingsServiceTest {
         when(hours.forDate(effective)).thenReturn(validForm().operatingHours());
         when(hours.nextVersionDate(effective)).thenReturn(null);
         when(bookings.activeBookingIdsInInterval(effective,null)).thenReturn(List.of());
-        service.saveSchedule(form);
+        service.saveSchedule(1L, form);
         verify(hours).saveVersion(1L, effective, form.operatingHours());
     }
 
@@ -148,14 +164,14 @@ class CompanySettingsServiceTest {
         when(hours.hasAnySchedule()).thenReturn(true);
         when(hours.forDate(effective)).thenReturn(validForm().operatingHours());
         when(bookings.activeBookingIdsInInterval(effective,null)).thenReturn(List.of(42L));
-        assertThatThrownBy(()->service.saveSchedule(form)).isInstanceOf(IllegalStateException.class).hasMessageContaining("42");
+        assertThatThrownBy(()->service.saveSchedule(1L, form)).isInstanceOf(IllegalStateException.class).hasMessageContaining("42");
         verify(hours,never()).saveVersion(1L, effective, form.operatingHours());
     }
 
     @Test
     void rejectsPastScheduleVersions() {
         CompanyScheduleVersionForm form=new CompanyScheduleVersionForm(service.today().minusDays(1),validForm().operatingHours());
-        assertThatThrownBy(()->service.saveSchedule(form)).isInstanceOf(IllegalArgumentException.class).hasMessageContaining("hôm nay");
+        assertThatThrownBy(()->service.saveSchedule(1L, form)).isInstanceOf(IllegalArgumentException.class).hasMessageContaining("hôm nay");
         verify(hours,never()).saveVersion(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(form.effectiveFrom()), org.mockito.ArgumentMatchers.any());
     }
 
@@ -171,7 +187,7 @@ class CompanySettingsServiceTest {
         when(hours.nextVersionDate(effective)).thenReturn(null);
         when(bookings.activeBookingIdsInInterval(effective,null)).thenReturn(List.of());
 
-        service.saveSchedule(form,true);
+        service.saveSchedule(1L, form,true);
 
         verify(hours).saveVersion(1L, effective, form.operatingHours());
     }
@@ -188,7 +204,7 @@ class CompanySettingsServiceTest {
         when(hours.nextVersionDate(effective)).thenReturn(null);
         when(bookings.activeBookingIdsInInterval(effective,null)).thenReturn(List.of());
 
-        service.saveSchedule(form,false);
+        service.saveSchedule(1L, form,false);
 
         verify(hours).saveVersion(1L, effective, form.operatingHours());
     }
@@ -197,7 +213,7 @@ class CompanySettingsServiceTest {
     void rejectsScheduleVersionsThatDoNotStartOnMonday() {
         LocalDate effective=service.firstSelectableWeekStart().plusDays(1);
         CompanyScheduleVersionForm form=new CompanyScheduleVersionForm(effective,validForm().operatingHours());
-        assertThatThrownBy(()->service.saveSchedule(form)).isInstanceOf(IllegalArgumentException.class).hasMessageContaining("Thứ Hai");
+        assertThatThrownBy(()->service.saveSchedule(1L, form)).isInstanceOf(IllegalArgumentException.class).hasMessageContaining("Thứ Hai");
         verify(hours,never()).saveVersion(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(form.effectiveFrom()), org.mockito.ArgumentMatchers.any());
     }
 

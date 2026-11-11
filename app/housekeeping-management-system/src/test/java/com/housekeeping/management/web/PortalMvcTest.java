@@ -14,6 +14,10 @@ import com.housekeeping.management.dto.request.PortalForms.HouseForm;
 import com.housekeeping.management.entity.House;
 import com.housekeeping.management.dto.request.PortalForms.AvailabilityForm;
 import com.housekeeping.management.controller.PortalAdminController;
+import com.housekeeping.management.controller.AdminServiceController;
+import com.housekeeping.management.controller.AdminStaffController;
+import com.housekeeping.management.controller.AdminFeedbackController;
+import com.housekeeping.management.controller.AdminBookingController;
 import com.housekeeping.management.controller.AdminAccountController;
 import com.housekeeping.management.controller.PortalController;
 import com.housekeeping.management.controller.AuthController;
@@ -39,6 +43,7 @@ import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -55,7 +60,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.mock.web.MockMultipartFile;
 
-@WebMvcTest({PortalController.class, AuthController.class, BookingController.class, PaymentController.class, HouseController.class, StaffController.class, PortalAdminController.class, AdminAccountController.class, StaffLeaveController.class, AdminLeaveController.class, AdminCompanySettingsController.class, StaffProfileController.class, com.housekeeping.management.controller.FeedbackAttachmentController.class})
+@WebMvcTest({PortalController.class, AuthController.class, BookingController.class, PaymentController.class, HouseController.class, StaffController.class, PortalAdminController.class, AdminServiceController.class, AdminStaffController.class, AdminFeedbackController.class, AdminBookingController.class, AdminAccountController.class, StaffLeaveController.class, AdminLeaveController.class, AdminCompanySettingsController.class, StaffProfileController.class, com.housekeeping.management.controller.FeedbackAttachmentController.class})
 @Import(SecurityConfig.class)
 class PortalMvcTest {
     @Autowired MockMvc mvc;
@@ -91,7 +96,6 @@ class PortalMvcTest {
     @MockitoBean AdminBookingManagementService adminBookingManagement;
     @MockitoBean AdminAccountService adminAccounts;
     @MockitoBean AccountAuthorizationService accountAuthorization;
-    @MockitoBean IncidentResolutionService resolutions;
 
     private final PortalUser customer = account(1L, "CUSTOMER", "Khách hàng kiểm thử");
     private final PortalUser staff = new PortalUser(2L, 22L, "staff@example.test", "unused-hash", "Nhân viên kiểm thử", "STAFF");
@@ -105,6 +109,8 @@ class PortalMvcTest {
 
     @BeforeEach
     void data() {
+        when(availability.formRules(anyList(), any())).thenReturn(new StaffAvailabilityService.AvailabilityFormRules(
+                LocalDateTime.now(ZoneOffset.ofHours(7)).plusHours(2), 60, 720));
         when(accountAuthorization.isActiveAdmin(3L)).thenReturn(true);
         when(accountAuthorization.isActiveAdmin(5L)).thenReturn(true);
         when(adminAccounts.findAll(5L)).thenReturn(List.of());
@@ -203,6 +209,17 @@ class PortalMvcTest {
     }
 
     @Test
+    void staffCompletionFailureReturnsToBookingWithFlashError() throws Exception {
+        when(query.booking(eq(42L), any())).thenReturn(card("CONFIRMED", null, null));
+        doThrow(new IllegalStateException("Cần tải ảnh minh chứng.")).when(completion).completeBooking(42L, 2L);
+
+        mvc.perform(post("/staff/bookings/42/complete").with(user(staff)).with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/staff/bookings/42"))
+                .andExpect(flash().attribute("error", "Cần tải ảnh minh chứng."));
+    }
+
+    @Test
     void adminSessionIsRevokedWhenAccountBecomesInactive() throws Exception {
         when(accountAuthorization.isActiveAdmin(3L)).thenReturn(false);
         mvc.perform(get("/admin/bookings").with(user(admin))).andExpect(status().isForbidden());
@@ -285,10 +302,10 @@ class PortalMvcTest {
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl(redirect))
                 .andExpect(flash().attributeExists("scheduleSuccess"));
-        verify(companySettings).saveSchedule(any(CompanyScheduleVersionForm.class),eq(false));
+        verify(companySettings).saveSchedule(org.mockito.ArgumentMatchers.anyLong(), any(CompanyScheduleVersionForm.class),eq(false));
 
         doThrow(new IllegalStateException("Lịch ảnh hưởng booking đã xác nhận."))
-                .when(companySettings).saveSchedule(any(CompanyScheduleVersionForm.class),eq(false));
+                .when(companySettings).saveSchedule(org.mockito.ArgumentMatchers.anyLong(), any(CompanyScheduleVersionForm.class),eq(false));
         mvc.perform(scheduleSaveRequest(effective))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl(redirect))
@@ -322,12 +339,12 @@ class PortalMvcTest {
     @Test
     void houseAreaLookupChecksOwnedHouseAndReturnsInlineEligibility() throws Exception {
         House house=new House();house.setLatitude(new BigDecimal("10.0"));house.setLongitude(new BigDecimal("106.0"));
-        when(houses.findCustomerHouse(1L,30L)).thenReturn(house);
-        when(houses.isWithinServiceRadius(house.getLatitude(),house.getLongitude())).thenReturn(false);
+        when(houses.assessCustomerHouseServiceArea(1L,30L)).thenReturn(
+                new HouseService.ServiceAreaAssessment(false,"Địa chỉ nhà này nằm ngoài bán kính phục vụ của công ty."));
         mvc.perform(get("/customer/bookings/house-service-area").with(user(customer)).param("houseId","30"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.eligible").value(false))
                 .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("ngoài bán kính")));
-        verify(houses).findCustomerHouse(1L,30L);
+        verify(houses).assessCustomerHouseServiceArea(1L,30L);
         mvc.perform(get("/customer/bookings/house-service-area").with(user(staff)).param("houseId","30"))
                 .andExpect(status().isForbidden());
     }
@@ -429,7 +446,7 @@ class PortalMvcTest {
         mvc.perform(get("/admin/feedback").param("bookingId", "42").with(user(admin)))
                 .andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("feedback-booking-42")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Đang chờ duyệt")));
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Đang xử lý")));
         mvc.perform(get("/admin/feedback/booking/42").with(user(admin)))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/admin/feedback/90"));
@@ -482,24 +499,24 @@ class PortalMvcTest {
 
         mvc.perform(post("/admin/feedback/cases/99/review").with(user(admin)).with(csrf())
                         .param("caseStatus", "VERIFIED")
-                        .param("remedyCompleted", "false")
-                        .param("customerOutcome", "x".repeat(4001)))
+                        .param("internalFinding", "x".repeat(4001)))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(flash().attribute("error", "Kết quả/cách xử lý khách sẽ thấy tối đa 4.000 ký tự."));
+                .andExpect(flash().attribute("error", "Kết luận nội bộ tối đa 4.000 ký tự."));
         verify(feedbackCases, never()).review(anyLong(), anyLong(), any());
     }
 
     @Test
     void customerCanOpenMultiIssueCaseAndStaffCannotAccessFinanceOrFeedbackEvidence() throws Exception {
         var itemDetails=new com.housekeeping.management.dto.request.PortalForms.IncidentItemDetails("Bàn gỗ",new BigDecimal("500000"),18);
-        when(feedbackCases.open(eq(42L),eq(1L),anyList(),eq("Đồ bị hư và nhà chưa sạch"),eq(itemDetails))).thenReturn(99L);
-        mvc.perform(post("/customer/bookings/42/feedback/incident").with(user(customer)).with(csrf())
+        when(feedbackCases.open(eq(42L),eq(1L),anyList(),eq("Đồ bị hư và nhà chưa sạch"),eq(itemDetails),isNull(),eq(true))).thenReturn(99L);
+        mvc.perform(multipart("/customer/bookings/42/feedback/incident").with(user(customer)).with(csrf())
                         .param("incidentTypes","PROPERTY_DAMAGE","CLEANLINESS")
                         .param("description","Đồ bị hư và nhà chưa sạch")
-                        .param("itemDescription","Bàn gỗ").param("estimatedItemValue","500000").param("itemAgeMonths","18"))
+                        .param("itemDescription","Bàn gỗ").param("estimatedItemValue","500000").param("itemAgeMonths","18")
+                        .file(new org.springframework.mock.web.MockMultipartFile("images","proof.png","image/png",new byte[]{1})))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/customer/bookings/42"));
-        verify(feedbackCases).open(42L,1L,List.of("PROPERTY_DAMAGE","CLEANLINESS"),"Đồ bị hư và nhà chưa sạch",itemDetails);
+        verify(feedbackCases).open(42L,1L,List.of("PROPERTY_DAMAGE","CLEANLINESS"),"Đồ bị hư và nhà chưa sạch",itemDetails,null,true);
 
         mvc.perform(get("/admin/finance").with(user(staff))).andExpect(status().isForbidden());
         mvc.perform(get("/feedback-case-evidence/1").with(user(staff))).andExpect(status().isForbidden());
@@ -546,7 +563,7 @@ class PortalMvcTest {
         mvc.perform(get("/admin/feedback").with(user(manager)))
                 .andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Khách kiểm thử · Lịch #42")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Đang chờ duyệt")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Chờ Manager")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Xem chi tiết")));
 
         mvc.perform(get("/admin/feedback").param("status", "pending").param("bookingId", "42").with(user(manager)))
@@ -559,9 +576,8 @@ class PortalMvcTest {
         mvc.perform(get("/admin/feedback/cases/99").with(user(manager)))
                 .andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Chi tiết phản hồi")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Trao đổi với khách hàng")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Manager duyệt")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Manager chỉ cần mở khoản tài chính ở trên để duyệt")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Trao đổi với khách")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Chỉ hiển thị nút duyệt sau khi khách đồng ý chính xác số tiền này")))
                 .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("Trạng thái xác minh"))))
                 .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("Lưu xác minh và gửi phản hồi cho khách"))));
     }
@@ -571,7 +587,7 @@ class PortalMvcTest {
         when(query.feedback()).thenReturn(List.of(new FeedbackCard(90L,42L,"Khách kiểm thử",1,List.of("Mục khác"),
                 "Tài sản bị hỏng",null,"OPEN","COMPLETED",java.time.LocalDateTime.now(),new BigDecimal("140000"),"Nhân viên kiểm thử")));
         when(feedbackCases.adminCaseById(99L,3L)).thenReturn(new IncidentCard(99L,90L,42L,1L,2L,
-                List.of("PROPERTY_DAMAGE"),"Tài sản bị hỏng","VERIFIED","Chúng tôi sẽ bồi thường.","COMPENSATION",
+                List.of("PROPERTY_DAMAGE"),"Tài sản bị hỏng","INVESTIGATING",null,null,
                 "Đã xác minh lỗi thuộc về công ty.",false,null,null,null,null,null,java.time.LocalDateTime.now(),null));
         when(feedbackCases.adminMessages(99L,3L)).thenReturn(List.of());
         when(feedbackCases.actions(99L,3L)).thenReturn(List.of());
@@ -579,14 +595,13 @@ class PortalMvcTest {
 
         mvc.perform(get("/admin/feedback/cases/99").with(user(admin)))
                 .andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Phản hồi gửi cho khách")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Kết luận nội bộ chỉ dành cho Admin và Manager")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Lập đề xuất bồi thường")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("/admin/finance/new?bookingId=42&amp;caseId=99")));
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Ghi chú xác minh nội bộ")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Đề xuất một khoản bồi thường")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Số tiền bồi thường đề xuất (₫)")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Căn cứ xác định số tiền")));
 
-        mvc.perform(post("/admin/financial-entries").with(user(admin)).with(csrf())
-                        .param("bookingId","42").param("caseId","99").param("returnCaseId","99")
-                        .param("entryType","COMPENSATION").param("amount","250000.00").param("reason","Bồi thường tài sản bị hỏng").param("simulated","false"))
+        mvc.perform(post("/admin/feedback/cases/99/compensation").with(user(admin)).with(csrf())
+                        .param("amount","250000.00").param("reason","Bồi thường tài sản bị hỏng"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/admin/feedback/cases/99"));
         verify(financials).propose(eq(42L),eq(99L),eq(3L),any());
@@ -604,6 +619,18 @@ class PortalMvcTest {
                 .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/staff/incident-actions"));
         verify(incidentNotices).acknowledge(77L,2L);
         mvc.perform(get("/staff/incident-actions").with(user(customer))).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void onlyStaffCanSubmitPrivateIncidentExplanation() throws Exception {
+        mvc.perform(post("/staff/incident-actions/77/response").with(user(staff)).with(csrf())
+                        .param("response","Tôi xin giải trình sự việc."))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/staff/incident-actions"));
+        verify(incidentNotices).respond(77L,2L,"Tôi xin giải trình sự việc.",false);
+        mvc.perform(post("/staff/incident-actions/77/response").with(user(customer)).with(csrf())
+                        .param("response","Không có quyền"))
+                .andExpect(status().isForbidden());
     }
 
     @Test

@@ -111,6 +111,7 @@ class FeedbackServiceTest {
     }
 
     private BookingReservationService.BookingFeedbackState booking(Long customerId, String status) {
-        return new BookingReservationService.BookingFeedbackState(customerId, status);
+        return new BookingReservationService.BookingFeedbackState(customerId, status,
+                java.time.LocalDateTime.now(java.time.ZoneOffset.ofHours(7)));
     }
 }

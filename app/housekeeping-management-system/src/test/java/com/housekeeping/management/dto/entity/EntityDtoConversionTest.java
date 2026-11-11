@@ -26,7 +26,7 @@ class EntityDtoConversionTest {
         BookingDTO dto = new BookingDTO(1L, 2L, 3L, 4L, 5L, "address", bd("10.1"), bd("106.2"), "note",
                 DATE_TIME, DATE_TIME.plusHours(2), 120, bd("150000"), "area", BookingStatus.CONFIRMED,
                 null, null, null, DATE_TIME, null, null, null, null, null, null, null, null, null, null,
-                bd("0"), bd("0"));
+                bd("0"), bd("0"), DATE_TIME);
         assertThat(BookingDTO.convertEntityToDTO(dto.convertDTOToEntity())).isEqualTo(dto);
     }
 

@@ -2,6 +2,7 @@ package com.housekeeping.management.service.impl;
 
 import com.housekeeping.management.integration.vietmap.VietmapClient;
 import com.housekeeping.management.service.CompanySettingsService;
+import com.housekeeping.management.service.AccountAuthorizationService;
 
 import com.housekeeping.management.dto.request.PortalForms.CompanyLocationForm;
 import com.housekeeping.management.dto.request.PortalForms.CompanyScheduleVersionForm;
@@ -34,14 +35,17 @@ public class CompanySettingsServiceImpl implements CompanySettingsService {
     private final BookingQueryService bookings;
     private final StaffAvailabilityService availability;
     private final VietmapClient vietmap;
+    private final AccountAuthorizationService authorization;
 
     public CompanySettingsServiceImpl(CompanySettingsRepository settings, CompanyOperatingHoursService hours,
-            BookingQueryService bookings, StaffAvailabilityService availability, VietmapClient vietmap) {
+            BookingQueryService bookings, StaffAvailabilityService availability, VietmapClient vietmap,
+            AccountAuthorizationService authorization) {
         this.settings = settings;
         this.hours = hours;
         this.bookings = bookings;
         this.availability = availability;
         this.vietmap = vietmap;
+        this.authorization = authorization;
     }
 
     @Transactional(readOnly = true)
@@ -130,14 +134,10 @@ public class CompanySettingsServiceImpl implements CompanySettingsService {
     }
 
     @Transactional(isolation = org.springframework.transaction.annotation.Isolation.SERIALIZABLE)
-    public void saveLocation(CompanyLocationForm form) {
+    public void saveLocation(Long adminId, CompanyLocationForm form) {
+        authorization.requireActiveAdmin(adminId);
         validateLocation(form);
         VietmapClient.Place place = vietmap.place(form.vietmapRefId().trim());
-        if (place.display() == null || place.display().isBlank() || place.display().length() > 500
-                || place.latitude().abs().compareTo(new java.math.BigDecimal("90")) > 0
-                || place.longitude().abs().compareTo(new java.math.BigDecimal("180")) > 0) {
-            throw new IllegalArgumentException("Địa chỉ VietMap không có thông tin vị trí hợp lệ.");
-        }
         List<CompanySettings> companyRows = settings.findAllForUpdate();
         if (companyRows.size() > 1) throw new IllegalStateException("Phát hiện nhiều hơn một cấu hình công ty.");
         List<Long> conflicts = bookings.futureActiveBookingsWithLocation().stream()
@@ -162,12 +162,13 @@ public class CompanySettingsServiceImpl implements CompanySettingsService {
     }
 
     @Transactional
-    public void saveSchedule(CompanyScheduleVersionForm form) {
-        saveSchedule(form, false);
+    public void saveSchedule(Long adminId, CompanyScheduleVersionForm form) {
+        saveSchedule(adminId, form, false);
     }
 
     @Transactional
-    public void saveSchedule(CompanyScheduleVersionForm form, boolean editingExisting) {
+    public void saveSchedule(Long adminId, CompanyScheduleVersionForm form, boolean editingExisting) {
+        authorization.requireActiveAdmin(adminId);
         if (form == null || form.effectiveFrom() == null) {
             throw new IllegalArgumentException("Ngày hiệu lực là bắt buộc.");
         }
@@ -225,7 +226,8 @@ public class CompanySettingsServiceImpl implements CompanySettingsService {
     }
 
     @Transactional
-    public void cancelSchedule(LocalDate effectiveFrom) {
+    public void cancelSchedule(Long adminId, LocalDate effectiveFrom) {
+        authorization.requireActiveAdmin(adminId);
         if (effectiveFrom == null || !effectiveFrom.isAfter(today())) {
             throw new IllegalArgumentException("Chỉ có thể hủy phiên bản lịch trong tương lai.");
         }

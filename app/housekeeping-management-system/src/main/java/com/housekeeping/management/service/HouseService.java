@@ -8,6 +8,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 public interface HouseService {
+    public record ServiceAreaAssessment(boolean eligible, String message) { }
     public record ServiceCenter(BigDecimal latitude,BigDecimal longitude,BigDecimal radiusKm) {
         public boolean contains(BigDecimal latitude,BigDecimal longitude) {
             return distanceKm(latitude.doubleValue(),longitude.doubleValue(),this.latitude.doubleValue(),this.longitude.doubleValue())<=radiusKm.doubleValue();
@@ -21,6 +22,7 @@ public interface HouseService {
     List<LocationSuggestion> autocomplete(String query);
     public void softDelete(Long customerId, Long houseId);
     public boolean isWithinServiceRadius(BigDecimal latitude, BigDecimal longitude);
+    ServiceAreaAssessment assessCustomerHouseServiceArea(Long customerId, Long houseId);
     public ServiceCenter serviceCenter();
     static double distanceKm(double lat1,double lon1,double lat2,double lon2) {
         double latitudeDelta=Math.toRadians(lat2-lat1), longitudeDelta=Math.toRadians(lon2-lon1);

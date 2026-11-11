@@ -21,7 +21,6 @@ import com.housekeeping.management.service.BookingCancellationService;
 import com.housekeeping.management.service.BookingArrivalService;
 import com.housekeeping.management.service.BookingIncidentService;
 import com.housekeeping.management.service.CustomerDelayReportService;
-import com.housekeeping.management.service.IncidentResolutionService;
 import com.housekeeping.management.service.PortalQueryService;
 import com.housekeeping.management.service.BookingAvailabilityService;
 import com.housekeeping.management.web.PortalMessages;
@@ -60,14 +59,13 @@ public class BookingController {
     private final BookingAvailabilityService bookingAvailability;
     private final BookingIncidentService incidents;
     private final CustomerDelayReportService customerDelayReports;
-    private final IncidentResolutionService resolutions;
 
     public BookingController(PortalQueryService query, BookingCancellationService cancellation,
             BookingReservationService reservations, CustomerFeedbackSubmissionService feedbackSubmission,
             FeedbackCaseService feedbackCases,
             CaseAttachmentStorageService attachments, BookingFinancialService financials, HouseService houses, BookingArrivalService arrival,
             BookingAvailabilityService bookingAvailability,
-            BookingIncidentService incidents, CustomerDelayReportService customerDelayReports, IncidentResolutionService resolutions) {
+            BookingIncidentService incidents, CustomerDelayReportService customerDelayReports) {
         this.query = query;
         this.cancellation = cancellation;
         this.reservations = reservations;
@@ -80,7 +78,6 @@ public class BookingController {
         this.bookingAvailability = bookingAvailability;
         this.incidents = incidents;
         this.customerDelayReports = customerDelayReports;
-        this.resolutions = resolutions;
     }
 
     @PostMapping("/customer/bookings/{id}/report-staff-delay")
@@ -170,12 +167,8 @@ public class BookingController {
     HouseAreaStatus houseServiceArea(@RequestParam Long houseId,@AuthenticationPrincipal PortalUser user) {
         if(user==null||!"CUSTOMER".equals(user.getRole()))throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         try {
-            House house=houses.findCustomerHouse(user.getUserId(),houseId);
-            if(house.getLatitude()==null||house.getLongitude()==null)
-                return new HouseAreaStatus(false,"Địa chỉ nhà chưa được xác minh tọa độ VietMap. Hãy cập nhật địa chỉ trước khi đặt.");
-            if(!houses.isWithinServiceRadius(house.getLatitude(),house.getLongitude()))
-                return new HouseAreaStatus(false,"Địa chỉ nhà này nằm ngoài bán kính phục vụ của công ty. Hãy chọn địa chỉ khác hoặc liên hệ Admin.");
-            return new HouseAreaStatus(true,"Địa chỉ nằm trong bán kính phục vụ.");
+            var assessment=houses.assessCustomerHouseServiceArea(user.getUserId(),houseId);
+            return new HouseAreaStatus(assessment.eligible(),assessment.message());
         } catch(IllegalArgumentException|IllegalStateException failure) {
             return new HouseAreaStatus(false,"Chưa kiểm tra được bán kính phục vụ. Vui lòng thử lại.");
         }
@@ -205,7 +198,8 @@ public class BookingController {
             @RequestParam List<LocalDate> workDates, @RequestParam List<Long> staffIds,
             @RequestParam List<LocalTime> startTimes, @RequestParam(required = false) String areaNote,
             RedirectAttributes flash) {
-        if (workDates.isEmpty() || workDates.size() > 31 || workDates.size() != staffIds.size()
+        if (workDates.isEmpty() || workDates.size() > 31 || staffIds.stream().anyMatch(java.util.Objects::isNull)
+                || workDates.size() != staffIds.size()
                 || workDates.size() != startTimes.size() || workDates.stream().distinct().count() != workDates.size()) {
             flash.addFlashAttribute("error", "Danh sách ngày đặt chưa hợp lệ. Hãy tải lại biểu mẫu và chọn lại ngày, giờ, nhân viên.");
             return "redirect:/customer/bookings/new";
@@ -255,7 +249,7 @@ public class BookingController {
                 && (booking.incidentReportedAt() == null || "ACCEPTED".equals(booking.incidentCustomerResponse())));
         model.addAttribute("details", details);
         model.addAttribute("bookingImages", query.bookingImages(id, user));
-        if (user.isAdmin()) model.addAttribute("assignableStaff", query.staff(null));
+        if (user.isAdmin() || "CUSTOMER".equals(user.getRole())) model.addAttribute("assignableStaff", query.staff(user));
         if ("CUSTOMER".equals(user.getRole()) && (booking.feedbackStatus() == null
                 || ("OPEN".equals(booking.feedbackStatus()) && booking.feedbackRating() != null))) {
             model.addAttribute("feedbackForm", booking.feedbackStatus() == null
@@ -267,13 +261,14 @@ public class BookingController {
             model.addAttribute("feedbackCase", incidentCase);
             model.addAttribute("feedbackEvidenceIds", incidentCase==null ? List.of() : attachments.customerEvidenceIds(incidentCase.id(),user.getAccountId()));
             model.addAttribute("feedbackCaseMessages", incidentCase==null ? List.of() : feedbackCases.customerMessages(incidentCase.id(),user.getAccountId()));
-            model.addAttribute("resolutionPlans",incidentCase==null ? List.of() : resolutions.customerPlans(incidentCase.id(),id,user.getAccountId()));
-            model.addAttribute("workOrders",incidentCase==null ? List.of() : resolutions.workOrders(incidentCase.id(),null,true,user.getAccountId()));
             model.addAttribute("incidentForm", new FeedbackIncidentForm(List.of(), ""));
         }
         if ("CUSTOMER".equals(user.getRole())) {
             model.addAttribute("customerFinancialEntries",financials.customerVisible(id,user.getAccountId()));
-            model.addAttribute("customerCompensationOffers",financials.customerCompensationOffersForBooking(id,user.getAccountId()));
+            var offers=financials.customerCompensationOffersForBooking(id,user.getAccountId());
+            model.addAttribute("customerCompensationOffers",offers);
+            model.addAttribute("hasActiveCompensationOffer",offers.stream().anyMatch(offer ->
+                    List.of("PROPOSED","PENDING_APPROVAL","APPROVED","PAID").contains(offer.entryStatus())));
         }
         model.addAttribute("feedbackTopics", FeedbackTopic.values());
         return "booking-detail";
@@ -293,39 +288,31 @@ public class BookingController {
         return "redirect:/customer/bookings/" + id;
     }
 
-    @PostMapping("/customer/bookings/{id}/feedback/cases/{caseId}/resolution-plans/{planId}/choice")
-    String chooseIncidentResolution(@PathVariable Long id, @PathVariable Long caseId, @PathVariable Long planId,
-            @Valid @ModelAttribute com.housekeeping.management.dto.request.PortalForms.CustomerResolutionChoiceForm form,
-            BindingResult errors, @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
-        try {
-            if(errors.hasErrors()) throw new IllegalArgumentException("Hãy chọn một phương án hoặc ghi nội dung cần trao đổi.");
-            resolutions.customerChoice(caseId,planId,id,user.getAccountId(),form);
-            flash.addFlashAttribute("success","Đã ghi nhận lựa chọn và chuyển hồ sơ cho Manager duyệt.");
-        } catch(IllegalArgumentException | IllegalStateException failure) { flash.addFlashAttribute("error",PortalMessages.business(failure)); }
-        return "redirect:/customer/bookings/"+id;
-    }
-
-    @PostMapping("/customer/bookings/{id}/feedback/work-orders/{workOrderId}/response")
-    String respondToWorkOrder(@PathVariable Long id, @PathVariable Long workOrderId,
-            @Valid @ModelAttribute com.housekeeping.management.dto.request.PortalForms.CustomerWorkOrderResponseForm form,
-            BindingResult errors, @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
-        try {
-            if(errors.hasErrors()) throw new IllegalArgumentException("Hãy xác nhận kết quả hoặc ghi rõ phần chưa hoàn tất.");
-            resolutions.customerWorkOrderResponse(workOrderId,id,user.getAccountId(),form);
-            flash.addFlashAttribute("success","Đã lưu xác nhận/ý kiến của bạn.");
-        } catch(IllegalArgumentException | IllegalStateException failure) { flash.addFlashAttribute("error",PortalMessages.business(failure)); }
-        return "redirect:/customer/bookings/"+id;
-    }
-
-    @PostMapping("/customer/bookings/{id}/feedback/cases/{caseId}/resolution-plans/{planId}/completion")
-    String confirmIncidentResolution(@PathVariable Long id, @PathVariable Long caseId, @PathVariable Long planId,
-            @RequestParam boolean confirm, @RequestParam(required=false) String message,
+    @PostMapping("/customer/bookings/{id}/compensation-offers/{entryId}/received")
+    String confirmCompensationReceived(@PathVariable Long id, @PathVariable Long entryId,
             @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
         try {
-            resolutions.customerConfirmResolution(caseId,planId,id,user.getAccountId(),confirm,message);
-            flash.addFlashAttribute("success",confirm?"Đã xác nhận kết quả; hồ sơ được hoàn tất.":"Đã ghi nhận nội dung chưa được giải quyết; hồ sơ tiếp tục mở.");
-        } catch(IllegalArgumentException | IllegalStateException failure) { flash.addFlashAttribute("error",PortalMessages.business(failure)); }
-        return "redirect:/customer/bookings/"+id;
+            financials.confirmCompensationReceived(id,entryId,user.getAccountId());
+            flash.addFlashAttribute("success","Đã xác nhận nhận khoản bồi thường; hồ sơ đã hoàn tất.");
+        } catch (IllegalArgumentException | IllegalStateException failure) {
+            flash.addFlashAttribute("error",PortalMessages.business(failure));
+        }
+        return "redirect:/customer/bookings/" + id;
+    }
+
+    @PostMapping("/customer/bookings/{id}/feedback/cases/{caseId}/outcome")
+    String respondToIncidentOutcome(@PathVariable Long id, @PathVariable Long caseId,
+            @RequestParam String decision, @RequestParam(required=false) String message,
+            @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
+        try {
+            if ("CONFIRM".equals(decision)) feedbackCases.resolveAfterCustomerConfirmation(caseId,user.getAccountId());
+            else if ("NEEDS_HELP".equals(decision)) feedbackCases.customerNeedsMoreHelp(caseId,id,user.getAccountId(),message);
+            else throw new IllegalArgumentException("Lựa chọn phản hồi không hợp lệ.");
+            flash.addFlashAttribute("success","Đã lưu phản hồi cho hồ sơ sự cố.");
+        } catch (IllegalArgumentException | IllegalStateException failure) {
+            flash.addFlashAttribute("error",PortalMessages.business(failure));
+        }
+        return "redirect:/customer/bookings/" + id;
     }
 
     @PostMapping("/customer/bookings/{id}/incident-response")
@@ -388,8 +375,14 @@ public class BookingController {
             if (errors.hasErrors()) throw new IllegalArgumentException("Hãy chọn loại sự cố và mô tả nội dung tối đa 4.000 ký tự.");
             if(images!=null && images.stream().filter(file->file!=null&&!file.isEmpty()).count()>5)
                 throw new IllegalArgumentException("Mỗi lần gửi tối đa 5 ảnh bằng chứng.");
+            boolean hasFiles=images!=null && images.stream().anyMatch(file->file!=null&&!file.isEmpty());
+            boolean hasDriveLink=form.driveLink()!=null&&!form.driveLink().isBlank();
+            if(!hasFiles&&!hasDriveLink) throw new IllegalArgumentException("Cần gửi ít nhất một ảnh, tệp phù hợp hoặc link video làm bằng chứng.");
+            if((images==null?0:images.stream().filter(file->file!=null&&!file.isEmpty()).count())+(hasDriveLink?1:0)>5)
+                throw new IllegalArgumentException("Tệp và link bằng chứng cộng lại tối đa 5 mục.");
             Long caseId=feedbackCases.open(id, user.getAccountId(), form.incidentTypes(), form.description(),
-                    new IncidentItemDetails(form.itemDescription(),form.estimatedItemValue(),form.itemAgeMonths()));
+                    new IncidentItemDetails(form.itemDescription(),form.estimatedItemValue(),form.itemAgeMonths()),
+                    form.customerRequestedResolution(),hasFiles||hasDriveLink);
             if(images!=null) for(var image:images) if(image!=null&&!image.isEmpty()) attachments.uploadCustomerEvidence(caseId,id,user.getAccountId(),image);
             if(form.driveLink()!=null && !form.driveLink().isBlank()) attachments.addCustomerDriveEvidence(caseId,id,user.getAccountId(),feedbackCases.initialCustomerMessageId(caseId),form.driveLink());
             flash.addFlashAttribute("success", "Đã gửi khiếu nại sự cố. Công ty sẽ xác minh và cập nhật kết quả trên lịch này.");

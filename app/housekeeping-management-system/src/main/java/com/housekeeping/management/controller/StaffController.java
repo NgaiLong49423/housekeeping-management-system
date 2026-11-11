@@ -10,6 +10,7 @@ import com.housekeeping.management.service.BookingCompletionService;
 import com.housekeeping.management.service.BookingIncidentService;
 import com.housekeeping.management.service.CompanySettingsService;
 import com.housekeeping.management.service.EvidenceStorageService;
+import com.housekeeping.management.service.CaseAttachmentStorageService;
 import com.housekeeping.management.service.PortalQueryService;
 import com.housekeeping.management.service.StaffAvailabilityService;
 import com.housekeeping.management.service.StaffFollowService;
@@ -61,11 +62,12 @@ public class StaffController {
     private final BookingArrivalService arrival;
     private final BookingIncidentService incidents;
     private final EvidenceStorageService storage;
+    private final CaseAttachmentStorageService caseAttachments;
     private final StaffIncidentNoticeService incidentNotices;
     private final Path evidenceRoot;
 
     public StaffController(PortalQueryService query, StaffAvailabilityService availability, CompanySettingsService companySettings, StaffFollowService follows,
-            BookingCompletionService completion, BookingArrivalService arrival, BookingIncidentService incidents, EvidenceStorageService storage, StaffIncidentNoticeService incidentNotices,
+            BookingCompletionService completion, BookingArrivalService arrival, BookingIncidentService incidents, EvidenceStorageService storage, CaseAttachmentStorageService caseAttachments, StaffIncidentNoticeService incidentNotices,
             @Value("${app.evidence.storage-root:./var/evidence}") String evidenceRoot) {
         this.query = query;
         this.availability = availability;
@@ -75,6 +77,7 @@ public class StaffController {
         this.arrival = arrival;
         this.incidents = incidents;
         this.storage = storage;
+        this.caseAttachments=caseAttachments;
         this.incidentNotices=incidentNotices;
         this.evidenceRoot = Path.of(evidenceRoot).toAbsolutePath().normalize();
     }
@@ -115,6 +118,20 @@ public class StaffController {
     String acknowledgeIncidentAction(@PathVariable Long id, @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
         try { incidentNotices.acknowledge(id,user.getAccountId()); flash.addFlashAttribute("success","Đã xác nhận đã nhận thông báo; thao tác này không đồng nghĩa thừa nhận lỗi."); }
         catch (IllegalStateException failure) { flash.addFlashAttribute("error",failure.getMessage()); }
+        return "redirect:/staff/incident-actions";
+    }
+
+    @PostMapping("/staff/incident-actions/{id}/response")
+    String respondIncidentAction(@PathVariable Long id, @RequestParam String response,
+            @RequestParam(defaultValue="false") boolean appeal, @RequestParam(required=false) List<MultipartFile> files,
+            @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
+        try {
+            if(files!=null && files.stream().anyMatch(file->file!=null && !file.isEmpty()))
+                caseAttachments.uploadStaffActionEvidence(id,user.getAccountId(),user.getUserId(),appeal?"APPEAL":"RESPONSE",
+                        files.stream().filter(file->file!=null && !file.isEmpty()).toList());
+            incidentNotices.respond(id,user.getAccountId(),response,appeal);
+            flash.addFlashAttribute("success",appeal?"Đã gửi phản đối kèm giải trình; Manager sẽ xem xét.":"Đã gửi giải trình; hồ sơ chuyển đến Manager.");
+        } catch(IllegalArgumentException | IllegalStateException failure) { flash.addFlashAttribute("error",PortalMessages.business(failure)); }
         return "redirect:/staff/incident-actions";
     }
 
@@ -209,10 +226,9 @@ public class StaffController {
         model.addAttribute("staffNextWeek",selected.plusWeeks(1));
         model.addAttribute("staffCanNavigateNext",!selected.plusWeeks(1).isAfter(currentWeek.plusWeeks(52)));
         model.addAttribute("staffWeekReadOnly",selected.isBefore(currentWeek));
-        int minimumDuration=query.services().stream().mapToInt(card->card.duration()).min().orElse(Integer.MAX_VALUE);
-        model.addAttribute("minimumServiceDuration",minimumDuration);
-        LocalDateTime earliestToday=LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh")).plusMinutes(120);
-        int firstAvailableMinute=(int)Math.ceil((earliestToday.getHour()*60+earliestToday.getMinute())/15.0)*15;
+        var formRules = availability.formRules(query.services().stream().map(card -> card.duration()).toList(),
+                LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh")));
+        model.addAttribute("minimumServiceDuration",formRules.minimumServiceDuration());
         List<StaffAvailabilityWeekDay> days=new java.util.ArrayList<>();
         for(int offset=0;offset<7;offset++){
             LocalDate date=selected.plusDays(offset);
@@ -227,7 +243,7 @@ public class StaffController {
                     .map(window->new StaffAvailabilityWeekDay.AdminWindow(window.openingTime(),window.closingTime())).toList();
             List<ScheduleCard> registered=schedules.stream().filter(slot->slot.start().toLocalDate().equals(date)).toList();
             boolean canRegister=date.isAfter(today)&&!adminWindows.isEmpty();
-            if(date.equals(today))canRegister=hasTimeAfterNotice(today,adminWindows,earliestToday,firstAvailableMinute,minimumDuration);
+            if(date.equals(today))canRegister=availability.canRegisterToday(today,serviceWindows(adminWindows),formRules);
             LocalTime defaultStart=adminWindows.isEmpty()?null:adminWindows.getFirst().start();
             LocalTime defaultEnd=adminWindows.isEmpty()?null:adminWindows.getFirst().end();
             days.add(new StaffAvailabilityWeekDay(date,adminWindows,registered,canRegister,defaultStart,defaultEnd));
@@ -240,17 +256,11 @@ public class StaffController {
                 .filter(window->window.effectiveFrom().equals(effectiveToday)&&window.dayOfWeek()==todayWeekday&&!window.closed()
                         &&window.openingTime()!=null&&window.closingTime()!=null)
                 .map(window->new StaffAvailabilityWeekDay.AdminWindow(window.openingTime(),window.closingTime())).toList();
-        model.addAttribute("staffTodayEditable",hasTimeAfterNotice(today,todayWindows,earliestToday,firstAvailableMinute,minimumDuration));
+        model.addAttribute("staffTodayEditable",availability.canRegisterToday(today,serviceWindows(todayWindows),formRules));
     }
 
-    private boolean hasTimeAfterNotice(LocalDate today,List<StaffAvailabilityWeekDay.AdminWindow> windows,
-            LocalDateTime earliestToday,int firstAvailableMinute,int minimumDuration){
-        if(windows.isEmpty()||earliestToday.toLocalDate().isAfter(today)||minimumDuration==Integer.MAX_VALUE)return false;
-        return windows.stream().anyMatch(window->{
-            int opening=window.start().getHour()*60+window.start().getMinute();
-            int start=Math.max(opening,firstAvailableMinute);
-            return start+minimumDuration<=window.end().getHour()*60+window.end().getMinute();
-        });
+    private static List<StaffAvailabilityService.AvailabilityWindow> serviceWindows(List<StaffAvailabilityWeekDay.AdminWindow> windows) {
+        return windows.stream().map(window -> new StaffAvailabilityService.AvailabilityWindow(window.start(), window.end())).toList();
     }
 
     @PostMapping("/staff/schedules/{id}/delete")
@@ -292,7 +302,7 @@ public class StaffController {
 
     @PostMapping("/staff/bookings/{id}/incident")
     String reportIncident(@PathVariable Long id, @RequestParam String note,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime expectedArrivalAt,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime expectedArrivalAt,
             @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
         query.booking(id, user);
         try {
@@ -319,8 +329,12 @@ public class StaffController {
     @PostMapping("/staff/bookings/{id}/complete")
     String complete(@PathVariable Long id, @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
         query.booking(id, user);
-        completion.completeBooking(id, user.getAccountId());
-        flash.addFlashAttribute("success", "Công việc đã hoàn thành. Khách hàng có thể chọn phương thức thanh toán.");
+        try {
+            completion.completeBooking(id, user.getAccountId());
+            flash.addFlashAttribute("success", "Công việc đã hoàn thành. Khách hàng có thể chọn phương thức thanh toán.");
+        } catch (IllegalArgumentException | IllegalStateException failure) {
+            flash.addFlashAttribute("error", PortalMessages.business(failure));
+        }
         return "redirect:/staff/bookings/" + id;
     }
 

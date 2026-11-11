@@ -51,14 +51,19 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
 
     public BookingAvailabilityOptions options(LocalDate date,List<Long> serviceIds,Long selectedStaffId,
             LocalTime selectedTime,Long customerId,Long houseId) {
-        LocalDate today = LocalDate.now(BUSINESS_ZONE);
-        if (date == null || date.isBefore(today) || date.isAfter(today.plusDays(30))) {
-            throw new IllegalArgumentException("Chỉ tra cứu lịch từ hôm nay đến 30 ngày tới.");
-        }
         int duration = serviceDuration(serviceIds);
         House house=houses.findCustomerHouse(customerId,houseId);
         if(house.getLatitude()==null||house.getLongitude()==null)
             throw new IllegalArgumentException("Địa chỉ nhà chưa có tọa độ VietMap. Hãy cập nhật địa chỉ trước khi xem giờ.");
+        return options(date,duration,selectedStaffId,selectedTime,house.getLatitude(),house.getLongitude());
+    }
+
+    private BookingAvailabilityOptions options(LocalDate date,int duration,Long selectedStaffId,
+            LocalTime selectedTime,java.math.BigDecimal latitude,java.math.BigDecimal longitude) {
+        LocalDate today = LocalDate.now(BUSINESS_ZONE);
+        if (date == null || date.isBefore(today) || date.isAfter(today.plusDays(30))) {
+            throw new IllegalArgumentException("Chỉ tra cứu lịch từ hôm nay đến 30 ngày tới.");
+        }
         int day = date.getDayOfWeek().getValue();
         List<Interval> companyWindows = companySettings.operatingHoursForDate(date).stream()
                 .filter(window -> window.dayOfWeek() == day && !window.closed() && window.openingTime() != null && window.closingTime() != null)
@@ -88,7 +93,7 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
                     continue;
                 }
                 BookingReservationService.TravelAssessment check=reservations.assessTravel(person.id(),date.atTime(time),
-                        date.atTime(time).plusMinutes(duration),house.getLatitude(),house.getLongitude(),null);
+                        date.atTime(time).plusMinutes(duration),latitude,longitude,null);
                 selectedTravelChecks.add(check);
                 if(check.feasible()) {
                     feasibleStaff.add(new StaffOption(person.id(),person.name(),person.staffType()));

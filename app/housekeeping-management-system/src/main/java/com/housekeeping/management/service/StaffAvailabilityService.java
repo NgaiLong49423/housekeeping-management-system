@@ -14,6 +14,11 @@ import java.util.stream.Stream;
 import org.springframework.security.access.AccessDeniedException;
 
 public interface StaffAvailabilityService {
+    record AvailabilityWindow(LocalTime start, LocalTime end) { }
+    record AvailabilityFormRules(java.time.LocalDateTime earliestToday, int minimumServiceDuration, int firstAvailableMinute) { }
+
+    AvailabilityFormRules formRules(List<Integer> serviceDurations, java.time.LocalDateTime currentTime);
+    boolean canRegisterToday(LocalDate today, List<AvailabilityWindow> windows, AvailabilityFormRules rules);
 
     public void save(Long userId, Long availabilityId, AvailabilityForm form);
     public int saveForDate(Long userId, LocalDate workDate, List<LocalTime> startTimes, List<LocalTime> endTimes);

@@ -36,4 +36,13 @@ public class FinancialPayoutResponse {
 
     @Column(name = "responded_at", nullable = false)
     private LocalDateTime respondedAt;
+
+    @Column(name = "customer_confirmed_at")
+    private LocalDateTime customerConfirmedAt;
+
+    @Column(name = "amount_agreed_at")
+    private LocalDateTime amountAgreedAt;
+
+    @Column(name = "payout_method_selected_at")
+    private LocalDateTime payoutMethodSelectedAt;
 }

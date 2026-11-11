@@ -11,6 +11,7 @@ import com.housekeeping.management.entity.BookingFinancialEntry;
 import com.housekeeping.management.entity.FinancialPayoutResponse;
 import com.housekeeping.management.security.PayoutAccountDetailsCipher;
 import java.util.Optional;
+import java.util.List;
 import java.math.BigDecimal;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.access.AccessDeniedException;
@@ -49,9 +50,45 @@ class BookingFinancialServiceTest {
     }
 
     @Test void managerCanApprovePendingEntryWithoutASecondManagerAccount() {
+        var entry=new BookingFinancialEntry(); entry.setEntryId(3L); entry.setCaseId(8L); entry.setEntryType("COMPENSATION");
+        var customerApproval=new FinancialPayoutResponse(); customerApproval.setEntryId(3L);
+        customerApproval.setResponseStatus("AGREED_AMOUNT"); customerApproval.setAmountAgreedAt(java.time.LocalDateTime.now());
+        when(entries.findByIdForUpdate(3L)).thenReturn(Optional.of(entry));
+        when(payoutResponses.findByEntryId(3L)).thenReturn(Optional.of(customerApproval));
         when(entries.approve(3L,5L)).thenReturn(1);
         service.approve(3L,5L);
         verify(entries).approve(3L,5L);
+        verify(cases).updateLifecycle(8L,"WAITING_PAYOUT");
+    }
+
+    @Test void managerCannotApproveCompensationUntilCustomerAgreesToAmount() {
+        var entry=new BookingFinancialEntry(); entry.setEntryId(3L); entry.setCaseId(8L); entry.setEntryType("COMPENSATION");
+        when(entries.findByIdForUpdate(3L)).thenReturn(Optional.of(entry));
+        when(payoutResponses.findByEntryId(3L)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.approve(3L,5L)).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("khách đồng ý");
+        verify(entries,never()).approve(anyLong(),anyLong());
+    }
+
+    @Test void customerAgreementLocksTheAmountAndMovesTheCaseToManager() {
+        when(bookings.bookingCustomerId(42L)).thenReturn(Optional.of(7L));
+        var entry=new BookingFinancialEntry(); entry.setEntryId(9L); entry.setBookingId(42L);
+        entry.setCaseId(11L); entry.setEntryType("COMPENSATION"); entry.setStatus("PROPOSED");
+        when(entries.findByIdForUpdate(9L)).thenReturn(Optional.of(entry));
+        when(payoutResponses.findByEntryIdForUpdate(9L)).thenReturn(Optional.empty());
+
+        service.respondToCompensationOffer(42L,9L,7L,
+                new com.housekeeping.management.dto.request.PortalForms.CustomerCompensationResponseForm(
+                        "AGREE",null,null,null,null));
+
+        org.assertj.core.api.Assertions.assertThat(entry.getStatus()).isEqualTo("PENDING_APPROVAL");
+        var captured=org.mockito.ArgumentCaptor.forClass(FinancialPayoutResponse.class);
+        verify(payoutResponses).save(captured.capture());
+        org.assertj.core.api.Assertions.assertThat(captured.getValue().getResponseStatus()).isEqualTo("AGREED_AMOUNT");
+        org.assertj.core.api.Assertions.assertThat(captured.getValue().getAmountAgreedAt()).isNotNull();
+        org.assertj.core.api.Assertions.assertThat(captured.getValue().getPayoutMethod()).isNull();
+        org.assertj.core.api.Assertions.assertThat(captured.getValue().getEncryptedAccountDetails()).isNull();
+        verify(cases).updateLifecycle(11L,"WAITING_MANAGER");
     }
 
     @Test void staffRecoveryRequiresSeparateManagerApprovedResponsibilityDecision() {
@@ -60,8 +97,26 @@ class BookingFinancialServiceTest {
         when(cases.authorizesStaffRecovery(8L,1L)).thenReturn(false);
         var form=new FinancialEntryForm("STAFF_RECOVERY",new BigDecimal("1000"),"Khoản thu hồi",null,null,false);
         assertThatThrownBy(()->service.propose(1L,8L,2L,form)).isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("quyết định quản lý");
+                .hasMessageContaining("khoản chi/thu chung");
         verify(entries,never()).save(any());
+    }
+
+    @Test void missingItemReplacementProposalCanFollowCustomerDiscussionAfterInitialSearch() {
+        when(bookings.bookingCustomerId(1L)).thenReturn(Optional.of(7L));
+        when(cases.belongsToBooking(8L,1L)).thenReturn(true);
+        when(cases.hasSufficientEvidence(8L)).thenReturn(true);
+        when(cases.adminCaseById(8L,3L)).thenReturn(new com.housekeeping.management.dto.response.PortalViews.IncidentCard(
+                8L,9L,1L,7L,2L,List.of("MISSING_PROPERTY"),"Món đồ chưa tìm thấy","INVESTIGATING",null,null,
+                null,false,null,null,null,null,null,java.time.LocalDateTime.now(),null));
+        when(entries.existsByCaseIdAndEntryTypeAndStatusIn(eq(8L),eq("COMPENSATION"),anyCollection()))
+                .thenReturn(true,false);
+        when(entries.save(any())).thenAnswer(call -> call.getArgument(0));
+        var form=new FinancialEntryForm("COMPENSATION",new BigDecimal("150000"),"Đề xuất sau khi đã tìm kiếm",null,null,false);
+
+        service.propose(1L,8L,3L,form);
+
+        verify(entries).save(any(BookingFinancialEntry.class));
+        verify(cases).updateLifecycle(8L,"WAITING_CUSTOMER");
     }
 
     @Test void settlementRequiresApprovedEntryAndStoredReceipt() {
@@ -88,8 +143,10 @@ class BookingFinancialServiceTest {
         when(bookings.bookingCustomerId(42L)).thenReturn(Optional.of(7L));
         var entry=new BookingFinancialEntry(); entry.setEntryId(9L); entry.setBookingId(42L);
         entry.setEntryType("COMPENSATION"); entry.setStatus("APPROVED");
+        var agreed=new FinancialPayoutResponse(); agreed.setEntryId(9L); agreed.setCustomerId(7L);
+        agreed.setResponseStatus("AGREED_AMOUNT"); agreed.setAmountAgreedAt(java.time.LocalDateTime.now());
         when(entries.findByIdForUpdate(9L)).thenReturn(Optional.of(entry));
-        when(payoutResponses.findByEntryIdForUpdate(9L)).thenReturn(Optional.empty());
+        when(payoutResponses.findByEntryIdForUpdate(9L)).thenReturn(Optional.of(agreed));
         service.respondToCompensationOffer(42L,9L,7L,
                 new com.housekeeping.management.dto.request.PortalForms.CustomerCompensationResponseForm(
                         "ACCEPT","BANK_TRANSFER","ACB","NGUYEN VAN A","123456789"));
@@ -103,16 +160,18 @@ class BookingFinancialServiceTest {
     @Test void customerCanAskToDiscussWithoutProvidingBankDetails() {
         when(bookings.bookingCustomerId(42L)).thenReturn(Optional.of(7L));
         var entry=new BookingFinancialEntry(); entry.setEntryId(9L); entry.setBookingId(42L);
-        entry.setEntryType("COMPENSATION"); entry.setStatus("APPROVED");
+        entry.setEntryType("COMPENSATION"); entry.setStatus("PROPOSED"); entry.setCaseId(9L);
         when(entries.findByIdForUpdate(9L)).thenReturn(Optional.of(entry));
         when(payoutResponses.findByEntryIdForUpdate(9L)).thenReturn(Optional.empty());
         service.respondToCompensationOffer(42L,9L,7L,
                 new com.housekeeping.management.dto.request.PortalForms.CustomerCompensationResponseForm(
-                        "DISCUSS",null,null,null,null));
+                        "DISCUSS",null,null,null,null,"Tôi chưa đồng ý số tiền vì chưa rõ căn cứ sửa chữa."));
         var captor=org.mockito.ArgumentCaptor.forClass(FinancialPayoutResponse.class);
         verify(payoutResponses).save(captor.capture());
         org.assertj.core.api.Assertions.assertThat(captor.getValue().getResponseStatus()).isEqualTo("NEEDS_DISCUSSION");
         org.assertj.core.api.Assertions.assertThat(captor.getValue().getEncryptedAccountDetails()).isNull();
+        verify(cases).updateLifecycle(9L,"INVESTIGATING");
+        verify(cases).addCustomerMessage(9L,42L,7L,"Tôi chưa đồng ý số tiền vì chưa rõ căn cứ sửa chữa.",false);
     }
 
     @Test void customerCannotRespondToAnotherCustomersBooking() {
@@ -126,8 +185,9 @@ class BookingFinancialServiceTest {
 
     @Test void compensationCannotSettleUntilCustomerAcceptsAndSensitiveDetailsAreDeletedAfterSettlement() {
         var entry=new BookingFinancialEntry(); entry.setEntryId(9L); entry.setBookingId(42L);
-        entry.setEntryType("COMPENSATION"); entry.setStatus("APPROVED");
+        entry.setCaseId(11L); entry.setEntryType("COMPENSATION"); entry.setStatus("APPROVED");
         when(entries.findByIdForUpdate(9L)).thenReturn(Optional.of(entry));
+        when(cases.hasSufficientEvidence(11L)).thenReturn(true);
         when(payoutResponses.findByEntryIdForUpdate(9L)).thenReturn(Optional.empty());
         assertThatThrownBy(()->service.settle(9L,2L,"CASH","SIM-1",true))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("khoản chi thật");
@@ -140,7 +200,28 @@ class BookingFinancialServiceTest {
         when(payoutResponses.findByEntryIdForUpdate(9L)).thenReturn(Optional.of(response));
         when(entries.settle(9L,2L,"BANK_TRANSFER","REF-2",false,"PAID")).thenReturn(1);
         service.settle(9L,2L,"BANK_TRANSFER","REF-2",false);
+        org.assertj.core.api.Assertions.assertThat(response.getResponseStatus()).isEqualTo("SETTLED");
         org.assertj.core.api.Assertions.assertThat(response.getEncryptedAccountDetails()).isNull();
         verify(payoutResponses).save(response);
+    }
+
+    @Test void cancellingAcceptedTransferProposalClearsEncryptedBankDetails() {
+        var entry=new BookingFinancialEntry(); entry.setEntryId(12L); entry.setCaseId(11L);
+        entry.setEntryType("COMPENSATION"); entry.setStatus("APPROVED");
+        var response=new FinancialPayoutResponse(); response.setEntryId(12L); response.setCustomerId(7L);
+        response.setResponseStatus("ACCEPTED"); response.setPayoutMethod("BANK_TRANSFER");
+        response.setEncryptedAccountDetails(cipher.encrypt(
+                new PayoutAccountDetailsCipher.AccountDetails("ACB","Customer","123456789")));
+        when(entries.findByIdForUpdate(12L)).thenReturn(Optional.of(entry));
+        when(entries.cancel(12L,3L,"Cần lập lại")).thenReturn(1);
+        when(payoutResponses.findByEntryIdForUpdate(12L)).thenReturn(Optional.of(response));
+
+        service.cancel(12L,3L,"Cần lập lại");
+
+        org.assertj.core.api.Assertions.assertThat(response.getResponseStatus()).isEqualTo("NEEDS_DISCUSSION");
+        org.assertj.core.api.Assertions.assertThat(response.getPayoutMethod()).isNull();
+        org.assertj.core.api.Assertions.assertThat(response.getEncryptedAccountDetails()).isNull();
+        verify(payoutResponses).save(response);
+        verify(cases).updateLifecycle(11L,"INVESTIGATING");
     }
 }

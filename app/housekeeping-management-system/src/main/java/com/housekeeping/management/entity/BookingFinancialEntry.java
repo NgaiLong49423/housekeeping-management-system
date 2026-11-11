@@ -27,9 +27,6 @@ public class BookingFinancialEntry {
     @Column(name = "case_id")
     private Long caseId;
 
-    @Column(name = "resolution_action_id")
-    private Long resolutionActionId;
-
     @Column(name = "entry_type", nullable = false, length = 30, columnDefinition = "varchar(30)")
     private String entryType;
 

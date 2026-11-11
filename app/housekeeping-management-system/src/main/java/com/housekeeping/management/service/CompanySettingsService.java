@@ -40,10 +40,10 @@ public interface CompanySettingsService {
     public boolean hasExactVersion(LocalDate date);
     public LocalDate today();
     public LocalDate firstSelectableWeekStart();
-    public void saveLocation(CompanyLocationForm form);
+    public void saveLocation(Long adminId, CompanyLocationForm form);
     List<LocationSuggestion> locationAutocomplete(String query);
-    public void saveSchedule(CompanyScheduleVersionForm form);
-    public void saveSchedule(CompanyScheduleVersionForm form, boolean editingExisting);
-    public void cancelSchedule(LocalDate effectiveFrom);
+    public void saveSchedule(Long adminId, CompanyScheduleVersionForm form);
+    public void saveSchedule(Long adminId, CompanyScheduleVersionForm form, boolean editingExisting);
+    public void cancelSchedule(Long adminId, LocalDate effectiveFrom);
     public void validate(CompanySettingsForm form);
     public void validateSchedule(List<OperatingHoursForm> hours);}

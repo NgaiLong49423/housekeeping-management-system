@@ -59,8 +59,16 @@ public class VietmapClient {
             Map<String, Object> json = client.get().uri(uri -> uri.path("/api/place/v4").queryParam("apikey", properties.apiKey())
                     .queryParam("refid", refId).build()).retrieve().body(new org.springframework.core.ParameterizedTypeReference<>() { });
             if (json == null || json.get("lat") == null || json.get("lng") == null) throw new IllegalArgumentException("Địa chỉ VietMap không có tọa độ hợp lệ.");
-            return new Place(text(json.get("display")), text(json.get("address")), text(json.get("city")), text(json.get("district")), text(json.get("ward")),
-                    new BigDecimal(json.get("lat").toString()), new BigDecimal(json.get("lng").toString()));
+            String display = text(json.get("display"));
+            BigDecimal latitude = new BigDecimal(json.get("lat").toString());
+            BigDecimal longitude = new BigDecimal(json.get("lng").toString());
+            if (display == null || display.isBlank() || display.length() > 500
+                    || latitude.abs().compareTo(new BigDecimal("90")) > 0
+                    || longitude.abs().compareTo(new BigDecimal("180")) > 0) {
+                throw new IllegalArgumentException("Địa chỉ VietMap không có thông tin vị trí hợp lệ.");
+            }
+            return new Place(display, text(json.get("address")), text(json.get("city")), text(json.get("district")), text(json.get("ward")),
+                    latitude, longitude);
         } catch (RestClientException e) { throw new IllegalStateException("Không xác minh được địa chỉ VietMap. Vui lòng thử lại."); }
     }
 

@@ -34,6 +34,27 @@ public class FeedbackAttachmentController {
         return response(file);
     }
 
+    @GetMapping("/customer/financial-entries/{id}/receipt")
+    ResponseEntity<Resource> customerReceipt(@PathVariable Long id, @AuthenticationPrincipal PortalUser user) {
+        if(user==null || !"CUSTOMER".equals(user.getRole()))
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN);
+        Path file=storage.customerReceipt(id,user.getAccountId());
+        return response(file);
+    }
+
+    @GetMapping("/staff-incident-action-evidence/{id}")
+    ResponseEntity<Resource> staffIncidentEvidence(@PathVariable Long id, @AuthenticationPrincipal PortalUser user) {
+        if(user==null || !("STAFF".equals(user.getRole()) || user.isAdmin()))
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN);
+        return response(storage.staffActionEvidence(id,user.isAdmin()?user.getUserId():user.getAccountId(),user.isAdmin()));
+    }
+
+    @GetMapping("/admin/staff-recovery-installments/{id}/receipt")
+    ResponseEntity<Resource> staffRecoveryReceipt(@PathVariable Long id, @AuthenticationPrincipal PortalUser user) {
+        if(user==null || !user.isAdmin()) throw new ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN);
+        return response(storage.staffRecoveryReceipt(id,user.getUserId()));
+    }
+
     private ResponseEntity<Resource> response(Path file) {
         String lower=file.toString().toLowerCase(java.util.Locale.ROOT);
         MediaType mime=lower.endsWith(".pdf")?MediaType.APPLICATION_PDF:lower.endsWith(".png")?MediaType.IMAGE_PNG:

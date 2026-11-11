@@ -14,7 +14,9 @@
   </section>
   <section class="surface p-4 mb-4" th:if="${financialEntry.type == 'COMPENSATION'}">
     <h2 class="h5">Xác nhận của khách</h2>
-    <div th:if="${payoutDetails == null}" class="alert alert-warning mb-0">Khoản đã được duyệt nhưng đang chờ khách chọn cách nhận. Chưa thể quyết toán.</div>
+    <div th:if="${payoutDetails == null}" class="alert alert-warning mb-0">Chưa ghi nhận khách đồng ý số tiền của khoản này. Manager chưa thể duyệt.</div>
+    <div th:if="${payoutDetails != null and payoutDetails.responseStatus == 'AGREED_AMOUNT' and financialEntry.status == 'PENDING_APPROVAL'}" class="alert alert-info mb-0">Khách đã đồng ý số tiền này. Đang chờ Manager duyệt.</div>
+    <div th:if="${payoutDetails != null and payoutDetails.responseStatus == 'AGREED_AMOUNT' and financialEntry.status == 'APPROVED'}" class="alert alert-info mb-0">Manager đã duyệt khoản. Khách cần chọn tiền mặt hoặc chuyển khoản trước khi quyết toán.</div>
     <div th:if="${payoutDetails != null and payoutDetails.responseStatus == 'NEEDS_DISCUSSION'}" class="alert alert-warning mb-0">Khách muốn trao đổi phương án khác. Trao đổi trong hồ sơ sự cố, hủy đề nghị này rồi lập đề nghị mới nếu hai bên thống nhất.</div>
     <div th:if="${payoutDetails != null and payoutDetails.responseStatus == 'ACCEPTED'}" class="alert alert-info mb-0"><strong th:text="${payoutDetails.payoutMethod == 'BANK_TRANSFER' ? 'Khách chọn chuyển khoản' : 'Khách chọn tiền mặt'}">Phương thức nhận</strong><p class="mb-0 mt-2" th:if="${payoutDetails.payoutMethod == 'BANK_TRANSFER'}" th:text="|${payoutDetails.bankName} · ${payoutDetails.accountHolder} · ${payoutDetails.accountNumber}|">Thông tin chuyển khoản</p><small>Thông tin tài khoản được xóa sau khi ghi nhận đã chi.</small></div>
   </section>
@@ -31,9 +33,10 @@
   <section class="surface p-4">
     <h2 class="h5">Thao tác</h2>
     <p class="text-secondary" th:if="${financialEntry.status == 'PENDING_APPROVAL' and !currentUser.manager}">Đang chờ Manager duyệt.</p>
-    <div class="d-flex flex-wrap gap-2" th:if="${financialEntry.status == 'PENDING_APPROVAL' and currentUser.manager}">
+    <div class="d-flex flex-wrap gap-2" th:if="${financialEntry.status == 'PENDING_APPROVAL' and currentUser.manager and (financialEntry.type != 'COMPENSATION' or (payoutDetails != null and payoutDetails.responseStatus == 'AGREED_AMOUNT'))}">
       <form method="post" th:action="@{/admin/financial-entries/{id}/approve(id=${financialEntry.id})}"><input type="hidden" name="returnEntryId" th:value="${financialEntry.id}"><button class="btn btn-success" type="submit">Duyệt khoản</button></form>
     </div>
+    <p class="text-secondary" th:if="${financialEntry.status == 'PENDING_APPROVAL' and currentUser.manager and financialEntry.type == 'COMPENSATION' and (payoutDetails == null or payoutDetails.responseStatus != 'AGREED_AMOUNT')}">Chỉ duyệt sau khi khách đồng ý đúng số tiền đề xuất.</p>
     <form th:if="${financialEntry.status == 'APPROVED' and financialEntry.receiptPath == null and (financialEntry.type != 'COMPENSATION' or (payoutDetails != null and payoutDetails.responseStatus == 'ACCEPTED'))}" method="post" enctype="multipart/form-data" class="mt-3" th:action="@{/admin/financial-entries/{id}/receipt(id=${financialEntry.id})}">
       <input type="hidden" name="returnEntryId" th:value="${financialEntry.id}"><label class="form-label">Hóa đơn/biên nhận (PDF/JPEG/PNG, tối đa 5 MB)<input class="form-control" type="file" name="file" accept="application/pdf,image/jpeg,image/png" required></label><button class="btn btn-outline-primary" type="submit">Lưu chứng từ</button>
     </form>

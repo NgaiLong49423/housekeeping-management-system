@@ -41,6 +41,37 @@ class BookingReservationServiceTest {
             bookings, houseService, auth, staffManagement, serviceManagement, vietmap, companySettings, bookingDetails);
 
     @Test
+    void rejectsDuplicateServiceIdsBeforeReadingServicesOrWritingBooking() {
+        User customer = new User();
+        customer.setUserId(12L);
+        customer.setRole(UserRole.CUSTOMER);
+        customer.setStatus(UserStatus.ACTIVE);
+        when(auth.findActiveCustomer(12L)).thenReturn(customer);
+        when(houseService.findCustomerHouseForUpdate(12L, 31L)).thenReturn(new House());
+        when(staffManagement.findActiveForBookingUpdate(7L)).thenReturn(new Staff());
+        LocalDateTime start = LocalDate.now(ZoneOffset.ofHours(7)).plusDays(3).atTime(10, 0);
+
+        assertThatThrownBy(() -> service.createBooking(12L, 7L, 31L, start, List.of(5L, 5L), null))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("dịch vụ");
+
+        verify(serviceManagement, org.mockito.Mockito.never()).findByIds(org.mockito.ArgumentMatchers.anyList());
+        verify(bookings, org.mockito.Mockito.never()).insertBooking(org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void rejectsAreaNoteLongerThanSingleDayFormLimitAtServiceBoundary() {
+        String tooLong = "x".repeat(2001);
+        LocalDateTime futureStart = LocalDate.now(ZoneOffset.ofHours(7)).plusDays(5).atTime(10, 0);
+        assertThatThrownBy(() -> service.createBooking(12L, 7L, 31L, futureStart, List.of(5L), tooLong))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("2.000");
+        verifyNoInteractions(bookings, houseService, staffManagement, serviceManagement);
+    }
+
+    @Test
     void acceptsExactMinimumLeadTimeAndMaximumHorizon() {
         assertThatCode(() -> BookingReservationService.validateRequestedStart(now.plusMinutes(120), now))
                 .doesNotThrowAnyException();
@@ -252,6 +283,33 @@ class BookingReservationServiceTest {
     }
 
     @Test
+    void sameLocationSkipsRouteLookupButKeepsFifteenMinuteRestBuffer() {
+        LocalDateTime previousEnd=LocalDateTime.of(2026,11,10,10,0);
+        var previous=new BookingPersistenceRepository.AppointmentPoint(44L,previousEnd.minusHours(2),previousEnd,
+                new BigDecimal("10.0"),new BigDecimal("106.000"));
+        LocalDateTime exactEndStart=previousEnd;
+        when(bookings.adjacentAppointments(7L,exactEndStart,exactEndStart.plusHours(2),null)).thenReturn(List.of(previous));
+
+        var tooEarly=service.assessTravel(7L,exactEndStart,exactEndStart.plusHours(2),
+                new BigDecimal("10.000"),new BigDecimal("106.0"),null);
+
+        assertThat(tooEarly.status()).isEqualTo(BookingReservationService.TravelStatus.TOO_EARLY);
+        assertThat(tooEarly.earliestStart()).isEqualTo(previousEnd.plusMinutes(15));
+        assertThat(tooEarly.routeMinutes()).isZero();
+        assertThat(tooEarly.requiredGapMinutes()).isEqualTo(15);
+        assertThat(tooEarly.message()).contains("Booking trước kết thúc lúc 10:00", "nghỉ 15 phút", "10:15")
+                .doesNotContain("#");
+
+        LocalDateTime restCompleteStart=previousEnd.plusMinutes(15);
+        when(bookings.adjacentAppointments(7L,restCompleteStart,restCompleteStart.plusHours(2),null)).thenReturn(List.of(previous));
+        var feasible=service.assessTravel(7L,restCompleteStart,restCompleteStart.plusHours(2),
+                new BigDecimal("10.000"),new BigDecimal("106.0"),null);
+
+        assertThat(feasible.status()).isEqualTo(BookingReservationService.TravelStatus.FEASIBLE);
+        org.mockito.Mockito.verifyNoInteractions(vietmap);
+    }
+
+    @Test
     void acceptsRouteDistanceAtLimitAndRejectsDistanceAboveLimitFromPreviousBooking() {
         LocalDateTime start=LocalDateTime.of(2026,11,10,10,0);
         LocalDateTime end=start.plusHours(1);
@@ -272,7 +330,7 @@ class BookingReservationServiceTest {
         var overLimit=service.assessTravel(7L,start,end,new BigDecimal("10.1"),new BigDecimal("106.1"),null);
 
         assertThat(overLimit.status()).isEqualTo(BookingReservationService.TravelStatus.DISTANCE_LIMIT_EXCEEDED);
-        assertThat(overLimit.message()).contains("booking trước #44", "25.01 km", "25.00 km");
+        assertThat(overLimit.message()).contains("booking trước", "25.01 km", "25.00 km").doesNotContain("#");
     }
 
     @Test
@@ -293,7 +351,7 @@ class BookingReservationServiceTest {
         var result=service.assessTravel(7L,start,end,new BigDecimal("10.1"),new BigDecimal("106.1"),null);
 
         assertThat(result.status()).isEqualTo(BookingReservationService.TravelStatus.DISTANCE_LIMIT_EXCEEDED);
-        assertThat(result.message()).contains("booking kế tiếp #45", "26.00 km", "25.00 km");
+        assertThat(result.message()).contains("booking kế tiếp", "26.00 km", "25.00 km").doesNotContain("#");
     }
 
     @Test
@@ -313,7 +371,8 @@ class BookingReservationServiceTest {
 
         assertThat(result.status()).isEqualTo(BookingReservationService.TravelStatus.TOO_LATE);
         assertThat(result.latestStart()).isEqualTo(LocalDateTime.of(2026,11,10,12,25));
-        assertThat(result.message()).contains("Booking kế tiếp #45","20 phút","15 phút","30 phút","12:25","12:15");
+        assertThat(result.message()).contains("Booking kế tiếp","20 phút","15 phút","30 phút","12:25","12:15")
+                .doesNotContain("#");
     }
 
     @Test
@@ -330,7 +389,7 @@ class BookingReservationServiceTest {
         var result=service.assessTravel(7L,start,end,new BigDecimal("10.1"),new BigDecimal("106.1"),null);
 
         assertThat(result.status()).isEqualTo(BookingReservationService.TravelStatus.ROUTE_UNAVAILABLE);
-        assertThat(result.message()).contains("Chưa xác minh được tuyến","booking kế tiếp #46");
+        assertThat(result.message()).contains("Chưa xác minh được tuyến","booking kế tiếp").doesNotContain("#");
     }
 
     private Services service(Long id, String name, String price, int durationMinutes) {

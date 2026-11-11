@@ -7,9 +7,11 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public record BookingDelayCompensation(int delayedMinutes, int discountPercent, BigDecimal discountAmount) {
+    public static final int GRACE_PERIOD_MINUTES = 5;
+
     public static BookingDelayCompensation calculate(LocalDateTime scheduledStart, LocalDateTime staffArrivedAt,
             BigDecimal totalAmount, List<Tier> tiers) {
-        long lateSeconds = Math.max(0, Duration.between(scheduledStart, staffArrivedAt).getSeconds());
+        long lateSeconds = Math.max(0, Duration.between(scheduledStart.plusMinutes(GRACE_PERIOD_MINUTES), staffArrivedAt).getSeconds());
         int delayedMinutes = Math.toIntExact((lateSeconds + 59) / 60);
         int percent = delayedMinutes == 0 ? 0 : tiers.stream()
                 .filter(tier -> tier.minDelayMinutes() <= delayedMinutes

@@ -31,10 +31,15 @@ public class CustomerFeedbackSubmissionServiceImpl implements CustomerFeedbackSu
                 : images.stream().filter(file -> file != null && !file.isEmpty()).toList();
         if (files.size() > 5) throw new IllegalArgumentException("Mỗi lần gửi tối đa 5 ảnh bằng chứng.");
         boolean reportIncident = Boolean.TRUE.equals(form.reportIncident());
+        boolean hasDriveLink = form.incidentDriveLink()!=null && !form.incidentDriveLink().isBlank();
+        if(reportIncident && files.isEmpty() && !hasDriveLink)
+            throw new IllegalArgumentException("Cần gửi ít nhất một ảnh, tệp phù hợp hoặc link video làm bằng chứng.");
         if(reportIncident && form.incidentDriveLink()!=null && !form.incidentDriveLink().isBlank() && files.size()>=5)
             throw new IllegalArgumentException("Ảnh/tệp và liên kết Drive cộng lại tối đa 5 mục cho một tin nhắn.");
         if (!reportIncident && !files.isEmpty())
             throw new IllegalArgumentException("Hãy chọn mục báo sự cố để gửi ảnh bằng chứng.");
+        if (!reportIncident && hasDriveLink)
+            throw new IllegalArgumentException("Hãy chọn mục báo sự cố để gửi link bằng chứng.");
         List<String> incidentTypes = form.incidentTypes();
         String incidentDescription = form.incidentDescription();
         if (reportIncident && (incidentTypes == null || incidentTypes.isEmpty()
@@ -50,7 +55,8 @@ public class CustomerFeedbackSubmissionServiceImpl implements CustomerFeedbackSu
         if (reportIncident) {
             IncidentItemDetails itemDetails = new IncidentItemDetails(form.incidentItemDescription(),
                     form.estimatedItemValue(), form.itemAgeMonths());
-            Long caseId = cases.open(bookingId, customerId, incidentTypes, incidentDescription, itemDetails);
+            Long caseId = cases.open(bookingId, customerId, incidentTypes, incidentDescription, itemDetails,
+                    form.customerRequestedResolution(), !files.isEmpty() || hasDriveLink);
             if (!files.isEmpty()) attachments.uploadCustomerEvidence(caseId, bookingId, customerId, files);
             if(form.incidentDriveLink()!=null && !form.incidentDriveLink().isBlank()) {
                 Long messageId=cases.initialCustomerMessageId(caseId);

@@ -17,12 +17,11 @@ public interface BookingFinancialRepository extends JpaRepository<BookingFinanci
     java.util.Optional<BookingFinancialEntry> findByIdForUpdate(@Param("id") Long id);
 
     @Query("select entry from BookingFinancialEntry entry join Booking booking on booking.bookingId=entry.bookingId "
-            + "where booking.customerId=:customerId and entry.entryType='COMPENSATION' and entry.status='APPROVED' "
+            + "where booking.customerId=:customerId and entry.entryType='COMPENSATION' and entry.status in ('PROPOSED','PENDING_APPROVAL','APPROVED','PAID') "
             + "order by entry.createdAt desc, entry.entryId desc")
     List<BookingFinancialEntry> findApprovedCompensationsForCustomer(@Param("customerId") Long customerId);
     List<BookingFinancialEntry> findByBookingIdOrderByCreatedAtAscEntryIdAsc(Long bookingId);
-    java.util.Optional<BookingFinancialEntry> findFirstByResolutionActionId(Long resolutionActionId);
-
+    boolean existsByCaseIdAndEntryTypeAndStatusIn(Long caseId, String entryType, Collection<String> statuses);
     List<BookingFinancialEntry> findAllByOrderByCreatedAtDescEntryIdDesc();
 
     List<BookingFinancialEntry> findByBookingIdAndEntryTypeInOrderByCreatedAtAscEntryIdAsc(

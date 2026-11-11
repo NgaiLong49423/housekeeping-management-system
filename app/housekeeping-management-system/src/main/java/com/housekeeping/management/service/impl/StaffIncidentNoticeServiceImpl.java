@@ -16,4 +16,7 @@ public class StaffIncidentNoticeServiceImpl implements StaffIncidentNoticeServic
     public void acknowledge(Long actionId, Long staffId) {
         cases.acknowledgeStaffAction(actionId, staffId);
     }
+    public void respond(Long actionId, Long staffId, String response, boolean appeal) {
+        cases.respondToStaffAction(actionId, staffId, response, appeal);
+    }
 }

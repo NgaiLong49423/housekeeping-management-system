@@ -8,7 +8,9 @@ import com.housekeeping.management.dto.request.PortalForms.BookingDelaySettingsF
 import com.housekeeping.management.dto.request.PortalForms.BookingDelayTierForm;
 import com.housekeeping.management.service.CompanySettingsService;
 import com.housekeeping.management.service.BookingDelayCompensationSettingsService;
+import com.housekeeping.management.web.PortalUser;
 import jakarta.validation.Valid;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.IntStream;
@@ -75,9 +77,9 @@ public class AdminCompanySettingsController {
         model.addAttribute("closedDays",form.operatingHours().stream().filter(PortalForms.OperatingHoursForm::closed).map(PortalForms.OperatingHoursForm::dayOfWeek).collect(java.util.stream.Collectors.toSet()));
     }
 
-    @PostMapping("/location") String saveLocation(@Valid @ModelAttribute("settingsForm") CompanyLocationForm form,BindingResult errors,RedirectAttributes flash){
+    @PostMapping("/location") String saveLocation(@AuthenticationPrincipal PortalUser user, @Valid @ModelAttribute("settingsForm") CompanyLocationForm form,BindingResult errors,RedirectAttributes flash){
         if(errors.hasErrors()){flash.addFlashAttribute("error","Vui lòng nhập đầy đủ địa chỉ, tọa độ và bán kính hợp lệ.");return "redirect:/admin/settings";}
-        try{settings.saveLocation(form);flash.addFlashAttribute("success","Đã lưu vị trí và bán kính phục vụ.");}
+        try{settings.saveLocation(user.getUserId(),form);flash.addFlashAttribute("success","Đã lưu vị trí và bán kính phục vụ.");}
         catch(IllegalArgumentException|IllegalStateException ex){flash.addFlashAttribute("error",ex.getMessage());}
         return "redirect:/admin/settings";
     }
@@ -89,12 +91,13 @@ public class AdminCompanySettingsController {
     }
 
     @PostMapping("/schedule") String saveSchedule(@Valid @ModelAttribute("scheduleForm") CompanyScheduleVersionForm form,
-            BindingResult errors,@RequestParam(defaultValue="false") boolean editingExisting,RedirectAttributes flash){
+            BindingResult errors,@RequestParam(defaultValue="false") boolean editingExisting,RedirectAttributes flash,
+            @AuthenticationPrincipal PortalUser user){
         if(errors.hasErrors()){
             flash.addFlashAttribute("scheduleError","Vui lòng kiểm tra ngày hiệu lực và đủ khung giờ trong tuần.");
             return scheduleRedirect(form.effectiveFrom());
         }
-        try{settings.saveSchedule(form,editingExisting);flash.addFlashAttribute("scheduleSuccess","Đã lưu giờ hoạt động cho tuần bắt đầu từ Thứ Hai "+form.effectiveFrom()+".");}
+        try{settings.saveSchedule(user.getUserId(),form,editingExisting);flash.addFlashAttribute("scheduleSuccess","Đã lưu giờ hoạt động cho tuần bắt đầu từ Thứ Hai "+form.effectiveFrom()+".");}
         catch(IllegalArgumentException|IllegalStateException ex){flash.addFlashAttribute("scheduleError",ex.getMessage());}
         return scheduleRedirect(form.effectiveFrom());
     }
@@ -104,8 +107,9 @@ public class AdminCompanySettingsController {
         return location+"#schedule-save-feedback";
     }
 
-    @PostMapping("/schedule/cancel") String cancelSchedule(@RequestParam LocalDate effectiveFrom,RedirectAttributes flash){
-        try{settings.cancelSchedule(effectiveFrom);flash.addFlashAttribute("success","Đã hủy phiên bản lịch. Các khoảng Staff không phù hợp đã được ngừng hiệu lực.");}
+    @PostMapping("/schedule/cancel") String cancelSchedule(@RequestParam LocalDate effectiveFrom,RedirectAttributes flash,
+            @AuthenticationPrincipal PortalUser user){
+        try{settings.cancelSchedule(user.getUserId(),effectiveFrom);flash.addFlashAttribute("success","Đã hủy phiên bản lịch. Các khoảng Staff không phù hợp đã được ngừng hiệu lực.");}
         catch(IllegalArgumentException|IllegalStateException ex){flash.addFlashAttribute("error",ex.getMessage());}
         return "redirect:/admin/settings?effectiveFrom="+effectiveFrom;
     }

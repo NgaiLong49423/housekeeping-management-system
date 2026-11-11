@@ -1,6 +1,7 @@
 package com.housekeeping.management.service.impl;
 
 import com.housekeeping.management.service.BookingIncidentService;
+import com.housekeeping.management.service.BookingDelayCompensationSettingsService;
 
 import com.housekeeping.management.domain.BookingDelayCompensation;
 import com.housekeeping.management.repository.BookingPersistenceRepository;
@@ -13,9 +14,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class BookingIncidentServiceImpl implements BookingIncidentService {
     private static final int MAX_NOTE_LENGTH = 500;
     private final BookingPersistenceRepository bookings;
+    private final BookingDelayCompensationSettingsService compensationSettings;
 
-    public BookingIncidentServiceImpl(BookingPersistenceRepository bookings) {
+    public BookingIncidentServiceImpl(BookingPersistenceRepository bookings,
+            BookingDelayCompensationSettingsService compensationSettings) {
         this.bookings = bookings;
+        this.compensationSettings = compensationSettings;
     }
 
     @Transactional
@@ -33,12 +37,12 @@ public class BookingIncidentServiceImpl implements BookingIncidentService {
         if (!"CONFIRMED".equals(booking.status()) || booking.workStartedAt() != null) {
             throw new IllegalStateException("Chỉ báo sự cố khi lịch còn CONFIRMED và công việc chưa bắt đầu.");
         }
-        if (expectedArrivalAt == null || !expectedArrivalAt.isAfter(booking.startTime())
-                || expectedArrivalAt.isBefore(now)
-                || (booking.staffArrivedAt() != null && expectedArrivalAt.isBefore(booking.staffArrivedAt()))) {
-            throw new IllegalArgumentException("Giờ dự kiến đến phải sau giờ hẹn, hiện tại và thời điểm Staff đã ghi nhận đến.");
+        if (booking.staffArrivedAt() == null && (expectedArrivalAt == null || !expectedArrivalAt.isAfter(booking.startTime())
+                || expectedArrivalAt.isBefore(now))) {
+            throw new IllegalArgumentException("Giờ dự kiến đến phải sau giờ hẹn và không trước thời điểm hiện tại.");
         }
-        if (bookings.reportStaffIncident(bookingId, staffId, normalizedNote, expectedArrivalAt, now) != 1) {
+        LocalDateTime reportedArrival = booking.staffArrivedAt() == null ? expectedArrivalAt : booking.staffArrivedAt();
+        if (bookings.reportStaffIncident(bookingId, staffId, normalizedNote, reportedArrival, now) != 1) {
             throw new IllegalStateException("Lịch vừa thay đổi hoặc đã có báo cáo/khách phản hồi. Hãy tải lại trang.");
         }
     }
@@ -61,9 +65,8 @@ public class BookingIncidentServiceImpl implements BookingIncidentService {
         LocalDateTime now = LocalDateTime.now(ZoneOffset.ofHours(7)).withNano(0);
         BookingDelayCompensation compensation = booking.staffArrivedAt() == null
                 ? new BookingDelayCompensation(0, 0, java.math.BigDecimal.ZERO.setScale(2))
-                : new BookingDelayCompensation(booking.delayMinutes() == null ? 0 : booking.delayMinutes(),
-                        booking.delayDiscountPercent().intValueExact(),
-                        booking.delayDiscountAmount());
+                : BookingDelayCompensation.calculate(booking.startTime(), booking.staffArrivedAt(),
+                        booking.totalAmount(), compensationSettings.get());
         if (bookings.respondToIncident(bookingId, customerId, response, now,
                 java.math.BigDecimal.valueOf(compensation.discountPercent()), compensation.discountAmount()) != 1) {
             throw new IllegalStateException("Lịch vừa thay đổi. Hãy tải lại trang trước khi phản hồi.");

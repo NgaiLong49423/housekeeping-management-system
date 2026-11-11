@@ -9,6 +9,7 @@ import com.housekeeping.management.domain.UserStatus;
 import com.housekeeping.management.entity.*;
 import com.housekeeping.management.repository.*;
 import com.housekeeping.management.service.FeedbackService;
+import com.housekeeping.management.service.BookingCancellationService;
 import com.housekeeping.management.service.PortalQueryService;
 import com.housekeeping.management.web.PortalUser;
 import java.time.*;
@@ -167,7 +168,10 @@ public class PortalQueryServiceImpl implements PortalQueryService {
                     customer == null ? null : customer.getPhone(), offset(b.getStaffArrivedAt()), offset(b.getIncidentReportedAt()), b.getIncidentNote(),
                     offset(b.getIncidentExpectedArrivalAt()), b.getIncidentCustomerResponse(), offset(b.getIncidentCustomerRespondedAt()), offset(b.getWorkStartedAt()),
                     b.getDelayMinutes(), b.getDelayDiscountPercent(), b.getDelayDiscountAmount(), f == null ? null : f.getRating(),
-                    topics(f), topicCodes(f), offset(b.getCustomerDelayReportedAt()));
+                    topics(f), topicCodes(f), offset(b.getCustomerDelayReportedAt()),
+                    "CONFIRMED".equals(b.getStatus().name()) && b.getWorkStartedAt() == null
+                            && (b.getIncidentReportedAt() != null || BookingCancellationService.canCustomerCancel(
+                                    b.getStatus().name(), b.getStartTime(), LocalDateTime.now(VN), b.getWorkStartedAt())));
         }).toList();
     }
     private static OffsetDateTime offset(LocalDateTime value) { return value == null ? null : value.atOffset(VN); }

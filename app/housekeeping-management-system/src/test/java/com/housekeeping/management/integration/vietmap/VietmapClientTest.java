@@ -16,6 +16,28 @@ import org.springframework.http.HttpMethod;
 
 class VietmapClientTest {
     @Test
+    void rejectsInvalidDisplayAndOutOfRangeCoordinatesFromPlaceEndpoint() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("https://maps.vietmap.vn");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        VietmapClient client = new VietmapClient(new VietmapProperties("server-test-key", "https://maps.vietmap.vn"), builder.build());
+        String[] invalidBodies = {
+                "{\"display\":null,\"lat\":10.1,\"lng\":106.2}",
+                "{\"display\":\"   \",\"lat\":10.1,\"lng\":106.2}",
+                "{\"display\":\"" + "x".repeat(501) + "\",\"lat\":10.1,\"lng\":106.2}",
+                "{\"display\":\"Outside\",\"lat\":91,\"lng\":106.2}"
+        };
+        for (String body : invalidBodies) {
+            server.expect(requestTo(org.hamcrest.Matchers.containsString("/api/place/v4"))).andExpect(method(HttpMethod.GET))
+                    .andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
+        }
+        for (String ignored : invalidBodies) {
+            assertThatThrownBy(() -> client.place("bad-ref"))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("VietMap");
+        }
+        server.verify();
+    }
+
+    @Test
     void requiresBackendKeyAndRejectsInvalidAutocompleteInputAtServiceBoundary() {
         VietmapClient client = new VietmapClient(new VietmapProperties("", "https://example.invalid"));
         assertThatThrownBy(() -> client.autocomplete("Quận 1"))

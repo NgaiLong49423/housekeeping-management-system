@@ -3,7 +3,6 @@ package com.housekeeping.management.service.impl;
 import com.housekeeping.management.service.BookingCancellationService;
 
 import com.housekeeping.management.repository.BookingPersistenceRepository;
-import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import org.springframework.security.access.AccessDeniedException;
@@ -29,7 +28,8 @@ public class BookingCancellationServiceImpl implements BookingCancellationServic
         }
         var now = OffsetDateTime.now(BUSINESS_OFFSET).withNano(0).toLocalDateTime();
         boolean reportedStaffDelayCanCancel = booking.incidentReportedAt() != null && booking.workStartedAt() == null;
-        if (!reportedStaffDelayCanCancel && !canCustomerCancel(booking.status(), booking.startTime(), now, booking.workStartedAt())) {
+        if (!reportedStaffDelayCanCancel && !BookingCancellationService.canCustomerCancel(
+                booking.status(), booking.startTime(), now, booking.workStartedAt())) {
             throw new IllegalStateException("Chỉ có thể hủy lịch đã xác nhận trước giờ bắt đầu ít nhất 2 giờ.");
         }
         String reason = reportedStaffDelayCanCancel
@@ -40,8 +40,4 @@ public class BookingCancellationServiceImpl implements BookingCancellationServic
         }
     }
 
-    static boolean canCustomerCancel(String status, LocalDateTime startTime, LocalDateTime now,
-            LocalDateTime workStartedAt) {
-        return "CONFIRMED".equals(status) && workStartedAt == null && !now.isAfter(startTime.minusHours(2));
-    }
 }

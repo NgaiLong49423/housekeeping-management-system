@@ -36,7 +36,7 @@ public interface BookingReservationService {
     java.util.Optional<BookingFeedbackState> lockBookingForFeedback(Long bookingId);
     java.util.List<Long> futureConfirmedBookingIds(Long staffId, java.time.LocalDate startDate, java.time.LocalDate endDate);
     record BookingPaymentState(Long customerId, Long staffId, String status) { }
-    record BookingFeedbackState(Long customerId, String status) { }
+    record BookingFeedbackState(Long customerId, String status, java.time.LocalDateTime serviceCompletedAt) { }
     public TravelAssessment assessTravel(Long staffId,LocalDateTime start,LocalDateTime end, BigDecimal latitude,BigDecimal longitude,Long exceptBookingId);static void validateRequestedStart(LocalDateTime start, LocalDateTime now) {
         if (start == null) throw new IllegalArgumentException("Hãy chọn giờ bắt đầu.");
         if (start.isBefore(now.plusMinutes(120))) throw new IllegalArgumentException("Lịch phải được đặt trước giờ bắt đầu ít nhất 120 phút.");

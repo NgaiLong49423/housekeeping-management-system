@@ -26,8 +26,9 @@ public class ServiceManagementServiceImpl implements ServiceManagementService {
         Services service = serviceId == null ? null : findService(serviceId);
         Services.Status status = service == null || service.getStatus() == null
                 ? Services.Status.ACTIVE : service.getStatus();
+        String description = form.description() == null || form.description().isBlank() ? null : form.description().trim();
         ServicesDTO dto = new ServicesDTO(service == null ? null : service.getServiceId(), form.name().trim(),
-                form.description(), form.imageUrl() == null || form.imageUrl().isBlank() ? null : form.imageUrl().trim(),
+                description, form.imageUrl() == null || form.imageUrl().isBlank() ? null : form.imageUrl().trim(),
                 form.duration(), form.price(), status);
         services.saveAndFlush(dto.convertDTOToEntity(service));
     }

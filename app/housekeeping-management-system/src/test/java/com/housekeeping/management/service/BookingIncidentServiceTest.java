@@ -18,9 +18,23 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class BookingIncidentServiceTest {
     @Test
+    void staffWhoAlreadyArrivedCanReportWithoutFutureEta() {
+        BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
+        BookingIncidentService service = incidentService(bookings);
+        LocalDateTime start = LocalDateTime.now(ZoneOffset.ofHours(7)).minusMinutes(20).withNano(0);
+        LocalDateTime arrival = start.plusMinutes(10);
+        when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(booking(7L, "CONFIRMED", start, arrival, null, null)));
+        when(bookings.reportStaffIncident(eq(42L), eq(7L), eq("kẹt xe"), any(), any())).thenReturn(1);
+
+        service.report(42L, 7L, "kẹt xe", null);
+
+        verify(bookings).reportStaffIncident(eq(42L), eq(7L), eq("kẹt xe"), eq(arrival), any());
+    }
+
+    @Test
     void assignedStaffCanReportAnExpectedArrivalAndNoteIsTrimmed() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
-        BookingIncidentService service = new com.housekeeping.management.service.impl.BookingIncidentServiceImpl(bookings);
+        BookingIncidentService service = incidentService(bookings);
         var booking = booking(7L, "CONFIRMED", LocalDateTime.now(ZoneOffset.ofHours(7)).plusDays(1), null, null, null);
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(booking));
         when(bookings.reportStaffIncident(eq(42L), eq(7L), eq("kẹt xe"), any(), any())).thenReturn(1);
@@ -34,7 +48,7 @@ class BookingIncidentServiceTest {
     @Test
     void canCompleteLegacyIncidentWithoutEtaByAddingEtaBeforeWorkStarts() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
-        BookingIncidentService service = new com.housekeeping.management.service.impl.BookingIncidentServiceImpl(bookings);
+        BookingIncidentService service = incidentService(bookings);
         LocalDateTime start = LocalDateTime.now(ZoneOffset.ofHours(7)).plusMinutes(10).withNano(0);
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(booking(7L, "CONFIRMED", start,
                 start.minusMinutes(1), null, null)));
@@ -42,13 +56,13 @@ class BookingIncidentServiceTest {
 
         service.report(42L, 7L, "kẹt xe", start.plusMinutes(5));
 
-        verify(bookings).reportStaffIncident(eq(42L), eq(7L), eq("kẹt xe"), eq(start.plusMinutes(5)), any());
+        verify(bookings).reportStaffIncident(eq(42L), eq(7L), eq("kẹt xe"), eq(start.minusMinutes(1)), any());
     }
 
     @Test
     void rejectsUnassignedStaffAndInvalidEtaOrNote() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
-        BookingIncidentService service = new com.housekeeping.management.service.impl.BookingIncidentServiceImpl(bookings);
+        BookingIncidentService service = incidentService(bookings);
         LocalDateTime start = LocalDateTime.now(ZoneOffset.ofHours(7)).plusDays(1);
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(booking(7L, "CONFIRMED", start, null, null, null)));
 
@@ -65,7 +79,7 @@ class BookingIncidentServiceTest {
     @Test
     void rejectsReportAfterWorkStartsAndDuplicateReport() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
-        BookingIncidentService service = new com.housekeeping.management.service.impl.BookingIncidentServiceImpl(bookings);
+        BookingIncidentService service = incidentService(bookings);
         LocalDateTime start = LocalDateTime.now(ZoneOffset.ofHours(7)).plusDays(1);
         when(bookings.lockBookingWorkflow(42L))
                 .thenReturn(Optional.of(booking(7L, "CONFIRMED", start, null, start, null)))
@@ -80,7 +94,7 @@ class BookingIncidentServiceTest {
     @Test
     void customerAcceptanceStoresResponseAndCalculatedDiscount() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
-        BookingIncidentService service = new com.housekeeping.management.service.impl.BookingIncidentServiceImpl(bookings);
+        BookingIncidentService service = incidentService(bookings);
         LocalDateTime start = LocalDateTime.now(ZoneOffset.ofHours(7)).minusMinutes(20).withNano(0);
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(booking(7L, "CONFIRMED", start,
                 start.plusMinutes(20), null, start.plusMinutes(25))));
@@ -91,14 +105,14 @@ class BookingIncidentServiceTest {
         ArgumentCaptor<BigDecimal> percent = ArgumentCaptor.forClass(BigDecimal.class);
         ArgumentCaptor<BigDecimal> amount = ArgumentCaptor.forClass(BigDecimal.class);
         verify(bookings).respondToIncident(eq(42L), eq(3L), eq("ACCEPTED"), any(), percent.capture(), amount.capture());
-        assertThat(percent.getValue()).isEqualByComparingTo("10");
-        assertThat(amount.getValue()).isEqualByComparingTo("15000.00");
+        assertThat(percent.getValue()).isEqualByComparingTo("5");
+        assertThat(amount.getValue()).isEqualByComparingTo("7500.00");
     }
 
     @Test
     void declineCancelsWithoutAnyDiscountAndNonOwnerCannotRespond() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
-        BookingIncidentService service = new com.housekeeping.management.service.impl.BookingIncidentServiceImpl(bookings);
+        BookingIncidentService service = incidentService(bookings);
         LocalDateTime start = LocalDateTime.now(ZoneOffset.ofHours(7)).plusMinutes(10).withNano(0);
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(booking(7L, "CONFIRMED", start, null, null, start.plusMinutes(15))))
                 .thenReturn(Optional.of(new BookingPersistenceRepository.BookingWorkflowState(42L, 8L, 7L,
@@ -119,8 +133,16 @@ class BookingIncidentServiceTest {
         return new BookingPersistenceRepository.BookingWorkflowState(42L, 3L, staffId, start, start.plusHours(1), status,
                 new BigDecimal("150000.00"), staffArrivedAt, workStartedAt,
                 reported ? start.minusMinutes(2) : null, reported ? "kẹt xe" : null, expectedArrivalAt,
-                null, null, staffArrivedAt == null ? null : 20,
-                staffArrivedAt == null ? BigDecimal.ZERO : new BigDecimal("10.00"),
-                staffArrivedAt == null ? BigDecimal.ZERO : new BigDecimal("15000.00"));
+                null, null, staffArrivedAt == null ? null : 0,
+                BigDecimal.ZERO, BigDecimal.ZERO);
+    }
+
+    private static BookingIncidentService incidentService(BookingPersistenceRepository bookings) {
+        var settings = mock(BookingDelayCompensationSettingsService.class);
+        when(settings.get()).thenReturn(java.util.List.of(
+                new com.housekeeping.management.domain.BookingDelayCompensation.Tier(1, 15, 5),
+                new com.housekeeping.management.domain.BookingDelayCompensation.Tier(16, 30, 10),
+                new com.housekeeping.management.domain.BookingDelayCompensation.Tier(31, null, 20)));
+        return new com.housekeeping.management.service.impl.BookingIncidentServiceImpl(bookings, settings);
     }
 }

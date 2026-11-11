@@ -49,6 +49,13 @@ public interface BookingPersistenceRepository extends JpaRepository<Booking, Lon
     int changeStatusEntity(@Param("id") Long id, @Param("expectedStatus") BookingStatus expected,
             @Param("newStatus") BookingStatus next);
 
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update Booking booking set booking.status=com.housekeeping.management.domain.BookingStatus.AWAITING_PAYMENT, "
+            + "booking.serviceCompletedAt=:at where booking.bookingId=:id and booking.staffId=:staff "
+            + "and booking.status=com.housekeeping.management.domain.BookingStatus.CONFIRMED "
+            + "and booking.workStartedAt is not null and booking.serviceCompletedAt is null")
+    int completeWork(@Param("id") Long id, @Param("staff") Long staff, @Param("at") LocalDateTime at);
+
     default int changeStatus(Long id, String expected, String next) {
         return changeStatusEntity(id, BookingStatus.valueOf(expected), BookingStatus.valueOf(next));
     }
@@ -248,8 +255,10 @@ public interface BookingPersistenceRepository extends JpaRepository<Booking, Lon
     @Query("update Booking booking set booking.workStartedAt=:at where booking.bookingId=:id "
             + "and booking.staffId=:staff and booking.status=com.housekeeping.management.domain.BookingStatus.CONFIRMED "
             + "and booking.workStartedAt is null and booking.staffArrivedAt is not null "
+            + "and (:lateBeyondGrace=false or booking.incidentReportedAt is not null) "
             + "and (booking.incidentReportedAt is null or booking.incidentCustomerResponse='ACCEPTED')")
-    int startWork(@Param("id") Long id, @Param("staff") Long staff, @Param("at") LocalDateTime at);
+    int startWork(@Param("id") Long id, @Param("staff") Long staff, @Param("at") LocalDateTime at,
+            @Param("lateBeyondGrace") boolean lateBeyondGrace);
 
     default Long insertBooking(Long customer, Long staff, Long house, String address, BigDecimal latitude,
             BigDecimal longitude, String addressNote, LocalDateTime start, LocalDateTime end, int duration,
@@ -282,11 +291,15 @@ public interface BookingPersistenceRepository extends JpaRepository<Booking, Lon
     }
     record ServiceSnapshot(Long id, String name, BigDecimal price, int durationMinutes) { }
     record BookingState(Long id, Long customerId, Long staffId, Long houseId, LocalDateTime startTime,
-            LocalDateTime endTime, String status, BigDecimal latitude, BigDecimal longitude) {
+            LocalDateTime endTime, String status, BigDecimal latitude, BigDecimal longitude, LocalDateTime serviceCompletedAt) {
+        public BookingState(Long id, Long customerId, Long staffId, Long houseId, LocalDateTime startTime,
+                LocalDateTime endTime, String status, BigDecimal latitude, BigDecimal longitude) {
+            this(id,customerId,staffId,houseId,startTime,endTime,status,latitude,longitude,null);
+        }
         static BookingState from(Booking booking) {
             return new BookingState(booking.getBookingId(), booking.getCustomerId(), booking.getStaffId(),
                     booking.getHouseId(), booking.getStartTime(), booking.getEndTime(), booking.getStatus().name(),
-                    booking.getLatitudeSnapshot(), booking.getLongitudeSnapshot());
+                    booking.getLatitudeSnapshot(), booking.getLongitudeSnapshot(), booking.getServiceCompletedAt());
         }
     }
     record BookingWorkflowState(Long id, Long customerId, Long staffId, LocalDateTime startTime,

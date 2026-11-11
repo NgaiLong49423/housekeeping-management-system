@@ -5,6 +5,10 @@ import java.util.Map;
 public final class PortalMessages {
     private PortalMessages() { }
     private static final Map<String, String> MESSAGES = Map.ofEntries(
+        Map.entry("Chưa cấu hình PAYOUT_ENCRYPTION_KEY; không thể nhận thông tin ngân hàng.",
+                "Hệ thống chưa cấu hình khóa bảo mật để nhận thông tin chuyển khoản. Quản trị viên cần cấu hình PAYOUT_ENCRYPTION_KEY rồi khởi động lại ứng dụng."),
+        Map.entry("PAYOUT_ENCRYPTION_KEY phải là Base64 của khóa ngẫu nhiên 32 byte.",
+                "Khóa bảo mật nhận tiền PAYOUT_ENCRYPTION_KEY chưa đúng định dạng. Quản trị viên cần cấu hình khóa Base64 hợp lệ dài 32 byte rồi khởi động lại ứng dụng."),
         Map.entry("The selected Staff is already booked in this interval", "Nhân viên vừa có lịch trùng giờ. Vui lòng chọn khoảng khác."),
         Map.entry("A detail falls outside its referenced work schedule", "Tổng thời lượng dịch vụ vượt khoảng sẵn sàng. Hãy đổi giờ hoặc chọn khoảng dài hơn."),
         Map.entry("Every detail must use the selected Staff's schedule", "Khoảng sẵn sàng không thuộc nhân viên đã chọn."),
@@ -28,8 +32,8 @@ public final class PortalMessages {
         String message = failure.getMessage();
         if (message != null && (message.startsWith("Chỉ ") || message.startsWith("Lịch ") || message.startsWith("Bạn ")
                 || message.startsWith("Khoảng ") || message.startsWith("Hãy ") || message.startsWith("Giờ ")
-                || message.startsWith("Nhân viên ") || message.startsWith("Dịch vụ ")
-                || message.startsWith("Địa chỉ "))) { return message; }
+                || message.startsWith("Nhân viên ") || message.startsWith("Dịch vụ ") || message.startsWith("Cần ")
+                || message.startsWith("Địa chỉ ") || message.startsWith("Hồ sơ này đã có khoản bồi thường"))) { return message; }
         return MESSAGES.getOrDefault(message == null ? "" : message, "Không thể thực hiện thao tác. Vui lòng kiểm tra dữ liệu hoặc tải lại trang.");
     }
 }

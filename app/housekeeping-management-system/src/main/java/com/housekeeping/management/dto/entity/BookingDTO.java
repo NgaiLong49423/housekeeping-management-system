@@ -13,7 +13,7 @@ public record BookingDTO(Long bookingId, Long customerId, Long staffId, Long ori
         LocalDateTime customerDelayReportedAt, LocalDateTime incidentReportedAt, String incidentNote,
         LocalDateTime incidentExpectedArrivalAt, String incidentCustomerResponse,
         LocalDateTime incidentCustomerRespondedAt, LocalDateTime workStartedAt, Integer delayMinutes,
-        BigDecimal delayDiscountPercent, BigDecimal delayDiscountAmount) {
+        BigDecimal delayDiscountPercent, BigDecimal delayDiscountAmount, LocalDateTime serviceCompletedAt) {
 
     public static BookingDTO convertEntityToDTO(Booking entity) {
         if (entity == null) return null;
@@ -26,7 +26,7 @@ public record BookingDTO(Long bookingId, Long customerId, Long staffId, Long ori
                 entity.getStaffArrivedAt(), entity.getCustomerDelayReportedAt(), entity.getIncidentReportedAt(),
                 entity.getIncidentNote(), entity.getIncidentExpectedArrivalAt(), entity.getIncidentCustomerResponse(),
                 entity.getIncidentCustomerRespondedAt(), entity.getWorkStartedAt(), entity.getDelayMinutes(),
-                entity.getDelayDiscountPercent(), entity.getDelayDiscountAmount());
+                entity.getDelayDiscountPercent(), entity.getDelayDiscountAmount(), entity.getServiceCompletedAt());
     }
 
     public Booking convertDTOToEntity() {
@@ -62,6 +62,7 @@ public record BookingDTO(Long bookingId, Long customerId, Long staffId, Long ori
         entity.setDelayMinutes(delayMinutes);
         entity.setDelayDiscountPercent(delayDiscountPercent);
         entity.setDelayDiscountAmount(delayDiscountAmount);
+        entity.setServiceCompletedAt(serviceCompletedAt);
         return entity;
     }
 }

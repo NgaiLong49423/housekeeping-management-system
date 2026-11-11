@@ -8,11 +8,21 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface StaffIncidentActionRepository extends JpaRepository<StaffIncidentAction, Long> {
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select action from StaffIncidentAction action where action.actionId=:id")
+    java.util.Optional<StaffIncidentAction> findByIdForUpdate(@Param("id") Long id);
     boolean existsByCaseIdAndStatus(Long caseId, String status);
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     java.util.Optional<StaffIncidentAction> findFirstByCaseIdAndStatusOrderByActionIdDesc(Long caseId, String status);
     List<StaffIncidentAction> findAllByCaseIdOrderByCreatedAtAscActionIdAsc(Long caseId);
     List<StaffIncidentAction> findAllByStaffIdAndStatusAndActionTypeNotOrderByDecidedAtDescActionIdDesc(
             Long staffId, String status, String excludedType);
+    List<StaffIncidentAction> findAllByStaffIdAndActionTypeNotOrderByCreatedAtDescActionIdDesc(Long staffId, String excludedType);
+    java.util.Optional<StaffIncidentAction> findByActionIdAndStaffId(Long actionId, Long staffId);
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    java.util.Optional<StaffIncidentAction> findFirstByCaseIdAndStatusInOrderByActionIdDesc(Long caseId, java.util.Collection<String> statuses);
+    List<StaffIncidentAction> findAllByStatusAndResponseDeadlineLessThanEqual(String status, java.time.LocalDateTime deadline);
+
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update StaffIncidentAction action set action.status=:status, action.decidedBy=:manager, "

@@ -6,4 +6,6 @@ import java.util.List;
 public interface StaffIncidentNoticeService {
 
     public List<StaffActionNoticeCard> ownApprovedActions(Long staffId);
-    public void acknowledge(Long actionId, Long staffId);}
+    public void acknowledge(Long actionId, Long staffId);
+    void respond(Long actionId, Long staffId, String response, boolean appeal);
+}

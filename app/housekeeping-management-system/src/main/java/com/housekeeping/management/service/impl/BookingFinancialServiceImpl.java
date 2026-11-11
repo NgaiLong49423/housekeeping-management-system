@@ -67,13 +67,22 @@ public class BookingFinancialServiceImpl implements BookingFinancialService {
         if (bookings.bookingCustomerId(bookingId).isEmpty()) throw new IllegalArgumentException("Booking không tồn tại.");
         if (caseId != null && !cases.belongsToBooking(caseId, bookingId))
             throw new IllegalArgumentException("Hồ sơ sự cố không thuộc booking này.");
-        if("COMPENSATION".equals(form.entryType()) && caseId!=null) {
+        if ("COMPENSATION".equals(form.entryType())) {
             var incident=cases.adminCaseById(caseId,adminId);
-            if(incident!=null && incident.resolutionWorkflowRequired())
-                throw new IllegalStateException("Khoản bồi thường hồ sơ mới phải nằm trong phương án khách chọn và Manager duyệt.");
+            if(incident==null || !(incident.types().contains("PROPERTY_DAMAGE") || incident.types().contains("MISSING_PROPERTY")))
+                throw new IllegalStateException("Chỉ phản ánh hư hại hoặc mất tài sản mới được đề xuất bồi thường.");
+            if (!cases.hasSufficientEvidence(caseId))
+                throw new IllegalStateException("Cần xác minh hồ sơ đã đủ căn cứ và ghi nhận ít nhất một bằng chứng đã xem trước khi đề xuất bồi thường.");
+            boolean priorMissingItemProposal=entries.existsByCaseIdAndEntryTypeAndStatusIn(caseId,"COMPENSATION",List.of("CANCELLED","REJECTED"));
+            if (incident.types().contains("MISSING_PROPERTY") && !"SEARCHING_ITEM".equals(incident.status()) && !priorMissingItemProposal)
+                throw new IllegalStateException("Với tài sản bị mất, trước hết hãy ghi nhận bước tìm kiếm rồi mới đề xuất bồi thường.");
+            if (!Set.of("INVESTIGATING","SEARCHING_ITEM","WAITING_CUSTOMER").contains(incident.status()))
+                throw new IllegalStateException("Hồ sơ chưa ở bước có thể gửi đề xuất bồi thường.");
+            if (entries.existsByCaseIdAndEntryTypeAndStatusIn(caseId,"COMPENSATION",List.of("PROPOSED","PENDING_APPROVAL","APPROVED","PAID")))
+                throw new IllegalStateException("Hồ sơ này đã có khoản bồi thường chưa kết thúc. Vui lòng xem mục Bồi thường và chi trả; chỉ lập khoản mới sau khi hủy khoản đang chờ xử lý.");
         }
-        if ("STAFF_RECOVERY".equals(form.entryType()) && !cases.authorizesStaffRecovery(caseId, bookingId))
-            throw new IllegalStateException("Chỉ lập khoản thu hồi nội bộ sau khi có xác minh và quyết định quản lý được duyệt.");
+        if ("STAFF_RECOVERY".equals(form.entryType()))
+            throw new IllegalStateException("Khoản Staff hoàn trả được ghi theo từng lần thực nhận trong hồ sơ sự cố, không lập như khoản chi/thu chung.");
 
         BookingFinancialEntry entry = new BookingFinancialEntry();
         entry.setBookingId(bookingId);
@@ -81,18 +90,29 @@ public class BookingFinancialServiceImpl implements BookingFinancialService {
         entry.setEntryType(form.entryType());
         entry.setAmount(form.amount());
         entry.setReason(form.reason().trim());
-        entry.setStatus("PENDING_APPROVAL");
+        entry.setStatus("COMPENSATION".equals(form.entryType()) ? "PROPOSED" : "PENDING_APPROVAL");
         entry.setCreatedBy(adminId);
         entry.setCreatedAt(now());
-        return entries.save(entry).getEntryId();
+        BookingFinancialEntry saved=entries.save(entry);
+        if ("COMPENSATION".equals(form.entryType())) {
+            cases.addAdminMessage(caseId,adminId,"Công ty đề xuất bồi thường " + form.amount().toPlainString()
+                    + " đồng. Căn cứ: " + form.reason().trim() + ". Bạn có thể đồng ý số tiền hoặc yêu cầu trao đổi.",false);
+            cases.updateLifecycle(caseId,"WAITING_CUSTOMER");
+        }
+        return saved.getEntryId();
     }
 
     @Override
     @Transactional
     public void approve(Long entryId, Long managerId) {
         authorization.requireManager(managerId);
+        BookingFinancialEntry entry=entries.findByIdForUpdate(entryId).orElseThrow(() -> new IllegalStateException("Khoản tiền không tồn tại."));
+        if (!"COMPENSATION".equals(entry.getEntryType()) || payoutResponses.findByEntryId(entryId)
+                .filter(response -> "AGREED_AMOUNT".equals(response.getResponseStatus())).isEmpty())
+            throw new IllegalStateException("Manager chỉ duyệt khoản bồi thường đã được khách đồng ý.");
         if (entries.approve(entryId, managerId) != 1)
             throw new IllegalStateException("Khoản này không còn ở trạng thái chờ duyệt.");
+        cases.updateLifecycle(entry.getCaseId(), "WAITING_PAYOUT");
     }
 
     @Override
@@ -102,6 +122,7 @@ public class BookingFinancialServiceImpl implements BookingFinancialService {
         if (reason == null || reason.isBlank()) throw new IllegalArgumentException("Cần ghi lý do từ chối.");
         if (entries.reject(entryId, managerId, reason.trim()) != 1)
             throw new IllegalStateException("Chỉ người quản lý khác người lập mới được từ chối khoản đang chờ duyệt.");
+        entries.findById(entryId).map(BookingFinancialEntry::getCaseId).ifPresent(caseId -> cases.updateLifecycle(caseId,"INVESTIGATING"));
     }
 
     @Override
@@ -109,8 +130,19 @@ public class BookingFinancialServiceImpl implements BookingFinancialService {
     public void cancel(Long entryId, Long adminId, String reason) {
         authorization.requireActiveAdmin(adminId);
         if (reason == null || reason.isBlank()) throw new IllegalArgumentException("Cần ghi lý do hủy khoản.");
+        BookingFinancialEntry entry=entries.findByIdForUpdate(entryId)
+                .orElseThrow(() -> new IllegalStateException("Khoản tiền không tồn tại."));
         if (entries.cancel(entryId, adminId, reason.trim()) != 1)
             throw new IllegalStateException("Không thể hủy khoản đã chi, hoàn hoặc đã bị từ chối.");
+        if ("COMPENSATION".equals(entry.getEntryType())) {
+            payoutResponses.findByEntryIdForUpdate(entryId).ifPresent(response -> {
+                response.setResponseStatus("NEEDS_DISCUSSION");
+                response.setPayoutMethod(null);
+                response.setEncryptedAccountDetails(null);
+                payoutResponses.save(response);
+            });
+            if (entry.getCaseId()!=null) cases.updateLifecycle(entry.getCaseId(),"INVESTIGATING");
+        }
     }
 
     @Override
@@ -124,6 +156,8 @@ public class BookingFinancialServiceImpl implements BookingFinancialService {
         FinancialPayoutResponse payout = null;
         if ("COMPENSATION".equals(entry.getEntryType())) {
             if (simulated) throw new IllegalStateException("Bồi thường phải được ghi nhận là khoản chi thật sau khi thực hiện.");
+            if (!cases.hasSufficientEvidence(entry.getCaseId()))
+                throw new IllegalStateException("Chỉ quyết toán bồi thường khi hồ sơ đã được xác minh đủ bằng chứng.");
             payout = payoutResponses.findByEntryIdForUpdate(entryId)
                     .orElseThrow(() -> new IllegalStateException("Cần chờ khách xác nhận cách nhận bồi thường trước khi quyết toán."));
             if (!"ACCEPTED".equals(payout.getResponseStatus()) || !method.equals(payout.getPayoutMethod()))
@@ -133,8 +167,10 @@ public class BookingFinancialServiceImpl implements BookingFinancialService {
         if (entries.settle(entryId, adminId, method, reference.trim(), simulated, status) != 1)
             throw new IllegalStateException("Khoản tiền cần được duyệt và có tệp hóa đơn/biên nhận trước khi ghi nhận.");
         if (payout != null) {
+            payout.setResponseStatus("SETTLED");
             payout.setEncryptedAccountDetails(null);
             payoutResponses.save(payout);
+            cases.updateLifecycle(entry.getCaseId(), "WAITING_CUSTOMER_CONFIRMATION");
         }
     }
 
@@ -151,7 +187,7 @@ public class BookingFinancialServiceImpl implements BookingFinancialService {
         authorization.requireActiveAdmin(actorId);
         var financialPaid = entries.sumPaidByTypes(List.of("REFUND", "PRICE_REDUCTION"));
         var remediation = entries.sumPaidByTypes(List.of("REMEDIATION_COST", "COMPENSATION"));
-        var recovery = entries.sumPaidByTypes(List.of("STAFF_RECOVERY"));
+        var recovery = entries.sumPaidByTypes(List.of("STAFF_RECOVERY")).add(cases.totalStaffRecoveryCollected());
         var paymentTotals = payments.accountingTotals();
         var refundsAndReductions = financialPaid;
         var net = paymentTotals.paidAmount().subtract(refundsAndReductions).subtract(remediation).add(recovery);
@@ -204,8 +240,9 @@ public class BookingFinancialServiceImpl implements BookingFinancialService {
         return approved.stream().map(entry -> {
             FinancialPayoutResponse response = responses.get(entry.getEntryId());
             return new CustomerCompensationOfferCard(entry.getEntryId(), entry.getBookingId(), entry.getAmount(),
-                    entry.getReason(), response == null ? "PENDING_CUSTOMER" : response.getResponseStatus(),
-                    response == null ? null : response.getPayoutMethod());
+                    entry.getReason(), entry.getStatus(), response == null ? "PENDING_CUSTOMER" : response.getResponseStatus(),
+                    response == null ? null : response.getPayoutMethod(),
+                    response == null ? null : response.getCustomerConfirmedAt());
         }).toList();
     }
 
@@ -228,28 +265,38 @@ public class BookingFinancialServiceImpl implements BookingFinancialService {
         BookingFinancialEntry entry = entries.findByIdForUpdate(entryId)
                 .orElseThrow(() -> new IllegalArgumentException("Đề nghị bồi thường không tồn tại."));
         if (!bookingId.equals(entry.getBookingId()) || !customerId.equals(ownerId)
-                || !"COMPENSATION".equals(entry.getEntryType()) || !"APPROVED".equals(entry.getStatus()))
+                || !"COMPENSATION".equals(entry.getEntryType()))
             throw new IllegalStateException("Đề nghị này không còn chờ xác nhận.");
         FinancialPayoutResponse response = payoutResponses.findByEntryIdForUpdate(entryId).orElse(null);
-        boolean detailsRequested=response!=null && "PENDING_DETAILS".equals(response.getResponseStatus());
-        if (response!=null && !detailsRequested)
-            throw new IllegalStateException("Bạn đã phản hồi đề nghị bồi thường này rồi.");
-        if (detailsRequested && (!"ACCEPT".equals(form.decision()) || !"BANK_TRANSFER".equals(form.payoutMethod())))
-            throw new IllegalStateException("Phương án đã duyệt yêu cầu bạn bổ sung thông tin chuyển khoản đã chọn.");
-        if(response==null) {
-            response = new FinancialPayoutResponse();
-            response.setEntryId(entryId);
-            response.setCustomerId(customerId);
-            response.setRespondedAt(now());
+        if ("PROPOSED".equals(entry.getStatus())) {
+            if ("DISCUSS".equals(form.decision())) {
+                String discussion=form.discussionMessage()==null?null:form.discussionMessage().trim();
+                if(discussion==null||discussion.isBlank()) throw new IllegalArgumentException("Hãy ghi nội dung cần trao đổi cùng yêu cầu điều chỉnh.");
+                cases.addCustomerMessage(entry.getCaseId(),bookingId,customerId,discussion,false);
+                if(response==null) response=new FinancialPayoutResponse();
+                response.setEntryId(entryId); response.setCustomerId(customerId); response.setResponseStatus("NEEDS_DISCUSSION");
+                response.setRespondedAt(now()); payoutResponses.save(response);
+                cases.updateLifecycle(entry.getCaseId(),"INVESTIGATING");
+                return;
+            }
+            if (!"AGREE".equals(form.decision())) throw new IllegalArgumentException("Chọn đồng ý số tiền hoặc cần trao đổi.");
+            if (response==null) response=new FinancialPayoutResponse();
+            response.setEntryId(entryId); response.setCustomerId(customerId); response.setResponseStatus("AGREED_AMOUNT");
+            response.setPayoutMethod(null); response.setEncryptedAccountDetails(null); response.setRespondedAt(now()); response.setAmountAgreedAt(now());
+            payoutResponses.save(response);
+            entry.setStatus("PENDING_APPROVAL"); entries.save(entry);
+            cases.updateLifecycle(entry.getCaseId(),"WAITING_MANAGER");
+            return;
         }
-        if ("DISCUSS".equals(form.decision())) {
-            if(detailsRequested) throw new IllegalStateException("Không thể thay đổi phương án sau khi Manager đã duyệt.");
-            response.setResponseStatus("NEEDS_DISCUSSION");
-        } else if ("ACCEPT".equals(form.decision())) {
+        if (!"APPROVED".equals(entry.getStatus()) || response==null || !"AGREED_AMOUNT".equals(response.getResponseStatus()))
+            throw new IllegalStateException("Chỉ chọn cách nhận tiền sau khi Manager duyệt khoản khách đã đồng ý.");
+        if (!"ACCEPT".equals(form.decision())) throw new IllegalArgumentException("Khoản đã được duyệt; hãy chọn cách nhận tiền.");
+        if ("ACCEPT".equals(form.decision())) {
             if (!Set.of("BANK_TRANSFER", "CASH").contains(form.payoutMethod()))
                 throw new IllegalArgumentException("Hãy chọn chuyển khoản hoặc nhận tiền mặt.");
             response.setResponseStatus("ACCEPTED");
             response.setPayoutMethod(form.payoutMethod());
+            response.setPayoutMethodSelectedAt(now());
             if ("BANK_TRANSFER".equals(form.payoutMethod())) {
                 String bankName = cleanRequired(form.bankName(), "Hãy nhập tên ngân hàng.");
                 String accountHolder = cleanRequired(form.accountHolder(), "Hãy nhập tên chủ tài khoản.");
@@ -257,10 +304,23 @@ public class BookingFinancialServiceImpl implements BookingFinancialService {
                 response.setEncryptedAccountDetails(payoutCipher.encrypt(
                         new PayoutAccountDetailsCipher.AccountDetails(bankName, accountHolder, accountNumber)));
             }
-        } else {
-            throw new IllegalArgumentException("Cách phản hồi đề nghị bồi thường không hợp lệ.");
         }
         payoutResponses.save(response);
+    }
+
+    @Override @Transactional
+    public void confirmCompensationReceived(Long bookingId, Long entryId, Long customerId) {
+        Long owner=bookings.bookingCustomerId(bookingId).orElse(null);
+        if(!customerId.equals(owner)) throw new org.springframework.security.access.AccessDeniedException("Booking không thuộc tài khoản của bạn.");
+        BookingFinancialEntry entry=entries.findByIdForUpdate(entryId).orElseThrow(() -> new IllegalArgumentException("Khoản bồi thường không tồn tại."));
+        if(!bookingId.equals(entry.getBookingId()) || !"COMPENSATION".equals(entry.getEntryType()) || !"PAID".equals(entry.getStatus()))
+            throw new IllegalStateException("Chỉ xác nhận nhận khoản bồi thường đã được Admin ghi nhận đã chi.");
+        FinancialPayoutResponse response=payoutResponses.findByEntryIdForUpdate(entryId)
+                .filter(value -> "SETTLED".equals(value.getResponseStatus()))
+                .orElseThrow(() -> new IllegalStateException("Chưa có cách nhận tiền được khách xác nhận."));
+        if (response.getCustomerConfirmedAt() != null) return;
+        response.setCustomerConfirmedAt(now()); payoutResponses.save(response);
+        cases.resolveAfterCustomerConfirmation(entry.getCaseId(),customerId);
     }
 
     @Override
@@ -279,38 +339,15 @@ public class BookingFinancialServiceImpl implements BookingFinancialService {
     }
 
     @Override
-    @Transactional
-    public Long recordManagerApprovedResolutionPayout(Long bookingId, Long caseId, Long actionId,
-            java.math.BigDecimal amount, String reason, Long adminId, Long managerId, String customerMethod) {
-        authorization.requireManager(managerId);
-        authorization.requireActiveAdmin(adminId);
-        if (!Set.of("CASH", "BANK_TRANSFER").contains(customerMethod) || amount == null || amount.signum() <= 0)
-            throw new IllegalArgumentException("Phương thức hoặc số tiền trong phương án đã duyệt không hợp lệ.");
-        if (bookings.bookingCustomerId(bookingId).isEmpty() || !cases.belongsToBooking(caseId, bookingId))
-            throw new IllegalArgumentException("Booking/hồ sơ của khoản chi không hợp lệ.");
-        BookingFinancialEntry entry = new BookingFinancialEntry();
-        entry.setBookingId(bookingId); entry.setCaseId(caseId); entry.setResolutionActionId(actionId);
-        entry.setEntryType("COMPENSATION"); entry.setAmount(amount); entry.setReason(reason);
-        entry.setStatus("APPROVED"); entry.setCreatedBy(adminId); entry.setApprovedBy(managerId);
-        entry.setCreatedAt(now()); entry.setApprovedAt(now());
-        BookingFinancialEntry saved=entries.save(entry);
-        FinancialPayoutResponse response=new FinancialPayoutResponse();
-        response.setEntryId(saved.getEntryId());
-        response.setCustomerId(bookings.bookingCustomerId(bookingId).orElseThrow());
-        response.setPayoutMethod(customerMethod); response.setRespondedAt(now());
-        response.setResponseStatus("CASH".equals(customerMethod) ? "ACCEPTED" : "PENDING_DETAILS");
-        payoutResponses.save(response);
-        return saved.getEntryId();
-    }
-
-    @Override
     @Transactional(readOnly = true)
     public List<CustomerFinancialCard> customerVisible(Long bookingId, Long customerId) {
         Long ownerId = bookings.bookingCustomerId(bookingId).orElse(null);
         if (!customerId.equals(ownerId)) return List.of();
         return entries.findByBookingIdAndEntryTypeInOrderByCreatedAtAscEntryIdAsc(bookingId, CUSTOMER_VISIBLE_TYPES)
-                .stream().map(entry -> new CustomerFinancialCard(entry.getEntryType(), entry.getAmount(), entry.getStatus(),
-                        entry.getPaymentMethod(), entry.getTransactionReference(), entry.getPaidAt())).toList();
+                .stream().map(entry -> new CustomerFinancialCard(entry.getEntryId(), entry.getEntryType(), entry.getAmount(), entry.getStatus(),
+                        entry.getPaymentMethod(), entry.getTransactionReference(), entry.getReceiptPath() != null
+                                && List.of("APPROVED", "PAID").contains(entry.getStatus()),
+                        entry.getPaidAt())).toList();
     }
 
     private static FinancialEntryCard card(BookingFinancialEntry entry) {

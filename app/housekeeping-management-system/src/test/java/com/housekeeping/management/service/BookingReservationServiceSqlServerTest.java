@@ -89,12 +89,12 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
     }
 
     @Test
-    void feedbackResolutionMigrationsKeepTwentySevenBusinessTablesAndConstraints() {
+    void simplifiedFeedbackMigrationKeepsTwentyThreeBusinessTablesAndDropsWorkflows() {
         Integer tables=jdbc.queryForObject("""
                 SELECT COUNT(*) FROM sys.tables t JOIN sys.schemas s ON s.schema_id=t.schema_id
                 WHERE s.name='dbo' AND t.name<>'flyway_primary_schema_history'
                 """,Integer.class);
-        assertThat(tables).isEqualTo(27);
+        assertThat(tables).isEqualTo(23);
         Integer v10Columns=jdbc.queryForObject("""
                 SELECT COUNT(*) FROM sys.columns WHERE object_id=OBJECT_ID('dbo.Payments') AND name='is_simulated'
                 """,Integer.class);
@@ -113,6 +113,21 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
         assertThat(payoutResponses).isEqualTo(1);
         Integer payoutChecks=jdbc.queryForObject("SELECT COUNT(*) FROM sys.check_constraints WHERE name IN ('CK_Financial_Payout_Responses_Status','CK_Financial_Payout_Responses_Method','CK_Financial_Payout_Responses_Choice')",Integer.class);
         assertThat(payoutChecks).isEqualTo(3);
+        Integer removedWorkflowTables=jdbc.queryForObject("""
+                SELECT COUNT(*) FROM sys.tables WHERE name IN ('Feedback_Resolution_Plans','Feedback_Resolution_Options',
+                    'Feedback_Resolution_Actions','Feedback_Work_Orders')
+                """,Integer.class);
+        assertThat(removedWorkflowTables).isZero();
+        Integer newCaseFields=jdbc.queryForObject("""
+                SELECT COUNT(*) FROM sys.columns WHERE object_id=OBJECT_ID('dbo.Feedback_Cases')
+                    AND name IN ('customer_requested_resolution','case_status')
+                """,Integer.class);
+        assertThat(newCaseFields).isEqualTo(2);
+        Integer newPayoutFields=jdbc.queryForObject("""
+                SELECT COUNT(*) FROM sys.columns WHERE object_id=OBJECT_ID('dbo.Financial_Payout_Responses')
+                    AND name IN ('amount_agreed_at','payout_method_selected_at','customer_confirmed_at')
+                """,Integer.class);
+        assertThat(newPayoutFields).isEqualTo(3);
         Integer cases=jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Feedback_Cases",Integer.class);
         Integer initialMessages=jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Feedback_Case_Messages WHERE sender_role='CUSTOMER' AND legacy_imported=1",Integer.class);
         assertThat(initialMessages).isEqualTo(cases);

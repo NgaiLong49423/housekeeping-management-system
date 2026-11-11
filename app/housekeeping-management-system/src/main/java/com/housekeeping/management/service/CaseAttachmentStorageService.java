@@ -26,7 +26,15 @@ public interface CaseAttachmentStorageService {
 
     Path receipt(Long entryId, Long adminId);
 
+    Path customerReceipt(Long entryId, Long customerId);
+
     List<Long> customerEvidenceIds(Long caseId, Long customerId);
 
     List<Long> adminEvidenceIds(Long caseId, Long adminId);
+    void uploadStaffActionEvidence(Long actionId, Long staffId, Long staffUserId, String stage, List<MultipartFile> uploads);
+    Path staffActionEvidence(Long evidenceId, Long actorId, boolean admin);
+    String storeStaffRecoveryReceipt(Long actionId, Long adminId, MultipartFile upload);
+    void saveStaffRecoveryInstallment(Long actionId, Long adminId,
+            com.housekeeping.management.dto.request.PortalForms.StaffRecoveryInstallmentForm form, MultipartFile receipt);
+    Path staffRecoveryReceipt(Long installmentId, Long adminId);
 }

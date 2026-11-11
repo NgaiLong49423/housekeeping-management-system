@@ -37,6 +37,31 @@ public class StaffAvailabilityServiceImpl implements StaffAvailabilityService {
         this.bookings = bookings;
     }
 
+    @Override
+    public AvailabilityFormRules formRules(List<Integer> serviceDurations, java.time.LocalDateTime currentTime) {
+        if (serviceDurations == null || serviceDurations.isEmpty() || currentTime == null) {
+            throw new IllegalArgumentException("Cần thời lượng dịch vụ và giờ hiện tại để dựng biểu mẫu.");
+        }
+        int minimumDuration = serviceDurations.stream().filter(java.util.Objects::nonNull)
+                .mapToInt(Integer::intValue).min().orElseThrow(() ->
+                        new IllegalArgumentException("Không có thời lượng dịch vụ hợp lệ."));
+        java.time.LocalDateTime earliestToday = currentTime.plusMinutes(120);
+        int minutes = earliestToday.getHour() * 60 + earliestToday.getMinute();
+        int firstAvailableMinute = ((minutes + 14) / 15) * 15;
+        return new AvailabilityFormRules(earliestToday, minimumDuration, firstAvailableMinute);
+    }
+
+    @Override
+    public boolean canRegisterToday(LocalDate today, List<AvailabilityWindow> windows, AvailabilityFormRules rules) {
+        if (today == null || windows == null || rules == null || windows.isEmpty()
+                || rules.earliestToday().toLocalDate().isAfter(today)) return false;
+        return windows.stream().anyMatch(window -> {
+            int opening = window.start().getHour() * 60 + window.start().getMinute();
+            int start = Math.max(opening, rules.firstAvailableMinute());
+            return start + rules.minimumServiceDuration() <= window.end().getHour() * 60 + window.end().getMinute();
+        });
+    }
+
     @Transactional(isolation = Isolation.SERIALIZABLE)
     public void save(Long userId, Long availabilityId, AvailabilityForm form) {
         Long staffId = requirePartTimeStaff(userId).getStaffId();

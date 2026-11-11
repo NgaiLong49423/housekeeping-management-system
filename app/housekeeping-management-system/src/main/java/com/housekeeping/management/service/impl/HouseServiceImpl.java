@@ -56,19 +56,22 @@ public class HouseServiceImpl implements HouseService {
 
     @Transactional
     public House save(Long customerId, Long houseId, HouseForm form) {
-        if (form == null || form.vietmapRefId() == null || form.vietmapRefId().isBlank() || form.vietmapRefId().length() > 500) {
-            throw new IllegalArgumentException("Hãy chọn một kết quả địa chỉ VietMap hợp lệ.");
-        }
+        if (form == null) throw new IllegalArgumentException("Thông tin địa chỉ không hợp lệ.");
         House house = houseId == null ? null
                 : houses.findLockedByHouseIdAndCustomerIdAndDeletedFalse(houseId, customerId)
                         .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy nhà thuộc tài khoản của bạn."));
-        VietmapClient.Place place = vietmap.place(form.vietmapRefId());
-        String province = place.city() == null ? "" : place.city();
-        String ward = place.ward() == null ? "" : place.ward();
-        String detail = place.address() == null ? place.display() : place.address();
+        boolean hasNewVietmapPlace = form.vietmapRefId() != null && !form.vietmapRefId().isBlank();
+        if (!hasNewVietmapPlace && house == null) throw new IllegalArgumentException("Hãy chọn một kết quả địa chỉ VietMap hợp lệ.");
+        VietmapClient.Place place = hasNewVietmapPlace ? vietmap.place(form.vietmapRefId().trim()) : null;
+        String address = place == null ? house.getAddress() : place.display();
+        BigDecimal latitude = place == null ? house.getLatitude() : place.latitude();
+        BigDecimal longitude = place == null ? house.getLongitude() : place.longitude();
+        String province = place == null ? house.getProvinceCity() : (place.city() == null ? "" : place.city());
+        String ward = place == null ? house.getWardCommune() : (place.ward() == null ? "" : place.ward());
+        String detail = place == null ? house.getAddressDetail() : (place.address() == null ? place.display() : place.address());
         String addressNote = form.addressNote() == null || form.addressNote().isBlank() ? null : form.addressNote().trim();
         HouseDTO dto = new HouseDTO(house == null ? null : house.getHouseId(), customerId,
-                form.addressType().getLabel(), place.display(), place.latitude(), place.longitude(),
+                form.addressType().getLabel(), address, latitude, longitude,
                 form.recipientName().trim(), form.recipientPhone().trim(), province, ward, detail,
                 form.addressType(), form.defaultAddress(), addressNote, house != null && house.isDeleted());
         house = dto.convertDTOToEntity(house);
@@ -97,6 +100,18 @@ public class HouseServiceImpl implements HouseService {
     @Transactional(readOnly = true)
     public boolean isWithinServiceRadius(BigDecimal latitude, BigDecimal longitude) {
         return serviceCenter().contains(latitude, longitude);
+    }
+
+    @Transactional(readOnly = true)
+    public ServiceAreaAssessment assessCustomerHouseServiceArea(Long customerId, Long houseId) {
+        House house = findCustomerHouse(customerId, houseId);
+        if (house.getLatitude() == null || house.getLongitude() == null) {
+            return new ServiceAreaAssessment(false, "Địa chỉ nhà chưa được xác minh tọa độ VietMap. Hãy cập nhật địa chỉ trước khi đặt.");
+        }
+        if (!isWithinServiceRadius(house.getLatitude(), house.getLongitude())) {
+            return new ServiceAreaAssessment(false, "Địa chỉ nhà này nằm ngoài bán kính phục vụ của công ty. Hãy chọn địa chỉ khác hoặc liên hệ Admin.");
+        }
+        return new ServiceAreaAssessment(true, "Địa chỉ nằm trong bán kính phục vụ.");
     }
 
     @Transactional(readOnly = true)

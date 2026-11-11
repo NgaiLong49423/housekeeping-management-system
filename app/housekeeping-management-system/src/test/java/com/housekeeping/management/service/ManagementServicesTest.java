@@ -24,6 +24,7 @@ import com.housekeeping.management.repository.StaffAvailabilityRepository;
 import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Optional;
 import java.util.List;
@@ -32,6 +33,21 @@ import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 class ManagementServicesTest {
+    @Test
+    void staffAvailabilityFormRulesApplyTwoHourNoticeAndQuarterHourGrid() {
+        StaffAvailabilityService service = new com.housekeeping.management.service.impl.StaffAvailabilityServiceImpl(
+                mock(StaffManagementService.class), mock(StaffAvailabilityRepository.class),
+                mock(CompanyOperatingHoursService.class), mock(BookingQueryService.class));
+        var rules = service.formRules(List.of(60, 90), LocalDateTime.parse("2026-11-12T08:02:00"));
+
+        assertThat(rules.minimumServiceDuration()).isEqualTo(60);
+        assertThat(rules.firstAvailableMinute()).isEqualTo(615);
+        assertThat(service.canRegisterToday(LocalDate.parse("2026-11-12"),
+                List.of(new StaffAvailabilityService.AvailabilityWindow(LocalTime.of(10, 0), LocalTime.of(12, 0))), rules)).isTrue();
+        assertThat(service.canRegisterToday(LocalDate.parse("2026-11-12"),
+                List.of(new StaffAvailabilityService.AvailabilityWindow(LocalTime.of(10, 0), LocalTime.of(11, 0))), rules)).isFalse();
+    }
+
     @Test
     void registrationCreatesOneCanonicalActiveCustomerIdentity() {
         EntityManager entities = mock(EntityManager.class);
@@ -116,13 +132,24 @@ class ManagementServicesTest {
     void serviceSaveKeepsTheApprovedFieldsAndDefaultsNewServiceToActive() {
         ServicesRepository services = mock(ServicesRepository.class);
         new com.housekeeping.management.service.impl.ServiceManagementServiceImpl(services, mock(AccountAuthorizationService.class)).save(99L, null,
-                new PortalForms.ServiceForm("  Dọn nhà  ", "Mô tả", 90, new BigDecimal("125000.00")));
+                new PortalForms.ServiceForm("  Dọn nhà  ", "  Mô tả  ", 90, new BigDecimal("125000.00")));
         var captured = org.mockito.ArgumentCaptor.forClass(Services.class);
         verify(services).saveAndFlush(captured.capture());
         assertThat(captured.getValue().getServiceName()).isEqualTo("Dọn nhà");
+        assertThat(captured.getValue().getDescription()).isEqualTo("Mô tả");
         assertThat(captured.getValue().getDurationMinutes()).isEqualTo(90);
         assertThat(captured.getValue().getPrice()).isEqualByComparingTo("125000.00");
         assertThat(captured.getValue().getStatus()).isEqualTo(Services.Status.ACTIVE);
+    }
+
+    @Test
+    void serviceSaveNormalizesBlankDescriptionToNull() {
+        ServicesRepository services = mock(ServicesRepository.class);
+        new com.housekeeping.management.service.impl.ServiceManagementServiceImpl(services, mock(AccountAuthorizationService.class)).save(99L, null,
+                new PortalForms.ServiceForm("Dọn nhà", "   ", 90, new BigDecimal("125000.00")));
+        var captured = org.mockito.ArgumentCaptor.forClass(Services.class);
+        verify(services).saveAndFlush(captured.capture());
+        assertThat(captured.getValue().getDescription()).isNull();
     }
 
     @Test

@@ -24,11 +24,11 @@ class BookingCompletionServiceTest {
         var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, mock(BookingImageRepository.class));
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, "CONFIRMED", start,
                 start, null, null, null)));
-        when(bookings.startWork(eq(42L), eq(7L), any())).thenReturn(1);
+        when(bookings.startWork(eq(42L), eq(7L), any(), eq(false))).thenReturn(1);
 
         service.startBooking(42L, 7L);
 
-        verify(bookings).startWork(eq(42L), eq(7L), any());
+        verify(bookings).startWork(eq(42L), eq(7L), any(), eq(false));
     }
 
     @Test
@@ -37,11 +37,23 @@ class BookingCompletionServiceTest {
         var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, mock(BookingImageRepository.class));
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, "CONFIRMED", start,
                 start.plusMinutes(1), null, null, null)));
-        when(bookings.startWork(eq(42L), eq(7L), any())).thenReturn(1);
+        when(bookings.startWork(eq(42L), eq(7L), any(), eq(false))).thenReturn(1);
 
         service.startBooking(42L, 7L);
 
-        verify(bookings).startWork(eq(42L), eq(7L), any());
+        verify(bookings).startWork(eq(42L), eq(7L), any(), eq(false));
+    }
+
+    @Test
+    void arrivalBeyondFiveMinuteGraceRequiresIncidentBeforeStarting() {
+        BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
+        var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, mock(BookingImageRepository.class));
+        when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, "CONFIRMED", start,
+                start.plusMinutes(5).plusSeconds(1), null, null, null)));
+
+        assertThatThrownBy(() -> service.startBooking(42L, 7L))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("5 phút");
+        verify(bookings, never()).startWork(any(), any(), any(), org.mockito.ArgumentMatchers.anyBoolean());
     }
 
     @Test
@@ -52,11 +64,11 @@ class BookingCompletionServiceTest {
         LocalDateTime arrivedAt = LocalDateTime.now(java.time.ZoneOffset.ofHours(7)).withNano(0);
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, "CONFIRMED", futureStart,
                 arrivedAt, null, null, null)));
-        when(bookings.startWork(eq(42L), eq(7L), any())).thenReturn(1);
+        when(bookings.startWork(eq(42L), eq(7L), any(), eq(false))).thenReturn(1);
 
         service.startBooking(42L, 7L);
 
-        verify(bookings).startWork(eq(42L), eq(7L), any());
+        verify(bookings).startWork(eq(42L), eq(7L), any(), eq(false));
     }
 
     @Test
@@ -68,7 +80,7 @@ class BookingCompletionServiceTest {
 
         assertThatThrownBy(() -> service.startBooking(42L, 7L))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("Customer");
-        verify(bookings, never()).startWork(any(), any(), any());
+        verify(bookings, never()).startWork(any(), any(), any(), org.mockito.ArgumentMatchers.anyBoolean());
     }
 
     @Test
@@ -82,7 +94,7 @@ class BookingCompletionServiceTest {
         assertThatThrownBy(() -> service.startBooking(42L, 8L)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> service.startBooking(42L, 7L)).isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("xác nhận đã đến");
-        verify(bookings, never()).startWork(any(), any(), any());
+        verify(bookings, never()).startWork(any(), any(), any(), org.mockito.ArgumentMatchers.anyBoolean());
     }
 
     @Test
@@ -93,11 +105,11 @@ class BookingCompletionServiceTest {
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, "CONFIRMED", start,
                 start, start.plusMinutes(1), null, null)));
         when(images.existsByBookingId(42L)).thenReturn(true);
-        when(bookings.changeStatus(42L, "CONFIRMED", "AWAITING_PAYMENT")).thenReturn(1);
+        when(bookings.completeWork(eq(42L),eq(7L),any())).thenReturn(1);
 
         service.completeBooking(42L, 7L);
 
-        verify(bookings).changeStatus(42L, "CONFIRMED", "AWAITING_PAYMENT");
+        verify(bookings).completeWork(eq(42L),eq(7L),any());
     }
 
     @Test
@@ -114,7 +126,7 @@ class BookingCompletionServiceTest {
         when(images.existsByBookingId(42L)).thenReturn(false);
         assertThatThrownBy(() -> service.completeBooking(42L, 7L))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("ảnh minh chứng");
-        verify(bookings, never()).changeStatus(any(), any(), any());
+        verify(bookings, never()).completeWork(any(), any(), any());
     }
 
     private BookingPersistenceRepository.BookingWorkflowState workflow(Long staffId, String status, LocalDateTime start,

@@ -25,19 +25,26 @@ public final class PortalForms {
             @Size(max = 300) String incidentItemDescription,
             @DecimalMin(value = "0.01") @Digits(integer = 10, fraction = 2) BigDecimal estimatedItemValue,
             @Min(0) @Max(1200) Integer itemAgeMonths,
-            @Size(max = 1000) String incidentDriveLink) {
+            @Size(max = 1000) String incidentDriveLink,
+            @Size(max = 1000) String customerRequestedResolution) {
         public FeedbackForm(Integer rating, List<String> topics, String content) {
-            this(rating, topics, content, false, List.of(), null, null, null, null, null);
+            this(rating, topics, content, false, List.of(), null, null, null, null, null, null);
         }
         public FeedbackForm(Integer rating, List<String> topics, String content, Boolean reportIncident,
                 List<String> incidentTypes, String incidentDescription) {
-            this(rating, topics, content, reportIncident, incidentTypes, incidentDescription, null, null, null, null);
+            this(rating, topics, content, reportIncident, incidentTypes, incidentDescription, null, null, null, null, null);
         }
         public FeedbackForm(Integer rating, List<String> topics, String content, Boolean reportIncident,
                 List<String> incidentTypes, String incidentDescription, String incidentItemDescription,
                 BigDecimal estimatedItemValue, Integer itemAgeMonths) {
             this(rating,topics,content,reportIncident,incidentTypes,incidentDescription,incidentItemDescription,
-                    estimatedItemValue,itemAgeMonths,null);
+                    estimatedItemValue,itemAgeMonths,null,null);
+        }
+        public FeedbackForm(Integer rating, List<String> topics, String content, Boolean reportIncident,
+                List<String> incidentTypes, String incidentDescription, String incidentItemDescription,
+                BigDecimal estimatedItemValue, Integer itemAgeMonths, String incidentDriveLink) {
+            this(rating,topics,content,reportIncident,incidentTypes,incidentDescription,incidentItemDescription,
+                    estimatedItemValue,itemAgeMonths,incidentDriveLink,null);
         }
     }
     public record FeedbackReplyForm(@NotBlank(message = "Vui lòng nhập nội dung phản hồi khách hàng.")
@@ -46,9 +53,14 @@ public final class PortalForms {
             @NotBlank @Size(max = 4000) String description,
             @Size(max = 300) String itemDescription,
             @DecimalMin(value = "0.01") @Digits(integer = 10, fraction = 2) BigDecimal estimatedItemValue,
-            @Min(0) @Max(1200) Integer itemAgeMonths, @Size(max = 1000) String driveLink) {
+            @Min(0) @Max(1200) Integer itemAgeMonths, @Size(max = 1000) String driveLink,
+            @Size(max = 1000) String customerRequestedResolution) {
         public FeedbackIncidentForm(List<String> incidentTypes, String description) {
-            this(incidentTypes, description, null, null, null, null);
+            this(incidentTypes, description, null, null, null, null, null);
+        }
+        public FeedbackIncidentForm(List<String> incidentTypes, String description, String itemDescription,
+                BigDecimal estimatedItemValue, Integer itemAgeMonths, String driveLink) {
+            this(incidentTypes,description,itemDescription,estimatedItemValue,itemAgeMonths,driveLink,null);
         }
     }
     public record IncidentItemDetails(@Size(max = 300) String description,
@@ -56,47 +68,33 @@ public final class PortalForms {
             @Min(0) @Max(1200) Integer ageMonths) { }
     public record IncidentReviewForm(
             @NotBlank(message = "Hãy chọn trạng thái xác minh.") @Size(max = 30, message = "Trạng thái xác minh không hợp lệ.") String caseStatus,
-            @Size(max = 30, message = "Mã biện pháp khắc phục không hợp lệ.") String remedyType,
-            @Size(max = 4000, message = "Kết quả/cách xử lý khách sẽ thấy tối đa 4.000 ký tự.") String customerOutcome,
             @Size(max = 4000, message = "Kết luận nội bộ tối đa 4.000 ký tự.") String internalFinding,
-            boolean remedyCompleted,
-            @Size(max = 30, message = "Mức xử lý Staff không hợp lệ.") String staffAction,
-            @Size(max = 1000, message = "Thông báo riêng cho Staff tối đa 1.000 ký tự.") String staffNotice,
             @Size(max = 100, message = "Chỉ chọn tối đa 100 bằng chứng đã xem.") List<Long> reviewedEvidenceIds) {
-        public IncidentReviewForm(String caseStatus, String remedyType, String customerOutcome, String internalFinding,
-                boolean remedyCompleted, String staffAction, String staffNotice) {
-            this(caseStatus, remedyType, customerOutcome, internalFinding, remedyCompleted, staffAction, staffNotice, List.of());
+        public IncidentReviewForm(String caseStatus, String internalFinding) {
+            this(caseStatus, internalFinding, List.of());
         }
     }
+    public record StaffIncidentActionForm(@NotBlank @Size(max = 30) String staffAction,
+            @Size(max = 1000) String staffNotice) { }
+    public record StaffIncidentResponseForm(@NotBlank @Size(max = 4000) String response) { }
+    public record StaffIncidentDecisionForm(@NotBlank @Size(max = 30) String decision,
+            @DecimalMin(value = "0.00") @Digits(integer = 10, fraction = 2) BigDecimal liabilityAmount,
+            @NotBlank @Size(max = 1000) String reason) { }
+    public record StaffRecoveryInstallmentForm(@NotNull @DecimalMin(value = "0.01") @Digits(integer = 10, fraction = 2) BigDecimal amount,
+            @NotBlank @Size(max = 20) String paymentMethod, @NotBlank @Size(max = 255) String transactionReference) { }
     public record FinancialEntryForm(@NotBlank @Size(max = 30) String entryType,
             @NotNull @DecimalMin(value = "0.01") @Digits(integer = 10, fraction = 2) BigDecimal amount,
             @NotBlank @Size(max = 1000) String reason, @Size(max = 20) String paymentMethod,
             @Size(max = 255) String transactionReference, boolean simulated) { }
     public record CustomerCompensationResponseForm(@NotBlank @Size(max = 30) String decision,
             @Size(max = 20) String payoutMethod, @Size(max = 100) String bankName,
-            @Size(max = 150) String accountHolder, @Size(max = 50) String accountNumber) { }
-    public record ResolutionActionForm(@NotBlank @Pattern(regexp = "INTERNAL_WORK|CUSTOMER_PAYOUT") String type,
-            @NotBlank @Size(max = 1000) String description,
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dueAt,
-            @DecimalMin(value = "0.01") @Digits(integer = 10, fraction = 2) BigDecimal amount,
-            @Size(max = 1000) String calculationBasis) { }
-    public record ResolutionOptionForm(@NotBlank @Size(max = 150) String title,
-            @NotBlank @Size(max = 2000) String description,
-            @NotEmpty @Size(max = 8) List<@Valid ResolutionActionForm> actions) { }
-    public record ResolutionPlanForm(@Size(max = 4000) String internalFinding,
-            @NotEmpty @Size(max = 3) List<@Valid ResolutionOptionForm> options) { }
-    public record CustomerResolutionChoiceForm(@NotBlank @Pattern(regexp = "SELECT|DISCUSS") String decision,
-            @Positive Long optionId, @Pattern(regexp = "|CASH|BANK_TRANSFER") String payoutMethod,
-            @Size(max = 2000) String message) { }
-    public record WorkOrderForm(@Positive Long assignedStaffId,
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime scheduledAt,
-            @NotBlank @Size(max = 2000) String scope,
-            @DecimalMin("0") @Digits(integer = 10, fraction = 2) BigDecimal estimatedCost,
-            @Size(max = 1000) String estimatedMaterials) { }
-    public record WorkOrderCompletionForm(@DecimalMin("0") @Digits(integer = 10, fraction = 2) BigDecimal actualCost,
-            @Size(max = 1000) String actualMaterials, @NotBlank @Size(max = 1000) String evidence) { }
-    public record CustomerWorkOrderResponseForm(@NotBlank @Pattern(regexp = "CONFIRMED|DISPUTED") String decision,
-            @Size(max = 1000) String message) { }
+            @Size(max = 150) String accountHolder, @Size(max = 50) String accountNumber,
+            @Size(max = 4000) String discussionMessage) {
+        public CustomerCompensationResponseForm(String decision, String payoutMethod, String bankName,
+                String accountHolder, String accountNumber) {
+            this(decision,payoutMethod,bankName,accountHolder,accountNumber,null);
+        }
+    }
     public record CustomerRegistrationForm(@NotBlank @Size(max = 150) String name,
             @NotBlank @Email @Size(max = 255) String email, @NotBlank @Size(max = 20) String phone,
             @NotBlank @Size(min = 8, max = 72) String password, @NotBlank @Size(max = 72) String confirmPassword) { }
@@ -130,8 +128,7 @@ public final class PortalForms {
             @NotBlank @Size(max = 500) String reason) { }
     public record HouseForm(@NotBlank @Size(max = 150) String recipientName,
             @NotBlank @Size(min = 7, max = 20) @Pattern(regexp = "[+0-9() .-]+", message = "Số điện thoại không hợp lệ.") String recipientPhone,
-            @NotBlank @Size(max = 500) String vietmapRefId,
-            String provinceCity, String wardCommune, String addressDetail,
+            @Size(max = 500) String vietmapRefId,
             @NotNull HouseAddressType addressType, boolean defaultAddress,
             @Size(max = 500) String addressNote) { }
     public record CompanySettingsForm(@NotBlank @Size(max = 500) String companyAddress,

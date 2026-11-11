@@ -135,6 +135,12 @@ public class StaffManagementServiceImpl implements StaffManagementService {
 
     @Override
     @Transactional(readOnly = true)
+    public java.util.Optional<Long> findUserIdByStaffId(Long staffId) {
+        return staffAccounts.findById(staffId).map(profile -> profile.getUser().getUserId());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public boolean isOnApprovedLeave(Long staffId, java.time.LocalDate date) {
         return leaves.existsByStaff_StaffIdAndStatusAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
                 staffId, com.housekeeping.management.domain.LeaveStatus.APPROVED, date, date);

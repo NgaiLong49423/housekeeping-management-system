@@ -33,7 +33,7 @@ public interface FeedbackCaseRepository extends JpaRepository<FeedbackCase, Long
     Optional<Long> feedbackIdForCustomerBooking(@Param("bookingId") Long bookingId, @Param("customerId") Long customerId);
 
     default Long create(Long feedbackId, List<String> types, String description, String itemDescription,
-            java.math.BigDecimal estimatedValue, Integer itemAgeMonths) {
+            java.math.BigDecimal estimatedValue, Integer itemAgeMonths, String customerRequestedResolution) {
         FeedbackCase incident = new FeedbackCase();
         incident.setFeedbackId(feedbackId);
         incident.setIncidentTypes(String.join(",", types));
@@ -42,43 +42,28 @@ public interface FeedbackCaseRepository extends JpaRepository<FeedbackCase, Long
         incident.setCustomerEstimatedValue(estimatedValue);
         incident.setItemAgeMonths(itemAgeMonths);
         incident.setCaseStatus("RECEIVED");
-        incident.setResolutionWorkflowRequired(true);
+        incident.setCustomerRequestedResolution(customerRequestedResolution);
         incident.setCreatedAt(LocalDateTime.now(java.time.ZoneOffset.ofHours(7)).withNano(0));
         return saveAndFlush(incident).getCaseId();
     }
 
     default Long create(Long feedbackId, List<String> types, String description) {
-        return create(feedbackId, types, description, null, null, null);
+        return create(feedbackId, types, description, null, null, null, null);
     }
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update FeedbackCase incident set incident.caseStatus='RESOLVED', incident.resolvedAt=CURRENT_TIMESTAMP "
-            + "where incident.caseId=:id and incident.caseStatus in ('VERIFIED','NOT_SUBSTANTIATED') "
-            + "and exists (select feedback.feedbackId from Feedback feedback where feedback.feedbackId=incident.feedbackId "
-            + "and feedback.adminReply is not null and trim(feedback.adminReply)<>'') "
-            + "and (incident.remedyType is null or incident.remedyCompleted=true) "
-            + "and (incident.remedyType is null or incident.remedyType not in ('REFUND','PRICE_REDUCTION') or exists "
-            + "(select entry.entryId from BookingFinancialEntry entry where entry.caseId=incident.caseId "
-            + "and entry.entryType=incident.remedyType and entry.status in ('PAID','SIMULATED'))) "
-            + "and (incident.remedyType is null or incident.remedyType<>'COMPENSATION' or exists "
-            + "(select entry.entryId from BookingFinancialEntry entry where entry.caseId=incident.caseId "
-            + "and entry.entryType='COMPENSATION' and entry.status='PAID')) "
-            + "and (incident.remedyType is null or incident.remedyType<>'COMPENSATION' or exists "
-            + "(select payout.payoutResponseId from FinancialPayoutResponse payout join BookingFinancialEntry entry "
-            + "on entry.entryId=payout.entryId where entry.caseId=incident.caseId and payout.responseStatus='ACCEPTED')) "
-            + "and incident.staffActionStatus<>'PENDING' "
+            + "where incident.caseId=:id and incident.caseStatus in ('WAITING_CUSTOMER','WAITING_CUSTOMER_CONFIRMATION') "
             + "and not exists (select entry.entryId from BookingFinancialEntry entry where entry.caseId=incident.caseId "
-            + "and entry.status in ('PROPOSED','PENDING_APPROVAL','APPROVED')) "
-            + "and (not exists (select plan.planId from FeedbackResolutionPlan plan where plan.caseId=incident.caseId) "
-            + "or exists (select plan.planId from FeedbackResolutionPlan plan where plan.caseId=incident.caseId and plan.status='COMPLETED')) "
-            + "and (incident.resolutionWorkflowRequired=false or exists (select plan.planId from FeedbackResolutionPlan plan "
-            + "where plan.caseId=incident.caseId and plan.status='COMPLETED'))")
+            + "and entry.entryType='COMPENSATION' and entry.status not in ('CANCELLED','REJECTED') "
+            + "and (entry.status<>'PAID' or not exists (select payout.payoutResponseId from FinancialPayoutResponse payout "
+            + "where payout.entryId=entry.entryId and payout.amountAgreedAt is not null and payout.customerConfirmedAt is not null)))")
     int resolveCaseUpdate(@Param("id") Long id);
 
     @Query("select (count(entry)>0) from BookingFinancialEntry entry where entry.caseId=:caseId "
             + "and entry.entryType='COMPENSATION' and entry.status='PAID' and exists "
             + "(select payout.payoutResponseId from FinancialPayoutResponse payout where payout.entryId=entry.entryId "
-            + "and payout.responseStatus='ACCEPTED')")
+            + "and payout.responseStatus in ('ACCEPTED','SETTLED'))")
     boolean hasSettledAcceptedCompensation(@Param("caseId") Long caseId);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
@@ -93,24 +78,12 @@ public interface FeedbackCaseRepository extends JpaRepository<FeedbackCase, Long
         return updated;
     }
 
-    @Query("select incident.customerOutcome from FeedbackCase incident where incident.caseId=:id")
-    String customerOutcome(@Param("id") Long id);
-
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update Feedback feedback set feedback.status=com.housekeeping.management.domain.FeedbackStatus.RESPONDED, "
             + "feedback.adminReply=coalesce(nullif(trim(feedback.adminReply),''),:reply) where feedback.feedbackId="
             + "(select incident.feedbackId from FeedbackCase incident where incident.caseId=:caseId) "
             + "and feedback.status in (com.housekeeping.management.domain.FeedbackStatus.OPEN,com.housekeeping.management.domain.FeedbackStatus.RESPONDED)")
     int markFeedbackResponded(@Param("caseId") Long caseId, @Param("reply") String reply);
-
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("update FeedbackCase incident set incident.caseStatus=:status, incident.remedyType=:remedy, "
-            + "incident.customerOutcome=:outcome, incident.internalFinding=:finding, "
-            + "incident.remedyCompleted=:completed, incident.reviewedBy=:admin, incident.reviewedAt=:at "
-            + "where incident.caseId=:id and incident.caseStatus<>'RESOLVED'")
-    int updateReview(@Param("id") Long id, @Param("status") String status, @Param("remedy") String remedy,
-            @Param("outcome") String outcome, @Param("finding") String finding,
-            @Param("completed") boolean completed, @Param("admin") Long admin, @Param("at") LocalDateTime at);
 
     @Query("select (count(incident)>0) from FeedbackCase incident join Feedback feedback on feedback.feedbackId=incident.feedbackId "
             + "join Booking booking on booking.bookingId=feedback.bookingId where incident.caseId=:caseId "
@@ -158,7 +131,7 @@ public interface FeedbackCaseRepository extends JpaRepository<FeedbackCase, Long
             + "coalesce(action.actionType,incident.staffAction), coalesce(action.status,incident.staffActionStatus), "
             + "coalesce(action.proposedBy,incident.staffActionBy), coalesce(action.decidedBy,incident.staffActionApprovedBy), "
             + "action.actionId, incident.createdAt, incident.resolvedAt, incident.itemDescription, "
-            + "incident.customerEstimatedValue, incident.itemAgeMonths, incident.resolutionWorkflowRequired "
+            + "incident.customerEstimatedValue, incident.itemAgeMonths, incident.customerRequestedResolution "
             + "from FeedbackCase incident join Feedback feedback on feedback.feedbackId=incident.feedbackId "
             + "join Booking booking on booking.bookingId=feedback.bookingId left join StaffIncidentAction action "
             + "on action.actionId=(select max(latest.actionId) from StaffIncidentAction latest where latest.caseId=incident.caseId) "
@@ -172,7 +145,7 @@ public interface FeedbackCaseRepository extends JpaRepository<FeedbackCase, Long
                 (String) row[8], (String) row[9], (String) row[10], Boolean.TRUE.equals(row[11]),
                 (String) row[12], (String) row[13], (Long) row[14], (Long) row[15], (Long) row[16],
                 (LocalDateTime) row[17], (LocalDateTime) row[18], (String) row[19],
-                (java.math.BigDecimal) row[20], (Integer) row[21], Boolean.TRUE.equals(row[22])));
+                (java.math.BigDecimal) row[20], (Integer) row[21], (String) row[22]));
     }
 
     default List<IncidentCard> findAllCards() {

@@ -4,6 +4,7 @@ import com.housekeeping.management.service.BookingCompletionService;
 
 import com.housekeeping.management.repository.BookingImageRepository;
 import com.housekeeping.management.repository.BookingPersistenceRepository;
+import com.housekeeping.management.domain.BookingDelayCompensation;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,10 +32,15 @@ public class BookingCompletionServiceImpl implements BookingCompletionService {
         if (booking.staffArrivedAt() == null) {
             throw new IllegalStateException("Hãy xác nhận đã đến trước khi bắt đầu công việc.");
         }
+        boolean lateBeyondGrace = booking.staffArrivedAt().isAfter(
+                booking.startTime().plusMinutes(BookingDelayCompensation.GRACE_PERIOD_MINUTES));
+        if (lateBeyondGrace && booking.incidentReportedAt() == null) {
+            throw new IllegalStateException("Staff đến trễ quá 5 phút cần báo sự cố và chờ Customer đồng ý trước khi bắt đầu.");
+        }
         if (booking.incidentReportedAt() != null && !"ACCEPTED".equals(booking.incidentCustomerResponse())) {
             throw new IllegalStateException("Cần Customer đồng ý giờ đến trễ trước khi bắt đầu công việc.");
         }
-        if (bookings.startWork(bookingId, staffId, now) != 1) {
+        if (bookings.startWork(bookingId, staffId, now, lateBeyondGrace) != 1) {
             throw new IllegalStateException("Lịch vừa thay đổi hoặc chưa đủ điều kiện bắt đầu. Hãy tải lại trang.");
         }
     }
@@ -55,7 +61,8 @@ public class BookingCompletionServiceImpl implements BookingCompletionService {
         if (!bookingImages.existsByBookingId(bookingId)) {
             throw new IllegalStateException("Cần tải ít nhất một ảnh minh chứng trước khi xác nhận hoàn thành.");
         }
-        if (bookings.changeStatus(bookingId, "CONFIRMED", "AWAITING_PAYMENT") != 1) {
+        var completedAt = java.time.LocalDateTime.now(java.time.ZoneOffset.ofHours(7)).withNano(0);
+        if (bookings.completeWork(bookingId, staffId, completedAt) != 1) {
             throw new IllegalStateException("Trạng thái lịch hẹn vừa thay đổi. Hãy tải lại trang.");
         }
     }

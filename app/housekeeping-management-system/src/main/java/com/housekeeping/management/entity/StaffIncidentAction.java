@@ -25,7 +25,7 @@ public class StaffIncidentAction {
     private Long staffId;
     @Column(name = "action_type", nullable = false, length = 30, columnDefinition = "varchar(30)")
     private String actionType;
-    @Column(name = "status", nullable = false, length = 20, columnDefinition = "varchar(20)")
+    @Column(name = "status", nullable = false, length = 30, columnDefinition = "varchar(30)")
     private String status = "PENDING";
     @Nationalized @Column(name = "reason", nullable = false, length = 1000)
     private String reason;
@@ -41,4 +41,28 @@ public class StaffIncidentAction {
     private LocalDateTime decidedAt;
     @Column(name = "acknowledged_at")
     private LocalDateTime acknowledgedAt;
+    @Column(name = "response_deadline")
+    private LocalDateTime responseDeadline;
+    @Column(name = "staff_response_expired_at")
+    private LocalDateTime staffResponseExpiredAt;
+    @Nationalized @Column(name = "staff_response", length = 4000)
+    private String staffResponse;
+    @Column(name = "staff_responded_at")
+    private LocalDateTime staffRespondedAt;
+    @Nationalized @Column(name = "appeal_text", length = 4000)
+    private String appealText;
+    @Column(name = "appealed_at")
+    private LocalDateTime appealedAt;
+    @Nationalized @Column(name = "decision_reason", length = 1000)
+    private String decisionReason;
+    @Column(name = "liability_amount", precision = 12, scale = 2)
+    private java.math.BigDecimal liabilityAmount;
+    @Column(name = "finalized_at")
+    private LocalDateTime finalizedAt;
+    @Column(name = "appeal_decided_by")
+    private Long appealDecidedBy;
+    @Column(name = "appeal_decided_at")
+    private LocalDateTime appealDecidedAt;
+    @Column(name = "decision_outcome", length = 20, columnDefinition = "varchar(20)")
+    private String decisionOutcome;
 }

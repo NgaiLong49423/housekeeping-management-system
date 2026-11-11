@@ -21,6 +21,7 @@ public interface StaffManagementService {
     Staff findActiveByUserId(Long userId);
     Staff findActiveByUserIdForUpdate(Long userId);
     java.util.Optional<Long> findStaffIdByUserId(Long userId);
+    java.util.Optional<Long> findUserIdByStaffId(Long staffId);
     boolean isOnApprovedLeave(Long staffId, java.time.LocalDate date);
     boolean acceptsAvailabilityInterval(Long staffId, java.time.LocalDate date,
             java.time.LocalTime start, java.time.LocalTime end);

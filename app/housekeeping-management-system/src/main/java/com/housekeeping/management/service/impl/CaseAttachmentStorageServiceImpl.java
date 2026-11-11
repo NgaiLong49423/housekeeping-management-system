@@ -3,9 +3,12 @@ package com.housekeeping.management.service.impl;
 import com.housekeeping.management.service.AccountAuthorizationService;
 import com.housekeeping.management.service.CaseAttachmentStorageService;
 import com.housekeeping.management.service.FeedbackCaseService;
+import com.housekeeping.management.service.BookingReservationService;
 import com.housekeeping.management.repository.FeedbackCaseEvidenceRepository;
+import com.housekeeping.management.repository.StaffIncidentActionEvidenceRepository;
 import com.housekeeping.management.repository.BookingFinancialRepository;
 import com.housekeeping.management.entity.FeedbackCaseEvidence;
+import com.housekeeping.management.entity.StaffIncidentActionEvidence;
 
 import java.io.IOException;
 import java.nio.file.AtomicMoveNotSupportedException;
@@ -30,15 +33,20 @@ public class CaseAttachmentStorageServiceImpl implements CaseAttachmentStorageSe
     private static final long MAX_VIDEO_BYTES=50L*1024*1024;
     private final FeedbackCaseService cases;
     private final FeedbackCaseEvidenceRepository evidence;
+    private final StaffIncidentActionEvidenceRepository staffActionEvidence;
     private final BookingFinancialRepository financialEntries;
+    private final BookingReservationService bookings;
     private final TransactionTemplate tx;
     private final Path root;
     private final AccountAuthorizationService authorization;
     public CaseAttachmentStorageServiceImpl(FeedbackCaseService cases, FeedbackCaseEvidenceRepository evidence,
+            StaffIncidentActionEvidenceRepository staffActionEvidence,
             BookingFinancialRepository financialEntries, PlatformTransactionManager manager,
-            @Value("${app.evidence.storage-root:./var/evidence}") String root, AccountAuthorizationService authorization) {
-        this.cases=cases; this.evidence=evidence; this.financialEntries=financialEntries;
+            @Value("${app.evidence.storage-root:./var/evidence}") String root, AccountAuthorizationService authorization,
+            BookingReservationService bookings) {
+        this.cases=cases; this.evidence=evidence; this.staffActionEvidence=staffActionEvidence; this.financialEntries=financialEntries;
         this.tx=new TransactionTemplate(manager); this.root=Path.of(root).toAbsolutePath().normalize(); this.authorization=authorization;
+        this.bookings=bookings;
     }
 
     @Override
@@ -160,6 +168,15 @@ public class CaseAttachmentStorageServiceImpl implements CaseAttachmentStorageSe
     }
 
     @Override
+    public Path customerReceipt(Long entryId, Long customerId) {
+        var entry=financialEntries.findById(entryId).orElse(null);
+        if(entry==null || entry.getReceiptPath()==null || !java.util.List.of("APPROVED", "PAID").contains(entry.getStatus())
+                || !bookings.bookingCustomerId(entry.getBookingId()).filter(customerId::equals).isPresent())
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND);
+        return secure(entry.getReceiptPath());
+    }
+
+    @Override
     public java.util.List<Long> customerEvidenceIds(Long caseId, Long customerId) {
         if(!cases.customerOwnsCase(caseId,customerId))
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND);
@@ -172,6 +189,56 @@ public class CaseAttachmentStorageServiceImpl implements CaseAttachmentStorageSe
         authorization.requireActiveAdmin(adminId);
         return evidence.findAllByCaseIdOrderByUploadedAtAscEvidenceIdAsc(caseId).stream()
                 .map(FeedbackCaseEvidence::getEvidenceId).toList();
+    }
+
+    @Override
+    public void uploadStaffActionEvidence(Long actionId, Long staffId, Long staffUserId, String stage, java.util.List<MultipartFile> uploads) {
+        if(uploads==null || uploads.isEmpty() || uploads.size()>5 || uploads.stream().anyMatch(file->file==null || file.isEmpty()))
+            throw new IllegalArgumentException("Đính kèm từ 1 đến 5 ảnh/PDF/video hợp lệ.");
+        java.util.List<StoredFile> stored=new java.util.ArrayList<>();
+        try {
+            for(MultipartFile upload:uploads) stored.add(storeMessageFile(upload));
+            tx.executeWithoutResult(status -> {
+                if(!cases.staffOwnsAction(actionId,staffId)) throw new org.springframework.security.access.AccessDeniedException("Không có quyền tải bằng chứng lên hồ sơ này.");
+                java.util.List<StaffIncidentActionEvidence> rows=new java.util.ArrayList<>();
+                for(StoredFile file:stored) {
+                    StaffIncidentActionEvidence row=new StaffIncidentActionEvidence(); row.setActionId(actionId); row.setUploadedBy(staffUserId);
+                    row.setEvidenceStage(stage); row.setMediaType(file.type()); row.setContentType(file.contentType());
+                    row.setOriginalName(file.originalName()); row.setStoragePath(file.path());
+                    row.setUploadedAt(java.time.LocalDateTime.now(java.time.ZoneOffset.ofHours(7)).withNano(0)); rows.add(row);
+                }
+                cases.addStaffActionEvidence(actionId,staffId,staffUserId,stage,rows);
+            });
+        } catch(RuntimeException failure) { stored.forEach(file->delete(file.path())); throw failure; }
+    }
+
+    @Override
+    public Path staffActionEvidence(Long evidenceId, Long actorId, boolean admin) {
+        return secure(cases.staffActionEvidencePath(evidenceId,actorId,admin).getFileName().toString());
+    }
+
+    @Override
+    public String storeStaffRecoveryReceipt(Long actionId, Long adminId, MultipartFile upload) {
+        authorization.requireActiveAdmin(adminId);
+        if(authorization.isManager(adminId)) throw new org.springframework.security.access.AccessDeniedException("Admin lưu chứng từ khoản Staff thực trả.");
+        return store(upload,true);
+    }
+
+    @Override
+    public void saveStaffRecoveryInstallment(Long actionId, Long adminId,
+            com.housekeeping.management.dto.request.PortalForms.StaffRecoveryInstallmentForm form, MultipartFile receipt) {
+        String path=storeStaffRecoveryReceipt(actionId,adminId,receipt);
+        try {
+            tx.executeWithoutResult(status -> cases.recordStaffRecoveryInstallment(actionId,adminId,form,path));
+        } catch(RuntimeException failure) {
+            delete(path);
+            throw failure;
+        }
+    }
+
+    @Override
+    public Path staffRecoveryReceipt(Long installmentId, Long adminId) {
+        return secure(cases.staffRecoveryReceiptPath(installmentId,adminId).getFileName().toString());
     }
 
     private String store(MultipartFile upload, boolean allowPdf) {

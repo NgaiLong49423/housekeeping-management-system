@@ -6,12 +6,12 @@ import java.time.LocalDateTime;
 
 public record FeedbackCaseDTO(Long caseId, Long feedbackId, String incidentTypes, String customerDescription,
         String itemDescription, BigDecimal customerEstimatedValue, Integer itemAgeMonths,
-        String caseStatus, String customerOutcome, String remedyType, boolean remedyCompleted,
+        String caseStatus, String customerOutcome, String customerRequestedResolution, String remedyType, boolean remedyCompleted,
         String internalFinding, String staffAction, String staffActionStatus, Long staffActionBy,
         Long staffActionApprovedBy, Long reviewedBy, LocalDateTime reviewedAt, LocalDateTime createdAt,
         LocalDateTime resolvedAt) {
     public FeedbackCaseDTO(Long caseId, Long feedbackId, String caseStatus) {
-        this(caseId, feedbackId, null, null, null, null, null, caseStatus, null, null, false, null,
+        this(caseId, feedbackId, null, null, null, null, null, caseStatus, null, null, null, false, null,
                 null, null, null, null, null, null, null, null);
     }
 
@@ -19,7 +19,7 @@ public record FeedbackCaseDTO(Long caseId, Long feedbackId, String incidentTypes
         if (entity == null) return null;
         return new FeedbackCaseDTO(entity.getCaseId(), entity.getFeedbackId(), entity.getIncidentTypes(),
                 entity.getCustomerDescription(), entity.getItemDescription(), entity.getCustomerEstimatedValue(),
-                entity.getItemAgeMonths(), entity.getCaseStatus(), entity.getCustomerOutcome(),
+                entity.getItemAgeMonths(), entity.getCaseStatus(), entity.getCustomerOutcome(), entity.getCustomerRequestedResolution(),
                 entity.getRemedyType(), entity.isRemedyCompleted(), entity.getInternalFinding(),
                 entity.getStaffAction(), entity.getStaffActionStatus(), entity.getStaffActionBy(),
                 entity.getStaffActionApprovedBy(), entity.getReviewedBy(), entity.getReviewedAt(),
@@ -37,6 +37,7 @@ public record FeedbackCaseDTO(Long caseId, Long feedbackId, String incidentTypes
         entity.setItemAgeMonths(itemAgeMonths);
         entity.setCaseStatus(caseStatus == null ? "RECEIVED" : caseStatus);
         entity.setCustomerOutcome(customerOutcome);
+        entity.setCustomerRequestedResolution(customerRequestedResolution);
         entity.setRemedyType(remedyType);
         entity.setRemedyCompleted(remedyCompleted);
         entity.setInternalFinding(internalFinding);

@@ -106,6 +106,9 @@ public class Booking {
     @Column(name = "work_started_at")
     private LocalDateTime workStartedAt;
 
+    @Column(name = "service_completed_at")
+    private LocalDateTime serviceCompletedAt;
+
     @Column(name = "delay_minutes")
     private Integer delayMinutes;
 
