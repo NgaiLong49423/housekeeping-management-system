@@ -302,4 +302,3 @@ class ManagementServicesTest {
                 staffManagement, availability, settings, bookings);
     }
 }
-

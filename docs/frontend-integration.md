@@ -1,8 +1,8 @@
 > **Document:** Frontend–Backend Integration Guide\
 > **File:** `docs/frontend-integration.md`\
-> **Version:** v2.5.1\
+> **Version:** v2.5.2\
 > **Created:** 2026-10-16\
-> **Last Updated:** 2026-11-10\
+> **Last Updated:** 2026-11-12\
 > **Status:** Draft
 
 # Kết Nối Giao Diện Gọn Nhà Với Backend
@@ -109,8 +109,8 @@ Từ `app/housekeeping-management-system/`, dùng JDK 21 và Maven. Cấu hình 
 | `DB_USERNAME` | Tài khoản database |
 | `DB_PASSWORD` | Mật khẩu database; không commit |
 | `app.evidence.storage-root` | Thư mục ảnh local, mặc định `./var/evidence` |
-| `spring.servlet.multipart.max-file-size` | 5 MB mỗi ảnh |
-| `spring.servlet.multipart.max-request-size` | 6 MB gồm overhead multipart; UI gửi một ảnh/lần |
+| `spring.servlet.multipart.max-file-size` | 50 MB mỗi tệp; ảnh/PDF bị giới hạn 5 MB trong service |
+| `spring.servlet.multipart.max-request-size` | 75 MB để nhận một video tối đa 50 MB cùng tối đa bốn ảnh/PDF; service giới hạn tổng 5 tệp và một video mỗi tin |
 
 ```powershell
 mvn spring-boot:run
