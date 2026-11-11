@@ -93,7 +93,7 @@ public class BookingController {
 
     @PostMapping("/customer/bookings/{id}/arrived")
     String confirmArrival(@PathVariable Long id, @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
-        try { arrival.confirm(id, user.getAccountId()); flash.addFlashAttribute("success", "Đã ghi nhận nhân viên đến địa điểm."); }
+        try { arrival.confirm(id, user.getUserId()); flash.addFlashAttribute("success", "Đã ghi nhận nhân viên đến địa điểm."); }
         catch (IllegalStateException failure) { flash.addFlashAttribute("error", failure.getMessage()); }
         return "redirect:/customer/bookings/" + id;
     }

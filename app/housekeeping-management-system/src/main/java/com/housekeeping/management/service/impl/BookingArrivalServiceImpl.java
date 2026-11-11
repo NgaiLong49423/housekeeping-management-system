@@ -21,7 +21,11 @@ public class BookingArrivalServiceImpl implements BookingArrivalService {
         this.bookings = bookings;
         this.compensationSettings = compensationSettings;
     }
+        var booking = bookings.lockBookingWorkflow(bookingId)
+                .orElseThrow(() -> new IllegalStateException("Lịch hẹn không tồn tại."));
 
+        if (booking.customerId().equals(customerId) && "CONFIRMED".equals(booking.status())
+                && booking.customerArrivedAt() != null) return;
     @Transactional
     public void confirm(Long bookingId, Long customerId) {
         LocalDateTime now = LocalDateTime.now(ZoneOffset.ofHours(7)).withNano(0);
