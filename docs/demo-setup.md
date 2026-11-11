@@ -1,56 +1,33 @@
-> **Document:** Hướng dẫn môi trường demo\
+> **Document:** Hướng dẫn môi trường chạy ứng dụng\
 > **File:** `docs/demo-setup.md`\
-> **Version:** v2.1.0\
+> **Version:** v2.2.0\
 > **Created:** 2026-10-17\
-> **Last Updated:** 2026-10-25\
-> **Status:** Draft\
+> **Last Updated:** 2026-11-11\
+> **Status:** Active\
 
-# Chạy môi trường demo
+# Môi trường chạy ứng dụng
 
-Tài liệu này mô tả cách chạy ứng dụng trên SQL Server local. Profile `demo` dùng database riêng `home_cleaning_demo`; ứng dụng chỉ chạy Flyway migration trong `classpath:db/refactor`. Đây là baseline mới của mô hình Home Cleaning, không phải migration dữ liệu từ database cũ.
+Hệ thống đã thống nhất sử dụng duy nhất một database chính thức là `Housekeeping_Database` (không sử dụng database demo riêng `home_cleaning_demo`).
 
 ## Chuẩn bị SQL Server
 
 1. Cài JDK 21, Maven và SQL Server local có TCP/IP tại cổng 1433.
-2. Mở `database/setup-demo.sql` trong SSMS và chạy trên instance demo/dev. Script chỉ tạo database `home_cleaning_demo` nếu chưa tồn tại; không tạo login hay chứa password.
-3. Tạo SQL login riêng, map vào database demo và cấp quyền DDL để Flyway tạo schema. Sao chép `.env.example` thành `.env` trong thư mục Maven module rồi tự đặt `DB_USERNAME` và `DB_PASSWORD`. Không commit `.env`.
-4. Địa chỉ nhà được nhập trực tiếp qua biểu mẫu người nhận và địa chỉ; demo không cần Google Maps API key.
-5. Mở `app/housekeeping-management-system/pom.xml` bằng IntelliJ, chọn JDK 21 và đợi Maven import.
-6. Chạy cấu hình IntelliJ `Housekeeping Demo` hoặc chạy:
+2. Đảm bảo database `Housekeeping_Database` đã được tạo trên SQL Server.
+3. Cấu hình file `.env` hoặc file `.runtime/application-local.properties` với thông tin kết nối SQL Server của bạn.
+4. Chạy ứng dụng qua cấu hình `Housekeeping Full Stack` trong IntelliJ hoặc bằng lệnh Maven:
 
 ```powershell
 cd app/housekeeping-management-system
-.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=demo"
+mvn spring-boot:run
 ```
 
-Mở `http://localhost:8080`. Profile demo cố định URL tới `home_cleaning_demo`, không dùng `DB_URL` để trỏ sang database khác; username/password lấy từ `.env`. Database được giữ nguyên khi khởi động theo mặc định. Chỉ đặt `DB_RESET_ON_STARTUP=true` nếu chủ động muốn xóa và tạo lại database demo local.
+5. Mở trình duyệt tại `http://localhost:8080`.
 
-## Kết nối mẫu
-
-Thông tin database dành cho môi trường demo local:
-
-| Thuộc tính | Giá trị |
-|---|---|
-| Database | `home_cleaning_demo` |
-| Website | `http://localhost:8080` |
-
-Flyway migration `V3__seed_demo_data.sql` ghi dữ liệu mẫu trực tiếp vào database `home_cleaning_demo`; ứng dụng không còn lớp Java tự chèn dữ liệu mẫu khi khởi động. Migration thêm bốn tài khoản website, hai hồ sơ nhân viên, cấu hình công ty, giờ hoạt động, ba dịch vụ, một địa chỉ nhà và lịch rảnh cho nhân viên part-time. Dữ liệu và mật khẩu của tài khoản đã có không bị ghi đè. Tài khoản mới do migration tạo có mật khẩu ban đầu `Demo@12345`; chỉ dùng trên database demo local. Migration không thay thế quy trình xác minh trên SQL Server.
+## Tài khoản hệ thống
 
 | Vai trò | Email |
 |---|---|
-| Customer | `customer@demo.gonnha.local` |
-| Staff part-time | `staff@demo.gonnha.local` |
-| Staff full-time | `staff.fulltime@demo.gonnha.local` |
-| Admin | `admin@demo.gonnha.local` |
-
-Lịch part-time được tạo cho ngày mai theo múi giờ Việt Nam. Đặt lịch cần trước ít nhất 120 phút và trong vòng 30 ngày; nếu lịch được tạo sau giờ hoạt động ngày mai, hãy chọn ngày kế tiếp còn nằm trong cửa sổ cho phép hoặc cập nhật availability qua giao diện Staff.
-
-## Cấu hình database development
-
-Trong `app/housekeeping-management-system/.env`, cấu hình `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` để trỏ tới một database SQL Server development mới, riêng biệt. Không dùng database production hoặc database cũ đang chứa dữ liệu cần giữ. Không commit `.env`.
-
-`application-demo.properties` cố định datasource demo, không đọc kết nối riêng từ `.env`. Schema cũ và các migration `db/migration/V1` đến `V3` được giữ nguyên; không chạy `flyway clean`, không xóa `flyway_schema_history`, không sửa database cũ để làm nó khớp baseline mới.
-
-## Giới hạn xác minh
-
-SQL Server local và Docker/Testcontainers cần khả dụng để xác minh DDL, Flyway, Hibernate mapping và transaction. Nếu các môi trường đó chưa chạy, chỉ báo kết quả compile/unit test đã thực sự có; không khẳng định baseline mới đã chạy trên SQL Server.
+| Customer | `customer@gonnha.vn` |
+| Staff | `mai.nguyen@gonnha.vn` |
+| Staff | `nam.tran@gonnha.vn` |
+| Admin | `admin@gonnha.vn` |

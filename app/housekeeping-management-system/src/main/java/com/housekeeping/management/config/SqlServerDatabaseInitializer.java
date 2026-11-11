@@ -23,7 +23,7 @@ public final class SqlServerDatabaseInitializer
             "(?i)^jdbc:sqlserver://(?:localhost|127\\.0\\.0\\.1|\\[::1\\])(?=[:;\\\\]|$)");
     private static final Pattern DATABASE_NAME = Pattern.compile("(?i)(?:^|;)databaseName=([^;]+)");
     private static final Pattern DATABASE_NAME_PROPERTY = Pattern.compile("(?i);databaseName=[^;]*");
-    private static final Set<String> RESET_DATABASES = Set.of("housekeeping_database", "home_cleaning_demo");
+    private static final Set<String> RESET_DATABASES = Set.of("housekeeping_database");
 
     @Override
     public void initialize(ConfigurableApplicationContext context) {
@@ -44,7 +44,7 @@ public final class SqlServerDatabaseInitializer
 
         String databaseName = databaseMatcher.group(1).trim();
         if (!RESET_DATABASES.contains(databaseName.toLowerCase(Locale.ROOT))) {
-            throw new IllegalStateException("Database reset is restricted to Housekeeping_Database or home_cleaning_demo.");
+            throw new IllegalStateException("Database reset is restricted to Housekeeping_Database.");
         }
         if (databaseMatcher.find()) {
             throw new IllegalStateException("DB_URL must contain exactly one databaseName property.");

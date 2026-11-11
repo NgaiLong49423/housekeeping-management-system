@@ -40,9 +40,9 @@ Yêu cầu JDK 21 và SQL Server 2022+ bật TCP/IP, Mixed Mode, cổng 1433.
    mvn spring-boot:run
    ```
 
-4. On startup, Flyway applies pending migrations to the selected database. The default profile uses `Housekeeping_Database` and the primary schema migrations; the `demo` profile uses `home_cleaning_demo` and its demo schema and seed migrations.
+4. On startup, Flyway applies pending migrations to `Housekeeping_Database` using primary schema migrations.
 
-Flyway `clean` remains disabled. An intentional automatic reset only accepts `localhost`, `127.0.0.1` or `[::1]` and the database names `Housekeeping_Database` or `home_cleaning_demo`. Reset is off by default and applies to application launches through `main` (IntelliJ, Maven and the executable JAR), not ordinary unit tests.
+Flyway `clean` remains disabled. An intentional automatic reset only accepts `localhost`, `127.0.0.1` or `[::1]` and the database name `Housekeeping_Database`. Reset is off by default and applies to application launches through `main` (IntelliJ, Maven and the executable JAR), not ordinary unit tests.
 
 ## Kiểm tra
 
