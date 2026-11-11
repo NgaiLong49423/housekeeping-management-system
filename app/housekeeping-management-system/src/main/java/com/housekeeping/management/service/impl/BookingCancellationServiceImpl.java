@@ -28,12 +28,15 @@ public class BookingCancellationServiceImpl implements BookingCancellationServic
         }
         var now = OffsetDateTime.now(BUSINESS_OFFSET).withNano(0).toLocalDateTime();
         boolean reportedStaffDelayCanCancel = booking.incidentReportedAt() != null && booking.workStartedAt() == null;
-        if (!reportedStaffDelayCanCancel && !BookingCancellationService.canCustomerCancel(
+        boolean unreportedDelayCanCancel = BookingCancellationService.canCancelUnverifiedDelay(
+                booking.status(), booking.startTime(), now, booking.customerArrivedAt(),
+                booking.arrivalVerifiedAt(), booking.incidentReportedAt(), booking.workStartedAt());
+        if (!reportedStaffDelayCanCancel && !unreportedDelayCanCancel && !BookingCancellationService.canCustomerCancel(
                 booking.status(), booking.startTime(), now, booking.workStartedAt())) {
             throw new IllegalStateException("Chỉ có thể hủy lịch đã xác nhận trước giờ bắt đầu ít nhất 2 giờ.");
         }
-        String reason = reportedStaffDelayCanCancel
-                ? "Khách hủy miễn phí do Staff đến trễ."
+        String reason = reportedStaffDelayCanCancel || unreportedDelayCanCancel
+                ? "Khách hủy miễn phí do Staff đến trễ/chưa xác minh giờ đến."
                 : "Khách hàng yêu cầu hủy lịch.";
         if (bookings.cancelByCustomer(bookingId, customerId, reason, now) != 1) {
             throw new IllegalStateException("Trạng thái lịch hẹn vừa thay đổi. Hãy tải lại trang.");

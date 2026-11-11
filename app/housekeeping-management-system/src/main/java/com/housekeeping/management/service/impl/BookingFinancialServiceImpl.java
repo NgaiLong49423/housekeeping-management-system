@@ -146,6 +146,18 @@ public class BookingFinancialServiceImpl implements BookingFinancialService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public void validateReceiptUpload(Long entryId, Long adminId) {
+        authorization.requireActiveAdmin(adminId);
+        BookingFinancialEntry entry=entries.findById(entryId)
+                .orElseThrow(() -> new IllegalStateException("Khoản tiền không tồn tại."));
+        if (!"APPROVED".equals(entry.getStatus()) || entry.getReceiptPath()!=null)
+            throw new IllegalStateException("Chỉ tải chứng từ cho khoản đã duyệt và chưa quyết toán.");
+        if ("COMPENSATION".equals(entry.getEntryType()))
+            requirePayoutMethodAndDetails(entryId,false);
+    }
+
+    @Override
     @Transactional
     public void settle(Long entryId, Long adminId, String method, String reference, boolean simulated) {
         authorization.requireActiveAdmin(adminId);
@@ -158,8 +170,7 @@ public class BookingFinancialServiceImpl implements BookingFinancialService {
             if (simulated) throw new IllegalStateException("Bồi thường phải được ghi nhận là khoản chi thật sau khi thực hiện.");
             if (!cases.hasSufficientEvidence(entry.getCaseId()))
                 throw new IllegalStateException("Chỉ quyết toán bồi thường khi hồ sơ đã được xác minh đủ bằng chứng.");
-            payout = payoutResponses.findByEntryIdForUpdate(entryId)
-                    .orElseThrow(() -> new IllegalStateException("Cần chờ khách xác nhận cách nhận bồi thường trước khi quyết toán."));
+            payout = requirePayoutMethodAndDetails(entryId,true);
             if (!"ACCEPTED".equals(payout.getResponseStatus()) || !method.equals(payout.getPayoutMethod()))
                 throw new IllegalStateException("Phương thức quyết toán phải khớp với lựa chọn đã xác nhận của khách.");
         }
@@ -361,6 +372,24 @@ public class BookingFinancialServiceImpl implements BookingFinancialService {
     private static String cleanRequired(String value, String message) {
         if (value == null || value.isBlank()) throw new IllegalArgumentException(message);
         return value.trim();
+    }
+
+    private FinancialPayoutResponse requirePayoutMethodAndDetails(Long entryId, boolean lock) {
+        FinancialPayoutResponse payout=(lock ? payoutResponses.findByEntryIdForUpdate(entryId) : payoutResponses.findByEntryId(entryId))
+                .orElseThrow(() -> new IllegalStateException("Chờ khách chọn tiền mặt hoặc chuyển khoản trước khi tải chứng từ/ghi nhận đã chi."));
+        if (!"ACCEPTED".equals(payout.getResponseStatus())
+                || !Set.of("CASH", "BANK_TRANSFER").contains(payout.getPayoutMethod()))
+            throw new IllegalStateException("Chờ khách xác nhận cách nhận tiền trước khi tải chứng từ/ghi nhận đã chi.");
+        if ("BANK_TRANSFER".equals(payout.getPayoutMethod())) {
+            if (payout.getEncryptedAccountDetails()==null || payout.getEncryptedAccountDetails().isBlank())
+                throw new IllegalStateException("Khách chọn chuyển khoản nhưng chưa cung cấp đủ thông tin tài khoản.");
+            var account=payoutCipher.decrypt(payout.getEncryptedAccountDetails());
+            if (account.bankName()==null || account.bankName().isBlank()
+                    || account.accountHolder()==null || account.accountHolder().isBlank()
+                    || account.accountNumber()==null || account.accountNumber().isBlank())
+                throw new IllegalStateException("Khách chọn chuyển khoản nhưng chưa cung cấp đủ thông tin tài khoản.");
+        }
+        return payout;
     }
 
     private static LocalDateTime now() {

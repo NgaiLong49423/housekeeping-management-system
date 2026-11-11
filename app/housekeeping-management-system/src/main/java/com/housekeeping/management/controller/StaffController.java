@@ -174,17 +174,47 @@ public class StaffController {
 
     @PostMapping("/staff/schedules/day")
     String addAvailabilityForDate(@AuthenticationPrincipal PortalUser user,
-            @RequestParam LocalDate workDate, @RequestParam List<LocalTime> startTimes,
-            @RequestParam List<LocalTime> endTimes, @RequestParam(required = false) LocalDate weekStart,
+            @RequestParam(required = false) String workDate, @RequestParam(required = false) List<String> startTimes,
+            @RequestParam(required = false) List<String> endTimes, @RequestParam(required = false) String weekStart,
             RedirectAttributes flash) {
+        LocalDate parsedWorkDate = null;
+        LocalDate parsedWeekStart = null;
         try {
-            int added = availability.saveForDate(user.getUserId(), workDate, startTimes, endTimes);
+            parsedWorkDate = parseDateRequired(workDate, "Hãy chọn ngày đăng ký.");
+            parsedWeekStart = parseDate(weekStart);
+            int added = availability.saveForDate(user.getUserId(), parsedWorkDate,
+                    parseTimes(startTimes, "giờ bắt đầu"), parseTimes(endTimes, "giờ kết thúc"));
             flash.addFlashAttribute("success", "Đã đăng ký " + added + " khoảng giờ trong ngày.");
-        } catch (IllegalArgumentException | IllegalStateException failure) {
+        } catch (java.time.DateTimeException | IllegalArgumentException | IllegalStateException failure) {
             flash.addFlashAttribute("error", PortalMessages.business(failure));
         }
-        LocalDate returnWeek = weekStart != null ? weekStart : workDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate returnWeek = parsedWeekStart != null ? parsedWeekStart
+                : parsedWorkDate == null ? null : parsedWorkDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
         return staffWeekRedirect(returnWeek);
+    }
+
+    private static LocalDate parseDate(String value) {
+        if (value == null || value.isBlank()) return null;
+        return LocalDate.parse(value);
+    }
+
+    private static LocalDate parseDateRequired(String value, String message) {
+        if (value == null || value.isBlank()) throw new IllegalArgumentException(message);
+        return LocalDate.parse(value);
+    }
+
+    private static List<LocalTime> parseTimes(List<String> values, String label) {
+        if (values == null || values.isEmpty()) return List.of();
+        try {
+            if (values.stream().anyMatch(value -> value == null || value.isBlank())) {
+                throw new IllegalArgumentException("Hãy chọn đủ " + label + " cho từng khoảng.");
+            }
+            return values.stream().map(LocalTime::parse).toList();
+        } catch (IllegalArgumentException validationFailure) {
+            throw validationFailure;
+        } catch (java.time.DateTimeException invalidTime) {
+            throw new IllegalArgumentException("Có " + label + " không hợp lệ. Hãy chọn lại giờ theo từng khoảng.", invalidTime);
+        }
     }
 
     @PostMapping("/staff/schedules/{id}/replace")

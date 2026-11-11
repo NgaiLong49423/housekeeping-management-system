@@ -40,7 +40,9 @@ public final class PortalViews {
             OffsetDateTime incidentExpectedArrivalAt, String incidentCustomerResponse, OffsetDateTime incidentCustomerRespondedAt,
             OffsetDateTime workStartedAt, Integer delayMinutes, BigDecimal delayDiscountPercent, BigDecimal delayDiscountAmount,
             Integer feedbackRating, List<String> feedbackTopics, List<String> feedbackTopicCodes,
-            OffsetDateTime customerDelayReportedAt, boolean cancellable) {
+            OffsetDateTime customerDelayReportedAt, OffsetDateTime arrivalVerifiedAt,
+            OffsetDateTime arrivalVerificationRecordedAt, Long arrivalVerifiedBy,
+            String arrivalVerificationSource, String arrivalVerificationNote, boolean cancellable) {
         public BookingCard(Long id, Long customerId, Long staffId, String customerName, String staffName,
                 OffsetDateTime start, OffsetDateTime end, String status, BigDecimal amount,
                 String paymentStatus, String method, String feedbackContent, String adminReply, String feedbackStatus,
@@ -56,7 +58,7 @@ public final class PortalViews {
                     cancellationReason, customerArrivedAt, customerPhone, staffArrivedAt, incidentReportedAt,
                     incidentNote, incidentExpectedArrivalAt, incidentCustomerResponse, incidentCustomerRespondedAt,
                     workStartedAt, delayMinutes, delayDiscountPercent, delayDiscountAmount, feedbackRating,
-                    feedbackTopics, feedbackTopicCodes, customerDelayReportedAt, false);
+                    feedbackTopics, feedbackTopicCodes, customerDelayReportedAt, null, null, null, null, null, false);
         }
         public BookingCard(Long id, Long customerId, Long staffId, String customerName, String staffName,
                 OffsetDateTime start, OffsetDateTime end, String status, BigDecimal amount,
@@ -67,7 +69,7 @@ public final class PortalViews {
             this(id, customerId, staffId, customerName, staffName, start, end, status, amount, paymentStatus, method,
                     feedbackContent, adminReply, feedbackStatus, addressSnapshot, addressNoteSnapshot, areaNote,
                     cancellationReason, customerArrivedAt, customerPhone, staffArrivedAt, incidentReportedAt,
-                    incidentNote, null, null, null, null, null, BigDecimal.ZERO, BigDecimal.ZERO, null, List.of(), List.of(), null, false);
+                    incidentNote, null, null, null, null, null, BigDecimal.ZERO, BigDecimal.ZERO, null, List.of(), List.of(), null, null, null, null, null, null, false);
         }
         public BookingCard(Long id, Long customerId, Long staffId, String customerName, String staffName,
                 OffsetDateTime start, OffsetDateTime end, String status, BigDecimal amount,
@@ -75,7 +77,7 @@ public final class PortalViews {
             this(id, customerId, staffId, customerName, staffName, start, end, status, amount,
                     paymentStatus, method, feedbackContent, adminReply, feedbackStatus,
                     null, null, null, null, null, null, null, null, null,
-                    null, null, null, null, null, BigDecimal.ZERO, BigDecimal.ZERO, null, List.of(), List.of(), null, false);
+                    null, null, null, null, null, BigDecimal.ZERO, BigDecimal.ZERO, null, List.of(), List.of(), null, null, null, null, null, null, false);
         }
         public BookingCard(Long id, Long customerId, Long staffId, String customerName, String staffName,
                 OffsetDateTime start, OffsetDateTime end, String status, BigDecimal amount,
@@ -90,7 +92,7 @@ public final class PortalViews {
                     addressNoteSnapshot, areaNote, cancellationReason, customerArrivedAt, customerPhone,
                     staffArrivedAt, incidentReportedAt, incidentNote, incidentExpectedArrivalAt,
                     incidentCustomerResponse, incidentCustomerRespondedAt, workStartedAt, delayMinutes,
-                    delayDiscountPercent, delayDiscountAmount, null, List.of(), List.of(), null, false);
+                    delayDiscountPercent, delayDiscountAmount, null, List.of(), List.of(), null, null, null, null, null, null, false);
         }
         public String getStartLabel() { return time(start); }
         public String getEndLabel() { return time(end); }
@@ -98,6 +100,8 @@ public final class PortalViews {
         public String getStaffArrivalLabel() { return staffArrivedAt == null ? null : time(staffArrivedAt); }
         public String getIncidentReportedLabel() { return incidentReportedAt == null ? null : time(incidentReportedAt); }
         public String getCustomerDelayReportedLabel() { return customerDelayReportedAt == null ? null : time(customerDelayReportedAt); }
+        public String getArrivalVerifiedLabel() { return arrivalVerifiedAt == null ? null : time(arrivalVerifiedAt); }
+        public String getArrivalVerificationRecordedLabel() { return arrivalVerificationRecordedAt == null ? null : time(arrivalVerificationRecordedAt); }
         public String getStatusLabel() {
             return switch (status) {
                 case "CONFIRMED" -> "Đã xác nhận";

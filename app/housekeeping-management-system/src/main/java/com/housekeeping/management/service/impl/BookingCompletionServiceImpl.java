@@ -29,12 +29,17 @@ public class BookingCompletionServiceImpl implements BookingCompletionService {
             throw new IllegalStateException("Lịch không còn ở trạng thái có thể bắt đầu.");
         }
         var now = java.time.LocalDateTime.now(java.time.ZoneOffset.ofHours(7)).withNano(0);
-        if (booking.staffArrivedAt() == null) {
+        if (booking.staffArrivedAt() == null && booking.arrivalVerifiedAt() == null) {
             throw new IllegalStateException("Hãy xác nhận đã đến trước khi bắt đầu công việc.");
         }
-        boolean lateBeyondGrace = booking.staffArrivedAt().isAfter(
+        if (booking.customerDelayReportedAt() != null && booking.arrivalVerifiedAt() == null) {
+            throw new IllegalStateException("Customer đã báo Staff chưa đến. Cần Customer xác nhận giờ có mặt hoặc Admin xác minh trước khi bắt đầu.");
+        }
+        java.time.LocalDateTime effectiveArrival = booking.arrivalVerifiedAt() == null
+                ? booking.staffArrivedAt() : booking.arrivalVerifiedAt();
+        boolean lateBeyondGrace = effectiveArrival.isAfter(
                 booking.startTime().plusMinutes(BookingDelayCompensation.GRACE_PERIOD_MINUTES));
-        if (lateBeyondGrace && booking.incidentReportedAt() == null) {
+        if (lateBeyondGrace && booking.incidentReportedAt() == null && booking.arrivalVerifiedAt() == null) {
             throw new IllegalStateException("Staff đến trễ quá 5 phút cần báo sự cố và chờ Customer đồng ý trước khi bắt đầu.");
         }
         if (booking.incidentReportedAt() != null && !"ACCEPTED".equals(booking.incidentCustomerResponse())) {

@@ -6,6 +6,8 @@ import com.housekeeping.management.service.BookingReservationService;
 import com.housekeeping.management.service.HouseService;
 import com.housekeeping.management.service.StaffManagementService;
 import com.housekeeping.management.service.CompanySettingsService;
+import com.housekeeping.management.service.BookingDelayCompensationSettingsService;
+import com.housekeeping.management.domain.BookingDelayCompensation;
 
 import com.housekeeping.management.domain.StaffType;
 import com.housekeeping.management.entity.Staff;
@@ -24,16 +26,45 @@ public class AdminBookingManagementServiceImpl implements AdminBookingManagement
     private final BookingReservationService reservations;
     private final HouseService houses;
     private final CompanySettingsService companySettings;
+    private final BookingDelayCompensationSettingsService compensationSettings;
 
     public AdminBookingManagementServiceImpl(BookingPersistenceRepository bookings,
             StaffManagementService staffManagement, AccountAuthorizationService authorization,
-            BookingReservationService reservations, HouseService houses, CompanySettingsService companySettings) {
+            BookingReservationService reservations, HouseService houses, CompanySettingsService companySettings,
+            BookingDelayCompensationSettingsService compensationSettings) {
         this.bookings = bookings;
         this.staffManagement = staffManagement;
         this.authorization = authorization;
         this.reservations = reservations;
         this.houses = houses;
         this.companySettings = companySettings;
+        this.compensationSettings = compensationSettings;
+    }
+
+    @Transactional
+    public void verifyDisputedArrival(Long bookingId, Long adminId, LocalDateTime actualArrivalAt, String note) {
+        authorization.requireActiveAdmin(adminId);
+        var booking = bookings.lockBookingWorkflow(bookingId)
+                .orElseThrow(() -> new IllegalArgumentException("Lịch hẹn không tồn tại."));
+        if (!"CONFIRMED".equals(booking.status()) || booking.customerDelayReportedAt() == null
+                || booking.arrivalVerifiedAt() != null || booking.workStartedAt() != null) {
+            throw new IllegalStateException("Booking không còn chờ xác minh giờ đến.");
+        }
+        LocalDateTime now = now();
+        String normalizedNote = note == null ? "" : note.trim();
+        if (actualArrivalAt == null || actualArrivalAt.isBefore(booking.startTime()) || actualArrivalAt.isAfter(now)) {
+            throw new IllegalArgumentException("Giờ đến thực tế phải từ giờ hẹn trở đi và không được ở tương lai.");
+        }
+        if (normalizedNote.isBlank() || normalizedNote.length() > 500) {
+            throw new IllegalArgumentException("Ghi chú xác minh bắt buộc và tối đa 500 ký tự.");
+        }
+        BookingDelayCompensation compensation = BookingDelayCompensation.calculate(
+                booking.startTime(), actualArrivalAt, booking.totalAmount(), compensationSettings.get());
+        if (bookings.verifyDisputedArrival(bookingId, adminId, actualArrivalAt, now, normalizedNote,
+                compensation.delayedMinutes(), java.math.BigDecimal.valueOf(compensation.discountPercent()),
+                compensation.discountAmount()) != 1) {
+            throw new IllegalStateException("Booking vừa được xử lý. Hãy tải lại trang.");
+        }
     }
 
     @Transactional

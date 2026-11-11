@@ -101,18 +101,20 @@ public class PortalAdminController {
     String approveFinancialEntry(@PathVariable Long id, @RequestParam(required=false) Long returnCaseId,
             @RequestParam(required=false) Long returnEntryId,
             @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
+        markFinancialNotice(flash,returnCaseId,id);
         try { financials.approve(id,user.getUserId()); flash.addFlashAttribute("success","Đã duyệt khoản tiền."); }
         catch (IllegalArgumentException | IllegalStateException failure) { flash.addFlashAttribute("error",failure.getMessage()); }
-        return financialRedirect(returnCaseId,returnEntryId);
+        return financialRedirect(returnCaseId,returnEntryId==null?id:returnEntryId);
     }
 
     @PostMapping("/financial-entries/{id}/reject")
     String rejectFinancialEntry(@PathVariable Long id, @RequestParam String reason, @RequestParam(required=false) Long returnCaseId,
             @RequestParam(required=false) Long returnEntryId,
             @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
+        markFinancialNotice(flash,returnCaseId,id);
         try { financials.reject(id,user.getUserId(),reason); flash.addFlashAttribute("success","Đã từ chối khoản tiền với lý do được lưu."); }
         catch (IllegalArgumentException | IllegalStateException failure) { flash.addFlashAttribute("error",failure.getMessage()); }
-        return financialRedirect(returnCaseId,returnEntryId);
+        return financialRedirect(returnCaseId,returnEntryId==null?id:returnEntryId);
     }
 
     @PostMapping("/financial-entries/{id}/cancel")
@@ -120,9 +122,10 @@ public class PortalAdminController {
             @RequestParam(required=false) Long returnCaseId,
             @RequestParam(required=false) Long returnEntryId,
             @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
+        markFinancialNotice(flash,returnCaseId,id);
         try { financials.cancel(id,user.getUserId(),reason); flash.addFlashAttribute("success","Đã hủy khoản chờ xử lý."); }
         catch (IllegalArgumentException | IllegalStateException failure) { flash.addFlashAttribute("error",failure.getMessage()); }
-        return financialRedirect(returnCaseId,returnEntryId);
+        return financialRedirect(returnCaseId,returnEntryId==null?id:returnEntryId);
     }
 
     @PostMapping("/financial-entries/{id}/settle")
@@ -130,22 +133,28 @@ public class PortalAdminController {
             @RequestParam String reference, @RequestParam(defaultValue="false") boolean simulated,
             @AuthenticationPrincipal PortalUser user, RedirectAttributes flash,
             @RequestParam(required=false) Long returnCaseId, @RequestParam(required=false) Long returnEntryId) {
+        markFinancialNotice(flash,returnCaseId,id);
         try { financials.settle(id,user.getUserId(),method,reference,simulated); flash.addFlashAttribute("success","Đã ghi nhận khoản tiền đã chi/hoàn."); }
         catch (IllegalArgumentException | IllegalStateException failure) { flash.addFlashAttribute("error",failure.getMessage()); }
-        return financialRedirect(returnCaseId,returnEntryId);
+        return financialRedirect(returnCaseId,returnEntryId==null?id:returnEntryId);
     }
 
     @PostMapping("/financial-entries/{id}/receipt")
     String uploadReceipt(@PathVariable Long id, @RequestParam org.springframework.web.multipart.MultipartFile file,
             @AuthenticationPrincipal PortalUser user, RedirectAttributes flash,
             @RequestParam(required=false) Long returnCaseId, @RequestParam(required=false) Long returnEntryId) {
+        markFinancialNotice(flash,returnCaseId,id);
         try { attachments.uploadReceipt(id,user.getUserId(),file); flash.addFlashAttribute("success","Đã lưu hóa đơn/biên nhận cho khoản tiền."); }
         catch (IllegalArgumentException | IllegalStateException failure) { flash.addFlashAttribute("error",failure.getMessage()); }
-        return financialRedirect(returnCaseId,returnEntryId);
+        return financialRedirect(returnCaseId,returnEntryId==null?id:returnEntryId);
+    }
+
+    private void markFinancialNotice(RedirectAttributes flash, Long caseId, Long entryId) {
+        if (caseId != null) flash.addFlashAttribute("financialNoticeEntryId",entryId);
     }
 
     private String financialRedirect(Long caseId, Long entryId) {
-        if (caseId != null) return "redirect:/admin/feedback/cases/" + caseId;
+        if (caseId != null) return "redirect:/admin/feedback/cases/" + caseId + "#compensation-entry-" + entryId;
         if (entryId != null) return "redirect:/admin/finance/entries/" + entryId;
         return "redirect:/admin/finance/entries";
     }

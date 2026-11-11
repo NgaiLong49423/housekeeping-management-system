@@ -4,6 +4,7 @@ import com.housekeeping.management.service.AccountAuthorizationService;
 import com.housekeeping.management.service.CaseAttachmentStorageService;
 import com.housekeeping.management.service.FeedbackCaseService;
 import com.housekeeping.management.service.BookingReservationService;
+import com.housekeeping.management.service.BookingFinancialService;
 import com.housekeeping.management.repository.FeedbackCaseEvidenceRepository;
 import com.housekeeping.management.repository.StaffIncidentActionEvidenceRepository;
 import com.housekeeping.management.repository.BookingFinancialRepository;
@@ -36,6 +37,7 @@ public class CaseAttachmentStorageServiceImpl implements CaseAttachmentStorageSe
     private final StaffIncidentActionEvidenceRepository staffActionEvidence;
     private final BookingFinancialRepository financialEntries;
     private final BookingReservationService bookings;
+    private final BookingFinancialService financials;
     private final TransactionTemplate tx;
     private final Path root;
     private final AccountAuthorizationService authorization;
@@ -43,10 +45,11 @@ public class CaseAttachmentStorageServiceImpl implements CaseAttachmentStorageSe
             StaffIncidentActionEvidenceRepository staffActionEvidence,
             BookingFinancialRepository financialEntries, PlatformTransactionManager manager,
             @Value("${app.evidence.storage-root:./var/evidence}") String root, AccountAuthorizationService authorization,
-            BookingReservationService bookings) {
+            BookingReservationService bookings, BookingFinancialService financials) {
         this.cases=cases; this.evidence=evidence; this.staffActionEvidence=staffActionEvidence; this.financialEntries=financialEntries;
         this.tx=new TransactionTemplate(manager); this.root=Path.of(root).toAbsolutePath().normalize(); this.authorization=authorization;
         this.bookings=bookings;
+        this.financials=financials;
     }
 
     @Override
@@ -141,6 +144,7 @@ public class CaseAttachmentStorageServiceImpl implements CaseAttachmentStorageSe
     @Override
     public void uploadReceipt(Long entryId, Long adminId, MultipartFile upload) {
         authorization.requireActiveAdmin(adminId);
+        financials.validateReceiptUpload(entryId,adminId);
         String path=store(upload,true);
         try {
             tx.executeWithoutResult(status -> {

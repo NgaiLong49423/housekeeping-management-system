@@ -35,8 +35,8 @@ public class BookingDelayCompensationSettingsServiceImpl implements BookingDelay
         for (int i = 0; i < ordered.size(); i++) {
             Tier tier = ordered.get(i);
             boolean last = i == ordered.size() - 1;
-            if (tier.minDelayMinutes() < 1 || tier.discountPercent() < 0 || tier.discountPercent() > 100) {
-                throw new IllegalArgumentException("Số phút phải từ 1 trở lên và phần trăm giảm từ 0 đến 100.");
+            if (tier.minDelayMinutes() < 1 || tier.discountPercent() < 0 || tier.discountPercent() > 30) {
+                throw new IllegalArgumentException("Số phút phải từ 1 trở lên và phần trăm giảm từ 0 đến 30.");
             }
             if (last) {
                 if (tier.maxDelayMinutes() != null) {

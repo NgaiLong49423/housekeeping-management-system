@@ -29,7 +29,7 @@ Trình duyệt → Spring Security (session, role, CSRF)
 
 Frontend và backend cùng ứng dụng, cùng origin. Form dùng POST và Thymeleaf tự chèn CSRF token qua `th:action`; không cần REST API riêng, JWT, CORS hoặc Node.js khi chạy. JavaScript hỗ trợ lọc danh sách, tạm tính, kiểm tra file và ghép ngày với giờ được chọn theo bước 15 phút. Server kiểm tra lại khi gửi, kể cả khi dữ liệu vừa thay đổi.
 
-Trang `/admin/settings` lưu vị trí/bán kính riêng tại `/admin/settings/location`; phiên bản lịch tuần được lưu tại `/admin/settings/schedule` với `effectiveFrom` và danh sách `operatingHours`. GET `/admin/settings?effectiveFrom=YYYY-MM-DD` chọn lịch để xem/sửa; ngày mới nạp lịch gần nhất trước ngày chọn. Phiên bản tương lai có thể hủy qua `/admin/settings/schedule/cancel`; backend chặn sửa/hủy nếu khoảng hiệu lực có booking `CONFIRMED` hoặc `AWAITING_PAYMENT`. Staff nhận tất cả mốc hiệu lực để giao diện hiển thị khung áp dụng theo ngày; server kiểm tra lại cùng phiên bản khi đăng ký availability. Booking tạo mới và Admin đổi Staff dùng truy vấn giờ theo ngày từ cùng bảng.
+Trang `/admin/settings` lưu vị trí/bán kính riêng tại `/admin/settings/location`; phiên bản lịch tuần được lưu theo từng ngày tại `/admin/settings/schedule/day` với `effectiveFrom`, `dayOfWeek` và danh sách `operatingHours`. GET `/admin/settings?effectiveFrom=YYYY-MM-DD` chọn tuần để xem/sửa; ngày mới nạp lịch gần nhất trước ngày chọn. Lưu một ngày giữ nguyên sáu ngày khác. Booking `CONFIRMED` hoặc `AWAITING_PAYMENT` chỉ chặn thay đổi giờ của đúng ngày khi lịch mới không bao phủ trọn booking. Trong ngày hiện tại, khung đã bắt đầu không được sửa/xóa/đóng và không được thêm khung có giờ kết thúc trước thời điểm hiện tại. Phiên bản tương lai có thể hủy qua `/admin/settings/schedule/cancel`; backend vẫn chặn hủy nếu khoảng hiệu lực có booking đang hoạt động. Staff nhận tất cả mốc hiệu lực để giao diện hiển thị khung áp dụng theo ngày; server kiểm tra lại cùng phiên bản khi đăng ký availability. Booking tạo mới và Admin đổi Staff dùng truy vấn giờ theo ngày từ cùng bảng.
 
 `PortalQueryService` đọc dữ liệu bằng JDBC vào view model không chứa password hash/storage path. Không đưa Entity có quan hệ LAZY ra template, phù hợp `open-in-view=false`. Danh sách lịch hẹn được lọc theo tài khoản; chi tiết và ảnh Evidence kiểm tra ownership. Khoảng bận cho form đặt lịch chỉ gồm Staff ID và thời gian, không có danh tính khách khác.
 
@@ -81,7 +81,7 @@ Các route dưới đây là điểm vào MVC của ứng dụng.
 | `/admin/staff` | `name`, `email`, `password`, `phone` | `GlobalEmailUniquenessService`, BCrypt trước khi lưu |
 | `/admin/staff/{id}` | `name`, `phone` | Sửa thông tin; email/mật khẩu không trong form sửa |
 | `/admin/{services,staff}/{id}/delete` | CSRF | Ngừng hoạt động (soft delete); giữ lịch sử đặt dịch vụ |
-| `/admin/settings` | Vị trí công ty, bán kính phục vụ và nhiều khung giờ/ngày | Lưu khi không làm mất hiệu lực Booking CONFIRMED tương lai |
+| `/admin/settings` | Vị trí công ty, bán kính phục vụ và nhiều khung giờ/ngày; lưu từng ngày trong phiên bản tuần | Chỉ chặn nếu booking đang hoạt động của ngày đó không còn được bao phủ; bảo vệ khung đã bắt đầu hôm nay |
 | `/admin/feedback/{id}/reply` | `reply`, CSRF | Admin lưu nội dung trả lời Feedback |
 | `/admin/feedback/{id}/resolve` | CSRF | Admin đánh dấu Feedback đã giải quyết |
 | `/admin/bookings/{id}/cancel` | `reason`, CSRF | Admin hủy Booking CONFIRMED, lưu người hủy/thời điểm/lý do |

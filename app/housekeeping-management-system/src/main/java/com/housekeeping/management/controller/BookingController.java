@@ -245,7 +245,9 @@ public class BookingController {
         model.addAttribute("booking", booking);
         model.addAttribute("now", OffsetDateTime.now(java.time.ZoneOffset.ofHours(7)));
         model.addAttribute("staffCanStartWork", "CONFIRMED".equals(booking.status())
-                && booking.staffArrivedAt() != null && booking.workStartedAt() == null
+                && (booking.staffArrivedAt() != null || booking.arrivalVerifiedAt() != null)
+                && booking.workStartedAt() == null
+                && (booking.customerDelayReportedAt() == null || booking.arrivalVerifiedAt() != null)
                 && (booking.incidentReportedAt() == null || "ACCEPTED".equals(booking.incidentCustomerResponse())));
         model.addAttribute("details", details);
         model.addAttribute("bookingImages", query.bookingImages(id, user));

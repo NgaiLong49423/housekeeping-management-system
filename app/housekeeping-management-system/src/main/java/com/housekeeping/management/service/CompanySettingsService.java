@@ -44,6 +44,7 @@ public interface CompanySettingsService {
     List<LocationSuggestion> locationAutocomplete(String query);
     public void saveSchedule(Long adminId, CompanyScheduleVersionForm form);
     public void saveSchedule(Long adminId, CompanyScheduleVersionForm form, boolean editingExisting);
+    void saveScheduleDay(Long adminId, CompanyScheduleVersionForm form, int dayOfWeek, boolean editingExisting);
     public void cancelSchedule(Long adminId, LocalDate effectiveFrom);
     public void validate(CompanySettingsForm form);
     public void validateSchedule(List<OperatingHoursForm> hours);}

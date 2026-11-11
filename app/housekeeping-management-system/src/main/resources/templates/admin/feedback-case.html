@@ -13,13 +13,17 @@
     <section class="alert alert-light border" th:if="${incident.customerRequestedResolution != null}"><strong>Mong muốn của khách:</strong><p class="mb-0" th:text="${incident.customerRequestedResolution}"></p><small>Admin xem xét; đây chưa phải thỏa thuận.</small></section>
     <section class="alert alert-light border" th:if="${incident.internalFinding != null}"><strong>Ghi chú xác minh nội bộ:</strong><p class="mb-0" th:text="${incident.internalFinding}"></p></section>
 
-    <div class="d-flex flex-wrap gap-2 my-3" th:if="${!currentUser.manager}">
+    <div class="d-flex flex-wrap gap-2 my-3" th:if="${!currentUser.manager}" th:id="|feedback-intake-${incident.id}|">
+      <div class="alert alert-danger w-100 mb-0" th:if="${feedbackNoticeTarget == 'intake' and error != null}" role="alert" th:text="${error}"></div>
+      <div class="alert alert-success w-100 mb-0" th:if="${feedbackNoticeTarget == 'intake' and success != null}" role="status" th:text="${success}"></div>
       <form th:if="${incident.status == 'RECEIVED'}" method="post" th:action="@{/admin/feedback/cases/{id}/accept(id=${incident.id})}"><button class="btn btn-primary">Tiếp nhận xử lý</button></form>
       <form th:if="${incident.status == 'INVESTIGATING' and #lists.contains(incident.types,'MISSING_PROPERTY')}" method="post" th:action="@{/admin/feedback/cases/{id}/search-item(id=${incident.id})}"><button class="btn btn-outline-primary">Bắt đầu tìm lại tài sản</button></form>
     </div>
 
-    <details th:if="${!currentUser.manager and incident.status != 'RESOLVED' and incident.status != 'RECEIVED'}" class="border rounded p-3 mb-3 bg-white">
+    <details th:if="${!currentUser.manager and incident.status != 'RESOLVED' and incident.status != 'RECEIVED'}" class="border rounded p-3 mb-3 bg-white" th:id="|feedback-verification-${incident.id}|">
       <summary class="fw-semibold">Xác minh và lưu bằng chứng đã xem</summary>
+      <div class="alert alert-danger mt-3 mb-0" th:if="${feedbackNoticeTarget == 'verification' and error != null}" role="alert" th:text="${error}"></div>
+      <div class="alert alert-success mt-3 mb-0" th:if="${feedbackNoticeTarget == 'verification' and success != null}" role="status" th:text="${success}"></div>
       <form method="post" class="pt-3" th:action="@{/admin/feedback/cases/{id}/review(id=${incident.id})}">
       <input type="hidden" name="caseStatus" value="INVESTIGATING">
       <label class="form-label w-100">Kết luận xác minh nội bộ <textarea class="form-control" name="internalFinding" rows="2" maxlength="4000" th:text="${incident.internalFinding}" placeholder="Ghi ngắn gọn điều đã xác minh từ bằng chứng."></textarea></label>
@@ -33,9 +37,11 @@
     </details>
 
     <details th:if="${(!currentUser.manager and incident.status != 'RECEIVED' and incident.staffActionStatus == 'NOT_PROPOSED') or (staffActionHistory[incident.id] != null and !#lists.isEmpty(staffActionHistory[incident.id]))}"
-             class="border rounded p-3 mb-3 bg-white">
+             class="border rounded p-3 mb-3 bg-white" th:id="|feedback-staff-${incident.id}|">
       <summary class="fw-semibold">Xử lý nội bộ Staff <span class="small text-secondary fw-normal">· chỉ Admin và Manager xem</span></summary>
       <div class="pt-3">
+        <div class="alert alert-danger mb-3" th:if="${feedbackNoticeTarget == 'staff' and error != null}" role="alert" th:text="${error}"></div>
+        <div class="alert alert-success mb-3" th:if="${feedbackNoticeTarget == 'staff' and success != null}" role="status" th:text="${success}"></div>
         <p class="small text-secondary">Luồng riêng: Admin đề xuất → Staff giải trình → Manager kết luận. Thu hồi dựa trên thiệt hại thực tế, tách khỏi khoản khách nhận; hệ thống không tự trừ lương.</p>
         <form th:if="${!currentUser.manager and incident.status != 'RECEIVED' and incident.staffActionStatus == 'NOT_PROPOSED'}" method="post" class="vstack gap-2 mb-3" th:action="@{/admin/feedback/cases/{id}/staff-action(id=${incident.id})}">
           <label class="form-label">Đề xuất xử lý<select class="form-select" name="staffAction" required><option value="">Chọn nếu cần</option><option value="COACHING">Nhắc nhở / hướng dẫn</option><option value="PROPOSE_WARNING">Đề nghị cảnh cáo</option><option value="PROPOSE_FINAL_WARNING">Đề nghị cảnh cáo cuối</option><option value="PROPOSE_RECOVERY">Đề nghị xem xét thu hồi</option><option value="OTHER">Khác</option></select></label>
@@ -79,6 +85,7 @@
       </div>
     </details>
 
+    <div th:id="|feedback-outcome-${incident.id}|"><div class="alert alert-danger" th:if="${feedbackNoticeTarget == 'outcome' and error != null}" role="alert" th:text="${error}"></div><div class="alert alert-success" th:if="${feedbackNoticeTarget == 'outcome' and success != null}" role="status" th:text="${success}"></div></div>
     <details th:if="${!currentUser.manager and (incident.status == 'INVESTIGATING' or incident.status == 'SEARCHING_ITEM')}" class="border rounded p-3 mb-3 bg-white">
       <summary class="fw-semibold">Gửi kết quả cho khách</summary>
       <form method="post" class="pt-3" th:action="@{/admin/feedback/cases/{id}/outcome(id=${incident.id})}">
@@ -87,6 +94,9 @@
       </form>
     </details>
 
+    <div th:id="|feedback-compensation-${incident.id}|"></div>
+    <div class="alert alert-danger" th:if="${feedbackNoticeTarget == 'compensation' and financialNoticeEntryId == null and error != null}" role="alert" th:text="${error}"></div>
+    <div class="alert alert-success" th:if="${feedbackNoticeTarget == 'compensation' and financialNoticeEntryId == null and success != null}" role="status" th:text="${success}"></div>
     <div class="alert alert-warning" th:if="${!currentUser.manager and hasActiveCompensationProposal and (#lists.contains(incident.types,'PROPERTY_DAMAGE') or #lists.contains(incident.types,'MISSING_PROPERTY'))}">
       Hồ sơ này đã có khoản bồi thường chưa kết thúc. Vui lòng xem <a th:href="|#compensation-payments-${incident.id}|">mục Bồi thường và chi trả</a>; chỉ lập khoản mới sau khi hủy khoản đang chờ xử lý. Khoản đã duyệt hoặc đã chi không thể thay thế.
     </div>
@@ -106,29 +116,48 @@
     <details class="border rounded p-3 mb-3 bg-white" th:id="|compensation-payments-${incident.id}|" th:if="${caseFinancialEntries[incident.id] != null and !#lists.isEmpty(caseFinancialEntries[incident.id])}">
       <summary class="fw-semibold">Bồi thường và chi trả <span class="small text-secondary fw-normal" th:text="|· ${#lists.size(caseFinancialEntries[incident.id])} khoản|">· 0 khoản</span></summary>
       <div class="pt-3">
-      <article th:each="entry : ${caseFinancialEntries[incident.id]}" class="border rounded p-3 mb-3">
+      <article th:each="entry : ${caseFinancialEntries[incident.id]}" th:with="payout=${adminPayoutDetails[entry.id]}, payoutReady=${payout != null and payout.responseStatus == 'ACCEPTED' and (payout.payoutMethod == 'CASH' or (payout.payoutMethod == 'BANK_TRANSFER' and payout.bankName != null and payout.accountHolder != null and payout.accountNumber != null))}" th:id="|compensation-entry-${entry.id}|" class="border rounded p-3 mb-3">
         <strong th:text="|${entry.typeLabel} · ${#numbers.formatDecimal(entry.amount,0,'POINT',0,'COMMA')} ₫ · ${entry.statusLabel}|">Khoản tiền</strong>
         <p class="small mb-2" th:text="${entry.reason}">Căn cứ</p>
+        <div class="alert alert-danger py-2" th:if="${financialNoticeEntryId != null and financialNoticeEntryId == entry.id and error != null}" role="alert" th:text="${error}"></div>
+        <div class="alert alert-success py-2" th:if="${financialNoticeEntryId != null and financialNoticeEntryId == entry.id and success != null}" role="status" th:text="${success}"></div>
         <form th:if="${!currentUser.manager and (entry.status == 'PROPOSED' or entry.status == 'PENDING_APPROVAL')}" method="post" class="mb-2" th:action="@{/admin/financial-entries/{id}/cancel(id=${entry.id},returnCaseId=${incident.id})}"><input class="form-control mb-2" name="reason" maxlength="1000" placeholder="Lý do hủy đề xuất này" required><button class="btn btn-sm btn-outline-danger">Hủy đề xuất để lập khoản mới</button></form>
-        <p class="small" th:if="${adminPayoutDetails[entry.id] != null and adminPayoutDetails[entry.id].bankName != null}" th:text="|${adminPayoutDetails[entry.id].bankName} · ${adminPayoutDetails[entry.id].accountHolder} · ${adminPayoutDetails[entry.id].accountNumber}|">Thông tin nhận</p>
+        <p class="small" th:if="${payout != null and payout.payoutMethod == 'BANK_TRANSFER' and payout.accountNumber != null}" th:text="|${payout.bankName} · ${payout.accountHolder} · ${payout.accountNumber}|">Thông tin nhận</p>
         <form th:if="${currentUser.manager and entry.status == 'PENDING_APPROVAL' and adminPayoutDetails[entry.id] != null and adminPayoutDetails[entry.id].responseStatus == 'AGREED_AMOUNT'}" method="post" th:action="@{/admin/financial-entries/{id}/approve(id=${entry.id},returnCaseId=${incident.id})}"><button class="btn btn-success">Duyệt khoản khách đã đồng ý</button></form>
         <form th:if="${currentUser.manager and entry.status == 'PENDING_APPROVAL' and adminPayoutDetails[entry.id] != null and adminPayoutDetails[entry.id].responseStatus == 'AGREED_AMOUNT'}" method="post" class="d-flex flex-wrap gap-2 mt-2" th:action="@{/admin/financial-entries/{id}/reject(id=${entry.id},returnCaseId=${incident.id})}"><input class="form-control" style="max-width:32rem" name="reason" maxlength="1000" placeholder="Lý do từ chối khoản bồi thường" required><button class="btn btn-outline-danger">Từ chối khoản</button></form>
         <p th:if="${currentUser.manager and entry.status == 'PENDING_APPROVAL' and (adminPayoutDetails[entry.id] == null or adminPayoutDetails[entry.id].responseStatus != 'AGREED_AMOUNT')}" class="small text-secondary mb-0">Chỉ hiển thị nút duyệt sau khi khách đồng ý chính xác số tiền này.</p>
-        <form th:if="${!currentUser.manager and entry.status == 'APPROVED' and entry.receiptPath == null}" method="post" enctype="multipart/form-data" class="mt-2" th:action="@{/admin/financial-entries/{id}/receipt(id=${entry.id},returnCaseId=${incident.id})}"><label class="form-label">Chứng từ chi<input class="form-control" type="file" name="file" required></label><button class="btn btn-sm btn-outline-primary">Lưu chứng từ</button></form>
-        <form th:if="${!currentUser.manager and entry.status == 'APPROVED' and entry.receiptPath != null}" method="post" class="row g-2" th:action="@{/admin/financial-entries/{id}/settle(id=${entry.id},returnCaseId=${incident.id})}">
+        <p class="small text-warning-emphasis" th:if="${!currentUser.manager and entry.type == 'COMPENSATION' and entry.status == 'APPROVED' and entry.receiptPath == null and !payoutReady}">Chờ khách xác nhận cách nhận tiền. Nếu chọn chuyển khoản, cần có đủ tên ngân hàng, chủ tài khoản và số tài khoản trước khi tải chứng từ.</p>
+        <form th:if="${!currentUser.manager and entry.status == 'APPROVED' and entry.receiptPath == null and (entry.type != 'COMPENSATION' or payoutReady)}" method="post" enctype="multipart/form-data" class="mt-2" th:action="@{/admin/financial-entries/{id}/receipt(id=${entry.id},returnCaseId=${incident.id})}"><label class="form-label">Chứng từ chi<input class="form-control" type="file" name="file" required></label><button class="btn btn-sm btn-outline-primary">Lưu chứng từ</button></form>
+        <form th:if="${!currentUser.manager and entry.status == 'APPROVED' and entry.receiptPath != null and (entry.type != 'COMPENSATION' or payoutReady)}" method="post" class="row g-2" th:action="@{/admin/financial-entries/{id}/settle(id=${entry.id},returnCaseId=${incident.id})}">
           <input type="hidden" name="method" th:value="${adminPayoutDetails[entry.id] == null ? entry.paymentMethod : adminPayoutDetails[entry.id].payoutMethod}"><div class="col-md-9"><input class="form-control" name="reference" maxlength="255" placeholder="Mã giao dịch / ghi chú chi tiền" required></div><input type="hidden" name="simulated" value="false"><div class="col-md-3"><button class="btn btn-primary">Ghi nhận đã chi</button></div>
         </form>
       </article>
       </div>
     </details>
 
-    <details class="border rounded p-3 my-3 bg-white" th:if="${caseMessages[incident.id] != null}">
+    <details class="border rounded p-3 my-3 bg-white" th:if="${caseMessages[incident.id] != null}" th:id="|feedback-messages-${incident.id}|">
       <summary class="fw-semibold">Trao đổi với khách <span class="small text-secondary fw-normal" th:text="|· ${#lists.size(caseMessages[incident.id])} tin nhắn|">· 0 tin nhắn</span></summary>
       <div class="pt-3">
+        <div class="alert alert-danger mb-3" th:if="${feedbackNoticeTarget == 'messages' and error != null}" role="alert" th:text="${error}"></div>
+        <div class="alert alert-success mb-3" th:if="${feedbackNoticeTarget == 'messages' and success != null}" role="status" th:text="${success}"></div>
         <article th:each="message : ${caseMessages[incident.id]}" class="border rounded p-3 mb-2"><div class="d-flex flex-wrap justify-content-between gap-1"><strong th:text="|${message.senderName} · ${message.senderRole == 'ADMIN' ? 'Công ty' : 'Khách hàng'}|">Người gửi</strong><time class="small text-secondary" th:if="${!message.legacyTimestampUnknown}" th:text="${#temporals.format(message.sentAt,'dd/MM/yyyy HH:mm')}"></time></div><p th:if="${message.text != null}" class="my-2" style="white-space:pre-wrap" th:text="${message.text}"></p><ul class="mb-0" th:if="${!#lists.isEmpty(message.evidenceIds) or !#lists.isEmpty(message.externalEvidenceUrls)}"><li th:each="evidenceId : ${message.evidenceIds}"><a th:href="@{/feedback-case-evidence/{id}(id=${evidenceId})}" target="_blank">Mở bằng chứng #<span th:text="${evidenceId}"></span></a></li><li th:each="url : ${message.externalEvidenceUrls}"><a th:href="${url}" target="_blank" rel="noopener">Mở Google Drive</a></li></ul></article>
         <form th:if="${incident.status != 'RESOLVED'}" method="post" enctype="multipart/form-data" class="vstack gap-2 mt-3" th:action="@{/admin/feedback/cases/{id}/messages(id=${incident.id})}"><label class="form-label">Tin nhắn<textarea class="form-control" name="message" rows="2" maxlength="4000" placeholder="Nhập nội dung gửi khách"></textarea></label><label class="form-label">Tệp bằng chứng<input class="form-control" type="file" name="images" multiple accept="image/jpeg,image/png,application/pdf,video/mp4,video/webm"></label><label class="form-label">Link video Google Drive<input class="form-control" type="url" name="driveLink" placeholder="Dán link nếu có"></label><button class="btn btn-outline-primary align-self-start">Gửi tin nhắn</button></form>
       </div>
     </details>
     <details class="border rounded p-3 mb-3 bg-white" th:if="${verificationHistory != null and !#lists.isEmpty(verificationHistory)}"><summary class="fw-semibold">Lịch sử xác minh <span class="small text-secondary fw-normal" th:text="|· ${#lists.size(verificationHistory)} lần|">· 0 lần</span></summary><div class="pt-3"><article th:each="record : ${verificationHistory}" class="border-bottom py-2"><strong th:text="${record.status}">Trạng thái</strong><p class="small mb-0" th:text="${record.internalFinding}">Ghi chú xác minh</p></article></div></details>
   </article>
+  <script>
+    (() => {
+      const targetId = window.location.hash.slice(1);
+      if (!targetId) return;
+      const target = document.getElementById(decodeURIComponent(targetId));
+      if (!target) return;
+      let parent = target.closest('details');
+      while (parent) {
+        parent.open = true;
+        parent = parent.parentElement ? parent.parentElement.closest('details') : null;
+      }
+      window.requestAnimationFrame(() => target.scrollIntoView({ block: 'center' }));
+    })();
+  </script>
 </div>

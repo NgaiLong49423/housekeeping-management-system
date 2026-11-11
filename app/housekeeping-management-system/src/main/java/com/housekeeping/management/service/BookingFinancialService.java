@@ -14,6 +14,7 @@ public interface BookingFinancialService {
     public void approve(Long entryId, Long managerId);
     public void reject(Long entryId, Long managerId, String reason);
     public void cancel(Long entryId, Long adminId, String reason);
+    public void validateReceiptUpload(Long entryId, Long adminId);
     public void settle(Long entryId, Long adminId, String method, String reference, boolean simulated);
     public java.util.List<FinancialEntryCard> forBooking(Long bookingId, Long actorId);
     public FinancialSummary summary(Long actorId);

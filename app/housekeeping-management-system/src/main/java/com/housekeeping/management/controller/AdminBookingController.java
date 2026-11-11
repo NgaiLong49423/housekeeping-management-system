@@ -2,6 +2,7 @@ package com.housekeeping.management.controller;
 
 import com.housekeeping.management.dto.request.PortalForms.AdminBookingCancellationForm;
 import com.housekeeping.management.dto.request.PortalForms.BookingReassignmentForm;
+import com.housekeeping.management.dto.request.PortalForms.ArrivalVerificationForm;
 import com.housekeeping.management.service.AdminBookingManagementService;
 import com.housekeeping.management.web.PortalUser;
 import com.housekeeping.management.web.PortalMessages;
@@ -43,6 +44,19 @@ public class AdminBookingController {
         else try {
             bookingManagement.reassignConfirmedBooking(id, user.getUserId(), form.staffId());
             flash.addFlashAttribute("success", "Đã cập nhật nhân viên phụ trách; nhân viên ban đầu được giữ nguyên trong lịch sử.");
+        } catch (IllegalArgumentException | IllegalStateException failure) {
+            flash.addFlashAttribute("error", failure.getMessage());
+        }
+        return "redirect:/admin/bookings/" + id;
+    }
+
+    @PostMapping("/bookings/{id}/arrival-dispute/verify")
+    String verifyArrival(@PathVariable Long id, @AuthenticationPrincipal PortalUser user,
+            @Valid @ModelAttribute ArrivalVerificationForm form, BindingResult errors, RedirectAttributes flash) {
+        try {
+            if (errors.hasErrors()) throw new IllegalArgumentException("Nhập giờ đến thực tế và ghi chú xác minh (tối đa 500 ký tự).");
+            bookingManagement.verifyDisputedArrival(id, user.getUserId(), form.actualArrivalAt(), form.note());
+            flash.addFlashAttribute("success", "Đã xác minh giờ đến, cập nhật mức giảm và mở khóa công việc.");
         } catch (IllegalArgumentException | IllegalStateException failure) {
             flash.addFlashAttribute("error", failure.getMessage());
         }

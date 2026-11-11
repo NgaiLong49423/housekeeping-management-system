@@ -20,7 +20,7 @@ public class CustomerDelayReportServiceImpl implements CustomerDelayReportServic
     public void reportStaffNotArrived(Long bookingId, Long customerId) {
         LocalDateTime reportedAt = LocalDateTime.now(ZoneOffset.ofHours(7)).withNano(0);
         if (bookings.reportCustomerDelay(bookingId, customerId, reportedAt) != 1) {
-            throw new IllegalStateException("Chỉ Customer của lịch CONFIRMED mới báo Staff chưa đến sau giờ hẹn và trước khi Staff xác nhận đến.");
+            throw new IllegalStateException("Chỉ Customer của lịch CONFIRMED mới báo Staff chưa đến sau giờ hẹn, trước khi công việc bắt đầu và trước khi Customer xác nhận đã có mặt.");
         }
     }
 }

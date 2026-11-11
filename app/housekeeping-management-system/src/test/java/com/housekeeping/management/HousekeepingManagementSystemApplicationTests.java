@@ -82,6 +82,7 @@ class HousekeepingManagementSystemApplicationTests extends SqlServerIntegrationT
         assertThat(new ClassPathResource("db/shared/V12__allow_staff_early_work_start.sql").exists()).isTrue();
         assertThat(new ClassPathResource("db/shared/V13__add_customer_staff_delay_report.sql").exists()).isTrue();
         assertThat(new ClassPathResource("db/shared/V17__add_customer_compensation_payout_responses.sql").exists()).isTrue();
+        assertThat(new ClassPathResource("db/shared/V30__cap_delay_compensation_tiers_at_30_percent.sql").exists()).isTrue();
         assertThat(new ClassPathResource("db/refactor/V7__seed_demo_arrival_booking.sql").exists()).isTrue();
     }
 }

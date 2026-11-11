@@ -293,6 +293,31 @@ class PortalMvcTest {
     }
 
     @Test
+    void delayCompensationFeedbackAppearsInsideItsOwnSectionAndPercentInputIsCapped() throws Exception {
+        String html=mvc.perform(get("/admin/settings").with(user(admin))
+                        .flashAttr("delaySettingsError","Mức giảm tối đa là 30%."))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+
+        int section=html.indexOf("Mức giảm khi nhân viên đến trễ");
+        int feedback=html.indexOf("Mức giảm tối đa là 30%.");
+        assertThat(section).isGreaterThanOrEqualTo(0);
+        assertThat(feedback).isGreaterThan(section).isLessThan(html.indexOf("Giảm (%)"));
+        assertThat(html).contains("max=\"30\"");
+    }
+
+    @Test
+    void delayCompensationPostRejectsMoreThanThirtyPercentAtRequestBoundary() throws Exception {
+        mvc.perform(post("/admin/settings/delay-compensation").with(user(admin)).with(csrf())
+                        .param("tiers[0].minDelayMinutes","1")
+                        .param("tiers[0].discountPercent","31"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/settings#delay-compensation"))
+                .andExpect(flash().attributeExists("delaySettingsError"));
+
+        verify(delayCompensationSettings, never()).save(anyList());
+    }
+
+    @Test
     void adminScheduleSaveRedirectsBackToFeedbackAnchorForSuccessAndFailure() throws Exception {
         LocalDate effective=LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"))
                 .with(java.time.temporal.TemporalAdjusters.nextOrSame(java.time.DayOfWeek.MONDAY));
@@ -375,6 +400,22 @@ class PortalMvcTest {
         verify(availability).saveForDate(22L, workDate,
                 List.of(java.time.LocalTime.of(6, 0), java.time.LocalTime.of(13, 0)),
                 List.of(java.time.LocalTime.of(9, 0), java.time.LocalTime.of(17, 0)));
+    }
+
+    @Test
+    void staffGetsBusinessRedirectInsteadOfServerErrorForMalformedAvailabilityTime() throws Exception {
+        LocalDate workDate = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).plusDays(9);
+        LocalDate weekStart = workDate.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY));
+
+        mvc.perform(post("/staff/schedules/day").with(user(staff)).with(csrf())
+                        .param("workDate", workDate.toString()).param("weekStart", weekStart.toString())
+                        .param("startTimes", "not-a-time").param("endTimes", "09:00"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/staff/schedules?weekStart=" + weekStart))
+                .andExpect(flash().attributeExists("error"));
+
+        verify(availability, never()).saveForDate(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyList(), org.mockito.ArgumentMatchers.anyList());
     }
 
     @Test
@@ -672,7 +713,7 @@ class PortalMvcTest {
     void customerAndStaffMayConfirmArrivalBeforeScheduledStart() throws Exception {
         String customerPage = mvc.perform(get("/customer/bookings/42").with(user(customer)))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
-        assertThat(customerPage).contains("Xác nhận nhân viên đã đến", "xác nhận tùy chọn")
+        assertThat(customerPage).contains("Xác nhận nhân viên đã đến", "ghi nhận giờ có mặt thực tế")
                 .doesNotContain("Nút xác nhận sẽ mở lúc");
 
         String staffPage = mvc.perform(get("/staff/bookings/42").with(user(staff)))
@@ -1038,6 +1079,12 @@ class PortalMvcTest {
         mvc.perform(post("/admin/bookings/42/reassign").with(user(admin)).with(csrf()).param("staffId", "2"))
                 .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/admin/bookings/42"));
         verify(adminBookingManagement).reassignConfirmedBooking(42L, 3L, 2L);
+
+        mvc.perform(post("/admin/bookings/42/arrival-dispute/verify").with(user(admin)).with(csrf())
+                        .param("actualArrivalAt", "2026-11-12T10:15").param("note", "Đã đối chiếu với khách"))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/admin/bookings/42"));
+        verify(adminBookingManagement).verifyDisputedArrival(42L, 3L,
+                LocalDateTime.parse("2026-11-12T10:15"), "Đã đối chiếu với khách");
     }
 
     private void render(String url, PortalUser principal, String name) throws Exception {

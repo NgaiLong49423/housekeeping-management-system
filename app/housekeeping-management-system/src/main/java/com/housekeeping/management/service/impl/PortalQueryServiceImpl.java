@@ -168,9 +168,15 @@ public class PortalQueryServiceImpl implements PortalQueryService {
                     customer == null ? null : customer.getPhone(), offset(b.getStaffArrivedAt()), offset(b.getIncidentReportedAt()), b.getIncidentNote(),
                     offset(b.getIncidentExpectedArrivalAt()), b.getIncidentCustomerResponse(), offset(b.getIncidentCustomerRespondedAt()), offset(b.getWorkStartedAt()),
                     b.getDelayMinutes(), b.getDelayDiscountPercent(), b.getDelayDiscountAmount(), f == null ? null : f.getRating(),
-                    topics(f), topicCodes(f), offset(b.getCustomerDelayReportedAt()),
+                    topics(f), topicCodes(f), offset(b.getCustomerDelayReportedAt()), offset(b.getArrivalVerifiedAt()),
+                    offset(b.getArrivalVerificationRecordedAt()), b.getArrivalVerifiedBy(),
+                    b.getArrivalVerificationSource(), b.getArrivalVerificationNote(),
                     "CONFIRMED".equals(b.getStatus().name()) && b.getWorkStartedAt() == null
-                            && (b.getIncidentReportedAt() != null || BookingCancellationService.canCustomerCancel(
+                            && (b.getIncidentReportedAt() != null
+                                || (b.getCustomerArrivedAt() == null && b.getArrivalVerifiedAt() == null
+                                    && b.getIncidentReportedAt() == null
+                                    && !LocalDateTime.now(VN).isBefore(b.getStartTime().plusMinutes(15)))
+                                || BookingCancellationService.canCustomerCancel(
                                     b.getStatus().name(), b.getStartTime(), LocalDateTime.now(VN), b.getWorkStartedAt())));
         }).toList();
     }

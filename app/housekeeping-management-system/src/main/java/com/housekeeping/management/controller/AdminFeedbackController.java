@@ -128,7 +128,7 @@ public class AdminFeedbackController {
             if(messageId!=null) feedbackCases.discardUnsentMessage(id,messageId,user.getUserId(),true);
             flash.addFlashAttribute("error",failure.getMessage());
         }
-        return "redirect:/admin/feedback/cases/"+id;
+        return feedbackCaseRedirect(id,"messages",flash);
     }
 
 
@@ -171,7 +171,7 @@ public class AdminFeedbackController {
         } else {
             flash.addFlashAttribute("error", feedbackValidationMessage(errors, "Không thể lưu kết quả xác minh."));
         }
-        return "redirect:/admin/feedback/cases/"+id;
+        return feedbackCaseRedirect(id,"verification",flash);
     }
 
 
@@ -184,7 +184,7 @@ public class AdminFeedbackController {
         } catch (IllegalArgumentException | IllegalStateException failure) {
             flash.addFlashAttribute("error",PortalMessages.business(failure));
         } else flash.addFlashAttribute("error",feedbackValidationMessage(errors,"Kiểm tra lại nội dung xử lý Staff."));
-        return "redirect:/admin/feedback/cases/"+id;
+        return feedbackCaseRedirect(id,"staff",flash);
     }
 
 
@@ -192,7 +192,7 @@ public class AdminFeedbackController {
     String acceptFeedbackCase(@PathVariable Long id, @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
         try { feedbackCases.acceptIntake(id,user.getUserId()); flash.addFlashAttribute("success","Đã tiếp nhận phản ánh và chuyển sang đang xử lý."); }
         catch (IllegalArgumentException | IllegalStateException failure) { flash.addFlashAttribute("error",PortalMessages.business(failure)); }
-        return "redirect:/admin/feedback/cases/"+id;
+        return feedbackCaseRedirect(id,"intake",flash);
     }
 
 
@@ -200,7 +200,7 @@ public class AdminFeedbackController {
     String searchMissingItem(@PathVariable Long id, @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
         try { feedbackCases.startSearchingItem(id,user.getUserId()); flash.addFlashAttribute("success","Đã chuyển hồ sơ sang bước tìm lại tài sản."); }
         catch (IllegalArgumentException | IllegalStateException failure) { flash.addFlashAttribute("error",PortalMessages.business(failure)); }
-        return "redirect:/admin/feedback/cases/"+id;
+        return feedbackCaseRedirect(id,"intake",flash);
     }
 
 
@@ -209,20 +209,23 @@ public class AdminFeedbackController {
             @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
         try { feedbackCases.sendOutcome(id,user.getUserId(),outcome); flash.addFlashAttribute("success","Đã gửi kết quả cho khách; hồ sơ chờ khách xác nhận."); }
         catch (IllegalArgumentException | IllegalStateException failure) { flash.addFlashAttribute("error",PortalMessages.business(failure)); }
-        return "redirect:/admin/feedback/cases/"+id;
+        return feedbackCaseRedirect(id,"outcome",flash);
     }
 
 
     @PostMapping("/feedback/cases/{id}/compensation")
     String proposeCaseCompensation(@PathVariable Long id, @RequestParam java.math.BigDecimal amount,
             @RequestParam String reason, @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
+        Long entryId=null;
         try {
             var incident=feedbackCases.adminCaseById(id,user.getUserId());
             if(incident==null) throw new IllegalArgumentException("Hồ sơ không tồn tại.");
-            financials.propose(incident.bookingId(),id,user.getUserId(),new FinancialEntryForm("COMPENSATION",amount,reason,null,null,false));
+            entryId=financials.propose(incident.bookingId(),id,user.getUserId(),new FinancialEntryForm("COMPENSATION",amount,reason,null,null,false));
+            flash.addFlashAttribute("financialNoticeEntryId",entryId);
             flash.addFlashAttribute("success","Đã gửi đề xuất bồi thường cho khách xác nhận.");
         } catch (IllegalArgumentException | IllegalStateException failure) { flash.addFlashAttribute("error",PortalMessages.business(failure)); }
-        return "redirect:/admin/feedback/cases/"+id;
+        if(entryId!=null) return "redirect:/admin/feedback/cases/"+id+"#compensation-entry-"+entryId;
+        return feedbackCaseRedirect(id,"compensation",flash);
     }
 
 
@@ -236,7 +239,7 @@ public class AdminFeedbackController {
         } catch (IllegalArgumentException | IllegalStateException failure) {
             flash.addFlashAttribute("error", failure.getMessage());
         }
-        return "redirect:/admin/feedback/cases/"+id;
+        return feedbackCaseRedirect(id,"staff",flash);
     }
 
 
@@ -249,7 +252,7 @@ public class AdminFeedbackController {
             feedbackCases.decideStaffAction(id,user.getUserId(),decision,liabilityAmount,reason,appealDecision);
             flash.addFlashAttribute("success",appealDecision?"Đã lưu kết luận cuối sau khi xem phản đối của Staff.":"Đã lưu kết luận; Staff có 48 giờ để phản đối một lần.");
         } catch(IllegalArgumentException | IllegalStateException failure) { flash.addFlashAttribute("error",PortalMessages.business(failure)); }
-        return "redirect:/admin/feedback/cases/"+id;
+        return feedbackCaseRedirect(id,"staff",flash);
     }
 
 
@@ -263,7 +266,7 @@ public class AdminFeedbackController {
                     new com.housekeeping.management.dto.request.PortalForms.StaffRecoveryInstallmentForm(amount,paymentMethod,transactionReference),receipt);
             flash.addFlashAttribute("success","Đã ghi nhận khoản Staff thực trả.");
         } catch(IllegalArgumentException | IllegalStateException failure) { flash.addFlashAttribute("error",PortalMessages.business(failure)); }
-        return "redirect:/admin/feedback/cases/"+id;
+        return feedbackCaseRedirect(id,"staff",flash);
     }
 
 
@@ -272,6 +275,12 @@ public class AdminFeedbackController {
                 .filter(java.util.Objects::nonNull).distinct().collect(java.util.stream.Collectors.joining(" "));
         return details.isBlank() ? fallback : details;
     }
+
+    private String feedbackCaseRedirect(Long caseId, String section, RedirectAttributes flash) {
+        flash.addFlashAttribute("feedbackNoticeTarget",section);
+        return "redirect:/admin/feedback/cases/"+caseId+"#feedback-"+section+"-"+caseId;
+    }
+
     private String renderFeedbackDetail(PortalViews.FeedbackCard item, PortalViews.IncidentCard incident,
             Model model, PortalUser user) {
         model.addAttribute("feedbackItem",item);

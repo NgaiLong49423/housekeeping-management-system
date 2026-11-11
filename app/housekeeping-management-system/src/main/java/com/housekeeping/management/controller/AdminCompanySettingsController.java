@@ -102,6 +102,23 @@ public class AdminCompanySettingsController {
         return scheduleRedirect(form.effectiveFrom());
     }
 
+    @PostMapping("/schedule/day") String saveScheduleDay(@Valid @ModelAttribute("scheduleForm") CompanyScheduleVersionForm form,
+            BindingResult errors, @RequestParam int dayOfWeek, @RequestParam(defaultValue="false") boolean editingExisting,
+            RedirectAttributes flash, @AuthenticationPrincipal PortalUser user) {
+        if (errors.hasErrors()) {
+            flash.addFlashAttribute("scheduleError", "Vui lòng kiểm tra khung giờ của ngày cần lưu.");
+            return scheduleRedirect(form.effectiveFrom());
+        }
+        try {
+            settings.saveScheduleDay(user.getUserId(), form, dayOfWeek, editingExisting);
+            flash.addFlashAttribute("scheduleSuccess", "Đã lưu giờ hoạt động ngày "
+                    + form.effectiveFrom().plusDays(dayOfWeek - 1L) + ".");
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            flash.addFlashAttribute("scheduleError", ex.getMessage());
+        }
+        return scheduleRedirect(form.effectiveFrom());
+    }
+
     private static String scheduleRedirect(LocalDate effectiveFrom){
         String location="redirect:/admin/settings"+(effectiveFrom==null?"":"?effectiveFrom="+effectiveFrom);
         return location+"#schedule-save-feedback";
@@ -118,7 +135,7 @@ public class AdminCompanySettingsController {
             @Valid @ModelAttribute("delaySettingsForm") BookingDelaySettingsForm form,
             BindingResult errors, RedirectAttributes flash) {
         if (errors.hasErrors()) {
-            flash.addFlashAttribute("error", "Vui lòng nhập đầy đủ ngưỡng phút và phần trăm giảm hợp lệ.");
+            flash.addFlashAttribute("delaySettingsError", "Vui lòng nhập đầy đủ ngưỡng phút và phần trăm giảm từ 0 đến 30.");
             return "redirect:/admin/settings#delay-compensation";
         }
         try {
@@ -126,9 +143,9 @@ public class AdminCompanySettingsController {
                     .map(tier -> new com.housekeeping.management.domain.BookingDelayCompensation.Tier(
                             tier.minDelayMinutes(), tier.maxDelayMinutes(), tier.discountPercent()))
                     .toList());
-            flash.addFlashAttribute("success", "Đã lưu các mức giảm do nhân viên đến trễ.");
+            flash.addFlashAttribute("delaySettingsSuccess", "Đã lưu các mức giảm do nhân viên đến trễ.");
         } catch (IllegalArgumentException | IllegalStateException ex) {
-            flash.addFlashAttribute("error", ex.getMessage());
+            flash.addFlashAttribute("delaySettingsError", ex.getMessage());
         }
         return "redirect:/admin/settings#delay-compensation";
     }

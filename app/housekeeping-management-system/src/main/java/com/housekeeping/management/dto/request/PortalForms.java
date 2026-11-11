@@ -141,7 +141,7 @@ public final class PortalForms {
     public record CompanyLocationForm(@NotBlank @Size(max = 500) String vietmapRefId,
             @NotNull @DecimalMin("0.01") @Digits(integer = 4, fraction = 2) BigDecimal serviceRadiusKm) { }
     public record BookingDelayTierForm(@NotNull @Min(1) Integer minDelayMinutes,
-            @Min(1) Integer maxDelayMinutes, @NotNull @Min(0) @Max(100) Integer discountPercent) { }
+            @Min(1) Integer maxDelayMinutes, @NotNull @Min(0) @Max(30) Integer discountPercent) { }
     public record BookingDelaySettingsForm(@NotEmpty List<@Valid BookingDelayTierForm> tiers) { }
     public record OperatingHoursForm(@NotNull @Min(1) @Max(7) Integer dayOfWeek, boolean closed,
             @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime openingTime,
@@ -149,4 +149,6 @@ public final class PortalForms {
     public record StaffProfileForm(@Size(max = 500) String avatarUrl, @Size(max = 5000) String bio) { }
     public record AdminBookingCancellationForm(@NotBlank @Size(max = 500) String reason) { }
     public record BookingReassignmentForm(@NotNull @Positive Long staffId) { }
+    public record ArrivalVerificationForm(@NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime actualArrivalAt,
+            @NotBlank @Size(max = 500) String note) { }
 }

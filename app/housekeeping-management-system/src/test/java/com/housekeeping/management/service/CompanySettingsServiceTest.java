@@ -151,20 +151,62 @@ class CompanySettingsServiceTest {
         when(hours.hasAnySchedule()).thenReturn(true);
         when(hours.forDate(effective)).thenReturn(validForm().operatingHours());
         when(hours.nextVersionDate(effective)).thenReturn(null);
-        when(bookings.activeBookingIdsInInterval(effective,null)).thenReturn(List.of());
+        when(bookings.activeBookingWindowsInInterval(effective,null)).thenReturn(List.of());
         service.saveSchedule(1L, form);
         verify(hours).saveVersion(1L, effective, form.operatingHours());
     }
 
     @Test
-    void blocksScheduleMutationForAnyActiveBookingInItsEffectiveInterval() {
+    void allowsChangingOtherDaysWhenActiveBookingsRemainInsideProposedHours() {
         LocalDate effective=service.firstSelectableWeekStart().plusWeeks(1);
-        CompanyScheduleVersionForm form=new CompanyScheduleVersionForm(effective,validForm().operatingHours());
+        List<OperatingHoursForm> changedHours=new java.util.ArrayList<>(validForm().operatingHours());
+        changedHours.set(0,new OperatingHoursForm(1,false,LocalTime.of(7,0),LocalTime.of(18,0)));
+        CompanyScheduleVersionForm form=new CompanyScheduleVersionForm(effective,changedHours);
         when(repository.findAllForUpdate()).thenReturn(List.of(company()));
         when(hours.hasAnySchedule()).thenReturn(true);
         when(hours.forDate(effective)).thenReturn(validForm().operatingHours());
-        when(bookings.activeBookingIdsInInterval(effective,null)).thenReturn(List.of(42L));
-        assertThatThrownBy(()->service.saveSchedule(1L, form)).isInstanceOf(IllegalStateException.class).hasMessageContaining("42");
+        when(hours.nextVersionDate(effective)).thenReturn(null);
+        when(bookings.activeBookingWindowsInInterval(effective,null)).thenReturn(List.of(
+                new BookingQueryService.ActiveBookingWindow(42L,effective.plusDays(3).atTime(9,0),effective.plusDays(3).atTime(10,0))));
+
+        service.saveSchedule(1L, form);
+
+        verify(hours).saveVersion(1L, effective, form.operatingHours());
+    }
+
+    @Test
+    void allowsExtendingOpeningHoursOnADayWithABookingThatRemainsCovered() {
+        LocalDate effective=service.firstSelectableWeekStart().plusWeeks(1);
+        List<OperatingHoursForm> changedHours=new java.util.ArrayList<>(validForm().operatingHours());
+        changedHours.set(3,new OperatingHoursForm(4,false,LocalTime.of(7,0),LocalTime.of(19,0)));
+        CompanyScheduleVersionForm form=new CompanyScheduleVersionForm(effective,changedHours);
+        when(repository.findAllForUpdate()).thenReturn(List.of(company()));
+        when(hours.hasAnySchedule()).thenReturn(true);
+        when(hours.forDate(effective)).thenReturn(validForm().operatingHours());
+        when(hours.nextVersionDate(effective)).thenReturn(null);
+        when(bookings.activeBookingWindowsInInterval(effective,null)).thenReturn(List.of(
+                new BookingQueryService.ActiveBookingWindow(43L,effective.plusDays(3).atTime(9,0),effective.plusDays(3).atTime(10,0))));
+
+        service.saveSchedule(1L, form);
+
+        verify(hours).saveVersion(1L, effective, form.operatingHours());
+    }
+
+    @Test
+    void blocksScheduleChangeOnlyWhenAnActiveBookingWouldFallOutsideOpeningHours() {
+        LocalDate effective=service.firstSelectableWeekStart().plusWeeks(1);
+        List<OperatingHoursForm> changedHours=new java.util.ArrayList<>(validForm().operatingHours());
+        changedHours.set(3,new OperatingHoursForm(4,false,LocalTime.of(11,0),LocalTime.of(17,0)));
+        CompanyScheduleVersionForm form=new CompanyScheduleVersionForm(effective,changedHours);
+        when(repository.findAllForUpdate()).thenReturn(List.of(company()));
+        when(hours.hasAnySchedule()).thenReturn(true);
+        when(hours.forDate(effective)).thenReturn(validForm().operatingHours());
+        when(hours.nextVersionDate(effective)).thenReturn(null);
+        when(bookings.activeBookingWindowsInInterval(effective,null)).thenReturn(List.of(
+                new BookingQueryService.ActiveBookingWindow(42L,effective.plusDays(3).atTime(9,0),effective.plusDays(3).atTime(10,0))));
+
+        assertThatThrownBy(()->service.saveSchedule(1L, form)).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("42");
         verify(hours,never()).saveVersion(1L, effective, form.operatingHours());
     }
 
@@ -185,7 +227,7 @@ class CompanySettingsServiceTest {
         when(hours.hasAnySchedule()).thenReturn(true);
         when(hours.forDate(org.mockito.ArgumentMatchers.any(LocalDate.class))).thenReturn(validForm().operatingHours());
         when(hours.nextVersionDate(effective)).thenReturn(null);
-        when(bookings.activeBookingIdsInInterval(effective,null)).thenReturn(List.of());
+        when(bookings.activeBookingWindowsInInterval(effective,null)).thenReturn(List.of());
 
         service.saveSchedule(1L, form,true);
 
@@ -202,7 +244,7 @@ class CompanySettingsServiceTest {
         when(hours.hasAnySchedule()).thenReturn(true);
         when(hours.forDate(org.mockito.ArgumentMatchers.any(LocalDate.class))).thenReturn(validForm().operatingHours());
         when(hours.nextVersionDate(effective)).thenReturn(null);
-        when(bookings.activeBookingIdsInInterval(effective,null)).thenReturn(List.of());
+        when(bookings.activeBookingWindowsInInterval(effective,null)).thenReturn(List.of());
 
         service.saveSchedule(1L, form,false);
 

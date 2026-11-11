@@ -10,7 +10,8 @@ public record BookingDTO(Long bookingId, Long customerId, Long staffId, Long ori
         LocalDateTime startTime, LocalDateTime endTime, Integer totalDurationMinutes, BigDecimal totalAmount,
         String areaNote, BookingStatus status, LocalDateTime cancelledAt, Long cancelledBy, String cancellationReason,
         LocalDateTime createdAt, LocalDateTime customerArrivedAt, LocalDateTime staffArrivedAt,
-        LocalDateTime customerDelayReportedAt, LocalDateTime incidentReportedAt, String incidentNote,
+        LocalDateTime customerDelayReportedAt, LocalDateTime arrivalVerifiedAt, LocalDateTime arrivalVerificationRecordedAt, Long arrivalVerifiedBy,
+        String arrivalVerificationSource, String arrivalVerificationNote, LocalDateTime incidentReportedAt, String incidentNote,
         LocalDateTime incidentExpectedArrivalAt, String incidentCustomerResponse,
         LocalDateTime incidentCustomerRespondedAt, LocalDateTime workStartedAt, Integer delayMinutes,
         BigDecimal delayDiscountPercent, BigDecimal delayDiscountAmount, LocalDateTime serviceCompletedAt) {
@@ -23,7 +24,8 @@ public record BookingDTO(Long bookingId, Long customerId, Long staffId, Long ori
                 entity.getStartTime(), entity.getEndTime(), entity.getTotalDurationMinutes(), entity.getTotalAmount(),
                 entity.getAreaNote(), entity.getStatus(), entity.getCancelledAt(), entity.getCancelledBy(),
                 entity.getCancellationReason(), entity.getCreatedAt(), entity.getCustomerArrivedAt(),
-                entity.getStaffArrivedAt(), entity.getCustomerDelayReportedAt(), entity.getIncidentReportedAt(),
+                entity.getStaffArrivedAt(), entity.getCustomerDelayReportedAt(), entity.getArrivalVerifiedAt(), entity.getArrivalVerificationRecordedAt(),
+                entity.getArrivalVerifiedBy(), entity.getArrivalVerificationSource(), entity.getArrivalVerificationNote(), entity.getIncidentReportedAt(),
                 entity.getIncidentNote(), entity.getIncidentExpectedArrivalAt(), entity.getIncidentCustomerResponse(),
                 entity.getIncidentCustomerRespondedAt(), entity.getWorkStartedAt(), entity.getDelayMinutes(),
                 entity.getDelayDiscountPercent(), entity.getDelayDiscountAmount(), entity.getServiceCompletedAt());
@@ -53,6 +55,11 @@ public record BookingDTO(Long bookingId, Long customerId, Long staffId, Long ori
         entity.setCustomerArrivedAt(customerArrivedAt);
         entity.setStaffArrivedAt(staffArrivedAt);
         entity.setCustomerDelayReportedAt(customerDelayReportedAt);
+        entity.setArrivalVerifiedAt(arrivalVerifiedAt);
+        entity.setArrivalVerificationRecordedAt(arrivalVerificationRecordedAt);
+        entity.setArrivalVerifiedBy(arrivalVerifiedBy);
+        entity.setArrivalVerificationSource(arrivalVerificationSource);
+        entity.setArrivalVerificationNote(arrivalVerificationNote);
         entity.setIncidentReportedAt(incidentReportedAt);
         entity.setIncidentNote(incidentNote);
         entity.setIncidentExpectedArrivalAt(incidentExpectedArrivalAt);

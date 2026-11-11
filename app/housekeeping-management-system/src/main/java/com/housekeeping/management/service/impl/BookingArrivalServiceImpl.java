@@ -21,15 +21,18 @@ public class BookingArrivalServiceImpl implements BookingArrivalService {
         this.bookings = bookings;
         this.compensationSettings = compensationSettings;
     }
-        var booking = bookings.lockBookingWorkflow(bookingId)
-                .orElseThrow(() -> new IllegalStateException("Lịch hẹn không tồn tại."));
 
-        if (booking.customerId().equals(customerId) && "CONFIRMED".equals(booking.status())
-                && booking.customerArrivedAt() != null) return;
     @Transactional
     public void confirm(Long bookingId, Long customerId) {
         LocalDateTime now = LocalDateTime.now(ZoneOffset.ofHours(7)).withNano(0);
-        if (bookings.confirmCustomerArrival(bookingId, customerId, now) != 1)
+        var booking = bookings.lockBookingWorkflow(bookingId)
+                .orElseThrow(() -> new IllegalStateException("Lịch hẹn không tồn tại."));
+        if (booking.customerId().equals(customerId) && "CONFIRMED".equals(booking.status())
+                && booking.customerArrivedAt() != null) return;
+        BookingDelayCompensation compensation = BookingDelayCompensation.calculate(
+                booking.startTime(), now, booking.totalAmount(), compensationSettings.get());
+        if (bookings.confirmCustomerArrival(bookingId, customerId, now, compensation.delayedMinutes(),
+                java.math.BigDecimal.valueOf(compensation.discountPercent()), compensation.discountAmount()) != 1)
             throw new IllegalStateException("Chỉ Customer của Booking CONFIRMED mới ghi nhận Staff đã đến và mỗi Booking một lần.");
     }
 

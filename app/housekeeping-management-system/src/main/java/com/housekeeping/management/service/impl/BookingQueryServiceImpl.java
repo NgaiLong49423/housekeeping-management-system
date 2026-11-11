@@ -46,6 +46,15 @@ public class BookingQueryServiceImpl implements BookingQueryService {
     }
 
     @Override
+    public List<ActiveBookingWindow> activeBookingWindowsInInterval(LocalDate from, LocalDate until) {
+        LocalDateTime start = from.atStartOfDay();
+        LocalDateTime end = until == null ? null : until.atStartOfDay();
+        return bookings.findActiveInInterval(start, end, ACTIVE_STATUSES).stream()
+                .map(booking -> new ActiveBookingWindow(booking.getBookingId(), booking.getStartTime(), booking.getEndTime()))
+                .toList();
+    }
+
+    @Override
     public List<BookingLocation> futureActiveBookingsWithLocation() {
         return bookings.findFutureActiveWithLocation(LocalDateTime.now(BUSINESS_OFFSET).withNano(0), ACTIVE_STATUSES)
                 .stream().map(booking -> new BookingLocation(booking.getBookingId(), booking.getLatitudeSnapshot(),

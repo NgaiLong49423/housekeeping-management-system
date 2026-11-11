@@ -216,13 +216,89 @@ public class CompanySettingsServiceImpl implements CompanySettingsService {
         }
 
         LocalDate until = hours.nextVersionDate(form.effectiveFrom());
-        List<Long> conflicts = bookings.activeBookingIdsInInterval(form.effectiveFrom(), until);
+        List<Long> conflicts = bookings.activeBookingWindowsInInterval(form.effectiveFrom(), until).stream()
+                .filter(booking -> !coveredByProposedHours(booking, form.operatingHours()))
+                .map(BookingQueryService.ActiveBookingWindow::bookingId).toList();
         if (!conflicts.isEmpty()) {
-            throw new IllegalStateException("Không thể tạo hoặc sửa phiên bản lịch đang có booking hoạt động trong khoảng hiệu lực. Hãy xử lý Booking: " + conflicts);
+            throw new IllegalStateException("Giờ hoạt động mới không bao phủ lịch của các booking đang hoạt động: " + conflicts
+                    + ". Hãy giữ khung giờ phù hợp hoặc xử lý các booking này.");
         }
 
         hours.saveVersion(companyRows.getFirst().getCompanyId(), form.effectiveFrom(), form.operatingHours());
         availability.deactivateOutsideCompanyHours(form.effectiveFrom(), until, form.operatingHours());
+    }
+
+    @Override
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.SERIALIZABLE)
+    public void saveScheduleDay(Long adminId, CompanyScheduleVersionForm form, int dayOfWeek, boolean editingExisting) {
+        authorization.requireActiveAdmin(adminId);
+        if (form == null || form.effectiveFrom() == null || dayOfWeek < 1 || dayOfWeek > 7) {
+            throw new IllegalArgumentException("Ngày cần lưu không hợp lệ.");
+        }
+        validateSchedule(form.operatingHours());
+
+        LocalDate today = today();
+        LocalDate weekStart = form.effectiveFrom();
+        if (weekStart.getDayOfWeek() != DayOfWeek.MONDAY) {
+            throw new IllegalArgumentException("Phiên bản lịch phải bắt đầu vào Thứ Hai.");
+        }
+        LocalDate workDate = weekStart.plusDays(dayOfWeek - 1L);
+        if (workDate.isBefore(today)) throw new IllegalArgumentException("Không thể chỉnh ngày đã qua.");
+        if (weekStart.isBefore(today) && !weekStart.equals(today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)))) {
+            throw new IllegalArgumentException("Chỉ được chỉnh lịch tuần hiện tại hoặc tương lai.");
+        }
+
+        List<CompanySettings> companyRows = lockCompanySettings("Hãy lưu chính xác một cấu hình công ty trước khi tạo lịch.");
+        boolean exactVersionExists = hours.exactVersionDate(weekStart).isPresent();
+        if (exactVersionExists != editingExisting) {
+            throw new IllegalStateException("Phiên bản lịch vừa thay đổi. Hãy tải lại trang trước khi lưu.");
+        }
+        if (!hours.hasAnySchedule() && !weekStart.equals(firstSelectableWeekStart())) {
+            throw new IllegalArgumentException("Hãy tạo phiên bản giờ hoạt động đầu tiên từ tuần có thể chọn gần nhất.");
+        }
+
+        List<OperatingHoursForm> existingWeek = completeWeek(hours.forDate(weekStart));
+        List<OperatingHoursForm> proposedDay = form.operatingHours().stream()
+                .filter(row -> row.dayOfWeek() == dayOfWeek).toList();
+        List<OperatingHoursForm> existingDay = existingWeek.stream()
+                .filter(row -> row.dayOfWeek() == dayOfWeek).toList();
+        if (workDate.equals(today)) validateTodayChanges(existingDay, proposedDay, LocalTime.now(BUSINESS_ZONE));
+
+        List<OperatingHoursForm> mergedWeek = new ArrayList<>(existingWeek.stream()
+                .filter(row -> row.dayOfWeek() != dayOfWeek).toList());
+        mergedWeek.addAll(proposedDay);
+        validateSchedule(mergedWeek);
+
+        List<Long> conflicts = bookings.activeBookingWindowsInInterval(workDate, workDate.plusDays(1)).stream()
+                .filter(booking -> !coveredByProposedHours(booking, proposedDay))
+                .map(BookingQueryService.ActiveBookingWindow::bookingId).toList();
+        if (!conflicts.isEmpty()) {
+            throw new IllegalStateException("Giờ mới không bao phủ booking đang hoạt động trong ngày "
+                    + workDate + ": " + conflicts + ". Hãy giữ khung giờ phù hợp hoặc xử lý booking.");
+        }
+
+        LocalDate until = hours.nextVersionDate(weekStart);
+        hours.saveVersion(companyRows.getFirst().getCompanyId(), weekStart, mergedWeek);
+        availability.deactivateOutsideCompanyHours(weekStart, until, mergedWeek);
+    }
+
+    private static void validateTodayChanges(List<OperatingHoursForm> existing, List<OperatingHoursForm> proposed,
+            LocalTime now) {
+        List<OperatingHoursForm> started = existing.stream()
+                .filter(row -> !row.closed() && row.openingTime() != null && !row.openingTime().isAfter(now)).toList();
+        List<OperatingHoursForm> proposedStarted = proposed.stream()
+                .filter(row -> !row.closed() && row.openingTime() != null && !row.openingTime().isAfter(now)).toList();
+        if (!canonicalDay(started).equals(canonicalDay(proposedStarted))) {
+            throw new IllegalStateException("Không thể sửa, xóa hoặc đóng khung giờ đã bắt đầu hôm nay.");
+        }
+        List<String> existingCanonical = canonicalDay(existing);
+        for (OperatingHoursForm row : proposed) {
+            String canonical = row.closed() ? "CLOSED" : row.openingTime() + "-" + row.closingTime();
+            if (!existingCanonical.contains(canonical) && !row.closed() && row.closingTime() != null
+                    && row.closingTime().isBefore(now)) {
+                throw new IllegalStateException("Giờ kết thúc mới không được nằm trước thời điểm hiện tại.");
+            }
+        }
     }
 
     @Transactional
@@ -343,6 +419,17 @@ public class CompanySettingsServiceImpl implements CompanySettingsService {
     private static List<String> canonicalDay(List<OperatingHoursForm> hours) {
         return hours.stream().map(hour->hour.closed()?"CLOSED":hour.openingTime()+"-"+hour.closingTime())
                 .sorted().toList();
+    }
+
+    private static boolean coveredByProposedHours(BookingQueryService.ActiveBookingWindow booking,
+            List<OperatingHoursForm> proposedHours) {
+        if (!booking.start().toLocalDate().equals(booking.end().toLocalDate())) return false;
+        int dayOfWeek=booking.start().getDayOfWeek().getValue();
+        LocalTime start=booking.start().toLocalTime();
+        LocalTime end=booking.end().toLocalTime();
+        return proposedHours.stream().anyMatch(window -> window.dayOfWeek()==dayOfWeek && !window.closed()
+                && window.openingTime()!=null && window.closingTime()!=null
+                && !start.isBefore(window.openingTime()) && !end.isAfter(window.closingTime()));
     }
 
     private static String dayName(int day) {
