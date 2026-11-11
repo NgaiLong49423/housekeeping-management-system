@@ -55,21 +55,23 @@
             <ul class="small" th:if="${!#lists.isEmpty(action.evidenceIds)}"><li th:each="evidenceId : ${action.evidenceIds}"><a th:href="@{/staff-incident-action-evidence/{id}(id=${evidenceId})}" target="_blank">Mở giải trình/bằng chứng Staff #<span th:text="${evidenceId}"></span></a></li></ul>
             <form th:if="${currentUser.manager and (action.status == 'WAITING_MANAGER' or action.status == 'WAITING_MANAGER_APPEAL')}" method="post" class="row g-2" th:action="@{/admin/feedback/cases/{id}/staff-action/decision(id=${incident.id})}">
               <input type="hidden" name="appealDecision" th:value="${action.status == 'WAITING_MANAGER_APPEAL'}">
-              <div class="col-md-4"><label class="form-label w-100">Kết luận<select class="form-select" name="decision" required><option value="NO_LIABILITY">Không quy trách nhiệm</option><option value="INTERNAL_ACTION">Biện pháp nội bộ, không thu tiền</option><option th:if="${action.type == 'PROPOSE_RECOVERY'}" value="RECOVERY">Có trách nhiệm hoàn trả</option></select></label></div>
-              <div class="col-md-3"><label class="form-label w-100">Số tiền Staff hoàn trả (₫)<input class="form-control" type="number" name="liabilityAmount" min="0" step="1" placeholder="Chỉ nhập nếu có thu hồi"></label></div>
-              <div class="col-md-5"><label class="form-label w-100">Căn cứ kết luận<textarea class="form-control" name="reason" rows="2" maxlength="1000" required></textarea></label></div>
-              <div class="col-12"><button class="btn btn-success" th:text="${action.status == 'WAITING_MANAGER_APPEAL'} ? 'Chốt kết quả phản đối' : 'Lưu kết luận · Staff có 48 giờ phản đối'">Lưu kết luận</button></div>
+              <div class="row g-3">
+                <div class="col-md-6"><label class="form-label w-100">Kết luận<select class="form-select" name="decision" required><option value="NO_LIABILITY">Không quy trách nhiệm</option><option value="INTERNAL_ACTION">Biện pháp nội bộ, không thu tiền</option><option th:if="${action.type == 'PROPOSE_RECOVERY'}" value="RECOVERY">Có trách nhiệm hoàn trả</option></select></label></div>
+                <div class="col-md-6"><label class="form-label w-100">Số tiền Staff hoàn trả (₫)<input class="form-control" type="number" name="liabilityAmount" min="0" step="1" placeholder="Chỉ nhập nếu có thu hồi"></label></div>
+                <div class="col-12"><label class="form-label w-100">Căn cứ kết luận<textarea class="form-control" name="reason" rows="3" maxlength="1000" required></textarea></label></div>
+                <div class="col-12"><button class="btn btn-success" th:text="${action.status == 'WAITING_MANAGER_APPEAL'} ? 'Chốt kết quả phản đối' : 'Lưu kết luận · Staff có 48 giờ phản đối'">Lưu kết luận</button></div>
+              </div>
             </form>
             <div class="d-flex gap-2" th:if="${currentUser.manager and action.status == 'PENDING'}"><span class="small text-secondary align-self-center">Đề xuất lịch sử theo quy trình cũ</span><form method="post" th:action="@{/admin/feedback/cases/{id}/staff-action/approve(id=${incident.id})}"><button class="btn btn-sm btn-success">Duyệt lịch sử</button></form><form method="post" th:action="@{/admin/feedback/cases/{id}/staff-action/reject(id=${incident.id})}"><button class="btn btn-sm btn-outline-danger">Từ chối</button></form></div>
             <section th:if="${!currentUser.manager and action.status == 'RECOVERY_DUE'}" class="border rounded p-3 mt-2">
               <strong>Thu hồi thực tế</strong><p class="small">Mỗi dòng là một lần Admin đã nhận tiền từ Staff. Không tự khấu trừ lương.</p>
               <ul class="small" th:if="${staffRecoveryPayments[action.id] != null and !#lists.isEmpty(staffRecoveryPayments[action.id])}"><li th:each="payment : ${staffRecoveryPayments[action.id]}"><span th:text="|${#numbers.formatDecimal(payment.amount,0,'POINT',0,'COMMA')} ₫ · ${payment.method} · ${payment.reference} · ${payment.receivedAt}|"></span><a th:if="${payment.hasReceipt}" class="ms-2" th:href="@{/admin/staff-recovery-installments/{id}/receipt(id=${payment.id})}" target="_blank">Chứng từ</a></li></ul>
-              <form method="post" enctype="multipart/form-data" class="row g-2" th:action="@{/admin/feedback/cases/{id}/staff-action/{actionId}/recovery(id=${incident.id},actionId=${action.id})}">
-                <div class="col-md-3"><input class="form-control" type="number" name="amount" min="1" step="1" placeholder="Số tiền thực nhận" required></div>
-                <div class="col-md-2"><select class="form-select" name="paymentMethod" required><option value="CASH">Tiền mặt</option><option value="BANK_TRANSFER">Chuyển khoản</option><option value="OTHER">Khác</option></select></div>
-                <div class="col-md-3"><input class="form-control" name="transactionReference" maxlength="255" placeholder="Mã tham chiếu" required></div>
-                <div class="col-md-3"><input class="form-control" type="file" name="receipt" accept="image/jpeg,image/png,application/pdf" required></div>
-                <div class="col-md-1"><button class="btn btn-sm btn-primary">Ghi nhận</button></div>
+              <form method="post" enctype="multipart/form-data" class="row g-3" th:action="@{/admin/feedback/cases/{id}/staff-action/{actionId}/recovery(id=${incident.id},actionId=${action.id})}">
+                <div class="col-md-6"><label class="form-label w-100">Số tiền thực nhận (₫)<input class="form-control" type="number" name="amount" min="1" step="1" placeholder="Nhập số tiền đã nhận" required></label></div>
+                <div class="col-md-6"><label class="form-label w-100">Cách nhận<select class="form-select" name="paymentMethod" required><option value="CASH">Tiền mặt</option><option value="BANK_TRANSFER">Chuyển khoản</option><option value="OTHER">Khác</option></select></label></div>
+                <div class="col-md-6"><label class="form-label w-100">Mã giao dịch / tham chiếu<input class="form-control" name="transactionReference" maxlength="255" placeholder="Nhập mã giao dịch hoặc ghi chú" required></label></div>
+                <div class="col-md-6"><label class="form-label w-100">Chứng từ<input class="form-control" type="file" name="receipt" accept="image/jpeg,image/png,application/pdf" required></label></div>
+                <div class="col-12"><button class="btn btn-sm btn-primary">Ghi nhận khoản đã nhận</button></div>
               </form>
             </section>
           </div>
