@@ -1,8 +1,8 @@
 > **Document:** Agent Instructions\
 > **File:** `AGENTS.md`\
-> **Version:** v2.1.0\
+> **Version:** v2.2.0\
 > **Created:** 2026-06-29\
-> **Last Updated:** 2026-10-24\
+> **Last Updated:** 2026-11-10\
 > **Status:** Template\
 
 # Agent Entry Point
@@ -22,11 +22,11 @@ Read `.agents/POLICY.md` before repository work. Then inspect the relevant proje
 
 `AGENTS.md` is the entry point. `.agents/POLICY.md` owns agent permissions and safety rules. `CONTRIBUTING.md` owns the contributor workflow. The repository contract summarizes paths and machine-checkable rules; it does not override these sources.
 
-The approved application baseline is Java 21, Spring Boot, Spring MVC/Thymeleaf, Spring Data JPA, SQL Server and Flyway. Preserve the single Maven project and the approved 15-table dictionary. Do not apply the legacy MySQL reference DDL or rewrite applied Flyway migrations.
+The approved application baseline is Java 21, Spring Boot, Spring MVC/Thymeleaf, Spring Data JPA, SQL Server and Flyway. Preserve the single Maven project and the approved SQL Server schema and migration history described by the Data Dictionary and database guide. Do not apply the legacy MySQL reference DDL or rewrite applied Flyway migrations.
 
 ## Java Application Structure
 
-For Java application work, read [`docs/architecture/java-package-structure.md`](docs/architecture/java-package-structure.md) and follow its package layout for all new code and migrated slices: `config/`, `controller/`, `dto/request/`, `dto/response/`, `entity/`, `repository/`, and `service/`; use `domain/` for suitable enums/value types. Keep layer responsibilities and the existing MVC boundary. This is the team's strong default, not a blanket instruction to rename untouched legacy classes. If a new class must sit outside the layout, keep the exception narrow and explain the reason in the change description.
+For Java application work, read [`docs/architecture/java-package-structure.md`](docs/architecture/java-package-structure.md) and follow its package layout: `config/`, `controller/`, `dto/entity/`, `dto/request/`, `dto/response/`, `entity/`, `repository/`, `service/`, and `service/impl/`; use `domain/` for suitable enums/value types. Every application service has an interface in `service/` and a Spring implementation in `service/impl/`. Repositories are called directly by their owning service implementation; Spring Data repositories remain interfaces and custom JDBC repositories may be classes. Every JPA entity and embeddable has a DTO with `convertEntityToDTO` and `convertDTOToEntity`; services resolve related entities. Keep layer responsibilities and the existing MVC boundary. This is the team's strong default, not a blanket instruction to rename untouched legacy classes. If a new class must sit outside the layout, keep the exception narrow and explain the reason in the change description.
 
 ## Repository Layout
 

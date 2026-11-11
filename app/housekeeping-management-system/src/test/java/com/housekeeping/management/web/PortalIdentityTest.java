@@ -5,15 +5,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.housekeeping.management.domain.StaffType;
 import com.housekeeping.management.domain.UserRole;
 import com.housekeeping.management.domain.UserStatus;
 import com.housekeeping.management.config.SecurityConfig;
-import com.housekeeping.management.entity.Staff;
 import com.housekeeping.management.entity.User;
-import com.housekeeping.management.repository.StaffAccountRepository;
 import com.housekeeping.management.repository.UserRepository;
 import com.housekeeping.management.service.AuthService;
+import com.housekeeping.management.service.StaffManagementService;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -22,15 +20,12 @@ class PortalIdentityTest {
     @Test
     void canonicalEmailResolvesSharedUserAndStaffAccountIds() {
         UserRepository users = mock(UserRepository.class);
-        StaffAccountRepository staffAccounts = mock(StaffAccountRepository.class);
+        StaffManagementService staffManagement = mock(StaffManagementService.class);
         User databaseUser = user(UserRole.STAFF, UserStatus.ACTIVE);
-        Staff databaseStaff = new Staff();
-        databaseStaff.setStaffId(17L);
-        databaseStaff.setStaffType(StaffType.FULL_TIME);
         when(users.findByEmail("user@example.test")).thenReturn(Optional.of(databaseUser));
-        when(staffAccounts.findByUser_UserId(7L)).thenReturn(Optional.of(databaseStaff));
+        when(staffManagement.findStaffIdByUserId(7L)).thenReturn(Optional.of(17L));
 
-        PortalUser user = (PortalUser) new AuthService(users, staffAccounts)
+        PortalUser user = (PortalUser) new com.housekeeping.management.service.impl.AuthServiceImpl(users, staffManagement)
                 .loadUserByUsername("  USER@EXAMPLE.TEST  ");
 
         assertThat(user.getRole()).isEqualTo("STAFF");
@@ -42,9 +37,9 @@ class PortalIdentityTest {
     @Test
     void missingOrInactiveUserCannotAuthenticate() {
         UserRepository users = mock(UserRepository.class);
-        StaffAccountRepository staffAccounts = mock(StaffAccountRepository.class);
+        StaffManagementService staffManagement = mock(StaffManagementService.class);
         when(users.findByEmail("user@example.test")).thenReturn(Optional.empty());
-        AuthService authentication = new AuthService(users, staffAccounts);
+        AuthService authentication = new com.housekeeping.management.service.impl.AuthServiceImpl(users, staffManagement);
         assertThatThrownBy(() -> authentication.loadUserByUsername("user@example.test"))
                 .isInstanceOf(UsernameNotFoundException.class);
 
@@ -56,11 +51,11 @@ class PortalIdentityTest {
     @Test
     void staffIdentityWithoutStaffProfileCannotAuthenticate() {
         UserRepository users = mock(UserRepository.class);
-        StaffAccountRepository staffAccounts = mock(StaffAccountRepository.class);
+        StaffManagementService staffManagement = mock(StaffManagementService.class);
         when(users.findByEmail("user@example.test")).thenReturn(Optional.of(user(UserRole.STAFF, UserStatus.ACTIVE)));
-        when(staffAccounts.findByUser_UserId(7L)).thenReturn(Optional.empty());
+        when(staffManagement.findStaffIdByUserId(7L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> new AuthService(users, staffAccounts).loadUserByUsername("user@example.test"))
+        assertThatThrownBy(() -> new com.housekeeping.management.service.impl.AuthServiceImpl(users, staffManagement).loadUserByUsername("user@example.test"))
                 .isInstanceOf(UsernameNotFoundException.class);
     }
 

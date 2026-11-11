@@ -1,89 +1,66 @@
 package com.housekeeping.management.repository;
 
+import com.housekeeping.management.entity.StaffAvailability;
+import jakarta.persistence.LockModeType;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.stereotype.Repository;
+import java.util.List;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
-@Repository
-public class StaffAvailabilityRepository {
-    private final JdbcTemplate jdbc;
+public interface StaffAvailabilityRepository extends JpaRepository<StaffAvailability, Long> {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    List<StaffAvailability> findAllByStaffIdAndWorkDateAndActiveTrue(Long staffId, LocalDate workDate);
+    List<StaffAvailability> findAllByActiveTrueAndWorkDateGreaterThanEqual(LocalDate from);
+    List<StaffAvailability> findAllByActiveTrueAndWorkDateGreaterThanEqualAndWorkDateLessThan(
+            LocalDate from, LocalDate until);
 
-    public StaffAvailabilityRepository(JdbcTemplate jdbc) {
-        this.jdbc = jdbc;
+    boolean existsByAvailabilityIdAndStaffIdAndWorkDateAndStartTimeAndEndTime(
+            Long availabilityId, Long staffId, LocalDate workDate, LocalTime startTime, LocalTime endTime);
+    boolean existsByAvailabilityIdAndStaffIdAndActiveTrue(Long availabilityId, Long staffId);
+    boolean existsByAvailabilityIdAndStaffIdAndWorkDateBefore(Long availabilityId, Long staffId, LocalDate date);
+    boolean existsByStaffIdAndWorkDateAndActiveTrueAndStartTimeLessThanEqualAndEndTimeGreaterThanEqual(
+            Long staffId, LocalDate workDate, LocalTime startTime, LocalTime endTime);
+    boolean existsByStaffIdAndWorkDateAndActiveTrueAndStartTimeLessThanEqualAndEndTimeGreaterThan(
+            Long staffId, LocalDate workDate, LocalTime startTime, LocalTime endTime);
+
+    @Query("select case when count(availability)>0 then true else false end from StaffAvailability availability "
+            + "where availability.staffId=:staffId and availability.workDate=:workDate and availability.active=true "
+            + "and (:exceptId is null or availability.availabilityId<>:exceptId) "
+            + "and availability.startTime<:endTime and availability.endTime>:startTime")
+    boolean overlapsAnotherInterval(@Param("staffId") Long staffId, @Param("workDate") LocalDate workDate,
+            @Param("startTime") LocalTime startTime, @Param("endTime") LocalTime endTime,
+            @Param("exceptId") Long exceptId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update StaffAvailability availability set availability.active=false where "
+            + "availability.availabilityId=:id and availability.staffId=:staffId and availability.active=true")
+    int deactivate(@Param("id") Long id, @Param("staffId") Long staffId);
+
+    default boolean unchanged(Long id, Long staffId, LocalDate date, LocalTime start, LocalTime end) {
+        return existsByAvailabilityIdAndStaffIdAndWorkDateAndStartTimeAndEndTime(id, staffId, date, start, end);
     }
 
-    public boolean overlapsAnotherInterval(Long staffId, LocalDate date, LocalTime start, LocalTime end, Long exceptId) {
-        Integer count = jdbc.queryForObject("""
-                SELECT COUNT(*) FROM dbo.Staff_Availability WITH (UPDLOCK, HOLDLOCK)
-                WHERE staff_id=? AND work_date=? AND is_active=1 AND (? IS NULL OR availability_id<>?)
-                  AND start_time < CAST(? AS TIME(0)) AND end_time > CAST(? AS TIME(0))
-                """, Integer.class, staffId, date, exceptId, exceptId, end, start);
-        return count != null && count > 0;
+    default boolean isActive(Long id, Long staffId) {
+        return existsByAvailabilityIdAndStaffIdAndActiveTrue(id, staffId);
     }
 
-    public boolean containsExistingBookingStart(Long id, Long staffId) {
-        Integer count = jdbc.queryForObject("""
-                SELECT COUNT(*)
-                FROM dbo.Bookings b
-                JOIN dbo.Staff_Availability a ON a.staff_id=b.staff_id
-                  AND a.work_date=CONVERT(date,b.start_time)
-                  AND a.start_time<=CAST(b.start_time AS time) AND a.end_time>CAST(b.start_time AS time)
-                WHERE a.availability_id=? AND a.staff_id=?
-                  AND b.status IN ('CONFIRMED','AWAITING_PAYMENT','COMPLETED')
-                """, Integer.class, id, staffId);
-        return count != null && count > 0;
+    default boolean isForPastDate(Long id, Long staffId, LocalDate today) {
+        return existsByAvailabilityIdAndStaffIdAndWorkDateBefore(id, staffId, today);
     }
 
-    public boolean containsFutureConfirmedBooking(Long id, Long staffId) {
-        Integer count = jdbc.queryForObject("""
-                SELECT COUNT(*) FROM dbo.Bookings b
-                JOIN dbo.Staff_Availability a ON a.staff_id=b.staff_id AND a.work_date=CONVERT(date,b.start_time)
-                  AND a.start_time < CAST(b.end_time AS time) AND a.end_time > CAST(b.start_time AS time)
-                WHERE a.availability_id=? AND a.staff_id=? AND b.status='CONFIRMED'
-                  AND b.end_time>CAST(SYSDATETIME() AS datetime2(0))
-                """, Integer.class, id, staffId);
-        return count != null && count > 0;
-    }
-
-    public boolean unchanged(Long id, Long staffId, LocalDate date, LocalTime start, LocalTime end) {
-        Integer count = jdbc.queryForObject("""
-                SELECT COUNT(*) FROM dbo.Staff_Availability
-                WHERE availability_id=? AND staff_id=? AND work_date=?
-                  AND start_time=CAST(? AS TIME(0)) AND end_time=CAST(? AS TIME(0))
-                """, Integer.class, id, staffId, date, start, end);
-        return count != null && count == 1;
-    }
-
-    public boolean isActive(Long id, Long staffId) {
-        Integer count = jdbc.queryForObject("""
-                SELECT COUNT(*) FROM dbo.Staff_Availability
-                WHERE availability_id=? AND staff_id=? AND is_active=1
-                """, Integer.class, id, staffId);
-        return count != null && count == 1;
-    }
-
-    public boolean isForPastDate(Long id, Long staffId, LocalDate today) {
-        Integer count=jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Staff_Availability WHERE availability_id=? AND staff_id=? AND work_date<?",
-                Integer.class,id,staffId,today);
-        return count!=null&&count>0;
-    }
-
-    public int insert(Long staffId, LocalDate date, LocalTime start, LocalTime end) {
-        return jdbc.update("""
-                INSERT INTO dbo.Staff_Availability (staff_id, work_date, start_time, end_time, is_active)
-                VALUES (?, ?, ?, ?, 1)
-                """, staffId, date, start, end);
-    }
-
-    public int update(Long id, Long staffId, LocalDate date, LocalTime start, LocalTime end) {
-        return jdbc.update("""
-                UPDATE dbo.Staff_Availability SET work_date=?, start_time=?, end_time=?
-                WHERE availability_id=? AND staff_id=?
-                """, date, start, end, id, staffId);
-    }
-
-    public int deactivate(Long id, Long staffId) {
-        return jdbc.update("UPDATE dbo.Staff_Availability SET is_active=0 WHERE availability_id=? AND staff_id=? AND is_active=1", id, staffId);
+    default int insert(Long staffId, LocalDate date, LocalTime start, LocalTime end) {
+        StaffAvailability availability = new StaffAvailability();
+        availability.setStaffId(staffId);
+        availability.setWorkDate(date);
+        availability.setStartTime(start);
+        availability.setEndTime(end);
+        availability.setCreatedAt(java.time.LocalDateTime.now(java.time.ZoneOffset.ofHours(7)).withNano(0));
+        availability.setActive(true);
+        saveAndFlush(availability);
+        return 1;
     }
 }

@@ -2,7 +2,7 @@ package com.housekeeping.management.controller;
 
 import com.housekeeping.management.service.PaymentService;
 import com.housekeeping.management.service.PortalQueryService;
-import com.housekeeping.management.service.VnpayPaymentService;
+import com.housekeeping.management.service.OnlinePaymentService;
 import com.housekeeping.management.web.PortalUser;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
@@ -21,19 +21,19 @@ public class PaymentController {
 
     private final PortalQueryService query;
     private final PaymentService payments;
-    private final VnpayPaymentService vnpayPayments;
+    private final OnlinePaymentService onlinePayments;
 
-    public PaymentController(PortalQueryService query, PaymentService payments, VnpayPaymentService vnpayPayments) {
+    public PaymentController(PortalQueryService query, PaymentService payments, OnlinePaymentService onlinePayments) {
         this.query = query;
         this.payments = payments;
-        this.vnpayPayments = vnpayPayments;
+        this.onlinePayments = onlinePayments;
     }
 
     @PostMapping("/customer/bookings/{id}/payment")
     String onlinePayment(@PathVariable Long id, @AuthenticationPrincipal PortalUser user, HttpServletRequest request,
             RedirectAttributes flash) {
         query.booking(id, user);
-        VnpayPaymentService.Checkout checkout = vnpayPayments.checkout(id, user.getAccountId(), clientIp(request));
+        OnlinePaymentService.Checkout checkout = onlinePayments.checkout(id, user.getAccountId(), clientIp(request));
         if (checkout.alreadyPaid()) {
             flash.addFlashAttribute("success", PAID_MESSAGE);
             return "redirect:/customer/bookings/" + id;
@@ -43,9 +43,9 @@ public class PaymentController {
 
     @GetMapping("/payments/vnpay/return")
     String vnpayReturn(@RequestParam Map<String, String> params, RedirectAttributes flash) {
-        VnpayPaymentService.ReturnOutcome outcome;
+        OnlinePaymentService.ReturnOutcome outcome;
         try {
-            outcome = vnpayPayments.handleReturn(params);
+            outcome = onlinePayments.handleReturn(params);
         } catch (IllegalArgumentException invalid) {
             flash.addFlashAttribute("error", "Dữ liệu trả về từ VNPay không hợp lệ. Trạng thái thanh toán chưa thay đổi.");
             return "redirect:/customer/bookings";
@@ -62,7 +62,7 @@ public class PaymentController {
 
     @GetMapping("/payments/vnpay/ipn")
     ResponseEntity<Map<String, String>> vnpayIpn(@RequestParam Map<String, String> params) {
-        VnpayPaymentService.IpnResponse response = vnpayPayments.handleIpn(params);
+        OnlinePaymentService.IpnResponse response = onlinePayments.handleIpn(params);
         return ResponseEntity.ok(Map.of("RspCode", response.rspCode(), "Message", response.message()));
     }
 

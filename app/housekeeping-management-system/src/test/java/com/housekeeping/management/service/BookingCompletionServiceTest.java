@@ -21,44 +21,87 @@ class BookingCompletionServiceTest {
     @Test
     void assignedStaffCanStartOnTimeAfterArrival() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
-        var service = new BookingCompletionService(bookings, mock(BookingImageRepository.class));
+        var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, mock(BookingImageRepository.class));
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, "CONFIRMED", start,
                 start, null, null, null)));
-        when(bookings.startWork(eq(42L), eq(7L), any())).thenReturn(1);
+        when(bookings.startWork(eq(42L), eq(7L), any(), eq(false))).thenReturn(1);
 
         service.startBooking(42L, 7L);
 
-        verify(bookings).startWork(eq(42L), eq(7L), any());
+        verify(bookings).startWork(eq(42L), eq(7L), any(), eq(false));
     }
 
     @Test
-    void lateArrivalCannotStartWithoutCustomerAcceptance() {
+    void lateArrivalCanStartWithoutOptionalIncidentReport() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
-        var service = new BookingCompletionService(bookings, mock(BookingImageRepository.class));
+        var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, mock(BookingImageRepository.class));
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, "CONFIRMED", start,
-                start.plusMinutes(1), null, start, null)));
+                start.plusMinutes(1), null, null, null)));
+        when(bookings.startWork(eq(42L), eq(7L), any(), eq(false))).thenReturn(1);
+
+        service.startBooking(42L, 7L);
+
+        verify(bookings).startWork(eq(42L), eq(7L), any(), eq(false));
+    }
+
+    @Test
+    void arrivalBeyondFiveMinuteGraceRequiresIncidentBeforeStarting() {
+        BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
+        var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, mock(BookingImageRepository.class));
+        when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, "CONFIRMED", start,
+                start.plusMinutes(5).plusSeconds(1), null, null, null)));
 
         assertThatThrownBy(() -> service.startBooking(42L, 7L))
-                .isInstanceOf(IllegalStateException.class).hasMessageContaining("Customer");
-        verify(bookings, never()).startWork(any(), any(), any());
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("5 phút");
+        verify(bookings, never()).startWork(any(), any(), any(), org.mockito.ArgumentMatchers.anyBoolean());
+    }
+
+    @Test
+    void assignedStaffMayStartEarlyAfterConfirmingArrival() {
+        BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
+        var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, mock(BookingImageRepository.class));
+        LocalDateTime futureStart = LocalDateTime.now(java.time.ZoneOffset.ofHours(7)).plusHours(2).withNano(0);
+        LocalDateTime arrivedAt = LocalDateTime.now(java.time.ZoneOffset.ofHours(7)).withNano(0);
+        when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, "CONFIRMED", futureStart,
+                arrivedAt, null, null, null)));
+        when(bookings.startWork(eq(42L), eq(7L), any(), eq(false))).thenReturn(1);
+
+        service.startBooking(42L, 7L);
+
+        verify(bookings).startWork(eq(42L), eq(7L), any(), eq(false));
     }
 
     @Test
     void reportedDelayMustBeAcceptedBeforeWorkStarts() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
-        var service = new BookingCompletionService(bookings, mock(BookingImageRepository.class));
+        var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, mock(BookingImageRepository.class));
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, "CONFIRMED", start,
                 start, null, start.minusMinutes(5), null)));
 
         assertThatThrownBy(() -> service.startBooking(42L, 7L))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("Customer");
-        verify(bookings, never()).startWork(any(), any(), any());
+        verify(bookings, never()).startWork(any(), any(), any(), org.mockito.ArgumentMatchers.anyBoolean());
+    }
+
+    @Test
+    void customerReportedArrivalDisputeBlocksWorkUntilArrivalIsVerified() {
+        BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
+        var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, mock(BookingImageRepository.class));
+        var disputed = new BookingPersistenceRepository.BookingWorkflowState(42L, 3L, 7L, start,
+                start.plusHours(1), "CONFIRMED", new BigDecimal("150000"), start.plusMinutes(20), null,
+                null, null, null, null, null, 15, BigDecimal.ZERO, BigDecimal.ZERO,
+                start.plusMinutes(10), null, null, null, null, null);
+        when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(disputed));
+
+        assertThatThrownBy(() -> service.startBooking(42L, 7L))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("xác minh");
+        verify(bookings, never()).startWork(any(), any(), any(), org.mockito.ArgumentMatchers.anyBoolean());
     }
 
     @Test
     void wrongStaffCannotStartAndStartBeforeArrivalIsRejected() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
-        var service = new BookingCompletionService(bookings, mock(BookingImageRepository.class));
+        var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, mock(BookingImageRepository.class));
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, "CONFIRMED", start,
                 start, null, null, null))).thenReturn(Optional.of(workflow(7L, "CONFIRMED", start,
                 null, null, null, null)));
@@ -66,39 +109,39 @@ class BookingCompletionServiceTest {
         assertThatThrownBy(() -> service.startBooking(42L, 8L)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> service.startBooking(42L, 7L)).isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("xác nhận đã đến");
-        verify(bookings, never()).startWork(any(), any(), any());
+        verify(bookings, never()).startWork(any(), any(), any(), org.mockito.ArgumentMatchers.anyBoolean());
     }
 
     @Test
     void startedWorkNeedsEvidenceBeforeMovingToAwaitingPayment() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
         BookingImageRepository images = mock(BookingImageRepository.class);
-        var service = new BookingCompletionService(bookings, images);
+        var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, images);
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, "CONFIRMED", start,
                 start, start.plusMinutes(1), null, null)));
-        when(images.hasEvidence(42L)).thenReturn(true);
-        when(bookings.changeStatus(42L, "CONFIRMED", "AWAITING_PAYMENT")).thenReturn(1);
+        when(images.existsByBookingId(42L)).thenReturn(true);
+        when(bookings.completeWork(eq(42L),eq(7L),any())).thenReturn(1);
 
         service.completeBooking(42L, 7L);
 
-        verify(bookings).changeStatus(42L, "CONFIRMED", "AWAITING_PAYMENT");
+        verify(bookings).completeWork(eq(42L),eq(7L),any());
     }
 
     @Test
     void cannotCompleteBeforeStartOrWithoutEvidence() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
         BookingImageRepository images = mock(BookingImageRepository.class);
-        var service = new BookingCompletionService(bookings, images);
+        var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, images);
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, "CONFIRMED", start,
                 start, null, null, null))).thenReturn(Optional.of(workflow(7L, "CONFIRMED", start,
                 start, start.plusMinutes(1), null, null)));
 
         assertThatThrownBy(() -> service.completeBooking(42L, 7L))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("bắt đầu công việc");
-        when(images.hasEvidence(42L)).thenReturn(false);
+        when(images.existsByBookingId(42L)).thenReturn(false);
         assertThatThrownBy(() -> service.completeBooking(42L, 7L))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("ảnh minh chứng");
-        verify(bookings, never()).changeStatus(any(), any(), any());
+        verify(bookings, never()).completeWork(any(), any(), any());
     }
 
     private BookingPersistenceRepository.BookingWorkflowState workflow(Long staffId, String status, LocalDateTime start,

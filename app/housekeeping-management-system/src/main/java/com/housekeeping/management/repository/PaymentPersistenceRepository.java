@@ -1,120 +1,54 @@
 package com.housekeeping.management.repository;
 
+import com.housekeeping.management.domain.PaymentStatus;
+import com.housekeeping.management.entity.Payment;
+import jakarta.persistence.LockModeType;
 import java.math.BigDecimal;
-import java.sql.PreparedStatement;
-import java.sql.Statement;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.support.GeneratedKeyHolder;
-import org.springframework.jdbc.support.KeyHolder;
-import org.springframework.stereotype.Repository;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
-@Repository
-public class PaymentPersistenceRepository {
-    private final JdbcTemplate jdbc;
+public interface PaymentPersistenceRepository extends JpaRepository<Payment, Long> {
+    List<Payment> findAllByBookingIdInOrderByCreatedAtDescPaymentIdDesc(List<Long> bookingIds);
+    List<Payment> findAllByStatusOrderByPaidAtDescPaymentIdDesc(PaymentStatus status);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    List<Payment> findByBookingIdOrderByCreatedAtDescPaymentIdDesc(Long bookingId);
 
-    public PaymentPersistenceRepository(JdbcTemplate jdbc) {
-        this.jdbc = jdbc;
-    }
+    Optional<Payment> findByTransactionCode(String transactionCode);
 
-    private static final RowMapper<PaymentState> PAYMENT_STATE = (rs, row) -> new PaymentState(
-            rs.getLong("payment_id"), rs.getLong("booking_id"), rs.getBigDecimal("amount"),
-            rs.getString("payment_method"), rs.getString("status"), rs.getString("transaction_code"),
-            rs.getObject("created_at", LocalDateTime.class));
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select payment from Payment payment where payment.transactionCode=:transactionCode")
+    Optional<Payment> findByTransactionCodeForUpdate(@Param("transactionCode") String transactionCode);
 
-    /** Online order codes come from the existing sequence; its PayOS name predates the VNPay gateway. */
-    public Long nextOnlineOrderCode() {
-        return jdbc.queryForObject("SELECT NEXT VALUE FOR dbo.PayOS_Order_Code_Seq", Long.class);
-    }
+    boolean existsByBookingIdAndStatus(Long bookingId, PaymentStatus status);
 
-    public List<PaymentState> findForBookingUpdate(Long bookingId) {
-        return jdbc.query("""
-                SELECT payment_id, booking_id, amount, payment_method, status, transaction_code, created_at
-                FROM dbo.Payments WITH (UPDLOCK, HOLDLOCK, INDEX(IX_Payments_Booking_Status))
-                WHERE booking_id=? ORDER BY created_at DESC, payment_id DESC
-                """, PAYMENT_STATE, bookingId);
-    }
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update Payment payment set payment.status=com.housekeeping.management.domain.PaymentStatus.FAILED "
+            + "where payment.bookingId=:bookingId and payment.paymentMethod=com.housekeeping.management.domain.PaymentMethod.ONLINE "
+            + "and payment.status=com.housekeeping.management.domain.PaymentStatus.PENDING")
+    int failPendingOnlineAttempts(@Param("bookingId") Long bookingId);
 
-    public Optional<PaymentState> findByOrderCodeForUpdate(Long orderCode) {
-        return jdbc.query("""
-                SELECT payment_id, booking_id, amount, payment_method, status, transaction_code, created_at
-                FROM dbo.Payments WITH (UPDLOCK, HOLDLOCK)
-                WHERE transaction_code=?
-                """, PAYMENT_STATE, Long.toString(orderCode)).stream().findFirst();
-    }
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update Payment payment set payment.status=com.housekeeping.management.domain.PaymentStatus.SUCCESS, payment.paidAt=:paidAt "
+            + "where payment.paymentId=:paymentId and payment.paymentMethod=com.housekeeping.management.domain.PaymentMethod.ONLINE "
+            + "and payment.status in (com.housekeeping.management.domain.PaymentStatus.PENDING, com.housekeeping.management.domain.PaymentStatus.FAILED)")
+    int markSuccess(@Param("paymentId") Long paymentId, @Param("paidAt") java.time.LocalDateTime paidAt);
 
-    public Optional<PaymentState> findByOrderCode(Long orderCode) {
-        return jdbc.query("""
-                SELECT payment_id, booking_id, amount, payment_method, status, transaction_code, created_at
-                FROM dbo.Payments WHERE transaction_code=?
-                """, PAYMENT_STATE, Long.toString(orderCode)).stream().findFirst();
-    }
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update Payment payment set payment.status=com.housekeeping.management.domain.PaymentStatus.FAILED "
+            + "where payment.paymentId=:paymentId and payment.paymentMethod=com.housekeeping.management.domain.PaymentMethod.ONLINE "
+            + "and payment.status=com.housekeeping.management.domain.PaymentStatus.PENDING")
+    int markFailed(@Param("paymentId") Long paymentId);
 
-    public Long insertPendingOnline(Long bookingId, BigDecimal amount, long orderCode, LocalDateTime createdAt) {
-        KeyHolder keys = new GeneratedKeyHolder();
-        jdbc.update(connection -> {
-            PreparedStatement statement = connection.prepareStatement("""
-                    INSERT INTO dbo.Payments (booking_id, amount, payment_method, status, transaction_code, created_at)
-                    VALUES (?, ?, 'ONLINE', 'PENDING', ?, ?)
-                    """, Statement.RETURN_GENERATED_KEYS);
-            statement.setLong(1, bookingId);
-            statement.setBigDecimal(2, amount);
-            statement.setString(3, Long.toString(orderCode));
-            statement.setObject(4, createdAt);
-            return statement;
-        }, keys);
-        Number key = keys.getKey();
-        if (key == null) throw new IllegalStateException("Không lấy được mã lần thanh toán vừa tạo.");
-        return key.longValue();
-    }
+    @Query("select coalesce(sum(payment.amount), 0) from Payment payment "
+            + "where payment.status=com.housekeeping.management.domain.PaymentStatus.SUCCESS and payment.simulated=false")
+    BigDecimal sumSuccessfulRealPayments();
 
-    public Long insertCashSuccess(Long bookingId, BigDecimal amount, LocalDateTime paidAt) {
-        KeyHolder keys = new GeneratedKeyHolder();
-        jdbc.update(connection -> {
-            PreparedStatement statement = connection.prepareStatement("""
-                    INSERT INTO dbo.Payments (booking_id, amount, payment_method, status, paid_at, created_at)
-                    VALUES (?, ?, 'CASH', 'SUCCESS', ?, ?)
-                    """, Statement.RETURN_GENERATED_KEYS);
-            statement.setLong(1, bookingId);
-            statement.setBigDecimal(2, amount);
-            statement.setObject(3, paidAt);
-            statement.setObject(4, paidAt);
-            return statement;
-        }, keys);
-        Number key = keys.getKey();
-        if (key == null) throw new IllegalStateException("Không lấy được mã thanh toán tiền mặt vừa tạo.");
-        return key.longValue();
-    }
-
-    public boolean hasSuccessfulPayment(Long bookingId) {
-        Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Payments WHERE booking_id=? AND status='SUCCESS'",
-                Integer.class, bookingId);
-        return count != null && count > 0;
-    }
-
-    public int failPendingOnlineAttempts(Long bookingId) {
-        return jdbc.update("UPDATE dbo.Payments SET status='FAILED' WHERE booking_id=? AND payment_method='ONLINE' AND status='PENDING'",
-                bookingId);
-    }
-
-    public int markSuccess(Long paymentId, LocalDateTime paidAt) {
-        return jdbc.update("UPDATE dbo.Payments SET status='SUCCESS', paid_at=? WHERE payment_id=? AND payment_method='ONLINE' AND status IN ('PENDING','FAILED')",
-                paidAt, paymentId);
-    }
-
-    public int markFailed(Long paymentId) {
-        return jdbc.update("UPDATE dbo.Payments SET status='FAILED' WHERE payment_id=? AND payment_method='ONLINE' AND status='PENDING'",
-                paymentId);
-    }
-
-    public int completeBooking(Long bookingId) {
-        return jdbc.update("UPDATE dbo.Bookings SET status='COMPLETED' WHERE booking_id=? AND status='AWAITING_PAYMENT'",
-                bookingId);
-    }
-
-    public record PaymentState(Long paymentId, Long bookingId, BigDecimal amount,
-            String method, String status, String transactionCode, LocalDateTime createdAt) { }
+    @Query("select coalesce(sum(payment.amount), 0) from Payment payment "
+            + "where payment.status=com.housekeeping.management.domain.PaymentStatus.SUCCESS and payment.simulated=true")
+    BigDecimal sumSuccessfulSimulatedPayments();
 }

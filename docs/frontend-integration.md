@@ -1,8 +1,8 @@
 > **Document:** Frontend–Backend Integration Guide\
 > **File:** `docs/frontend-integration.md`\
-> **Version:** v2.4.0\
+> **Version:** v2.5.2\
 > **Created:** 2026-10-16\
-> **Last Updated:** 2026-11-08\
+> **Last Updated:** 2026-11-12\
 > **Status:** Draft
 
 # Kết Nối Giao Diện Gọn Nhà Với Backend
@@ -15,7 +15,7 @@ Giữ tông xanh ngọc, ảnh, thẻ dịch vụ, khu vực giới thiệu, for
 
 Không sao chép các chức năng ngoài baseline từ mẫu: tự chuyển vai trò trên giao diện, dữ liệu localStorage/mock, đặt lịch định kỳ, tự điều phối nhân viên và các trạng thái pending/assigned/in_progress. Customer chọn địa chỉ từ VietMap; frontend chỉ gọi endpoint backend, tuyệt đối không nhận Services API key. Admin được trả lời và giải quyết Feedback dạng văn bản; không dùng quy trình kiểm duyệt Feedback của mẫu.
 
-Ứng dụng hiện tổ chức theo MVC–N-Layer: Controller nhận request và dựng view model; Service xử lý use case, phân quyền sở hữu và transaction; Repository/JDBC truy vấn SQL Server; Entity ánh xạ 15 bảng của baseline mới. Các luồng được chia theo nghiệp vụ (Booking, Payment, Staff, House, Feedback, Company Settings); không đặt quy tắc nghiệp vụ trong template hoặc Controller. Cấu trúc package mặc định được mô tả trong [hướng dẫn Java](architecture/java-package-structure.md).
+Ứng dụng hiện tổ chức theo MVC–N-Layer: Controller phụ thuộc service interface; implementation xử lý use case, phân quyền sở hữu và transaction trong `service/impl/`; Repository/JDBC truy vấn SQL Server; Entity ánh xạ các bảng JPA trong schema 20 bảng. Cấu hình mức giảm đến trễ được truy vấn bằng JDBC. Các luồng được chia theo nghiệp vụ (Booking, Payment, Staff, House, Feedback, Company Settings); không đặt quy tắc nghiệp vụ trong template hoặc Controller. Cấu trúc package mặc định được mô tả trong [hướng dẫn Java](architecture/java-package-structure.md).
 
 ## Cách kết nối
 
@@ -29,7 +29,7 @@ Trình duyệt → Spring Security (session, role, CSRF)
 
 Frontend và backend cùng ứng dụng, cùng origin. Form dùng POST và Thymeleaf tự chèn CSRF token qua `th:action`; không cần REST API riêng, JWT, CORS hoặc Node.js khi chạy. JavaScript hỗ trợ lọc danh sách, tạm tính, kiểm tra file và ghép ngày với giờ được chọn theo bước 15 phút. Server kiểm tra lại khi gửi, kể cả khi dữ liệu vừa thay đổi.
 
-Trang `/admin/settings` lưu vị trí/bán kính riêng tại `/admin/settings/location`; phiên bản lịch tuần được lưu tại `/admin/settings/schedule` với `effectiveFrom` và danh sách `operatingHours`. GET `/admin/settings?effectiveFrom=YYYY-MM-DD` chọn lịch để xem/sửa; ngày mới nạp lịch gần nhất trước ngày chọn. Phiên bản tương lai có thể hủy qua `/admin/settings/schedule/cancel`; backend chặn sửa/hủy nếu khoảng hiệu lực có booking `CONFIRMED` hoặc `AWAITING_PAYMENT`. Staff nhận tất cả mốc hiệu lực để giao diện hiển thị khung áp dụng theo ngày; server kiểm tra lại cùng phiên bản khi đăng ký availability. Booking tạo mới và Admin đổi Staff dùng truy vấn giờ theo ngày từ cùng bảng.
+Trang `/admin/settings` lưu vị trí/bán kính riêng tại `/admin/settings/location`; phiên bản lịch tuần được lưu theo từng ngày tại `/admin/settings/schedule/day` với `effectiveFrom`, `dayOfWeek` và danh sách `operatingHours`. GET `/admin/settings?effectiveFrom=YYYY-MM-DD` chọn tuần để xem/sửa; ngày mới nạp lịch gần nhất trước ngày chọn. Lưu một ngày giữ nguyên sáu ngày khác. Booking `CONFIRMED` hoặc `AWAITING_PAYMENT` chỉ chặn thay đổi giờ của đúng ngày khi lịch mới không bao phủ trọn booking. Trong ngày hiện tại, khung đã bắt đầu không được sửa/xóa/đóng và không được thêm khung có giờ kết thúc trước thời điểm hiện tại. Phiên bản tương lai có thể hủy qua `/admin/settings/schedule/cancel`; backend vẫn chặn hủy nếu khoảng hiệu lực có booking đang hoạt động. Staff nhận tất cả mốc hiệu lực để giao diện hiển thị khung áp dụng theo ngày; server kiểm tra lại cùng phiên bản khi đăng ký availability. Booking tạo mới và Admin đổi Staff dùng truy vấn giờ theo ngày từ cùng bảng.
 
 `PortalQueryService` đọc dữ liệu bằng JDBC vào view model không chứa password hash/storage path. Không đưa Entity có quan hệ LAZY ra template, phù hợp `open-in-view=false`. Danh sách lịch hẹn được lọc theo tài khoản; chi tiết và ảnh Evidence kiểm tra ownership. Khoảng bận cho form đặt lịch chỉ gồm Staff ID và thời gian, không có danh tính khách khác.
 
@@ -81,7 +81,7 @@ Các route dưới đây là điểm vào MVC của ứng dụng.
 | `/admin/staff` | `name`, `email`, `password`, `phone` | `GlobalEmailUniquenessService`, BCrypt trước khi lưu |
 | `/admin/staff/{id}` | `name`, `phone` | Sửa thông tin; email/mật khẩu không trong form sửa |
 | `/admin/{services,staff}/{id}/delete` | CSRF | Ngừng hoạt động (soft delete); giữ lịch sử đặt dịch vụ |
-| `/admin/settings` | Vị trí công ty, bán kính phục vụ và nhiều khung giờ/ngày | Lưu khi không làm mất hiệu lực Booking CONFIRMED tương lai |
+| `/admin/settings` | Vị trí công ty, bán kính phục vụ và nhiều khung giờ/ngày; lưu từng ngày trong phiên bản tuần | Chỉ chặn nếu booking đang hoạt động của ngày đó không còn được bao phủ; bảo vệ khung đã bắt đầu hôm nay |
 | `/admin/feedback/{id}/reply` | `reply`, CSRF | Admin lưu nội dung trả lời Feedback |
 | `/admin/feedback/{id}/resolve` | CSRF | Admin đánh dấu Feedback đã giải quyết |
 | `/admin/bookings/{id}/cancel` | `reason`, CSRF | Admin hủy Booking CONFIRMED, lưu người hủy/thời điểm/lý do |
@@ -109,8 +109,8 @@ Từ `app/housekeeping-management-system/`, dùng JDK 21 và Maven. Cấu hình 
 | `DB_USERNAME` | Tài khoản database |
 | `DB_PASSWORD` | Mật khẩu database; không commit |
 | `app.evidence.storage-root` | Thư mục ảnh local, mặc định `./var/evidence` |
-| `spring.servlet.multipart.max-file-size` | 5 MB mỗi ảnh |
-| `spring.servlet.multipart.max-request-size` | 6 MB gồm overhead multipart; UI gửi một ảnh/lần |
+| `spring.servlet.multipart.max-file-size` | 50 MB mỗi tệp; ảnh/PDF bị giới hạn 5 MB trong service |
+| `spring.servlet.multipart.max-request-size` | 75 MB để nhận một video tối đa 50 MB cùng tối đa bốn ảnh/PDF; service giới hạn tổng 5 tệp và một video mỗi tin |
 
 ```powershell
 mvn spring-boot:run

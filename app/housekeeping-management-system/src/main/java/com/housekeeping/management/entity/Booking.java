@@ -85,6 +85,24 @@ public class Booking {
     @Column(name = "staff_arrived_at")
     private LocalDateTime staffArrivedAt;
 
+    @Column(name = "customer_delay_reported_at")
+    private LocalDateTime customerDelayReportedAt;
+
+    @Column(name = "arrival_verified_at")
+    private LocalDateTime arrivalVerifiedAt;
+
+    @Column(name = "arrival_verification_recorded_at")
+    private LocalDateTime arrivalVerificationRecordedAt;
+
+    @Column(name = "arrival_verified_by")
+    private Long arrivalVerifiedBy;
+
+    @Column(name = "arrival_verification_source", length = 10, columnDefinition = "varchar(10)")
+    private String arrivalVerificationSource;
+
+    @Nationalized @Column(name = "arrival_verification_note", length = 500)
+    private String arrivalVerificationNote;
+
     @Column(name = "incident_reported_at")
     private LocalDateTime incidentReportedAt;
 
@@ -102,6 +120,9 @@ public class Booking {
 
     @Column(name = "work_started_at")
     private LocalDateTime workStartedAt;
+
+    @Column(name = "service_completed_at")
+    private LocalDateTime serviceCompletedAt;
 
     @Column(name = "delay_minutes")
     private Integer delayMinutes;

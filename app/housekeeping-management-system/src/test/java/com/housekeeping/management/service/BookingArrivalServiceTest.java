@@ -9,9 +9,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.housekeeping.management.repository.BookingPersistenceRepository;
+import com.housekeeping.management.domain.BookingDelayCompensation.Tier;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -22,21 +24,19 @@ class BookingArrivalServiceTest {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
         LocalDateTime start = LocalDateTime.now(ZoneOffset.ofHours(7)).minusMinutes(16).withNano(0);
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, start)));
-        when(bookings.confirmStaffArrival(eq(42L), eq(7L), any(), any(), any(Integer.class), any(), any())).thenReturn(1);
+        when(bookings.confirmStaffArrival(eq(42L), eq(7L), any(), any(Integer.class), any(), any())).thenReturn(1);
 
-        new BookingArrivalService(bookings, 5).confirmStaffArrival(42L, 7L);
+        new com.housekeeping.management.service.impl.BookingArrivalServiceImpl(bookings, settings()).confirmStaffArrival(42L, 7L);
 
         ArgumentCaptor<LocalDateTime> recordedAt = ArgumentCaptor.forClass(LocalDateTime.class);
-        ArgumentCaptor<LocalDateTime> eligibleThrough = ArgumentCaptor.forClass(LocalDateTime.class);
         ArgumentCaptor<Integer> delayedMinutes = ArgumentCaptor.forClass(Integer.class);
         ArgumentCaptor<BigDecimal> percent = ArgumentCaptor.forClass(BigDecimal.class);
         ArgumentCaptor<BigDecimal> discount = ArgumentCaptor.forClass(BigDecimal.class);
-        verify(bookings).confirmStaffArrival(eq(42L), eq(7L), recordedAt.capture(), eligibleThrough.capture(),
+        verify(bookings).confirmStaffArrival(eq(42L), eq(7L), recordedAt.capture(),
                 delayedMinutes.capture(), percent.capture(), discount.capture());
-        assertThat(eligibleThrough.getValue()).isEqualTo(recordedAt.getValue().plusMinutes(5));
-        assertThat(delayedMinutes.getValue()).isGreaterThanOrEqualTo(16);
-        assertThat(percent.getValue()).isEqualByComparingTo("10");
-        assertThat(discount.getValue()).isEqualByComparingTo("15000.00");
+        assertThat(delayedMinutes.getValue()).isGreaterThanOrEqualTo(11);
+        assertThat(percent.getValue()).isEqualByComparingTo("5");
+        assertThat(discount.getValue()).isEqualByComparingTo("7500.00");
     }
 
     @Test
@@ -44,15 +44,46 @@ class BookingArrivalServiceTest {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
         LocalDateTime start = LocalDateTime.now(ZoneOffset.ofHours(7)).plusDays(1);
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, start)));
-        when(bookings.confirmStaffArrival(eq(42L), eq(8L), any(), any(), any(Integer.class), any(), any())).thenReturn(0);
+        when(bookings.confirmStaffArrival(eq(42L), eq(8L), any(), any(Integer.class), any(), any())).thenReturn(0);
 
-        assertThatThrownBy(() -> new BookingArrivalService(bookings, 5).confirmStaffArrival(42L, 8L))
+        assertThatThrownBy(() -> new com.housekeeping.management.service.impl.BookingArrivalServiceImpl(bookings, settings()).confirmStaffArrival(42L, 8L))
                 .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void assignedStaffMayConfirmArrivalBeforeScheduledStart() {
+        BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
+        LocalDateTime start = LocalDateTime.now(ZoneOffset.ofHours(7)).plusDays(1);
+        when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, start)));
+        when(bookings.confirmStaffArrival(eq(42L), eq(7L), any(), any(Integer.class), any(), any())).thenReturn(1);
+
+        new com.housekeeping.management.service.impl.BookingArrivalServiceImpl(bookings, settings()).confirmStaffArrival(42L, 7L);
+
+        verify(bookings).confirmStaffArrival(eq(42L), eq(7L), any(), any(Integer.class), any(), any());
+    }
+
+    @Test
+    void customerConfirmationUsesActualArrivalForAReportedDispute() {
+        BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
+        LocalDateTime start = LocalDateTime.now(ZoneOffset.ofHours(7)).minusMinutes(20).withNano(0);
+        when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, start)));
+        when(bookings.confirmCustomerArrival(eq(42L), eq(3L), any(), any(Integer.class), any(), any())).thenReturn(1);
+
+        new com.housekeeping.management.service.impl.BookingArrivalServiceImpl(bookings, settings()).confirm(42L, 3L);
+
+        verify(bookings).confirmCustomerArrival(eq(42L), eq(3L), any(), eq(15),
+                eq(new BigDecimal("5")), eq(new BigDecimal("7500.00")));
     }
 
     private BookingPersistenceRepository.BookingWorkflowState workflow(Long staffId, LocalDateTime start) {
         return new BookingPersistenceRepository.BookingWorkflowState(42L, 3L, staffId, start, start.plusHours(1),
                 "CONFIRMED", new BigDecimal("150000.00"), null, null, null, null, null, null, null, null,
                 BigDecimal.ZERO, BigDecimal.ZERO);
+    }
+
+    private BookingDelayCompensationSettingsService settings() {
+        BookingDelayCompensationSettingsService settings = mock(BookingDelayCompensationSettingsService.class);
+        when(settings.get()).thenReturn(List.of(new Tier(1, 15, 5), new Tier(16, 30, 10), new Tier(31, null, 20)));
+        return settings;
     }
 }

@@ -1,7 +1,9 @@
 package com.housekeeping.management.config;
 
-import jakarta.servlet.DispatcherType;
+import com.housekeeping.management.service.AccountAuthorizationService;
 import com.housekeeping.management.service.AuthService;
+import com.housekeeping.management.web.PortalUser;
+import jakarta.servlet.DispatcherType;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -11,7 +13,7 @@ import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
-import com.housekeeping.management.service.AuthService;
+import org.springframework.security.authorization.AuthorizationDecision;
 
 @Configuration
 @EnableWebSecurity
@@ -32,7 +34,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    SecurityFilterChain portalSecurity(HttpSecurity http) throws Exception {
+    SecurityFilterChain portalSecurity(HttpSecurity http, AccountAuthorizationService authorization) throws Exception {
         return http.authorizeHttpRequests(access -> access
                     .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                     .requestMatchers("/", "/services", "/login", "/register", "/css/**", "/js/**", "/images/**", "/vendor/**", "/error").permitAll()
@@ -40,7 +42,16 @@ public class SecurityConfig {
                     .requestMatchers("/payments/vnpay/return", "/payments/vnpay/ipn").permitAll()
                     .requestMatchers("/customer/**").hasRole("CUSTOMER")
                     .requestMatchers("/staff/**").hasRole("STAFF")
-                    .requestMatchers("/admin/**").hasRole("ADMIN")
+                    .requestMatchers("/manager/**").access((authentication, context) -> {
+                        var principal = authentication.get().getPrincipal();
+                        return new AuthorizationDecision(principal instanceof PortalUser user
+                                && "MANAGER".equals(user.getRole()) && authorization.isActiveAdmin(user.getUserId()));
+                    })
+                    .requestMatchers("/admin/**").access((authentication, context) -> {
+                        var principal = authentication.get().getPrincipal();
+                        return new AuthorizationDecision(principal instanceof PortalUser user
+                                && user.isAdmin() && authorization.isActiveAdmin(user.getUserId()));
+                    })
                     .anyRequest().authenticated())
                 .formLogin(login -> login.loginPage("/login").usernameParameter("email")
                     .defaultSuccessUrl("/portal").failureUrl("/login?error").permitAll())

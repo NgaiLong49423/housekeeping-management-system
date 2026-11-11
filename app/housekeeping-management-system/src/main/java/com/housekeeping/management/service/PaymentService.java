@@ -1,7 +1,5 @@
 package com.housekeeping.management.service;
 
-import com.housekeeping.management.repository.BookingPersistenceRepository;
-import com.housekeeping.management.repository.PaymentPersistenceRepository;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -9,145 +7,19 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-@Service
-public class PaymentService {
-    private static final ZoneOffset BUSINESS_OFFSET = ZoneOffset.ofHours(7);
-    private static final java.time.format.DateTimeFormatter ORDER_CODE_TIME =
-            java.time.format.DateTimeFormatter.ofPattern("yyMMddHHmmss");
-    private final BookingPersistenceRepository bookings;
-    private final PaymentPersistenceRepository payments;
-
-    public PaymentService(BookingPersistenceRepository bookings, PaymentPersistenceRepository payments) {
-        this.bookings = bookings;
-        this.payments = payments;
-    }
-
-    @Transactional
-    public OnlineCheckout prepareOnlineCheckout(Long bookingId, Long customerId) {
-        var booking = bookings.lockBooking(bookingId)
-                .orElseThrow(() -> new IllegalArgumentException("Lịch hẹn không tồn tại."));
-        if (!booking.customerId().equals(customerId)) {
-            throw new AccessDeniedException("Lịch hẹn không thuộc tài khoản của bạn.");
-        }
-        if (!"AWAITING_PAYMENT".equals(booking.status())) {
-            throw new IllegalStateException("Chỉ có thể thanh toán lịch đang chờ thanh toán.");
-        }
-
-        List<PaymentPersistenceRepository.PaymentState> attempts = payments.findForBookingUpdate(bookingId);
-        if (attempts.stream().anyMatch(payment -> "SUCCESS".equals(payment.status()))) {
-            throw new IllegalStateException("Lịch hẹn đã được thanh toán.");
-        }
-        if (!attempts.isEmpty()) {
-            var latest = attempts.getFirst();
-            if ("ONLINE".equals(latest.method()) && "PENDING".equals(latest.status())) {
-                return new OnlineCheckout(Long.parseLong(latest.transactionCode()), onlineAmount(latest.amount()),
-                        latest.createdAt(), true);
-            }
-        }
-
-        BigDecimal amount = bookings.bookingAmount(bookingId);
-        long onlineAmount = onlineAmount(amount);
-        Long sequence = payments.nextOnlineOrderCode();
-        if (sequence == null || sequence < 1) {
-            throw new IllegalStateException("Không cấp được mã đơn thanh toán trực tuyến hợp lệ.");
-        }
-        LocalDateTime createdAt = now();
-        long orderCode = onlineOrderCode(createdAt, sequence);
-        payments.insertPendingOnline(bookingId, amount, orderCode, createdAt);
-        return new OnlineCheckout(orderCode, onlineAmount, createdAt, false);
-    }
-
-    /**
-     * yyMMddHHmmss of the attempt followed by the last five sequence digits. The gateway terminal is shared by
-     * every team database and rejects an order code reused on the same day, while each database's sequence
-     * restarts after a local reset; the creation time keeps codes apart across databases and resets.
-     */
-    private static long onlineOrderCode(LocalDateTime createdAt, long sequence) {
-        return Long.parseLong(ORDER_CODE_TIME.format(createdAt) + String.format(java.util.Locale.ROOT, "%05d", sequence % 100_000));
-    }
-
-    public Optional<PaymentPersistenceRepository.PaymentState> findOnlinePayment(long orderCode) {
-        return payments.findByOrderCode(orderCode).filter(payment -> "ONLINE".equals(payment.method()));
-    }
-
-    @Transactional
-    public void confirmCashReceived(Long bookingId, Long assignedStaffId) {
-        var booking = bookings.lockBooking(bookingId)
-                .orElseThrow(() -> new IllegalArgumentException("Lịch hẹn không tồn tại."));
-        if (!booking.staffId().equals(assignedStaffId)) {
-            throw new AccessDeniedException("Chỉ nhân viên được phân công mới xác nhận tiền mặt.");
-        }
-        if (!"AWAITING_PAYMENT".equals(booking.status())) {
-            throw new IllegalStateException("Lịch hẹn chưa ở trạng thái chờ thanh toán.");
-        }
-        List<PaymentPersistenceRepository.PaymentState> attempts = payments.findForBookingUpdate(bookingId);
-        if (attempts.stream().anyMatch(payment -> "SUCCESS".equals(payment.status()))) {
-            throw new IllegalStateException("Lịch hẹn đã có thanh toán thành công.");
-        }
-        payments.failPendingOnlineAttempts(bookingId);
-        payments.insertCashSuccess(bookingId, bookings.bookingAmount(bookingId), now());
-        if (payments.completeBooking(bookingId) != 1) {
-            throw new IllegalStateException("Trạng thái lịch hẹn vừa thay đổi; giao dịch đã được hoàn tác.");
-        }
-    }
-
-    @Transactional
-    public void confirmOnlinePayment(long orderCode, BigDecimal amount) {
-        PaymentPersistenceRepository.PaymentState payment = lockOnlinePayment(orderCode, amount);
-        if ("SUCCESS".equals(payment.status())) return;
-        var booking = bookings.lockBooking(payment.bookingId())
-                .orElseThrow(() -> new IllegalArgumentException("Lịch hẹn thanh toán không tồn tại."));
-        if (payments.hasSuccessfulPayment(payment.bookingId())) {
-            payments.markFailed(payment.paymentId());
-            return;
-        }
-        if (!"AWAITING_PAYMENT".equals(booking.status())) {
-            throw new IllegalStateException("Lịch hẹn không còn chờ thanh toán trực tuyến.");
-        }
-        if (payments.markSuccess(payment.paymentId(), now()) != 1 || payments.completeBooking(payment.bookingId()) != 1) {
-            throw new IllegalStateException("Không thể xác nhận giao dịch; trạng thái thanh toán đã thay đổi.");
-        }
-    }
-
-    @Transactional
-    public void failOnlinePayment(long orderCode, BigDecimal amount) {
-        PaymentPersistenceRepository.PaymentState payment = lockOnlinePayment(orderCode, amount);
-        if ("SUCCESS".equals(payment.status())) return;
-        payments.markFailed(payment.paymentId());
-    }
-
-    private PaymentPersistenceRepository.PaymentState lockOnlinePayment(long orderCode, BigDecimal amount) {
-        Long bookingId = payments.findByOrderCode(orderCode)
-                .map(PaymentPersistenceRepository.PaymentState::bookingId)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy giao dịch thanh toán trực tuyến."));
-        bookings.lockBooking(bookingId)
-                .orElseThrow(() -> new IllegalArgumentException("Lịch hẹn thanh toán không tồn tại."));
-        PaymentPersistenceRepository.PaymentState payment = payments.findByOrderCodeForUpdate(orderCode)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy giao dịch thanh toán trực tuyến."));
-        if (!"ONLINE".equals(payment.method()) || payment.amount().compareTo(amount) != 0) {
-            throw new IllegalArgumentException("Thông tin giao dịch trực tuyến không khớp với yêu cầu đã lưu.");
-        }
-        return payment;
-    }
-
-    private static long onlineAmount(BigDecimal amount) {
-        if (amount == null || amount.signum() <= 0) {
-            throw new IllegalStateException("Số tiền thanh toán trực tuyến phải lớn hơn 0.");
-        }
-        try {
-            return amount.longValueExact();
-        } catch (ArithmeticException invalidVndAmount) {
-            throw new IllegalStateException("Số tiền thanh toán phải là số nguyên VND.", invalidVndAmount);
-        }
-    }
-
-    private static LocalDateTime now() {
-        return OffsetDateTime.now(BUSINESS_OFFSET).withNano(0).toLocalDateTime();
-    }
-
-    /** {@code createdAt} is the stored attempt time that the gateway needs to look the order up again. */
+public interface PaymentService {
+    public record AccountingTotals(BigDecimal paidAmount, BigDecimal simulatedAmount) { }
+    public record AccountingPayment(Long paymentId, Long bookingId, BigDecimal amount, String method,
+            String transactionCode, LocalDateTime paidAt, boolean simulated) { }
     public record OnlineCheckout(long orderCode, long amount, LocalDateTime createdAt, boolean recoverExisting) { }
+    public record OnlinePayment(Long paymentId, Long bookingId, BigDecimal amount, String method, String status,
+            String transactionCode, LocalDateTime createdAt) { }
+    public OnlineCheckout prepareOnlineCheckout(Long bookingId, Long customerId);
+    public Optional<OnlinePayment> findOnlinePayment(long orderCode);
+    public void confirmCashReceived(Long bookingId, Long assignedStaffId);
+    public void confirmOnlinePayment(long orderCode, BigDecimal amount);
+    public void failOnlinePayment(long orderCode, BigDecimal amount);
+    AccountingTotals accountingTotals();
+    List<AccountingPayment> successfulPaymentsForAccounting();
 }

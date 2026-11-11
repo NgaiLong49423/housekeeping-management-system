@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Tài khoản Admin')}"><title>Tài khoản Admin · Gọn Nhà</title></head>
+<body>
+<header th:replace="~{fragments/layout :: header('accounts')}"></header>
+<main id="main" class="container py-4 py-md-5">
+  <div class="page-heading"><span class="eyebrow">Quản lý hệ thống · Manager</span><h1>Tài khoản Admin</h1>
+    <p class="lead">Manager quản lý tài khoản Admin. Admin có quyền vận hành nhưng không thể cấp quyền hoặc quản lý tài khoản Admin khác.</p></div>
+  <div th:replace="~{fragments/layout :: alerts}"></div>
+  <section class="surface p-4 mb-4">
+    <h2 class="h5">Tạo tài khoản Admin</h2>
+    <form method="post" th:action="@{/admin/accounts}" th:object="${adminAccountForm}" class="row g-3">
+      <div class="col-md-6"><label class="form-label">Họ tên<input class="form-control" th:field="*{name}" maxlength="150" required></label></div>
+      <div class="col-md-6"><label class="form-label">Email<input class="form-control" type="email" th:field="*{email}" maxlength="255" required></label></div>
+      <div class="col-md-6"><label class="form-label">Số điện thoại<input class="form-control" th:field="*{phone}" maxlength="20" required></label></div>
+      <div class="col-md-6"><label class="form-label">Mật khẩu ban đầu<input class="form-control" type="password" th:field="*{password}" minlength="8" maxlength="72" autocomplete="new-password" required></label></div>
+      <div class="col-12"><button class="btn btn-primary" type="submit">Tạo Admin</button></div>
+    </form>
+  </section>
+  <section class="surface p-4">
+    <h2 class="h5">Danh sách Admin</h2>
+    <div class="table-responsive"><table class="table align-middle mb-0">
+      <thead><tr><th>Họ tên</th><th>Email</th><th>Điện thoại</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+      <tbody><tr th:each="admin : ${admins}">
+        <td th:text="${admin.name}">Admin</td><td th:text="${admin.email}">admin@example.test</td>
+        <td th:text="${admin.phone}">0900000000</td>
+        <td th:text="${admin.status == 'ACTIVE' ? 'Đang hoạt động' : 'Đã khóa'}">Đang hoạt động</td>
+        <td><form method="post" th:action="@{/admin/accounts/{id}/status(id=${admin.userId})}">
+          <input type="hidden" name="status" th:value="${admin.status == 'ACTIVE' ? 'INACTIVE' : 'ACTIVE'}">
+          <button class="btn btn-sm" th:classappend="${admin.status == 'ACTIVE' ? 'btn-outline-danger' : 'btn-outline-success'}"
+                  type="submit" th:text="${admin.status == 'ACTIVE' ? 'Khóa Admin' : 'Kích hoạt Admin'}">Khóa Admin</button>
+        </form></td>
+      </tr><tr th:if="${#lists.isEmpty(admins)}"><td colspan="5" class="text-secondary">Chưa có tài khoản Admin.</td></tr></tbody>
+    </table></div>
+  </section>
+</main>
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

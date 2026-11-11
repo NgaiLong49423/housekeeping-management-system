@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Lập khoản thu chi')}"><title>Lập khoản · Gọn Nhà</title></head>
+<body>
+<header th:replace="~{fragments/layout :: header('finance')}"></header>
+<main id="main" class="container py-4 py-md-5">
+  <section class="finance-create-hero mb-4">
+    <div class="finance-create-copy">
+      <span class="eyebrow">Đối soát tài chính</span>
+      <h1>Lập khoản thu/chi</h1>
+      <p class="lead mb-0">Chọn booking và hồ sơ liên quan. Hệ thống gợi ý lý do để giảm nhập lại.</p>
+    </div>
+    <div class="finance-create-art" aria-hidden="true">
+      <span class="finance-art-leaf">✦</span>
+      <span class="finance-art-document">☷</span>
+      <span class="finance-art-coins">₫</span>
+    </div>
+  </section>
+  <div th:replace="~{fragments/layout :: alerts}"></div>
+  <section class="surface finance-create-panel p-3 p-md-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+      <h2 class="h5 mb-0"><span class="finance-section-icon" aria-hidden="true">⌑</span> Thông tin liên quan</h2>
+      <a class="btn btn-outline-secondary" th:href="@{/admin/finance}">← Tổng quan</a>
+    </div>
+    <div class="alert alert-info" th:if="${currentUser.manager}">Manager chỉ duyệt các khoản do Admin lập. Màn hình này dành cho Admin tạo khoản thu/chi.</div>
+    <form th:unless="${currentUser.manager}" method="post" th:action="@{/admin/financial-entries}" class="finance-create-form">
+      <section class="finance-create-section mb-3">
+        <h3 class="h6"><span class="finance-section-icon" aria-hidden="true">▤</span> Booking và hồ sơ sự cố</h3>
+        <div class="vstack gap-3">
+          <label class="form-label w-100 mb-0">Booking<select class="form-select" name="bookingId" data-financial-booking required><option value="">Chọn booking</option><option th:each="booking : ${bookingOptions}" th:value="${booking.id}" th:selected="${booking.id == selectedBookingId}" th:data-booking-code="|#GN-${booking.id}|" th:text="|${booking.customerName} · ${booking.startLabel} · ${booking.statusLabel} · Booking #GN-${booking.id}|">Booking</option></select></label>
+          <label class="form-label w-100 mb-0">Hồ sơ sự cố (nếu liên quan)<select class="form-select" name="caseId" data-financial-case><option value="">Không gắn hồ sơ sự cố</option><option th:each="incident : ${caseOptions}" th:value="${incident.id}" th:selected="${incident.id == selectedCaseId}" th:data-booking-id="${incident.bookingId}" th:data-booking-code="|#GN-${incident.bookingId}|" th:data-description="${incident.description}" th:data-type-label="${#strings.listJoin(incident.typeLabels, ', ')}" th:text="|${#strings.listJoin(incident.typeLabels, ', ')} · Booking #GN-${incident.bookingId} · Hồ sơ #${incident.id}|">Hồ sơ</option></select></label>
+        </div>
+      </section>
+      <section class="finance-create-section finance-entry-fields">
+        <h3 class="h6"><span class="finance-section-icon" aria-hidden="true">₫</span> Thông tin khoản thu/chi</h3>
+        <div class="alert alert-info" th:if="${selectedIncident != null and (selectedIncident.itemDescription != null or selectedIncident.customerEstimatedValue != null or selectedIncident.itemAgeMonths != null)}">
+          <strong>Thông tin khách khai báo để Admin xem xét</strong>
+          <span th:if="${selectedIncident.itemDescription != null}" th:text="| · ${selectedIncident.itemDescription}|"></span>
+          <span th:if="${selectedIncident.customerEstimatedValue != null}" th:text="| · Khách ước tính ${#numbers.formatDecimal(selectedIncident.customerEstimatedValue,0,'POINT',0,'COMMA')} ₫|"></span>
+          <span th:if="${selectedIncident.itemAgeMonths != null}" th:text="| · Đã dùng ${selectedIncident.itemAgeMonths} tháng|"></span>
+          <p class="small mb-0 mt-1">Giá trị khách khai báo chỉ là căn cứ tham khảo. Admin kiểm tra mô tả và ảnh trong hồ sơ rồi tự xác định số tiền đề xuất.</p>
+        </div>
+        <div class="row g-3 align-items-start">
+          <div class="col-md-6"><label class="form-label w-100">Loại khoản<select class="form-select" name="entryType" data-financial-type required><option value="REFUND">Hoàn tiền</option><option value="PRICE_REDUCTION">Giảm giá</option><option value="REMEDIATION_COST">Chi phí khắc phục</option><option value="STAFF_RECOVERY">Thu hồi nội bộ</option></select></label></div>
+          <div class="col-md-6"><label class="form-label w-100">Số tiền Admin đề xuất (₫)<input class="form-control" name="amount" type="number" min="0.01" step="0.01" required></label><small class="form-text text-secondary">Manager duyệt số tiền này; khách sẽ thấy và xác nhận trước khi công ty thực hiện.</small></div>
+          <div class="col-12"><label class="form-label w-100">Lý do<textarea class="form-control" name="reason" rows="2" maxlength="1000" data-financial-reason required></textarea></label></div>
+        </div>
+      </section>
+      <input type="hidden" name="simulated" value="false">
+      <div class="d-flex flex-wrap gap-2 mt-3">
+        <button class="btn btn-primary" type="submit">✓ Lập khoản chờ Manager duyệt</button>
+        <button class="btn btn-outline-secondary" type="reset">Làm mới</button>
+      </div>
+    </form>
+  </section>
+</main>
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<script>
+  (() => {
+    const booking=document.querySelector('[data-financial-booking]');
+    const incident=document.querySelector('[data-financial-case]');
+    const type=document.querySelector('[data-financial-type]');
+    const reason=document.querySelector('[data-financial-reason]');
+    if(!booking||!incident||!type||!reason)return;
+    const sync=()=>{
+      [...incident.options].forEach(option=>{if(!option.value)return;const match=option.dataset.bookingId===booking.value;option.hidden=!match;option.disabled=!match;if(!match&&option.selected)incident.value='';});
+      incident.required=['REMEDIATION_COST','COMPENSATION','STAFF_RECOVERY'].includes(type.value);
+      if(!reason.value.trim()&&booking.value){
+        const selected=incident.selectedOptions[0];
+        const item=type.options[type.selectedIndex].text;
+        reason.value=selected&&selected.value?`${item} · ${selected.dataset.typeLabel||'Hồ sơ sự cố'} · Booking ${selected.dataset.bookingCode}: ${selected.dataset.description||''}`:`${item} · Booking #GN-${booking.value}`;
+      }
+    };
+    booking.addEventListener('change',()=>{reason.value='';sync();});incident.addEventListener('change',()=>{reason.value='';sync();});type.addEventListener('change',()=>{reason.value='';sync();});sync();
+  })();
+</script>
+</body>
+</html>

@@ -1,8 +1,8 @@
 > **Document:** Hướng Dẫn Đóng Góp\
 > **File:** `CONTRIBUTING.md`\
-> **Version:** v2.0.0\
+> **Version:** v2.2.0\
 > **Created:** 2026-06-14\
-> **Last Updated:** 2026-10-24\
+> **Last Updated:** 2026-11-11\
 > **Status:** Active\
 
 # Hướng Dẫn Đóng Góp
@@ -22,6 +22,16 @@ Tài liệu này cung cấp các quy định và hướng dẫn chi tiết về 
 * **Kiểm tra kỹ trước khi push code:** Hãy chắc chắn rằng mã nguồn được biên dịch thành công và chạy thử không gặp lỗi trước khi đẩy lên GitHub.
 
 Các lệnh build và kiểm thử phụ thuộc vào lựa chọn của dự án; ghi rõ kiểm tra nào phù hợp hoặc không áp dụng. Stack chuẩn của dự án nằm trong README và `.agents/repo-contract.yml`; không tự đổi framework, DBMS hoặc công cụ migration. Không commit secret, dữ liệu riêng tư, cấu hình local, file build, log hoặc `.agents/outputs/`. Tuân thủ ranh giới bảo vệ tài liệu trong `AGENTS.md` và `.agents/POLICY.md`.
+
+## Quy Tắc Code Java
+
+Trước khi thêm hoặc tái cấu trúc code Java, đọc [hướng dẫn cấu trúc package](docs/architecture/java-package-structure.md). Đây là nguồn chuẩn chi tiết cho layer, package, DTO, repository, service và kiểm thử.
+
+- Mỗi service có hậu tố `Service` là interface trong `service/`; implementation là class `*ServiceImpl` trong `service/impl/`, được Spring quản lý và dùng constructor injection. Controller và service domain khác phụ thuộc interface.
+- Service implementation gọi trực tiếp Spring Data repository interface thuộc domain mình sở hữu. Repository thường kế thừa `JpaRepository`, ưu tiên derived query theo tên và dùng JPQL khi cần. Không dùng JDBC, `JdbcTemplate`, native SQL hoặc câu SQL để đọc/ghi dữ liệu nghiệp vụ trong Java. Ngoại lệ hẹp là `SqlServerDatabaseInitializer`, chỉ dùng JDBC để tạo database lúc khởi động. SQL schema nằm trong Flyway migration. Không tạo tầng `repository/impl/`.
+- Mỗi JPA entity và embeddable có DTO trong `dto/entity/`, với `convertEntityToDTO` và `convertDTOToEntity`. DTO lồng nhau biểu diễn quan hệ; service phân giải và gán entity đã xác thực. Không đưa password hash vào DTO trả ra ngoài.
+- Converter chỉ ánh xạ dữ liệu. Validation, chuẩn hóa có ý nghĩa nghiệp vụ, phân quyền, transaction, trạng thái và dữ liệu ngoài như VietMap thuộc service.
+- Khi thêm entity hoặc converter, bổ sung test mapping hai chiều, nested DTO, null/default và trường hợp bảo mật liên quan. Không sửa migration đã áp dụng để phục vụ tái cấu trúc.
 
 **Giải thích thuật ngữ:**
 * **Commit** (lần lưu): Hành động lưu lại trạng thái thay đổi của các file mã nguồn vào lịch sử Git tại máy cá nhân.

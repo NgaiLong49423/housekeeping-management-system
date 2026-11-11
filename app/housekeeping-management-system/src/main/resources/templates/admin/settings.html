@@ -25,8 +25,38 @@
         </section>
         <button class="btn btn-primary company-save-button mb-4" type="submit">▣ <span>Lưu vị trí và bán kính</span></button>
       </form>
+      <section id="delay-compensation" class="company-settings-panel mb-4">
+        <div class="company-settings-panel-heading"><span class="settings-section-icon" aria-hidden="true">%</span><div><h2>Mức giảm khi nhân viên đến trễ</h2><p>Áp dụng cho booking chưa ghi nhận nhân viên đến. Booking đã tính giảm giữ nguyên phần trăm và số tiền đã lưu.</p></div></div>
+        <form method="post" th:action="@{/admin/settings/delay-compensation}" th:object="${delaySettingsForm}" class="p-3 p-md-4">
+          <div class="alert alert-danger mb-3" role="alert" th:if="${delaySettingsError != null}" th:text="${delaySettingsError}"></div>
+          <div class="alert alert-success mb-3" role="status" th:if="${delaySettingsSuccess != null}" th:text="${delaySettingsSuccess}"></div>
+          <div class="table-responsive">
+            <table class="table align-middle">
+              <thead><tr><th scope="col">Từ phút trễ</th><th scope="col">Đến phút trễ</th><th scope="col">Giảm (%)</th><th scope="col"><span class="visually-hidden">Thao tác</span></th></tr></thead>
+              <tbody id="delay-tier-rows">
+                <tr th:each="tier, stat : *{tiers}" data-delay-tier>
+                  <td><input class="form-control" type="number" min="1" step="1" required th:field="*{tiers[__${stat.index}__].minDelayMinutes}" aria-label="Từ phút trễ"></td>
+                  <td><input class="form-control" type="number" min="1" step="1" th:field="*{tiers[__${stat.index}__].maxDelayMinutes}" aria-label="Đến phút trễ" placeholder="Không giới hạn"></td>
+                  <td><input class="form-control" type="number" min="0" max="30" step="1" required th:field="*{tiers[__${stat.index}__].discountPercent}" aria-label="Phần trăm giảm"></td>
+                  <td><button class="btn btn-outline-danger" type="button" data-remove-delay-tier>Xóa</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <template id="delay-tier-template"><tr data-delay-tier>
+            <td><input class="form-control" type="number" min="1" step="1" required data-delay-min aria-label="Từ phút trễ"></td>
+            <td><input class="form-control" type="number" min="1" step="1" data-delay-max aria-label="Đến phút trễ" placeholder="Không giới hạn"></td>
+            <td><input class="form-control" type="number" min="0" max="30" step="1" required data-delay-percent aria-label="Phần trăm giảm"></td>
+            <td><button class="btn btn-outline-danger" type="button" data-remove-delay-tier>Xóa</button></td>
+          </tr></template>
+          <div class="d-flex flex-wrap gap-2">
+            <button id="add-delay-tier" class="btn btn-outline-primary" type="button">＋ Thêm mức</button>
+            <button class="btn btn-primary" type="submit">Lưu mức giảm</button>
+          </div>
+        </form>
+      </section>
       <section class="company-settings-panel mb-4">
-        <div class="company-settings-panel-heading"><span class="settings-section-icon" aria-hidden="true">▦</span><div><h2>Phiên bản lịch tuần</h2><p>Lịch cũ tự áp dụng đến trước ngày hiệu lực kế tiếp.</p></div></div>
+        <div class="company-settings-panel-heading"><span class="settings-section-icon" aria-hidden="true">▦</span><div><h2>Phiên bản lịch tuần</h2><p>Lưu riêng từng ngày; các ngày còn lại giữ nguyên. Lịch cũ tự áp dụng đến trước ngày hiệu lực kế tiếp.</p></div></div>
         <div class="p-3 d-flex flex-wrap gap-2 align-items-center">
           <a th:each="version : ${scheduleVersions}" class="btn btn-sm btn-outline-primary" th:href="@{/admin/settings(effectiveFrom=${version})}" th:text="${'Tuần từ ' + #temporals.format(version, 'dd/MM/yyyy')}" th:attr="data-scheduled-week=${version}">Tuần từ 09/11/2026</a>
         </div>
@@ -38,7 +68,7 @@
         <span class="btn btn-outline-secondary disabled" th:unless="${canNavigateNext}" aria-disabled="true">Tuần sau →</span>
       </nav>
       <form th:if="${selectedVersionFuture}" method="post" th:action="@{/admin/settings/schedule/cancel(effectiveFrom=${scheduleForm.effectiveFrom})}" class="mb-3" data-confirm="Hủy phiên bản lịch này? Staff cần đăng ký lại các khoảng phù hợp nếu lịch mới không còn áp dụng."><button class="btn btn-outline-danger" type="submit">Hủy phiên bản tương lai</button></form>
-      <form method="post" th:action="@{/admin/settings/schedule}" th:object="${scheduleForm}" class="company-settings-form" data-schedule-form>
+      <form method="post" th:action="@{/admin/settings/schedule/day}" th:object="${scheduleForm}" class="company-settings-form" data-schedule-form>
         <input type="hidden" name="editingExisting" th:value="${selectedVersionExists}">
         <section class="company-settings-panel mb-4 p-3">
           <strong th:text="${'Tuần ' + #temporals.format(scheduleForm.effectiveFrom, 'dd/MM/yyyy') + ' – ' + #temporals.format(weekEnd, 'dd/MM/yyyy')}">Tuần làm việc</strong>
@@ -50,6 +80,10 @@
         <fieldset th:disabled="${scheduleReadOnly}">
         <section class="company-settings-panel">
           <div class="company-settings-panel-heading company-hours-heading"><span class="settings-section-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg></span><div><h2>Giờ hoạt động</h2><p>Khung giờ dịch vụ tại nhà khách; mốc bắt đầu là lúc nhân viên có mặt và sẵn sàng phục vụ. Với booking đầu ngày, hệ thống tính giờ xuất phát lùi theo ETA VietMap và 15 phút dự phòng.</p></div></div>
+          <div id="schedule-save-feedback" class="company-schedule-save-feedback mt-3 mb-2" tabindex="-1" th:if="${scheduleSuccess != null or scheduleError != null}">
+            <div class="alert alert-success mb-0" role="status" th:if="${scheduleSuccess != null}" th:text="${scheduleSuccess}"></div>
+            <div class="alert alert-danger mb-0" role="alert" th:if="${scheduleError != null}" th:text="${scheduleError}"></div>
+          </div>
           <div class="company-days p-3 p-md-4">
             <div th:each="day, dayStat : ${dayNames}" class="company-day-row" data-day-group th:attr="data-locked=${scheduleReadOnly or (selectedCurrentWeek and dayStat.index + 1 < currentDayOfWeek)}">
               <div class="company-day-name"><span class="company-day-calendar" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg></span><strong><span th:text="${day}">Thứ Hai</span><small class="d-block text-secondary" th:text="${#temporals.format(weekDates[dayStat.index], 'dd/MM/yyyy')}">09/11/2026</small></strong></div>
@@ -69,19 +103,35 @@
                   <button class="btn btn-outline-primary company-add-slot" type="button" data-add>＋ <span>Thêm khung giờ</span></button>
                 </div>
               </div>
+              <button class="btn btn-primary company-save-button mt-2" type="submit" name="dayOfWeek" th:value="${dayStat.index + 1}" th:disabled="${scheduleReadOnly or (selectedCurrentWeek and dayStat.index + 1 < currentDayOfWeek)}">▣ <span>Lưu ngày này</span></button>
             </div>
           </div>
         </section>
         <template id="period-template"><div class="company-time-row" data-period><input type="hidden" data-day><input type="hidden" value="false" data-closed-hidden><input type="hidden" data-opening-value><input type="hidden" data-closing-value><div class="time-picker" data-quarter-time data-time-side="opening"><input type="text" class="form-control time-trigger" data-time-trigger aria-label="Giờ mở cửa" placeholder="Chọn giờ" readonly><input type="hidden" data-time-value data-opening-value-proxy></div><span class="company-time-separator">đến</span><div class="time-picker" data-quarter-time data-time-side="closing"><input type="text" class="form-control time-trigger" data-time-trigger aria-label="Giờ đóng cửa" placeholder="Chọn giờ" readonly><input type="hidden" data-time-value data-closing-value-proxy></div><button class="btn btn-outline-danger company-remove-slot" type="button" data-remove aria-label="Gỡ khung giờ">×</button></div></template>
         <template id="closed-template"><div data-period><input type="hidden" data-day><input type="hidden" value="true" data-closed-hidden></div></template>
-        <div id="schedule-save-feedback" class="company-schedule-save-feedback mt-3 mb-2" tabindex="-1" th:if="${scheduleSuccess != null or scheduleError != null}">
-          <div class="alert alert-success mb-0" role="status" th:if="${scheduleSuccess != null}" th:text="${scheduleSuccess}"></div>
-          <div class="alert alert-danger mb-0" role="alert" th:if="${scheduleError != null}" th:text="${scheduleError}"></div>
-        </div>
-        <button class="btn btn-primary company-save-button" type="submit" th:disabled="${scheduleReadOnly}">▣ <span>Lưu phiên bản lịch</span></button>
         </fieldset>
       </form>
     </main>
+    <script>
+      (() => {
+        const rows = document.querySelector('#delay-tier-rows');
+        const template = document.querySelector('#delay-tier-template');
+        const reindex = () => rows.querySelectorAll('[data-delay-tier]').forEach((row, index) => {
+          row.querySelector('[data-delay-min], input[aria-label="Từ phút trễ"]').name = `tiers[${index}].minDelayMinutes`;
+          row.querySelector('[data-delay-max], input[aria-label="Đến phút trễ"]').name = `tiers[${index}].maxDelayMinutes`;
+          row.querySelector('[data-delay-percent], input[aria-label="Phần trăm giảm"]').name = `tiers[${index}].discountPercent`;
+        });
+        const bindRemove = row => row.querySelector('[data-remove-delay-tier]').addEventListener('click', () => { row.remove(); reindex(); });
+        rows.querySelectorAll('[data-delay-tier]').forEach(bindRemove);
+        document.querySelector('#add-delay-tier').addEventListener('click', () => {
+          const row = template.content.firstElementChild.cloneNode(true);
+          rows.append(row);
+          bindRemove(row);
+          reindex();
+        });
+        reindex();
+      })();
+    </script>
     <script>
       (() => {
         const feedback = document.querySelector('#schedule-save-feedback');

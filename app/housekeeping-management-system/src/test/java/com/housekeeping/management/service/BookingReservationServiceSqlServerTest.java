@@ -13,6 +13,7 @@ import com.housekeeping.management.entity.Services;
 import com.housekeeping.management.entity.House;
 import com.housekeeping.management.entity.Staff;
 import com.housekeeping.management.entity.User;
+import com.housekeeping.management.integration.vietmap.VietmapClient;
 import com.housekeeping.management.repository.BookingPersistenceRepository;
 import com.housekeeping.management.repository.BookingAvailabilityRepository;
 import com.housekeeping.management.repository.HouseRepository;
@@ -55,6 +56,7 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
     @Autowired private FeedbackService feedbackService;
     @Autowired private StaffManagementService staffManagement;
     @Autowired private BookingPersistenceRepository bookingPersistence;
+    @Autowired private CompanySettingsService companySettings;
     @Autowired private BookingAvailabilityRepository bookingAvailability;
     @Autowired private JdbcTemplate jdbc;
 
@@ -84,6 +86,53 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
                         statement.setInt(2, day);
                     });
         }
+    }
+
+    @Test
+    void simplifiedFeedbackMigrationKeepsTwentyThreeBusinessTablesAndDropsWorkflows() {
+        Integer tables=jdbc.queryForObject("""
+                SELECT COUNT(*) FROM sys.tables t JOIN sys.schemas s ON s.schema_id=t.schema_id
+                WHERE s.name='dbo' AND t.name<>'flyway_primary_schema_history'
+                """,Integer.class);
+        assertThat(tables).isEqualTo(23);
+        Integer v10Columns=jdbc.queryForObject("""
+                SELECT COUNT(*) FROM sys.columns WHERE object_id=OBJECT_ID('dbo.Payments') AND name='is_simulated'
+                """,Integer.class);
+        assertThat(v10Columns).isEqualTo(1);
+        Integer constraints=jdbc.queryForObject("""
+                SELECT COUNT(*) FROM sys.check_constraints
+                WHERE name IN ('CK_Feedback_Cases_Types','CK_Booking_Financial_Entries_Approval',
+                               'CK_Booking_Financial_Entries_Paid','CK_Staff_Incident_Actions_Separation')
+                """,Integer.class);
+        assertThat(constraints).isEqualTo(4);
+        Integer conversationTable=jdbc.queryForObject("SELECT COUNT(*) FROM sys.tables WHERE object_id=OBJECT_ID('dbo.Feedback_Case_Messages')",Integer.class);
+        assertThat(conversationTable).isEqualTo(1);
+        Integer messageChecks=jdbc.queryForObject("SELECT COUNT(*) FROM sys.check_constraints WHERE name IN ('CK_Feedback_Case_Messages_Role','CK_Feedback_Case_Messages_Text')",Integer.class);
+        assertThat(messageChecks).isEqualTo(2);
+        Integer payoutResponses=jdbc.queryForObject("SELECT COUNT(*) FROM sys.tables WHERE object_id=OBJECT_ID('dbo.Financial_Payout_Responses')",Integer.class);
+        assertThat(payoutResponses).isEqualTo(1);
+        Integer payoutChecks=jdbc.queryForObject("SELECT COUNT(*) FROM sys.check_constraints WHERE name IN ('CK_Financial_Payout_Responses_Status','CK_Financial_Payout_Responses_Method','CK_Financial_Payout_Responses_Choice')",Integer.class);
+        assertThat(payoutChecks).isEqualTo(3);
+        Integer removedWorkflowTables=jdbc.queryForObject("""
+                SELECT COUNT(*) FROM sys.tables WHERE name IN ('Feedback_Resolution_Plans','Feedback_Resolution_Options',
+                    'Feedback_Resolution_Actions','Feedback_Work_Orders')
+                """,Integer.class);
+        assertThat(removedWorkflowTables).isZero();
+        Integer newCaseFields=jdbc.queryForObject("""
+                SELECT COUNT(*) FROM sys.columns WHERE object_id=OBJECT_ID('dbo.Feedback_Cases')
+                    AND name IN ('customer_requested_resolution','case_status')
+                """,Integer.class);
+        assertThat(newCaseFields).isEqualTo(2);
+        Integer newPayoutFields=jdbc.queryForObject("""
+                SELECT COUNT(*) FROM sys.columns WHERE object_id=OBJECT_ID('dbo.Financial_Payout_Responses')
+                    AND name IN ('amount_agreed_at','payout_method_selected_at','customer_confirmed_at')
+                """,Integer.class);
+        assertThat(newPayoutFields).isEqualTo(3);
+        Integer cases=jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Feedback_Cases",Integer.class);
+        Integer initialMessages=jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Feedback_Case_Messages WHERE sender_role='CUSTOMER' AND legacy_imported=1",Integer.class);
+        assertThat(initialMessages).isEqualTo(cases);
+        Integer unlinkedEvidence=jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Feedback_Case_Evidence WHERE message_id IS NULL",Integer.class);
+        assertThat(unlinkedEvidence).isZero();
     }
 
     @Test
@@ -157,12 +206,12 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
                 statement.setTime(4,java.sql.Time.valueOf(version.equals(first)?"13:00:00":"16:00:00"));
                 statement.setTime(5,java.sql.Time.valueOf(version.equals(first)?"17:00:00":"20:00:00"));
             });
-            assertThat(bookingPersistence.companyAcceptsInterval(first.minusDays(1),LocalTime.of(9,0),LocalTime.of(10,0))).isTrue();
-            assertThat(bookingPersistence.companyAcceptsInterval(first,LocalTime.of(14,0),LocalTime.of(15,0))).isTrue();
-            assertThat(bookingPersistence.companyAcceptsInterval(first,LocalTime.of(9,0),LocalTime.of(10,0))).isFalse();
-            assertThat(bookingPersistence.companyAcceptsInterval(second.minusDays(1),LocalTime.of(14,0),LocalTime.of(15,0))).isTrue();
-            assertThat(bookingPersistence.companyAcceptsInterval(second,LocalTime.of(17,0),LocalTime.of(18,0))).isTrue();
-            assertThat(bookingPersistence.companyAcceptsInterval(second,LocalTime.of(14,0),LocalTime.of(15,0))).isFalse();
+            assertThat(companySettings.acceptsInterval(first.minusDays(1),LocalTime.of(9,0),LocalTime.of(10,0))).isTrue();
+            assertThat(companySettings.acceptsInterval(first,LocalTime.of(14,0),LocalTime.of(15,0))).isTrue();
+            assertThat(companySettings.acceptsInterval(first,LocalTime.of(9,0),LocalTime.of(10,0))).isFalse();
+            assertThat(companySettings.acceptsInterval(second.minusDays(1),LocalTime.of(14,0),LocalTime.of(15,0))).isTrue();
+            assertThat(companySettings.acceptsInterval(second,LocalTime.of(17,0),LocalTime.of(18,0))).isTrue();
+            assertThat(companySettings.acceptsInterval(second,LocalTime.of(14,0),LocalTime.of(15,0))).isFalse();
         } finally {
             jdbc.update("DELETE FROM dbo.Company_Operating_Hours WHERE company_id=? AND effective_from IN (?,?)",companyId,first,second);
         }
@@ -246,8 +295,8 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
 
         assertThat(bookingPersistence.findBooking(bookingId).orElseThrow().endTime())
                 .isEqualTo(workDate.atTime(10, 30));
-        assertThat(bookingPersistence.hasPartTimeAvailability(savedStaff.getStaffId(), workDate,
-                LocalTime.of(9, 0))).isFalse();
+        assertThat(availability.existsByStaffIdAndWorkDateAndActiveTrueAndStartTimeLessThanEqualAndEndTimeGreaterThan(
+                savedStaff.getStaffId(), workDate, LocalTime.of(9, 0), LocalTime.of(9, 0))).isFalse();
     }
 
     @Test
@@ -338,7 +387,7 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
             throw new IllegalStateException("Concurrent feedback test did not start");
         }
         try {
-            feedbackService.submit(bookingId, customerId, content);
+            feedbackService.submit(bookingId, customerId, 4, List.of(), content);
             return true;
         } catch (IllegalStateException alreadySubmitted) {
             return false;

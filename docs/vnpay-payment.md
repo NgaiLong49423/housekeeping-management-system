@@ -1,8 +1,8 @@
 > **Document:** VNPay Sandbox Payment Guide\
 > **File:** `docs/vnpay-payment.md`\
-> **Version:** v1.0.0\
+> **Version:** v1.0.1\
 > **Created:** 2026-11-08\
-> **Last Updated:** 2026-11-08\
+> **Last Updated:** 2026-11-10\
 > **Status:** Draft\
 
 # Thanh toán VNPay sandbox và xác nhận tiền mặt
@@ -63,7 +63,7 @@ Không thể mở lại link cũ: VNPay từ chối một đơn đã bắt đầ
 
 ### IPN (khi có link công khai)
 
-`GET /payments/vnpay/ipn` nhận thông báo server-to-server của VNPay và trả JSON `{"RspCode","Message"}` theo quy ước VNPay (`00` thành công, `01` không tìm thấy đơn, `02` đã xác nhận, `04` sai số tiền, `97` sai chữ ký, `99` lỗi khác). Chỉ dùng khi ứng dụng chạy ở địa chỉ HTTPS công khai và đã khai báo IPN URL với VNPay; mỗi tài khoản chỉ có một IPN URL nên không dùng cho nhiều máy cá nhân. IPN và trang return dùng chung xử lý idempotent trong `PaymentService`.
+`GET /payments/vnpay/ipn` nhận thông báo server-to-server của VNPay và trả JSON `{"RspCode","Message"}` theo quy ước VNPay (`00` thành công, `01` không tìm thấy đơn, `02` đã xác nhận, `04` sai số tiền, `97` sai chữ ký, `99` lỗi khác). Chỉ dùng khi ứng dụng chạy ở địa chỉ HTTPS công khai và đã khai báo IPN URL với VNPay; mỗi tài khoản chỉ có một IPN URL nên không dùng cho nhiều máy cá nhân. Controller gọi contract chung `OnlinePaymentService`; implementation VNPay là `VnpayPaymentServiceImpl`. IPN và trang return dùng chung xử lý idempotent trong contract này.
 
 ## Xử lý sự cố
 

@@ -28,8 +28,14 @@ public class Feedback {
     @Column(name = "customer_id", nullable = false)
     private Long customerId;
 
-    @Nationalized @Column(name = "content", nullable = false, columnDefinition = "nvarchar(max)")
+    @Nationalized @Column(name = "content", columnDefinition = "nvarchar(max)")
     private String content;
+
+    @Column(name = "rating", columnDefinition = "tinyint")
+    private Integer rating;
+
+    @Nationalized @Column(name = "topics", nullable = false, length = 300, columnDefinition = "nvarchar(300)")
+    private String topics = "";
 
     @Nationalized @Column(name = "admin_reply", columnDefinition = "nvarchar(max)")
     private String adminReply;

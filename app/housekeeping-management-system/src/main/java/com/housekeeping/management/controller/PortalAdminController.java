@@ -1,12 +1,10 @@
 package com.housekeeping.management.controller;
 
 import static com.housekeeping.management.dto.request.PortalForms.*;
-import com.housekeeping.management.dto.response.PortalViews;
-import com.housekeeping.management.service.FeedbackService;
+import com.housekeeping.management.service.FeedbackCaseService;
+import com.housekeeping.management.service.BookingFinancialService;
+import com.housekeeping.management.service.CaseAttachmentStorageService;
 import com.housekeeping.management.service.PortalQueryService;
-import com.housekeeping.management.service.AdminBookingManagementService;
-import com.housekeeping.management.service.ServiceManagementService;
-import com.housekeeping.management.service.StaffManagementService;
 import com.housekeeping.management.web.PortalUser;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -20,125 +18,145 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 @RequestMapping("/admin")
 public class PortalAdminController {
     private final PortalQueryService query;
-    private final ServiceManagementService serviceManagement;
-    private final StaffManagementService staffManagement;
-    private final FeedbackService feedbackService;
-    private final AdminBookingManagementService bookingManagement;
-    public PortalAdminController(PortalQueryService query, ServiceManagementService serviceManagement,
-            StaffManagementService staffManagement, FeedbackService feedbackService,
-            AdminBookingManagementService bookingManagement) {
-        this.query = query; this.serviceManagement = serviceManagement; this.staffManagement = staffManagement;
-        this.feedbackService = feedbackService; this.bookingManagement = bookingManagement;
+    private final FeedbackCaseService feedbackCases;
+    private final BookingFinancialService financials;
+    private final CaseAttachmentStorageService attachments;
+    public PortalAdminController(PortalQueryService query, FeedbackCaseService feedbackCases,
+            BookingFinancialService financials, CaseAttachmentStorageService attachments) {
+        this.query = query;
+        this.feedbackCases = feedbackCases;
+        this.financials = financials;
+        this.attachments = attachments;
     }
-
-    @GetMapping("/services")
-    String services(Model model, @AuthenticationPrincipal PortalUser user) { model.addAttribute("services", query.services(user)); return "admin/services"; }
-
-    @GetMapping("/staff")
-    String staff(@AuthenticationPrincipal PortalUser user, Model model) { model.addAttribute("staff", query.staff(user)); return "admin/staff"; }
 
     @GetMapping("/schedules")
     String schedules(@AuthenticationPrincipal PortalUser user, Model model) {
         model.addAttribute("schedules", query.schedules(user)); return "admin/schedules";
     }
 
-    @GetMapping("/feedback")
-    String feedback(Model model) { model.addAttribute("feedback", query.feedback()); return "admin/feedback"; }
-
-    @PostMapping("/bookings/{id}/cancel")
-    String cancelBooking(@PathVariable Long id, @AuthenticationPrincipal PortalUser user,
-            @Valid @ModelAttribute AdminBookingCancellationForm form, BindingResult errors, RedirectAttributes flash) {
-        if (errors.hasErrors()) flash.addFlashAttribute("error", "Lý do hủy không được để trống và tối đa 500 ký tự.");
-        else try {
-            bookingManagement.cancelConfirmedBooking(id, user.getUserId(), form.reason());
-            flash.addFlashAttribute("success", "Admin đã hủy lịch CONFIRMED; lịch sử và snapshot được giữ nguyên.");
-        } catch (IllegalArgumentException | IllegalStateException failure) {
-            flash.addFlashAttribute("error", failure.getMessage());
-        }
-        return "redirect:/admin/bookings/" + id;
+    @GetMapping("/finance")
+    String finance(Model model, @AuthenticationPrincipal PortalUser user) {
+        model.addAttribute("summary", financials.summary(user.getUserId()));
+        var entries=financials.all(user.getUserId());
+        model.addAttribute("pendingApprovalCount",entries.stream().filter(entry -> "PENDING_APPROVAL".equals(entry.status())).count());
+        model.addAttribute("awaitingSettlementCount",entries.stream().filter(entry -> "APPROVED".equals(entry.status())).count());
+        return "admin/finance";
     }
 
-    @PostMapping("/bookings/{id}/reassign")
-    String reassignBooking(@PathVariable Long id, @AuthenticationPrincipal PortalUser user,
-            @Valid @ModelAttribute BookingReassignmentForm form, BindingResult errors, RedirectAttributes flash) {
-        if (errors.hasErrors()) flash.addFlashAttribute("error", "Hãy chọn nhân viên hợp lệ.");
-        else try {
-            bookingManagement.reassignConfirmedBooking(id, user.getUserId(), form.staffId());
-            flash.addFlashAttribute("success", "Đã cập nhật nhân viên phụ trách; nhân viên ban đầu được giữ nguyên trong lịch sử.");
-        } catch (IllegalArgumentException | IllegalStateException failure) {
-            flash.addFlashAttribute("error", failure.getMessage());
-        }
-        return "redirect:/admin/bookings/" + id;
+    @GetMapping("/finance/ledger")
+    String financeLedger(Model model, @AuthenticationPrincipal PortalUser user) {
+        model.addAttribute("ledger", financials.ledger(user.getUserId()));
+        return "admin/finance-ledger";
     }
 
-    @PostMapping("/feedback/{id}/reply")
-    String reply(@PathVariable Long id, @AuthenticationPrincipal PortalUser user,
-            @Valid @ModelAttribute FeedbackReplyForm form,
-            BindingResult errors, RedirectAttributes flash) {
-        if (!invalid(errors, flash)) {
-            feedbackService.reply(id, user.getUserId(), form.reply());
-            flash.addFlashAttribute("success", "Đã lưu phản hồi cho khách hàng.");
-        }
-        return "redirect:/admin/feedback";
+    @GetMapping("/finance/entries")
+    String financeEntries(Model model, @AuthenticationPrincipal PortalUser user) {
+        model.addAttribute("entries", financials.all(user.getUserId()));
+        return "admin/finance-entries";
     }
 
-    @PostMapping("/feedback/{id}/resolve")
-    String resolve(@PathVariable Long id, @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
-        feedbackService.resolve(id, user.getUserId());
-        flash.addFlashAttribute("success", "Đã đánh dấu phản hồi là đã giải quyết.");
-        return "redirect:/admin/feedback";
+    @GetMapping("/finance/entries/{id}")
+    String financeEntryDetail(@PathVariable Long id, Model model, @AuthenticationPrincipal PortalUser user) {
+        var entry=financials.entry(id,user.getUserId()).orElseThrow(() ->
+                new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND));
+        model.addAttribute("financialEntry",entry);
+        if (entry.caseId() != null)
+            model.addAttribute("incident",feedbackCases.adminCaseById(entry.caseId(),user.getUserId()));
+        if ("COMPENSATION".equals(entry.type()))
+            model.addAttribute("payoutDetails",financials.adminPayoutDetails(id,user.getUserId()).orElse(null));
+        return "admin/finance-entry-detail";
     }
 
-    @PostMapping("/services")
-    String createService(@AuthenticationPrincipal PortalUser user, @Valid @ModelAttribute ServiceForm form,
-            BindingResult errors, RedirectAttributes flash) {
-        if (!invalid(errors, flash)) { serviceManagement.save(user.getUserId(), null, form); flash.addFlashAttribute("success", "Đã thêm dịch vụ."); }
-        return "redirect:/admin/services";
+    @GetMapping("/finance/new")
+    String newFinancialEntry(@RequestParam(required=false) Long bookingId, @RequestParam(required=false) Long caseId,
+            Model model, @AuthenticationPrincipal PortalUser user) {
+        model.addAttribute("bookingOptions",query.bookings(user));
+        var caseOptions=query.feedback().stream().map(feedback -> feedbackCases.adminCase(feedback.id(),user.getUserId()))
+                .filter(java.util.Objects::nonNull).toList();
+        model.addAttribute("caseOptions",caseOptions);
+        model.addAttribute("selectedBookingId",bookingId);
+        model.addAttribute("selectedCaseId",caseId);
+        model.addAttribute("selectedIncident",caseOptions.stream()
+                .filter(incident -> caseId != null && caseId.equals(incident.id())).findFirst().orElse(null));
+        return "admin/finance-new";
     }
 
-    @PostMapping("/services/{id}")
-    String updateService(@PathVariable Long id, @AuthenticationPrincipal PortalUser user,
-            @Valid @ModelAttribute ServiceForm form, BindingResult errors, RedirectAttributes flash) {
-        if (!invalid(errors, flash)) { serviceManagement.save(user.getUserId(), id, form); flash.addFlashAttribute("success", "Đã cập nhật dịch vụ."); }
-        return "redirect:/admin/services";
+    @PostMapping("/financial-entries")
+    String proposeFinancialEntry(@RequestParam Long bookingId, @RequestParam(required=false) Long caseId,
+            @Valid @ModelAttribute FinancialEntryForm form, BindingResult errors,
+            @AuthenticationPrincipal PortalUser user, RedirectAttributes flash,
+            @RequestParam(required=false) Long returnCaseId) {
+        try {
+            if (errors.hasErrors()) throw new IllegalArgumentException("Dữ liệu khoản tiền không hợp lệ.");
+            if ("COMPENSATION".equals(form.entryType()))
+                throw new IllegalArgumentException("Chỉ lập bồi thường từ chi tiết hồ sơ sự cố.");
+            financials.propose(bookingId,caseId,user.getUserId(),form);
+            flash.addFlashAttribute("success","Đã lập khoản thu/chi và gửi chờ quản lý duyệt.");
+        } catch (IllegalArgumentException | IllegalStateException failure) { flash.addFlashAttribute("error",failure.getMessage()); }
+        Long detailCaseId=returnCaseId==null?caseId:returnCaseId;
+        return detailCaseId==null?"redirect:/admin/finance/entries":"redirect:/admin/feedback/cases/"+detailCaseId;
     }
 
-    @PostMapping("/services/{id}/delete")
-    String deleteService(@PathVariable Long id, @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
-        serviceManagement.deactivate(user.getUserId(), id); flash.addFlashAttribute("success", "Đã ngừng cung cấp dịch vụ; lịch sử đặt dịch vụ được giữ nguyên."); return "redirect:/admin/services";
+    @PostMapping("/financial-entries/{id}/approve")
+    String approveFinancialEntry(@PathVariable Long id, @RequestParam(required=false) Long returnCaseId,
+            @RequestParam(required=false) Long returnEntryId,
+            @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
+        markFinancialNotice(flash,returnCaseId,id);
+        try { financials.approve(id,user.getUserId()); flash.addFlashAttribute("success","Đã duyệt khoản tiền."); }
+        catch (IllegalArgumentException | IllegalStateException failure) { flash.addFlashAttribute("error",failure.getMessage()); }
+        return financialRedirect(returnCaseId,returnEntryId==null?id:returnEntryId);
     }
 
-    @PostMapping("/services/{id}/activate")
-    String activateService(@PathVariable Long id, @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
-        serviceManagement.activate(user.getUserId(), id); flash.addFlashAttribute("success", "Đã kích hoạt lại dịch vụ."); return "redirect:/admin/services";
+    @PostMapping("/financial-entries/{id}/reject")
+    String rejectFinancialEntry(@PathVariable Long id, @RequestParam String reason, @RequestParam(required=false) Long returnCaseId,
+            @RequestParam(required=false) Long returnEntryId,
+            @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
+        markFinancialNotice(flash,returnCaseId,id);
+        try { financials.reject(id,user.getUserId(),reason); flash.addFlashAttribute("success","Đã từ chối khoản tiền với lý do được lưu."); }
+        catch (IllegalArgumentException | IllegalStateException failure) { flash.addFlashAttribute("error",failure.getMessage()); }
+        return financialRedirect(returnCaseId,returnEntryId==null?id:returnEntryId);
     }
 
-    @PostMapping("/staff")
-    String createStaff(@AuthenticationPrincipal PortalUser user, @Valid @ModelAttribute StaffCreateForm form,
-            BindingResult errors, RedirectAttributes flash) {
-        if (!invalid(errors, flash)) { staffManagement.create(user.getUserId(), form); flash.addFlashAttribute("success", "Đã tạo nhân viên và tài khoản đăng nhập."); }
-        return "redirect:/admin/staff";
+    @PostMapping("/financial-entries/{id}/cancel")
+    String cancelFinancialEntry(@PathVariable Long id, @RequestParam String reason,
+            @RequestParam(required=false) Long returnCaseId,
+            @RequestParam(required=false) Long returnEntryId,
+            @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
+        markFinancialNotice(flash,returnCaseId,id);
+        try { financials.cancel(id,user.getUserId(),reason); flash.addFlashAttribute("success","Đã hủy khoản chờ xử lý."); }
+        catch (IllegalArgumentException | IllegalStateException failure) { flash.addFlashAttribute("error",failure.getMessage()); }
+        return financialRedirect(returnCaseId,returnEntryId==null?id:returnEntryId);
     }
 
-    @PostMapping("/staff/{id}")
-    String updateStaff(@PathVariable Long id, @AuthenticationPrincipal PortalUser user,
-            @Valid @ModelAttribute StaffUpdateForm form, BindingResult errors, RedirectAttributes flash) {
-        if (!invalid(errors, flash)) { staffManagement.update(user.getUserId(), id, form); flash.addFlashAttribute("success", "Đã cập nhật nhân viên."); }
-        return "redirect:/admin/staff";
+    @PostMapping("/financial-entries/{id}/settle")
+    String settleFinancialEntry(@PathVariable Long id, @RequestParam String method,
+            @RequestParam String reference, @RequestParam(defaultValue="false") boolean simulated,
+            @AuthenticationPrincipal PortalUser user, RedirectAttributes flash,
+            @RequestParam(required=false) Long returnCaseId, @RequestParam(required=false) Long returnEntryId) {
+        markFinancialNotice(flash,returnCaseId,id);
+        try { financials.settle(id,user.getUserId(),method,reference,simulated); flash.addFlashAttribute("success","Đã ghi nhận khoản tiền đã chi/hoàn."); }
+        catch (IllegalArgumentException | IllegalStateException failure) { flash.addFlashAttribute("error",failure.getMessage()); }
+        return financialRedirect(returnCaseId,returnEntryId==null?id:returnEntryId);
     }
 
-    @PostMapping("/staff/{id}/delete")
-    String deleteStaff(@PathVariable Long id, @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
-        staffManagement.deactivate(user.getUserId(), id); flash.addFlashAttribute("success", "Đã ngừng hoạt động tài khoản; dữ liệu lịch sử được giữ nguyên."); return "redirect:/admin/staff";
+    @PostMapping("/financial-entries/{id}/receipt")
+    String uploadReceipt(@PathVariable Long id, @RequestParam org.springframework.web.multipart.MultipartFile file,
+            @AuthenticationPrincipal PortalUser user, RedirectAttributes flash,
+            @RequestParam(required=false) Long returnCaseId, @RequestParam(required=false) Long returnEntryId) {
+        markFinancialNotice(flash,returnCaseId,id);
+        try { attachments.uploadReceipt(id,user.getUserId(),file); flash.addFlashAttribute("success","Đã lưu hóa đơn/biên nhận cho khoản tiền."); }
+        catch (IllegalArgumentException | IllegalStateException failure) { flash.addFlashAttribute("error",failure.getMessage()); }
+        return financialRedirect(returnCaseId,returnEntryId==null?id:returnEntryId);
     }
 
-    @PostMapping("/staff/{id}/activate")
-    String activateStaff(@PathVariable Long id, @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
-        staffManagement.activate(user.getUserId(), id); flash.addFlashAttribute("success", "Đã kích hoạt lại tài khoản nhân viên."); return "redirect:/admin/staff";
+    private void markFinancialNotice(RedirectAttributes flash, Long caseId, Long entryId) {
+        if (caseId != null) flash.addFlashAttribute("financialNoticeEntryId",entryId);
     }
 
-    private boolean invalid(BindingResult errors, RedirectAttributes flash) {
-        if (!errors.hasErrors()) { return false; }
-        flash.addFlashAttribute("error", "Dữ liệu chưa hợp lệ. Kiểm tra các trường bắt buộc, độ dài, thời lượng và giá tiền."); return true;
+    private String financialRedirect(Long caseId, Long entryId) {
+        if (caseId != null) return "redirect:/admin/feedback/cases/" + caseId + "#compensation-entry-" + entryId;
+        if (entryId != null) return "redirect:/admin/finance/entries/" + entryId;
+        return "redirect:/admin/finance/entries";
     }
+
 }

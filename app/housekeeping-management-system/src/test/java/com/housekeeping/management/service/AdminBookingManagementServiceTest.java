@@ -13,7 +13,6 @@ import com.housekeeping.management.entity.Staff;
 import com.housekeeping.management.entity.User;
 import com.housekeeping.management.entity.House;
 import com.housekeeping.management.repository.BookingPersistenceRepository;
-import com.housekeeping.management.repository.StaffAccountRepository;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,11 +20,14 @@ import org.junit.jupiter.api.Test;
 
 class AdminBookingManagementServiceTest {
     private final BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
-    private final StaffAccountRepository staffAccounts = mock(StaffAccountRepository.class);
+    private final StaffManagementService staffManagement = mock(StaffManagementService.class);
     private final AccountAuthorizationService authorization = mock(AccountAuthorizationService.class);
     private final BookingReservationService reservations = mock(BookingReservationService.class);
     private final HouseService houses = mock(HouseService.class);
-    private final AdminBookingManagementService service = new AdminBookingManagementService(bookings, staffAccounts, authorization, reservations, houses);
+    private final CompanySettingsService companySettings = mock(CompanySettingsService.class);
+    private final BookingDelayCompensationSettingsService compensationSettings = mock(BookingDelayCompensationSettingsService.class);
+    private final AdminBookingManagementService service = new com.housekeeping.management.service.impl.AdminBookingManagementServiceImpl(
+            bookings, staffManagement, authorization, reservations, houses, companySettings, compensationSettings);
 
     @BeforeEach
     void setup() {
@@ -49,7 +51,7 @@ class AdminBookingManagementServiceTest {
     @Test
     void adminCannotCancelAwaitingPaymentOrCompletedBooking() {
         when(bookings.lockBooking(51L)).thenReturn(Optional.of(new BookingPersistenceRepository.BookingState(
-                51L, 4L, 12L, 22L, LocalDateTime.now(), LocalDateTime.now().plusHours(2), "AWAITING_PAYMENT")));
+                51L, 4L, 12L, 22L, LocalDateTime.now(), LocalDateTime.now().plusHours(2), "AWAITING_PAYMENT", null, null)));
 
         assertThatThrownBy(() -> service.cancelConfirmedBooking(51L, 99L, "reason"))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("CONFIRMED");
@@ -58,11 +60,38 @@ class AdminBookingManagementServiceTest {
     }
 
     @Test
+    void adminVerificationStoresActualArrivalAndCalculatedCompensation() {
+        LocalDateTime now = LocalDateTime.now(java.time.ZoneOffset.ofHours(7)).withNano(0);
+        LocalDateTime start = now.minusMinutes(40);
+        LocalDateTime actualArrival = start.plusMinutes(20);
+        var workflow = new BookingPersistenceRepository.BookingWorkflowState(51L, 4L, 12L, start,
+                start.plusHours(1), "CONFIRMED", new java.math.BigDecimal("150000"), start.plusMinutes(25),
+                null, null, null, null, null, null, null, java.math.BigDecimal.ZERO, java.math.BigDecimal.ZERO,
+                start.plusMinutes(10), null, null, null, null, null);
+        when(bookings.lockBookingWorkflow(51L)).thenReturn(Optional.of(workflow));
+        when(compensationSettings.get()).thenReturn(java.util.List.of(
+                new com.housekeeping.management.domain.BookingDelayCompensation.Tier(1, 15, 5)));
+        when(bookings.verifyDisputedArrival(org.mockito.ArgumentMatchers.eq(51L), org.mockito.ArgumentMatchers.eq(99L),
+                org.mockito.ArgumentMatchers.eq(actualArrival), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.eq("Đã đối chiếu"), org.mockito.ArgumentMatchers.anyInt(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(1);
+
+        service.verifyDisputedArrival(51L, 99L, actualArrival, "  Đã đối chiếu  ");
+
+        verify(authorization).requireActiveAdmin(99L);
+        verify(bookings).verifyDisputedArrival(org.mockito.ArgumentMatchers.eq(51L), org.mockito.ArgumentMatchers.eq(99L),
+                org.mockito.ArgumentMatchers.eq(actualArrival), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.eq("Đã đối chiếu"), org.mockito.ArgumentMatchers.eq(15),
+                org.mockito.ArgumentMatchers.eq(new java.math.BigDecimal("5")),
+                org.mockito.ArgumentMatchers.eq(new java.math.BigDecimal("7500.00")));
+    }
+
+    @Test
     void reassignmentKeepsOriginalStaffAndRejectsConflictingReplacement() {
-        when(staffAccounts.findActiveByStaffIdForUpdate(13L)).thenReturn(Optional.of(activeStaff(13L, StaffType.FULL_TIME)));
-        when(bookings.companyAcceptsInterval(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
-        when(bookings.isOnApprovedLeave(13L, java.time.LocalDate.of(2026, 11, 1))).thenReturn(false);
-        when(bookings.companyAcceptsInterval(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
+        when(staffManagement.findActiveForBookingUpdate(13L)).thenReturn(activeStaff(13L, StaffType.FULL_TIME));
+        when(companySettings.acceptsInterval(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
+        when(staffManagement.isOnApprovedLeave(13L, java.time.LocalDate.of(2026, 11, 1))).thenReturn(false);
+        when(companySettings.acceptsInterval(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
         when(bookings.hasConflictingBookingExcept(13L, LocalDateTime.of(2026, 11, 1, 10, 0),
                 LocalDateTime.of(2026, 11, 1, 12, 0), 51L, 60)).thenReturn(true);
         when(reservations.hasInsufficientTravelGap(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
@@ -79,9 +108,9 @@ class AdminBookingManagementServiceTest {
 
     @Test
     void replacementMustBeAvailableAndOriginalAssignmentRemainsUntouchedUntilAllChecksPass() {
-        when(staffAccounts.findActiveByStaffIdForUpdate(13L)).thenReturn(Optional.of(activeStaff(13L, StaffType.FULL_TIME)));
-        when(bookings.companyAcceptsInterval(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
-        when(bookings.isOnApprovedLeave(13L, java.time.LocalDate.of(2026, 11, 1))).thenReturn(true);
+        when(staffManagement.findActiveForBookingUpdate(13L)).thenReturn(activeStaff(13L, StaffType.FULL_TIME));
+        when(companySettings.acceptsInterval(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
+        when(staffManagement.isOnApprovedLeave(13L, java.time.LocalDate.of(2026, 11, 1))).thenReturn(true);
 
         assertThatThrownBy(() -> service.reassignConfirmedBooking(51L, 99L, 13L))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("duyệt nghỉ");
@@ -90,10 +119,10 @@ class AdminBookingManagementServiceTest {
 
     @Test
     void eligibleReplacementChangesOnlyCurrentStaffAssignment() {
-        when(staffAccounts.findActiveByStaffIdForUpdate(13L)).thenReturn(Optional.of(activeStaff(13L, StaffType.FULL_TIME)));
-        when(bookings.companyAcceptsStart(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
-        when(bookings.isOnApprovedLeave(13L, java.time.LocalDate.of(2026, 11, 1))).thenReturn(false);
-        when(bookings.companyAcceptsInterval(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
+        when(staffManagement.findActiveForBookingUpdate(13L)).thenReturn(activeStaff(13L, StaffType.FULL_TIME));
+        when(companySettings.acceptsStart(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
+        when(staffManagement.isOnApprovedLeave(13L, java.time.LocalDate.of(2026, 11, 1))).thenReturn(false);
+        when(companySettings.acceptsInterval(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
         when(bookings.hasConflictingBookingExcept(13L, LocalDateTime.of(2026, 11, 1, 10, 0),
                 LocalDateTime.of(2026, 11, 1, 12, 0), 51L, 60)).thenReturn(false);
         when(reservations.assessTravel(org.mockito.ArgumentMatchers.eq(13L),org.mockito.ArgumentMatchers.any(),
