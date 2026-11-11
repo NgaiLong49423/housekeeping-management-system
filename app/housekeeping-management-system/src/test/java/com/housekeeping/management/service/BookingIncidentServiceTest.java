@@ -119,6 +119,8 @@ class BookingIncidentServiceTest {
         return new BookingPersistenceRepository.BookingWorkflowState(42L, 3L, staffId, start, start.plusHours(1), status,
                 new BigDecimal("150000.00"), staffArrivedAt, workStartedAt,
                 reported ? start.minusMinutes(2) : null, reported ? "kẹt xe" : null, expectedArrivalAt,
-                null, null, null, BigDecimal.ZERO, BigDecimal.ZERO);
+                null, null, staffArrivedAt == null ? null : 20,
+                staffArrivedAt == null ? BigDecimal.ZERO : new BigDecimal("10.00"),
+                staffArrivedAt == null ? BigDecimal.ZERO : new BigDecimal("15000.00"));
     }
 }

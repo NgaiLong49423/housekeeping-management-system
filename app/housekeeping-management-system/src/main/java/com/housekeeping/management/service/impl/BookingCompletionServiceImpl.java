@@ -52,7 +52,7 @@ public class BookingCompletionServiceImpl implements BookingCompletionService {
         if (booking.workStartedAt() == null) {
             throw new IllegalStateException("Cần xác nhận bắt đầu công việc trước khi hoàn thành.");
         }
-        if (!bookingImages.hasEvidence(bookingId)) {
+        if (!bookingImages.existsByBookingId(bookingId)) {
             throw new IllegalStateException("Cần tải ít nhất một ảnh minh chứng trước khi xác nhận hoàn thành.");
         }
         if (bookings.changeStatus(bookingId, "CONFIRMED", "AWAITING_PAYMENT") != 1) {

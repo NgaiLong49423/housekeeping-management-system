@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+  <head th:replace="~{fragments/layout :: head('Chi tiết phản hồi')}"><title>Chi tiết phản hồi · Gọn Nhà</title></head>
+  <body>
+    <header th:replace="~{fragments/layout :: header('feedback')}"></header>
+    <main id="main" class="container py-4 py-md-5">
+      <div class="mb-3"><a class="text-link" th:href="@{/admin/feedback}">← Quay lại danh sách phản hồi</a></div>
+      <div class="page-heading">
+        <span class="eyebrow">Hồ sơ Customer · Booking #<span th:text="${feedbackItem.bookingId}">0</span></span>
+        <h1>Chi tiết phản hồi</h1>
+        <p class="lead" th:text="|${feedbackItem.customerName} · ${feedbackItem.bookingStartLabel} · Staff: ${feedbackItem.staffName}|">Thông tin booking</p>
+      </div>
+      <div th:replace="~{fragments/layout :: alerts}"></div>
+      <section class="surface p-4 mb-4">
+        <div class="d-flex flex-wrap justify-content-between gap-2 align-items-start">
+          <div>
+            <div class="small text-secondary" th:text="|Booking ${feedbackItem.bookingStatus} · ${#numbers.formatDecimal(feedbackItem.bookingAmount,0,'POINT',0,'COMMA')} ₫|">Thông tin booking</div>
+            <p class="mt-3 mb-2" th:if="${feedbackItem.rating != null}"><strong>Đánh giá tổng thể:</strong> <span th:text="|${feedbackItem.rating}/5 sao|">5/5 sao</span></p>
+            <p class="small text-secondary mt-3 mb-2" th:if="${feedbackItem.rating == null}">Feedback lịch sử chưa có điểm đánh giá.</p>
+          </div>
+          <a class="btn btn-sm btn-outline-secondary" th:href="@{/admin/bookings/{id}(id=${feedbackItem.bookingId})}">Mở booking</a>
+        </div>
+        <div class="mb-2" th:if="${!#lists.isEmpty(feedbackItem.topics)}"><strong>Chủ đề:</strong>
+          <ul class="mb-0"><li th:each="topic : ${feedbackItem.topics}" th:text="${topic}">Đúng giờ</li></ul></div>
+        <p class="mt-3 mb-2" style="white-space:pre-wrap" th:text="${feedbackItem.content}">Nội dung phản hồi</p>
+        <p class="small text-secondary mb-0" th:if="${feedbackItem.adminReply != null and incident == null}" style="white-space:pre-wrap">
+          <strong>Phản hồi hiện tại:</strong> <span th:text="${feedbackItem.adminReply}"></span>
+        </p>
+        <form th:if="${feedbackItem.status != 'RESOLVED' and incident == null}" method="post" class="vstack gap-2 mt-3" th:action="@{/admin/feedback/{id}/reply(id=${feedbackItem.id})}">
+          <label class="form-label mb-0" for="reply">Trả lời khách hàng</label>
+          <textarea id="reply" class="form-control" rows="4" name="reply" th:text="${feedbackItem.adminReply}" required></textarea>
+          <button class="btn btn-outline-primary align-self-start" type="submit" th:text="${feedbackItem.adminReply == null} ? 'Gửi phản hồi' : 'Cập nhật phản hồi'">Gửi phản hồi</button>
+        </form>
+        <form th:if="${feedbackItem.status == 'RESPONDED' and incident == null}" method="post" class="mt-2" th:action="@{/admin/feedback/{id}/resolve(id=${feedbackItem.id})}">
+          <button class="btn btn-success" type="submit">Đánh dấu đã giải quyết</button>
+        </form>
+      </section>
+      <section class="surface p-4" th:if="${incident != null}">
+        <h2 class="h5 mb-3">Hồ sơ sự cố</h2>
+        <div th:replace="~{admin/feedback-case :: incidentWrapper(${incident})}"></div>
+      </section>
+    </main>
+    <footer th:replace="~{fragments/layout :: footer}"></footer>
+  </body>
+</html>

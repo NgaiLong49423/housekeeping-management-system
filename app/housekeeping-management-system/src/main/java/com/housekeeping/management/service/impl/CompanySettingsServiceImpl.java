@@ -1,6 +1,6 @@
 package com.housekeeping.management.service.impl;
 
-import com.housekeeping.management.service.VietmapClient;
+import com.housekeeping.management.integration.vietmap.VietmapClient;
 import com.housekeeping.management.service.CompanySettingsService;
 
 import com.housekeeping.management.dto.request.PortalForms.CompanyLocationForm;
@@ -8,6 +8,11 @@ import com.housekeeping.management.dto.request.PortalForms.CompanyScheduleVersio
 import com.housekeeping.management.dto.request.PortalForms.CompanySettingsForm;
 import com.housekeeping.management.dto.request.PortalForms.OperatingHoursForm;
 import com.housekeeping.management.repository.CompanySettingsRepository;
+import com.housekeeping.management.service.BookingQueryService;
+import com.housekeeping.management.service.CompanyOperatingHoursService;
+import com.housekeeping.management.service.StaffAvailabilityService;
+import com.housekeeping.management.dto.response.LocationSuggestion;
+import com.housekeeping.management.entity.CompanySettings;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
@@ -25,23 +30,48 @@ public class CompanySettingsServiceImpl implements CompanySettingsService {
     private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
 
     private final CompanySettingsRepository settings;
+    private final CompanyOperatingHoursService hours;
+    private final BookingQueryService bookings;
+    private final StaffAvailabilityService availability;
     private final VietmapClient vietmap;
 
-    public CompanySettingsServiceImpl(CompanySettingsRepository settings, VietmapClient vietmap) {
+    public CompanySettingsServiceImpl(CompanySettingsRepository settings, CompanyOperatingHoursService hours,
+            BookingQueryService bookings, StaffAvailabilityService availability, VietmapClient vietmap) {
         this.settings = settings;
+        this.hours = hours;
+        this.bookings = bookings;
+        this.availability = availability;
         this.vietmap = vietmap;
     }
 
     @Transactional(readOnly = true)
     public CompanySettingsForm get() {
-        CompanySettingsForm current = settings.findSettings()
+        CompanySettingsForm current = settingsForDate(today())
                 .orElse(new CompanySettingsForm("", null, null, null, List.of()));
         return withCompleteWeek(current);
     }
 
+    private java.util.Optional<CompanySettingsForm> settingsForDate(LocalDate date) {
+        List<CompanySettings> companies = settings.findAllByOrderByCompanyIdAsc();
+        if (companies.size() > 1) throw new IllegalStateException("Phát hiện nhiều hơn một cấu hình công ty.");
+        return companies.stream().findFirst().map(company -> new CompanySettingsForm(company.getCompanyAddress(),
+                company.getLatitude(), company.getLongitude(), company.getServiceRadiusKm(), hours.forDate(date)));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ServiceCenter serviceCenter() {
+        CompanySettingsForm form = settingsForDate(today())
+                .orElseThrow(() -> new IllegalStateException("Cần cấu hình chính xác một vị trí và bán kính phục vụ của công ty."));
+        if (form.latitude() == null || form.longitude() == null || form.serviceRadiusKm() == null) {
+            throw new IllegalStateException("Admin chưa cấu hình tâm và bán kính phục vụ của công ty.");
+        }
+        return new ServiceCenter(form.latitude(), form.longitude(), form.serviceRadiusKm());
+    }
+
     @Transactional(readOnly = true)
     public CompanySettingsForm forDate(LocalDate date) {
-        CompanySettingsForm current = settings.findSettingsForDate(date)
+        CompanySettingsForm current = settingsForDate(date)
                 .orElse(new CompanySettingsForm("", null, null, null, List.of()));
         return withCompleteWeek(current);
     }
@@ -54,20 +84,20 @@ public class CompanySettingsServiceImpl implements CompanySettingsService {
 
     @Transactional(readOnly = true)
     public CompanyScheduleVersionForm scheduleForEditor(LocalDate date) {
-        List<OperatingHoursForm> hours = settings.findOperatingHoursForDate(date);
-        if (hours.isEmpty()) hours = closedWeek();
-        return new CompanyScheduleVersionForm(date, completeWeek(hours));
+        List<OperatingHoursForm> schedule = hours.forDate(date);
+        if (schedule.isEmpty()) schedule = closedWeek();
+        return new CompanyScheduleVersionForm(date, completeWeek(schedule));
     }
 
     @Transactional(readOnly = true)
     public List<LocalDate> versionDates() {
-        return settings.scheduleVersionDates();
+        return hours.versionDates();
     }
 
     @Transactional(readOnly = true)
     public List<ScheduleWindow> scheduleWindows() {
-        return settings.scheduleVersionDates().stream()
-                .flatMap(date -> settings.findOperatingHoursForDate(date).stream()
+        return hours.versionDates().stream()
+                .flatMap(date -> hours.forDate(date).stream()
                         .map(hour -> new ScheduleWindow(date, hour.dayOfWeek(), hour.closed(),
                                 hour.openingTime(), hour.closingTime())))
                 .toList();
@@ -75,19 +105,18 @@ public class CompanySettingsServiceImpl implements CompanySettingsService {
 
     @Transactional(readOnly = true)
     public List<OperatingHoursForm> operatingHoursForDate(LocalDate date) {
-        return settings.findOperatingHoursForDate(date);
+        return hours.forDate(date);
     }
 
     @Override
     @Transactional
     public void lockSettingsForScheduling() {
-        List<Long> companyIds = settings.lockCompanySettings();
-        if (companyIds.size() != 1) throw new IllegalStateException("Cần cấu hình chính xác một vị trí và giờ hoạt động của công ty.");
+        lockCompanySettings("Cần cấu hình chính xác một vị trí và giờ hoạt động của công ty.");
     }
 
     @Transactional(readOnly = true)
     public boolean hasExactVersion(LocalDate date) {
-        return settings.exactVersionDate(date).isPresent();
+        return hours.exactVersionDate(date).isPresent();
     }
 
     @Transactional(readOnly = true)
@@ -100,7 +129,7 @@ public class CompanySettingsServiceImpl implements CompanySettingsService {
         return today().with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY));
     }
 
-    @Transactional
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.SERIALIZABLE)
     public void saveLocation(CompanyLocationForm form) {
         validateLocation(form);
         VietmapClient.Place place = vietmap.place(form.vietmapRefId().trim());
@@ -109,18 +138,27 @@ public class CompanySettingsServiceImpl implements CompanySettingsService {
                 || place.longitude().abs().compareTo(new java.math.BigDecimal("180")) > 0) {
             throw new IllegalArgumentException("Địa chỉ VietMap không có thông tin vị trí hợp lệ.");
         }
-        settings.lockCompanySettings();
-        List<Long> conflicts = settings.conflictingFutureConfirmedBookings(
-                place.latitude(), place.longitude(), form.serviceRadiusKm());
+        List<CompanySettings> companyRows = settings.findAllForUpdate();
+        if (companyRows.size() > 1) throw new IllegalStateException("Phát hiện nhiều hơn một cấu hình công ty.");
+        List<Long> conflicts = bookings.futureActiveBookingsWithLocation().stream()
+                .filter(booking -> distanceKm(booking.latitude(), booking.longitude(),
+                        place.latitude(), place.longitude()) > form.serviceRadiusKm().doubleValue())
+                .map(BookingQueryService.BookingLocation::bookingId).toList();
         if (!conflicts.isEmpty()) {
             throw new IllegalStateException("Chưa thể đổi vị trí/bán kính. Hãy xử lý Booking: " + conflicts);
         }
-        settings.saveLocation(place.display(), place.latitude(), place.longitude(), form.serviceRadiusKm());
+        CompanySettings company = companyRows.isEmpty() ? new CompanySettings() : companyRows.getFirst();
+        company.setCompanyAddress(place.display());
+        company.setLatitude(place.latitude());
+        company.setLongitude(place.longitude());
+        company.setServiceRadiusKm(form.serviceRadiusKm());
+        settings.saveAndFlush(company);
     }
 
-    public List<VietmapClient.Suggestion> locationAutocomplete(String query) {
+    public List<LocationSuggestion> locationAutocomplete(String query) {
         if (query == null || query.trim().length() < 3 || query.length() > 200) return List.of();
-        return vietmap.autocomplete(query.trim());
+        return vietmap.autocomplete(query.trim()).stream()
+                .map(suggestion -> new LocationSuggestion(suggestion.refId(), suggestion.display())).toList();
     }
 
     @Transactional
@@ -145,28 +183,25 @@ public class CompanySettingsServiceImpl implements CompanySettingsService {
             throw new IllegalArgumentException("Ngày bắt đầu phiên bản phải là Thứ Hai để lịch khớp tuần từ Thứ Hai đến Chủ nhật.");
         }
 
-        List<Long> companyIds = settings.lockCompanySettings();
-        if (companyIds.size() != 1) {
-            throw new IllegalStateException("Hãy lưu chính xác một cấu hình công ty trước khi tạo lịch.");
-        }
-        boolean exactVersionExists = settings.exactVersionDate(form.effectiveFrom()).isPresent();
+        List<CompanySettings> companyRows = lockCompanySettings("Hãy lưu chính xác một cấu hình công ty trước khi tạo lịch.");
+        boolean exactVersionExists = hours.exactVersionDate(form.effectiveFrom()).isPresent();
         if (exactVersionExists != editingExisting) {
             throw new IllegalStateException(exactVersionExists
                     ? "Tuần này đã có lịch. Chọn tuần chưa được cấu hình hoặc mở phiên bản hiện có để chỉnh sửa."
                     : "Phiên bản lịch vừa thay đổi. Hãy tải lại trang trước khi lưu.");
         }
         if (form.effectiveFrom().isBefore(today)) {
-            LocalDate currentVersion = settings.scheduleVersionDates().stream().filter(date -> !date.isAfter(today))
+            LocalDate currentVersion = hours.versionDates().stream().filter(date -> !date.isAfter(today))
                     .max(LocalDate::compareTo).orElse(null);
             if (!currentWeek && (!editingExisting || !form.effectiveFrom().equals(currentVersion))) {
                 throw new IllegalArgumentException("Chỉ được chỉnh lịch tuần hiện tại hoặc tương lai; tuần cũ chỉ xem được.");
             }
         }
-        if (currentWeek && today.getDayOfWeek().getValue() > 1 && settings.hasAnySchedule()) {
+        if (currentWeek && today.getDayOfWeek().getValue() > 1 && hours.hasAnySchedule()) {
             for (int day = 1; day < today.getDayOfWeek().getValue(); day++) {
                 final int dayNumber=day;
                 LocalDate pastDate=form.effectiveFrom().plusDays(day-1L);
-                List<OperatingHoursForm> existing=java.util.Optional.ofNullable(settings.findOperatingHoursForDate(pastDate)).orElse(List.of()).stream()
+                List<OperatingHoursForm> existing=java.util.Optional.ofNullable(hours.forDate(pastDate)).orElse(List.of()).stream()
                         .filter(hour->hour.dayOfWeek()==dayNumber).toList();
                 List<OperatingHoursForm> proposed=form.operatingHours().stream()
                         .filter(hour->hour.dayOfWeek()==dayNumber).toList();
@@ -175,17 +210,18 @@ public class CompanySettingsServiceImpl implements CompanySettingsService {
                 }
             }
         }
-        if (!settings.hasAnySchedule() && !currentWeek && !form.effectiveFrom().equals(firstSelectableWeekStart())) {
+        if (!hours.hasAnySchedule() && !currentWeek && !form.effectiveFrom().equals(firstSelectableWeekStart())) {
             throw new IllegalArgumentException("Hãy tạo phiên bản giờ hoạt động đầu tiên từ tuần có thể chọn gần nhất.");
         }
 
-        LocalDate until = settings.nextVersionDate(form.effectiveFrom());
-        List<Long> conflicts = settings.bookingsInVersionInterval(form.effectiveFrom(), until);
+        LocalDate until = hours.nextVersionDate(form.effectiveFrom());
+        List<Long> conflicts = bookings.activeBookingIdsInInterval(form.effectiveFrom(), until);
         if (!conflicts.isEmpty()) {
             throw new IllegalStateException("Không thể tạo hoặc sửa phiên bản lịch đang có booking hoạt động trong khoảng hiệu lực. Hãy xử lý Booking: " + conflicts);
         }
 
-        settings.saveSchedule(form.effectiveFrom(), form.operatingHours());
+        hours.saveVersion(companyRows.getFirst().getCompanyId(), form.effectiveFrom(), form.operatingHours());
+        availability.deactivateOutsideCompanyHours(form.effectiveFrom(), until, form.operatingHours());
     }
 
     @Transactional
@@ -193,20 +229,19 @@ public class CompanySettingsServiceImpl implements CompanySettingsService {
         if (effectiveFrom == null || !effectiveFrom.isAfter(today())) {
             throw new IllegalArgumentException("Chỉ có thể hủy phiên bản lịch trong tương lai.");
         }
-        List<Long> companyIds = settings.lockCompanySettings();
-        if (companyIds.size() != 1) {
-            throw new IllegalStateException("Cần đúng một cấu hình công ty để hủy phiên bản lịch.");
-        }
-        if (settings.exactVersionDate(effectiveFrom).isEmpty()) {
+        List<CompanySettings> companyRows = lockCompanySettings("Cần đúng một cấu hình công ty để hủy phiên bản lịch.");
+        if (hours.exactVersionDate(effectiveFrom).isEmpty()) {
             throw new IllegalArgumentException("Không tìm thấy phiên bản lịch.");
         }
 
-        List<Long> conflicts = settings.bookingsInVersionInterval(effectiveFrom, settings.nextVersionDate(effectiveFrom));
+        LocalDate until = hours.nextVersionDate(effectiveFrom);
+        List<Long> conflicts = bookings.activeBookingIdsInInterval(effectiveFrom, until);
         if (!conflicts.isEmpty()) {
             throw new IllegalStateException("Không thể hủy phiên bản lịch đang có booking hoạt động trong khoảng hiệu lực. Hãy xử lý Booking: " + conflicts);
         }
 
-        settings.cancelSchedule(effectiveFrom);
+        hours.deleteVersion(companyRows.getFirst().getCompanyId(), effectiveFrom);
+        availability.deactivateOutsideCompanyHours(effectiveFrom, until, null);
     }
 
     public void validate(CompanySettingsForm form) {
@@ -265,6 +300,24 @@ public class CompanySettingsServiceImpl implements CompanySettingsService {
                 previousEnd = hour.closingTime();
             }
         }
+    }
+
+    private List<CompanySettings> lockCompanySettings(String errorMessage) {
+        List<CompanySettings> companyRows = settings.findAllForUpdate();
+        if (companyRows.size() != 1) throw new IllegalStateException(errorMessage);
+        return companyRows;
+    }
+
+    private static double distanceKm(java.math.BigDecimal latitudeA, java.math.BigDecimal longitudeA,
+            java.math.BigDecimal latitudeB, java.math.BigDecimal longitudeB) {
+        if (latitudeA == null || longitudeA == null) return Double.POSITIVE_INFINITY;
+        double firstLatitude = Math.toRadians(latitudeA.doubleValue());
+        double secondLatitude = Math.toRadians(latitudeB.doubleValue());
+        double latitudeDelta = secondLatitude - firstLatitude;
+        double longitudeDelta = Math.toRadians(longitudeB.doubleValue() - longitudeA.doubleValue());
+        double haversine = Math.pow(Math.sin(latitudeDelta / 2), 2)
+                + Math.cos(firstLatitude) * Math.cos(secondLatitude) * Math.pow(Math.sin(longitudeDelta / 2), 2);
+        return 12742.0176 * Math.asin(Math.sqrt(Math.min(1, haversine)));
     }
 
     private static List<OperatingHoursForm> completeWeek(List<OperatingHoursForm> hours) {

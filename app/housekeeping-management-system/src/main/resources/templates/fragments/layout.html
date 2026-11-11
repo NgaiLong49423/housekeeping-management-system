@@ -50,7 +50,7 @@
             <a class="nav-link" th:classappend="${active == 'leaves'} ? 'active'" th:href="@{/admin/leaves}">Duyệt nghỉ</a>
             <a class="nav-link" th:classappend="${active == 'settings'} ? 'active'" th:href="@{/admin/settings}">Cấu hình công ty</a>
             <a class="nav-link" th:classappend="${active == 'feedback'} ? 'active'" th:href="@{/admin/feedback}">Phản hồi</a>
-            <a class="nav-link" th:href="@{/admin/finance}">Đối soát tài chính</a>
+            <a class="nav-link" th:classappend="${active == 'finance'} ? 'active'" th:href="@{/admin/finance}">Đối soát tài chính</a>
           </div>
           <div class="header-actions">
             <a th:if="${currentUser == null}" class="btn btn-outline-primary" th:href="@{/login}">

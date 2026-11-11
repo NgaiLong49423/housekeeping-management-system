@@ -14,6 +14,8 @@ import com.housekeeping.management.dto.entity.UserDTO;
 import com.housekeeping.management.entity.Staff;
 import com.housekeeping.management.entity.User;
 import com.housekeeping.management.repository.StaffAccountRepository;
+import com.housekeeping.management.repository.StaffAvailabilityRepository;
+import com.housekeeping.management.repository.StaffLeaveRepository;
 import jakarta.persistence.EntityManager;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -23,17 +25,22 @@ import org.springframework.transaction.annotation.Transactional;
 public class StaffManagementServiceImpl implements StaffManagementService {
     private final EntityManager entities;
     private final StaffAccountRepository staffAccounts;
+    private final StaffAvailabilityRepository availability;
+    private final StaffLeaveRepository leaves;
     private final BookingStaffEligibilityService bookingEligibility;
     private final GlobalEmailUniquenessService emails;
     private final PasswordEncoder passwords;
     private final AccountAuthorizationService authorization;
 
     public StaffManagementServiceImpl(EntityManager entities, StaffAccountRepository staffAccounts,
+            StaffAvailabilityRepository availability, StaffLeaveRepository leaves,
             BookingStaffEligibilityService bookingEligibility,
             GlobalEmailUniquenessService emails, PasswordEncoder passwords,
             AccountAuthorizationService authorization) {
         this.entities = entities;
         this.staffAccounts = staffAccounts;
+        this.availability = availability;
+        this.leaves = leaves;
         this.bookingEligibility = bookingEligibility;
         this.emails = emails;
         this.passwords = passwords;
@@ -124,6 +131,21 @@ public class StaffManagementServiceImpl implements StaffManagementService {
     @Transactional(readOnly = true)
     public java.util.Optional<Long> findStaffIdByUserId(Long userId) {
         return staffAccounts.findByUser_UserId(userId).map(Staff::getStaffId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean isOnApprovedLeave(Long staffId, java.time.LocalDate date) {
+        return leaves.existsByStaff_StaffIdAndStatusAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
+                staffId, com.housekeeping.management.domain.LeaveStatus.APPROVED, date, date);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean acceptsAvailabilityInterval(Long staffId, java.time.LocalDate date,
+            java.time.LocalTime start, java.time.LocalTime end) {
+        return availability.existsByStaffIdAndWorkDateAndActiveTrueAndStartTimeLessThanEqualAndEndTimeGreaterThanEqual(
+                staffId, date, start, end);
     }
 
     private Staff findStaff(Long staffId) {

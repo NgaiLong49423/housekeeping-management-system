@@ -1,208 +1,181 @@
 package com.housekeeping.management.repository;
 
-
 import com.housekeeping.management.dto.response.PortalViews.IncidentCard;
-import com.housekeeping.management.dto.response.PortalViews.FeedbackCaseMessageCard;
+import com.housekeeping.management.entity.FeedbackCase;
+import jakarta.persistence.LockModeType;
+import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.stereotype.Repository;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
-@Repository
-public class FeedbackCaseRepository {
-    private final JdbcTemplate jdbc;
-    public FeedbackCaseRepository(JdbcTemplate jdbc) { this.jdbc = jdbc; }
+public interface FeedbackCaseRepository extends JpaRepository<FeedbackCase, Long> {
+    Optional<FeedbackCase> findByFeedbackId(Long feedbackId);
 
-    public Long create(Long feedbackId, java.util.List<String> types, String description) {
-        return jdbc.queryForObject("""
-                INSERT INTO dbo.Feedback_Cases (feedback_id, incident_types, customer_description)
-                OUTPUT INSERTED.case_id VALUES (?, ?, ?)
-                """, Long.class, feedbackId, String.join(",",types), description);
+    @Query("select incident.feedbackId from FeedbackCase incident where incident.caseId=:caseId")
+    Optional<Long> feedbackIdForCase(@Param("caseId") Long caseId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select incident from FeedbackCase incident where incident.caseId=:id")
+    Optional<FeedbackCase> findByIdForUpdate(@Param("id") Long id);
+
+    @Query("select feedback.feedbackId from Feedback feedback join Booking booking on booking.bookingId=feedback.bookingId "
+            + "where feedback.bookingId=:bookingId and feedback.customerId=:customerId and booking.customerId=:customerId "
+            + "and booking.status=com.housekeeping.management.domain.BookingStatus.COMPLETED "
+            + "and feedback.status<>com.housekeeping.management.domain.FeedbackStatus.RESOLVED")
+    Optional<Long> eligibleFeedbackId(@Param("bookingId") Long bookingId, @Param("customerId") Long customerId);
+
+    @Query("select feedback.feedbackId from Feedback feedback where feedback.bookingId=:bookingId and feedback.customerId=:customerId")
+    Optional<Long> feedbackIdForCustomerBooking(@Param("bookingId") Long bookingId, @Param("customerId") Long customerId);
+
+    default Long create(Long feedbackId, List<String> types, String description, String itemDescription,
+            java.math.BigDecimal estimatedValue, Integer itemAgeMonths) {
+        FeedbackCase incident = new FeedbackCase();
+        incident.setFeedbackId(feedbackId);
+        incident.setIncidentTypes(String.join(",", types));
+        incident.setCustomerDescription(description);
+        incident.setItemDescription(itemDescription);
+        incident.setCustomerEstimatedValue(estimatedValue);
+        incident.setItemAgeMonths(itemAgeMonths);
+        incident.setCaseStatus("RECEIVED");
+        incident.setResolutionWorkflowRequired(true);
+        incident.setCreatedAt(LocalDateTime.now(java.time.ZoneOffset.ofHours(7)).withNano(0));
+        return saveAndFlush(incident).getCaseId();
     }
 
-    public Long createInitialMessage(Long caseId, Long customerId, String text) {
-        return jdbc.queryForObject("""
-                INSERT INTO dbo.Feedback_Case_Messages(case_id,sender_user_id,sender_role,message_text)
-                OUTPUT INSERTED.message_id VALUES (?,?,'CUSTOMER',?)
-                """, Long.class, caseId, customerId, text);
+    default Long create(Long feedbackId, List<String> types, String description) {
+        return create(feedbackId, types, description, null, null, null);
     }
 
-    public Long createCustomerMessage(Long caseId, Long bookingId, Long customerId, String text) {
-        return jdbc.query("""
-                INSERT INTO dbo.Feedback_Case_Messages(case_id,sender_user_id,sender_role,message_text)
-                OUTPUT INSERTED.message_id
-                SELECT c.case_id,f.customer_id,'CUSTOMER',?
-                FROM dbo.Feedback_Cases c JOIN dbo.Feedbacks f ON f.feedback_id=c.feedback_id
-                JOIN dbo.Bookings b ON b.booking_id=f.booking_id
-                WHERE c.case_id=? AND b.booking_id=? AND f.customer_id=? AND b.customer_id=? AND c.case_status<>'RESOLVED'
-                """, rs -> rs.next() ? rs.getLong(1) : null, text, caseId, bookingId, customerId, customerId);
-    }
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update FeedbackCase incident set incident.caseStatus='RESOLVED', incident.resolvedAt=CURRENT_TIMESTAMP "
+            + "where incident.caseId=:id and incident.caseStatus in ('VERIFIED','NOT_SUBSTANTIATED') "
+            + "and exists (select feedback.feedbackId from Feedback feedback where feedback.feedbackId=incident.feedbackId "
+            + "and feedback.adminReply is not null and trim(feedback.adminReply)<>'') "
+            + "and (incident.remedyType is null or incident.remedyCompleted=true) "
+            + "and (incident.remedyType is null or incident.remedyType not in ('REFUND','PRICE_REDUCTION') or exists "
+            + "(select entry.entryId from BookingFinancialEntry entry where entry.caseId=incident.caseId "
+            + "and entry.entryType=incident.remedyType and entry.status in ('PAID','SIMULATED'))) "
+            + "and (incident.remedyType is null or incident.remedyType<>'COMPENSATION' or exists "
+            + "(select entry.entryId from BookingFinancialEntry entry where entry.caseId=incident.caseId "
+            + "and entry.entryType='COMPENSATION' and entry.status='PAID')) "
+            + "and (incident.remedyType is null or incident.remedyType<>'COMPENSATION' or exists "
+            + "(select payout.payoutResponseId from FinancialPayoutResponse payout join BookingFinancialEntry entry "
+            + "on entry.entryId=payout.entryId where entry.caseId=incident.caseId and payout.responseStatus='ACCEPTED')) "
+            + "and incident.staffActionStatus<>'PENDING' "
+            + "and not exists (select entry.entryId from BookingFinancialEntry entry where entry.caseId=incident.caseId "
+            + "and entry.status in ('PROPOSED','PENDING_APPROVAL','APPROVED')) "
+            + "and (not exists (select plan.planId from FeedbackResolutionPlan plan where plan.caseId=incident.caseId) "
+            + "or exists (select plan.planId from FeedbackResolutionPlan plan where plan.caseId=incident.caseId and plan.status='COMPLETED')) "
+            + "and (incident.resolutionWorkflowRequired=false or exists (select plan.planId from FeedbackResolutionPlan plan "
+            + "where plan.caseId=incident.caseId and plan.status='COMPLETED'))")
+    int resolveCaseUpdate(@Param("id") Long id);
 
-    public Long createAdminMessage(Long caseId, Long adminId, String text) {
-        return jdbc.query("""
-                INSERT INTO dbo.Feedback_Case_Messages(case_id,sender_user_id,sender_role,message_text)
-                OUTPUT INSERTED.message_id
-                SELECT case_id,?,'ADMIN',? FROM dbo.Feedback_Cases
-                WHERE case_id=? AND case_status<>'RESOLVED'
-                """, rs -> rs.next() ? rs.getLong(1) : null, adminId, text, caseId);
-    }
+    @Query("select (count(entry)>0) from BookingFinancialEntry entry where entry.caseId=:caseId "
+            + "and entry.entryType='COMPENSATION' and entry.status='PAID' and exists "
+            + "(select payout.payoutResponseId from FinancialPayoutResponse payout where payout.entryId=entry.entryId "
+            + "and payout.responseStatus='ACCEPTED')")
+    boolean hasSettledAcceptedCompensation(@Param("caseId") Long caseId);
 
-    public List<FeedbackCaseMessageCard> messages(Long caseId) {
-        return jdbc.query("""
-                SELECT m.message_id,m.case_id,m.sender_user_id,m.sender_role,
-                       COALESCE(u.full_name,CASE m.sender_role WHEN 'ADMIN' THEN N'Gọn Nhà' ELSE N'Khách hàng' END) AS sender_name,
-                       m.message_text,m.sent_at,m.legacy_imported,m.legacy_timestamp_unknown
-                FROM dbo.Feedback_Case_Messages m LEFT JOIN dbo.Users u ON u.user_id=m.sender_user_id
-                WHERE m.case_id=? ORDER BY m.sent_at,m.message_id
-                """, (rs,row) -> new FeedbackCaseMessageCard(rs.getLong("message_id"),rs.getLong("case_id"),
-                rs.getObject("sender_user_id",Long.class),rs.getString("sender_role"),rs.getString("sender_name"),
-                rs.getString("message_text"),rs.getObject("sent_at",java.time.LocalDateTime.class),
-                rs.getBoolean("legacy_imported"),rs.getBoolean("legacy_timestamp_unknown"),List.of()),caseId);
-    }
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update Feedback feedback set feedback.status=com.housekeeping.management.domain.FeedbackStatus.RESOLVED "
+            + "where feedback.feedbackId=(select incident.feedbackId from FeedbackCase incident where incident.caseId=:caseId) "
+            + "and feedback.status=com.housekeeping.management.domain.FeedbackStatus.RESPONDED")
+    int resolveFeedback(@Param("caseId") Long caseId);
 
-    public List<Long> messageEvidenceIds(Long messageId) {
-        return jdbc.query("SELECT evidence_id FROM dbo.Feedback_Case_Evidence WHERE message_id=? ORDER BY uploaded_at,evidence_id",
-                (rs,row)->rs.getLong(1),messageId);
-    }
-
-    public int discardUnsentMessage(Long caseId, Long messageId, Long actorId, String senderRole) {
-        return jdbc.update("""
-                DELETE FROM dbo.Feedback_Case_Messages
-                WHERE message_id=? AND case_id=? AND sender_user_id=? AND sender_role=? AND legacy_imported=0
-                  AND NOT EXISTS (SELECT 1 FROM dbo.Feedback_Case_Evidence e WHERE e.message_id=dbo.Feedback_Case_Messages.message_id)
-                """,messageId,caseId,actorId,senderRole);
-    }
-
-    public String customerOutcome(Long caseId) {
-        return jdbc.query("SELECT customer_outcome FROM dbo.Feedback_Cases WHERE case_id=?",
-                rs -> rs.next() ? rs.getString(1) : null, caseId);
-    }
-
-    public String adminMessageText(Long caseId, Long messageId, Long adminId) {
-        return jdbc.query("SELECT message_text FROM dbo.Feedback_Case_Messages WHERE case_id=? AND message_id=? AND sender_user_id=? AND sender_role='ADMIN'",
-                rs -> rs.next()?rs.getString(1):null,caseId,messageId,adminId);
-    }
-
-    public int markFeedbackResponded(Long caseId, String reply) {
-        return jdbc.update("""
-                UPDATE dbo.Feedbacks SET status='RESPONDED',admin_reply=COALESCE(NULLIF(LTRIM(RTRIM(admin_reply)),''),?)
-                WHERE feedback_id=(SELECT feedback_id FROM dbo.Feedback_Cases WHERE case_id=?)
-                  AND status IN ('OPEN','RESPONDED')
-                """,reply,caseId);
-    }
-
-    public Optional<IncidentCard> findForFeedback(Long feedbackId) {
-        return jdbc.query("""
-                SELECT c.case_id, c.feedback_id, c.incident_types, c.customer_description, c.case_status,
-                       c.customer_outcome, c.remedy_type, c.remedy_completed, c.internal_finding, COALESCE(a.action_type,c.staff_action) AS staff_action,
-                       COALESCE(a.status,c.staff_action_status) AS staff_action_status,
-                       COALESCE(a.proposed_by,c.staff_action_by) AS staff_action_by,
-                       COALESCE(a.decided_by,c.staff_action_approved_by) AS staff_action_approved_by,
-                       a.action_id, c.created_at, c.resolved_at,
-                       f.booking_id, b.customer_id, b.staff_id
-                FROM dbo.Feedback_Cases c JOIN dbo.Feedbacks f ON f.feedback_id=c.feedback_id
-                JOIN dbo.Bookings b ON b.booking_id=f.booking_id
-                OUTER APPLY (SELECT TOP (1) action_id,action_type,status,proposed_by,decided_by FROM dbo.Staff_Incident_Actions WHERE case_id=c.case_id ORDER BY action_id DESC) a
-                WHERE c.feedback_id=?
-                """, (rs, row) -> new IncidentCard(rs.getLong("case_id"), rs.getLong("feedback_id"),
-                rs.getLong("booking_id"), rs.getLong("customer_id"), rs.getLong("staff_id"),
-                java.util.List.of(rs.getString("incident_types").split(",")), rs.getString("customer_description"), rs.getString("case_status"),
-                rs.getString("customer_outcome"), rs.getString("remedy_type"), rs.getString("internal_finding"),
-                rs.getBoolean("remedy_completed"),
-                rs.getString("staff_action"), rs.getString("staff_action_status"),
-                rs.getObject("staff_action_by", Long.class), rs.getObject("staff_action_approved_by", Long.class),
-                rs.getObject("action_id", Long.class),
-                rs.getObject("created_at", java.time.LocalDateTime.class), rs.getObject("resolved_at", java.time.LocalDateTime.class)), feedbackId)
-                .stream().findFirst();
-    }
-
-    public boolean customerOwnsCase(Long caseId, Long customerId) {
-        Integer count=jdbc.queryForObject("""
-                SELECT COUNT(*) FROM dbo.Feedback_Cases c JOIN dbo.Feedbacks f ON f.feedback_id=c.feedback_id
-                JOIN dbo.Bookings b ON b.booking_id=f.booking_id
-                WHERE c.case_id=? AND f.customer_id=? AND b.customer_id=?
-                """,Integer.class,caseId,customerId,customerId);
-        return count!=null && count==1;
-    }
-
-    public boolean belongsToBooking(Long caseId, Long bookingId) {
-        Integer count = jdbc.queryForObject("""
-                SELECT COUNT(*) FROM dbo.Feedback_Cases c
-                JOIN dbo.Feedbacks f ON f.feedback_id=c.feedback_id
-                WHERE c.case_id=? AND f.booking_id=?
-                """, Integer.class, caseId, bookingId);
-        return count != null && count == 1;
-    }
-
-    public boolean authorizesStaffRecovery(Long caseId, Long bookingId) {
-        Integer count = jdbc.queryForObject("""
-                SELECT COUNT(*) FROM dbo.Feedback_Cases c
-                JOIN dbo.Feedbacks f ON f.feedback_id=c.feedback_id
-                WHERE c.case_id=? AND f.booking_id=? AND c.case_status='VERIFIED'
-                  AND c.staff_action='PROPOSE_RECOVERY' AND c.staff_action_status='APPROVED'
-                """, Integer.class, caseId, bookingId);
-        return count != null && count == 1;
-    }
-
-    public int updateReview(Long caseId, String status, String remedy, String outcome, String finding, boolean remedyCompleted, Long adminId) {
-        return jdbc.update("""
-                UPDATE dbo.Feedback_Cases SET case_status=?, remedy_type=?, customer_outcome=?, internal_finding=?, remedy_completed=?, reviewed_by=?, reviewed_at=SYSDATETIME()
-                WHERE case_id=? AND case_status<>'RESOLVED'
-                """, status, blankToNull(remedy), blankToNull(outcome), blankToNull(finding), remedyCompleted, adminId, caseId);
-    }
-
-    public int proposeStaffAction(Long caseId, String action, String staffNotice, Long adminId) {
-        int inserted=jdbc.update("""
-                INSERT INTO dbo.Staff_Incident_Actions(case_id,staff_id,action_type,reason,staff_notice,proposed_by)
-                SELECT c.case_id,b.staff_id,?,COALESCE(NULLIF(LTRIM(RTRIM(c.internal_finding)),''),N'Đề xuất theo kết quả xác minh'),?,?
-                FROM dbo.Feedback_Cases c JOIN dbo.Feedbacks f ON f.feedback_id=c.feedback_id
-                JOIN dbo.Bookings b ON b.booking_id=f.booking_id
-                WHERE c.case_id=? AND c.case_status='VERIFIED'
-                  AND NOT EXISTS (SELECT 1 FROM dbo.Staff_Incident_Actions a WHERE a.case_id=c.case_id AND a.status='PENDING')
-                """,action,staffNotice,adminId,caseId);
-        if(inserted==1) jdbc.update("UPDATE dbo.Feedback_Cases SET staff_action=?,staff_action_status='PENDING',staff_action_by=?,staff_action_approved_by=NULL WHERE case_id=?",action,adminId,caseId);
-        return inserted;
-    }
-
-    public int decideStaffAction(Long caseId, boolean approve, Long managerId) {
-        int updated=jdbc.update("""
-                UPDATE dbo.Staff_Incident_Actions SET status=?,decided_by=?,decided_at=SYSDATETIME()
-                WHERE action_id=(SELECT TOP (1) action_id FROM dbo.Staff_Incident_Actions WHERE case_id=? AND status='PENDING' ORDER BY action_id DESC)
-                  AND proposed_by<>?
-                """,approve?"APPROVED":"REJECTED",managerId,caseId,managerId);
-        if(updated==1) jdbc.update("UPDATE dbo.Feedback_Cases SET staff_action_status=?,staff_action_approved_by=? WHERE case_id=?",approve?"APPROVED":"REJECTED",managerId,caseId);
+    default int resolveCase(Long id) {
+        int updated = resolveCaseUpdate(id);
+        if (updated == 1) resolveFeedback(id);
         return updated;
     }
 
-    public List<IncidentCard> findAll() {
-        return jdbc.query("SELECT feedback_id FROM dbo.Feedback_Cases ORDER BY created_at DESC, case_id DESC",
-                (rs, row) -> findForFeedback(rs.getLong(1)).orElseThrow());
+    @Query("select incident.customerOutcome from FeedbackCase incident where incident.caseId=:id")
+    String customerOutcome(@Param("id") Long id);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update Feedback feedback set feedback.status=com.housekeeping.management.domain.FeedbackStatus.RESPONDED, "
+            + "feedback.adminReply=coalesce(nullif(trim(feedback.adminReply),''),:reply) where feedback.feedbackId="
+            + "(select incident.feedbackId from FeedbackCase incident where incident.caseId=:caseId) "
+            + "and feedback.status in (com.housekeeping.management.domain.FeedbackStatus.OPEN,com.housekeeping.management.domain.FeedbackStatus.RESPONDED)")
+    int markFeedbackResponded(@Param("caseId") Long caseId, @Param("reply") String reply);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update FeedbackCase incident set incident.caseStatus=:status, incident.remedyType=:remedy, "
+            + "incident.customerOutcome=:outcome, incident.internalFinding=:finding, "
+            + "incident.remedyCompleted=:completed, incident.reviewedBy=:admin, incident.reviewedAt=:at "
+            + "where incident.caseId=:id and incident.caseStatus<>'RESOLVED'")
+    int updateReview(@Param("id") Long id, @Param("status") String status, @Param("remedy") String remedy,
+            @Param("outcome") String outcome, @Param("finding") String finding,
+            @Param("completed") boolean completed, @Param("admin") Long admin, @Param("at") LocalDateTime at);
+
+    @Query("select (count(incident)>0) from FeedbackCase incident join Feedback feedback on feedback.feedbackId=incident.feedbackId "
+            + "join Booking booking on booking.bookingId=feedback.bookingId where incident.caseId=:caseId "
+            + "and feedback.customerId=:customerId and booking.customerId=:customerId")
+    boolean customerOwnsCase(@Param("caseId") Long caseId, @Param("customerId") Long customerId);
+
+    @Query("select (count(incident)>0) from FeedbackCase incident join Feedback feedback on feedback.feedbackId=incident.feedbackId "
+            + "where incident.caseId=:caseId and feedback.bookingId=:bookingId")
+    boolean belongsToBooking(@Param("caseId") Long caseId, @Param("bookingId") Long bookingId);
+
+    @Query("select (count(incident)>0) from FeedbackCase incident join Feedback feedback on feedback.feedbackId=incident.feedbackId "
+            + "where incident.caseId=:caseId and feedback.bookingId=:bookingId and incident.caseStatus='VERIFIED' "
+            + "and incident.staffAction='PROPOSE_RECOVERY' and incident.staffActionStatus='APPROVED'")
+    boolean authorizesStaffRecovery(@Param("caseId") Long caseId, @Param("bookingId") Long bookingId);
+
+    @Query("select (count(incident)>0) from FeedbackCase incident join Feedback feedback on feedback.feedbackId=incident.feedbackId "
+            + "join Booking booking on booking.bookingId=feedback.bookingId where incident.caseId=:caseId "
+            + "and feedback.bookingId=:bookingId and feedback.customerId=:customerId and booking.customerId=:customerId "
+            + "and incident.caseStatus<>'RESOLVED'")
+    boolean customerCanMessage(@Param("caseId") Long caseId, @Param("bookingId") Long bookingId,
+            @Param("customerId") Long customerId);
+
+    @Query("select booking.staffId from FeedbackCase incident join Feedback feedback on feedback.feedbackId=incident.feedbackId "
+            + "join Booking booking on booking.bookingId=feedback.bookingId where incident.caseId=:caseId")
+    Optional<Long> staffIdForCase(@Param("caseId") Long caseId);
+
+    @Query("select (count(incident)>0) from FeedbackCase incident join Feedback feedback on feedback.feedbackId=incident.feedbackId "
+            + "join Booking booking on booking.bookingId=feedback.bookingId join FeedbackCaseMessage message on message.caseId=incident.caseId "
+            + "where incident.caseId=:caseId and message.messageId=:messageId and message.senderUserId=:actorId "
+            + "and message.senderRole=:role and incident.caseStatus<>'RESOLVED' and "
+            + "(:admin=true or (booking.bookingId=:bookingId and feedback.customerId=:actorId and booking.customerId=:actorId))")
+    boolean authorizesMessageEvidence(@Param("caseId") Long caseId, @Param("messageId") Long messageId,
+            @Param("actorId") Long actorId, @Param("role") String role, @Param("admin") boolean admin,
+            @Param("bookingId") Long bookingId);
+
+    @Query("select min(message.messageId) from FeedbackCaseMessage message where message.caseId=:caseId and message.senderRole='CUSTOMER'")
+    Long initialCustomerMessageId(@Param("caseId") Long caseId);
+
+    @Query("select incident.feedbackId from FeedbackCase incident order by incident.createdAt desc, incident.caseId desc")
+    List<Long> findAllFeedbackIds();
+
+    @Query("select incident.caseId, incident.feedbackId, booking.bookingId, booking.customerId, booking.staffId, "
+            + "incident.incidentTypes, incident.customerDescription, incident.caseStatus, incident.customerOutcome, "
+            + "incident.remedyType, incident.internalFinding, incident.remedyCompleted, "
+            + "coalesce(action.actionType,incident.staffAction), coalesce(action.status,incident.staffActionStatus), "
+            + "coalesce(action.proposedBy,incident.staffActionBy), coalesce(action.decidedBy,incident.staffActionApprovedBy), "
+            + "action.actionId, incident.createdAt, incident.resolvedAt, incident.itemDescription, "
+            + "incident.customerEstimatedValue, incident.itemAgeMonths, incident.resolutionWorkflowRequired "
+            + "from FeedbackCase incident join Feedback feedback on feedback.feedbackId=incident.feedbackId "
+            + "join Booking booking on booking.bookingId=feedback.bookingId left join StaffIncidentAction action "
+            + "on action.actionId=(select max(latest.actionId) from StaffIncidentAction latest where latest.caseId=incident.caseId) "
+            + "where incident.feedbackId=:feedbackId")
+    List<Object[]> findIncidentRows(@Param("feedbackId") Long feedbackId);
+
+    default Optional<IncidentCard> findForFeedback(Long feedbackId) {
+        return findIncidentRows(feedbackId).stream().findFirst().map(row -> new IncidentCard(
+                (Long) row[0], (Long) row[1], (Long) row[2], (Long) row[3], (Long) row[4],
+                Arrays.asList(((String) row[5]).split(",")), (String) row[6], (String) row[7],
+                (String) row[8], (String) row[9], (String) row[10], Boolean.TRUE.equals(row[11]),
+                (String) row[12], (String) row[13], (Long) row[14], (Long) row[15], (Long) row[16],
+                (LocalDateTime) row[17], (LocalDateTime) row[18], (String) row[19],
+                (java.math.BigDecimal) row[20], (Integer) row[21], Boolean.TRUE.equals(row[22])));
     }
 
-    public List<com.housekeeping.management.dto.response.PortalViews.StaffIncidentActionCard> actions(Long caseId) {
-        return jdbc.query("""
-                SELECT action_id,action_type,status,reason,staff_notice,proposed_by,decided_by,created_at,decided_at,acknowledged_at
-                FROM dbo.Staff_Incident_Actions WHERE case_id=? ORDER BY created_at,action_id
-                """,(rs,row)->new com.housekeeping.management.dto.response.PortalViews.StaffIncidentActionCard(
-                rs.getLong("action_id"),rs.getString("action_type"),rs.getString("status"),rs.getString("reason"),rs.getString("staff_notice"),
-                rs.getLong("proposed_by"),rs.getObject("decided_by",Long.class),rs.getObject("created_at",java.time.LocalDateTime.class),rs.getObject("decided_at",java.time.LocalDateTime.class),rs.getObject("acknowledged_at",java.time.LocalDateTime.class)),caseId);
+    default List<IncidentCard> findAllCards() {
+        return findAllFeedbackIds().stream().map(this::findForFeedback).flatMap(Optional::stream).toList();
     }
-
-    public List<com.housekeeping.management.dto.response.PortalViews.StaffActionNoticeCard> approvedActionsForStaff(Long staffId) {
-        return jdbc.query("""
-                SELECT action_id,action_type,staff_notice,created_at,decided_at,acknowledged_at
-                FROM dbo.Staff_Incident_Actions WHERE staff_id=? AND status='APPROVED' AND action_type<>'NONE'
-                ORDER BY decided_at DESC,action_id DESC
-                """,(rs,row)->new com.housekeeping.management.dto.response.PortalViews.StaffActionNoticeCard(
-                rs.getLong("action_id"),rs.getString("action_type"),rs.getString("staff_notice"),rs.getObject("created_at",java.time.LocalDateTime.class),
-                rs.getObject("decided_at",java.time.LocalDateTime.class),rs.getObject("acknowledged_at",java.time.LocalDateTime.class)),staffId);
-    }
-
-    public int acknowledgeForStaff(Long actionId, Long staffId) {
-        return jdbc.update("UPDATE dbo.Staff_Incident_Actions SET acknowledged_at=SYSDATETIME() WHERE action_id=? AND staff_id=? AND status='APPROVED' AND acknowledged_at IS NULL",actionId,staffId);
-    }
-
-    private static String blankToNull(String value) { return value == null || value.isBlank() ? null : value.trim(); }
-
-
 }

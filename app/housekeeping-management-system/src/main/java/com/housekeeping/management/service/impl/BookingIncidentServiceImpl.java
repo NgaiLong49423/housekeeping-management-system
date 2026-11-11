@@ -61,7 +61,8 @@ public class BookingIncidentServiceImpl implements BookingIncidentService {
         LocalDateTime now = LocalDateTime.now(ZoneOffset.ofHours(7)).withNano(0);
         BookingDelayCompensation compensation = booking.staffArrivedAt() == null
                 ? new BookingDelayCompensation(0, 0, java.math.BigDecimal.ZERO.setScale(2))
-                : new BookingDelayCompensation(booking.delayMinutes(), booking.delayDiscountPercent().intValueExact(),
+                : new BookingDelayCompensation(booking.delayMinutes() == null ? 0 : booking.delayMinutes(),
+                        booking.delayDiscountPercent().intValueExact(),
                         booking.delayDiscountAmount());
         if (bookings.respondToIncident(bookingId, customerId, response, now,
                 java.math.BigDecimal.valueOf(compensation.discountPercent()), compensation.discountAmount()) != 1) {

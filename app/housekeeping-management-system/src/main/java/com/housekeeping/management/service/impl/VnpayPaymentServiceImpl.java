@@ -1,6 +1,6 @@
 package com.housekeeping.management.service.impl;
 
-import com.housekeeping.management.service.VnpayGatewayClient;
+import com.housekeeping.management.integration.vnpay.VnpayGatewayClient;
 import com.housekeeping.management.service.PaymentService;
 import com.housekeeping.management.service.OnlinePaymentService;
 

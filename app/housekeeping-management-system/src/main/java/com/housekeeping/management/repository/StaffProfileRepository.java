@@ -6,4 +6,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface StaffProfileRepository extends JpaRepository<StaffProfile, Long> {
     Optional<StaffProfile> findByStaffId(Long staffId);
+    java.util.List<StaffProfile> findAllByStaffIdIn(java.util.Collection<Long> staffIds);
 }

@@ -1,4 +1,4 @@
-package com.housekeeping.management.service;
+package com.housekeeping.management.integration.vnpay;
 
 import com.housekeeping.management.config.VnpayPaymentProperties;
 import java.math.BigDecimal;

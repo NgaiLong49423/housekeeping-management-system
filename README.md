@@ -33,7 +33,7 @@ Ba role là `CUSTOMER`, `STAFF`, `ADMIN`; Admin có thể được cấp thêm q
 Yêu cầu JDK 21 và SQL Server 2022+ bật TCP/IP, Mixed Mode, cổng 1433.
 
 1. Start local SQL Server. The application connects to `Housekeeping_Database` by default and preserves its data. Set `DB_RESET_ON_STARTUP=true` only when you intentionally want to delete and recreate a supported local database, including all data and Flyway history; the SQL login then needs permission to alter, drop and create that database. Keep this value `false` for shared or existing databases.
-2. Sao chép [`.env.example`](app/housekeeping-management-system/.env.example) thành `.env` trong thư mục Maven module, rồi đặt `DB_URL`, `DB_USERNAME` và `DB_PASSWORD` cho SQL Server chính. Địa chỉ nhà được nhập trực tiếp, không cần Google Maps API key. Không commit `.env`.
+2. Sao chép [`.env.example`](app/housekeeping-management-system/.env.example) thành `.env` trong thư mục Maven module, rồi đặt `DB_URL`, `DB_USERNAME` và `DB_PASSWORD` cho SQL Server chính. Nếu bật nhận bồi thường chuyển khoản, tạo và đặt khóa AES-256 riêng vào `PAYOUT_ENCRYPTION_KEY` theo hướng dẫn trong file mẫu; không commit `.env`. Địa chỉ nhà được nhập trực tiếp, không cần Google Maps API key.
 3. Từ `app/housekeeping-management-system/`, chạy:
 
    ```powershell

@@ -10,6 +10,8 @@ import org.springframework.security.access.AccessDeniedException;
 
 public interface PaymentService {
     public record AccountingTotals(BigDecimal paidAmount, BigDecimal simulatedAmount) { }
+    public record AccountingPayment(Long paymentId, Long bookingId, BigDecimal amount, String method,
+            String transactionCode, LocalDateTime paidAt, boolean simulated) { }
     public record OnlineCheckout(long orderCode, long amount, LocalDateTime createdAt, boolean recoverExisting) { }
     public record OnlinePayment(Long paymentId, Long bookingId, BigDecimal amount, String method, String status,
             String transactionCode, LocalDateTime createdAt) { }
@@ -19,4 +21,5 @@ public interface PaymentService {
     public void confirmOnlinePayment(long orderCode, BigDecimal amount);
     public void failOnlinePayment(long orderCode, BigDecimal amount);
     AccountingTotals accountingTotals();
+    List<AccountingPayment> successfulPaymentsForAccounting();
 }

@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
 
 import com.housekeeping.management.service.PaymentService.OnlinePayment;
+import com.housekeeping.management.integration.vnpay.VnpayGatewayClient;
 import com.housekeeping.management.web.PortalMessages;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;

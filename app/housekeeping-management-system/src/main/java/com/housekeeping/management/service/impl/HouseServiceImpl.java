@@ -1,7 +1,10 @@
 package com.housekeeping.management.service.impl;
 
 import com.housekeeping.management.service.HouseService;
-import com.housekeeping.management.service.VietmapClient;
+import com.housekeeping.management.integration.vietmap.VietmapClient;
+import com.housekeeping.management.service.CompanySettingsService;
+import com.housekeeping.management.service.BookingQueryService;
+import com.housekeeping.management.dto.response.LocationSuggestion;
 
 import com.housekeeping.management.dto.request.PortalForms.HouseForm;
 import com.housekeeping.management.dto.entity.HouseDTO;
@@ -10,7 +13,6 @@ import com.housekeeping.management.entity.House;
 import com.housekeeping.management.repository.HouseRepository;
 import java.math.BigDecimal;
 import java.util.List;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,12 +20,15 @@ import org.springframework.transaction.annotation.Transactional;
 public class HouseServiceImpl implements HouseService {
     private static final double EARTH_RADIUS_KM = 6371.0088;
     private final HouseRepository houses;
-    private final JdbcTemplate jdbc;
+    private final CompanySettingsService companySettings;
+    private final BookingQueryService bookings;
     private final VietmapClient vietmap;
 
-    public HouseServiceImpl(HouseRepository houses, JdbcTemplate jdbc, VietmapClient vietmap) {
+    public HouseServiceImpl(HouseRepository houses, CompanySettingsService companySettings,
+            BookingQueryService bookings, VietmapClient vietmap) {
         this.houses = houses;
-        this.jdbc = jdbc;
+        this.companySettings = companySettings;
+        this.bookings = bookings;
         this.vietmap = vietmap;
     }
 
@@ -68,31 +73,22 @@ public class HouseServiceImpl implements HouseService {
                 form.addressType(), form.defaultAddress(), addressNote, house != null && house.isDeleted());
         house = dto.convertDTOToEntity(house);
         if (form.defaultAddress()) {
-            if (houseId == null) {
-                jdbc.update("UPDATE dbo.Houses SET is_default=0 WHERE customer_id=? AND is_deleted=0 AND is_default=1",
-                        customerId);
-            } else {
-                jdbc.update("UPDATE dbo.Houses SET is_default=0 WHERE customer_id=? AND is_deleted=0 AND is_default=1 AND house_id<>?",
-                        customerId, houseId);
-            }
+            houses.clearDefaultAddress(customerId, houseId);
         }
         return houses.save(house);
     }
 
-    public List<VietmapClient.Suggestion> autocomplete(String query) {
+    public List<LocationSuggestion> autocomplete(String query) {
         if (query == null || query.trim().length() < 3 || query.length() > 200) return List.of();
-        return vietmap.autocomplete(query.trim());
+        return vietmap.autocomplete(query.trim()).stream()
+                .map(suggestion -> new LocationSuggestion(suggestion.refId(), suggestion.display())).toList();
     }
 
     @Transactional
     public void softDelete(Long customerId, Long houseId) {
         House house = houses.findLockedByHouseIdAndCustomerIdAndDeletedFalse(houseId, customerId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy nhà thuộc tài khoản của bạn."));
-        Integer activeBookings = jdbc.queryForObject("""
-                SELECT COUNT(*) FROM dbo.Bookings
-                WHERE house_id=? AND status IN ('CONFIRMED', 'AWAITING_PAYMENT')
-                """, Integer.class, houseId);
-        if (activeBookings != null && activeBookings > 0) {
+        if (bookings.hasActiveBookingForHouse(houseId)) {
             throw new IllegalStateException("Không thể xóa nhà đang có lịch đã xác nhận hoặc chờ thanh toán.");
         }
         house.setDeleted(true);
@@ -105,15 +101,7 @@ public class HouseServiceImpl implements HouseService {
 
     @Transactional(readOnly = true)
     public ServiceCenter serviceCenter() {
-        List<CompanyLocation> configuredCompanies = jdbc.query("""
-                SELECT latitude, longitude, service_radius_km
-                FROM dbo.Company_Settings ORDER BY company_id
-                """, (rs, row) -> new CompanyLocation(
-                    rs.getBigDecimal("latitude"), rs.getBigDecimal("longitude"), rs.getBigDecimal("service_radius_km")));
-        if (configuredCompanies.size() != 1) {
-            throw new IllegalStateException("Cần cấu hình chính xác một vị trí và bán kính phục vụ của công ty.");
-        }
-        CompanyLocation company = configuredCompanies.getFirst();
+        CompanySettingsService.ServiceCenter company = companySettings.serviceCenter();
         if (company.latitude()==null || company.longitude()==null || company.radiusKm()==null)
             throw new IllegalStateException("Admin chưa cấu hình tâm và bán kính phục vụ của công ty.");
         return new ServiceCenter(company.latitude(),company.longitude(),company.radiusKm());
@@ -128,7 +116,5 @@ public class HouseServiceImpl implements HouseService {
                 + Math.cos(startLatitude) * Math.cos(endLatitude) * Math.pow(Math.sin(longitudeDelta / 2), 2);
         return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(Math.min(1, haversine)));
     }
-
-    private record CompanyLocation(BigDecimal latitude, BigDecimal longitude, BigDecimal radiusKm) { }
 
 }

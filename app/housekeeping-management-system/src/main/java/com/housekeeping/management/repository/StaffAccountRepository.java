@@ -9,6 +9,9 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface StaffAccountRepository extends JpaRepository<Staff, Long> {
+    java.util.List<Staff> findAllByOrderByUser_FullNameAsc();
+    java.util.List<Staff> findAllByUser_StatusOrderByUser_FullNameAsc(com.housekeeping.management.domain.UserStatus status);
+    java.util.List<Staff> findAllByStaffIdIn(java.util.Collection<Long> staffIds);
     Optional<Staff> findByUser_UserId(Long userId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

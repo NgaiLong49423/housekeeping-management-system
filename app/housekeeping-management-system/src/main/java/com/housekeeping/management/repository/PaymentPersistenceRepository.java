@@ -13,6 +13,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface PaymentPersistenceRepository extends JpaRepository<Payment, Long> {
+    List<Payment> findAllByBookingIdInOrderByCreatedAtDescPaymentIdDesc(List<Long> bookingIds);
+    List<Payment> findAllByStatusOrderByPaidAtDescPaymentIdDesc(PaymentStatus status);
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     List<Payment> findByBookingIdOrderByCreatedAtDescPaymentIdDesc(Long bookingId);
 

@@ -1,61 +1,9 @@
 package com.housekeeping.management.repository;
 
-import java.sql.PreparedStatement;
-import java.sql.Statement;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.support.GeneratedKeyHolder;
-import org.springframework.jdbc.support.KeyHolder;
-import org.springframework.stereotype.Repository;
+import com.housekeeping.management.entity.BookingImage;
+import org.springframework.data.jpa.repository.JpaRepository;
 
-@Repository
-public class BookingImageRepository {
-    private final JdbcTemplate jdbc;
-
-    public BookingImageRepository(JdbcTemplate jdbc) {
-        this.jdbc = jdbc;
-    }
-
-    public Optional<BookingAccess> lockBooking(Long bookingId) {
-        List<BookingAccess> rows = jdbc.query("""
-                SELECT staff_id, status FROM dbo.Bookings WITH (UPDLOCK, HOLDLOCK)
-                WHERE booking_id=?
-                """, (rs, row) -> new BookingAccess(rs.getLong("staff_id"), rs.getString("status")), bookingId);
-        return rows.stream().findFirst();
-    }
-
-    public Long insertImage(Long bookingId, String imageUrl, LocalDateTime uploadedAt) {
-        KeyHolder keys = new GeneratedKeyHolder();
-        jdbc.update(connection -> {
-            PreparedStatement statement = connection.prepareStatement("""
-                    INSERT INTO dbo.Booking_Images (booking_id, image_url, uploaded_at) VALUES (?, ?, ?)
-                    """, Statement.RETURN_GENERATED_KEYS);
-            statement.setLong(1, bookingId);
-            statement.setString(2, imageUrl);
-            statement.setObject(3, uploadedAt);
-            return statement;
-        }, keys);
-        Number key = keys.getKey();
-        if (key == null) {
-            throw new IllegalStateException("SQL Server did not return the new booking image ID.");
-        }
-        return key.longValue();
-    }
-
-    public boolean hasEvidence(Long bookingId) {
-        Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Booking_Images WHERE booking_id=?", Integer.class, bookingId);
-        return count != null && count > 0;
-    }
-
-    public List<String> findAllImageUrls() {
-        return jdbc.query("""
-                SELECT image_url FROM dbo.Booking_Images
-                UNION SELECT image_path FROM dbo.Feedback_Case_Evidence
-                UNION SELECT receipt_path FROM dbo.Booking_Financial_Entries WHERE receipt_path IS NOT NULL
-                """, (rs, row) -> rs.getString(1));
-    }
-
-    public record BookingAccess(Long staffId, String status) { }
+public interface BookingImageRepository extends JpaRepository<BookingImage, Long> {
+    boolean existsByBookingId(Long bookingId);
+    java.util.List<BookingImage> findAllByBookingIdOrderByUploadedAtAscImageIdAsc(Long bookingId);
 }

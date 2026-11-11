@@ -1,11 +1,11 @@
 package com.housekeeping.management.service;
 
 import com.housekeeping.management.dto.request.PortalForms.HouseForm;
+import com.housekeeping.management.dto.response.LocationSuggestion;
 import com.housekeeping.management.domain.HouseAddressType;
 import com.housekeeping.management.entity.House;
 import java.math.BigDecimal;
 import java.util.List;
-import org.springframework.jdbc.core.JdbcTemplate;
 
 public interface HouseService {
     public record ServiceCenter(BigDecimal latitude,BigDecimal longitude,BigDecimal radiusKm) {
@@ -18,7 +18,7 @@ public interface HouseService {
     House findCustomerHouseForUpdate(Long customerId, Long houseId);
     public House findHouse(Long houseId);
     public House save(Long customerId, Long houseId, HouseForm form);
-    public List<VietmapClient.Suggestion> autocomplete(String query);
+    List<LocationSuggestion> autocomplete(String query);
     public void softDelete(Long customerId, Long houseId);
     public boolean isWithinServiceRadius(BigDecimal latitude, BigDecimal longitude);
     public ServiceCenter serviceCenter();

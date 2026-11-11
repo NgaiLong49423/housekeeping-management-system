@@ -124,7 +124,26 @@ public final class PortalViews {
     public record IncidentCard(Long id, Long feedbackId, Long bookingId, Long customerId, Long staffId,
             List<String> types, String description, String status, String customerOutcome, String remedyType,
             String internalFinding, boolean remedyCompleted, String staffAction, String staffActionStatus, Long proposedBy,
-            Long approvedBy, Long staffActionId, java.time.LocalDateTime createdAt, java.time.LocalDateTime resolvedAt) {
+            Long approvedBy, Long staffActionId, java.time.LocalDateTime createdAt, java.time.LocalDateTime resolvedAt,
+            String itemDescription, BigDecimal customerEstimatedValue, Integer itemAgeMonths, boolean resolutionWorkflowRequired) {
+        public IncidentCard(Long id, Long feedbackId, Long bookingId, Long customerId, Long staffId,
+                List<String> types, String description, String status, String customerOutcome, String remedyType,
+                String internalFinding, boolean remedyCompleted, String staffAction, String staffActionStatus,
+                Long proposedBy, Long approvedBy, Long staffActionId, java.time.LocalDateTime createdAt,
+                java.time.LocalDateTime resolvedAt) {
+            this(id, feedbackId, bookingId, customerId, staffId, types, description, status, customerOutcome,
+                    remedyType, internalFinding, remedyCompleted, staffAction, staffActionStatus, proposedBy,
+                    approvedBy, staffActionId, createdAt, resolvedAt, null, null, null, false);
+        }
+        public IncidentCard(Long id, Long feedbackId, Long bookingId, Long customerId, Long staffId, List<String> types,
+                String description, String status, String customerOutcome, String remedyType, String internalFinding,
+                boolean remedyCompleted, String staffAction, String staffActionStatus, Long proposedBy, Long approvedBy,
+                Long staffActionId, java.time.LocalDateTime createdAt, java.time.LocalDateTime resolvedAt,
+                String itemDescription, BigDecimal customerEstimatedValue, Integer itemAgeMonths) {
+            this(id,feedbackId,bookingId,customerId,staffId,types,description,status,customerOutcome,remedyType,internalFinding,
+                    remedyCompleted,staffAction,staffActionStatus,proposedBy,approvedBy,staffActionId,createdAt,resolvedAt,
+                    itemDescription,customerEstimatedValue,itemAgeMonths,false);
+        }
         public String getStatusLabel() { return switch(status) {
             case "RECEIVED" -> "Đã tiếp nhận"; case "INVESTIGATING" -> "Đang xác minh";
             case "VERIFIED" -> "Đã xác minh"; case "NOT_SUBSTANTIATED" -> "Chưa đủ căn cứ";
@@ -133,9 +152,37 @@ public final class PortalViews {
             case "CLEANLINESS" -> "Vệ sinh chưa đạt"; case "PROPERTY_DAMAGE" -> "Tài sản bị hư hại";
             case "MISSING_PROPERTY" -> "Tài sản bị mất"; case "OTHER" -> "Sự cố khác"; default -> type; }).toList(); }
     }
+    public record ResolutionActionCard(Long id, String type, String description, java.time.LocalDateTime dueAt,
+            java.math.BigDecimal amount, String calculationBasis, Long financialEntryId) { }
+    public record ResolutionOptionCard(Long id, Integer number, String title, String description,
+            java.util.List<ResolutionActionCard> actions) { }
+    public record ResolutionPlanCard(Long id, Long caseId, Integer version, String status, String internalFinding,
+            String customerResponse, String completionFeedback, java.time.LocalDateTime customerCompletedAt,
+            Long selectedOptionId, String payoutMethod, Long createdBy,
+            java.time.LocalDateTime createdAt, Long managerId, String managerReason,
+            java.util.List<ResolutionOptionCard> options) { }
+    public record WorkOrderCard(Long id, Long caseId, Long actionId, Long assignedStaffId,
+            java.time.LocalDateTime scheduledAt, String scope, java.math.BigDecimal estimatedCost,
+            String estimatedMaterials, java.math.BigDecimal actualCost, String actualMaterials,
+            String completionEvidence, String status, String customerConfirmation, String customerFeedback) { }
+    public record CaseVerificationCard(Long id, Long adminId, String status, List<Long> reviewedEvidenceIds,
+            String internalFinding, java.time.LocalDateTime createdAt) { }
     public record FeedbackCaseMessageCard(Long id, Long caseId, Long senderId, String senderRole,
             String senderName, String text, java.time.LocalDateTime sentAt, boolean legacyImported,
-            boolean legacyTimestampUnknown, List<Long> evidenceIds) { }
+            boolean legacyTimestampUnknown, List<Long> evidenceIds, List<String> externalEvidenceUrls,
+            List<ExternalEvidenceCard> externalEvidenceItems) {
+        public FeedbackCaseMessageCard(Long id, Long caseId, Long senderId, String senderRole, String senderName,
+                String text, java.time.LocalDateTime sentAt, boolean legacyImported, boolean legacyTimestampUnknown,
+                List<Long> evidenceIds) {
+            this(id,caseId,senderId,senderRole,senderName,text,sentAt,legacyImported,legacyTimestampUnknown,evidenceIds,List.of(),List.of());
+        }
+        public FeedbackCaseMessageCard(Long id, Long caseId, Long senderId, String senderRole, String senderName,
+                String text, java.time.LocalDateTime sentAt, boolean legacyImported, boolean legacyTimestampUnknown,
+                List<Long> evidenceIds, List<String> externalEvidenceUrls) {
+            this(id,caseId,senderId,senderRole,senderName,text,sentAt,legacyImported,legacyTimestampUnknown,evidenceIds,externalEvidenceUrls,List.of());
+        }
+    }
+    public record ExternalEvidenceCard(Long id, String url) { }
     public record FinancialEntryCard(Long id, Long bookingId, Long caseId, String type,
             BigDecimal amount, String reason, String status, String paymentMethod,
             String reference, String receiptPath, boolean simulated, Long createdBy,
@@ -153,6 +200,14 @@ public final class PortalViews {
             case "CANCELLED" -> "Đã hủy"; default -> status;
         }; }
     }
+    public record FinancialLedgerCard(Long bookingId, String sourceType, String title, String status,
+            BigDecimal amount, boolean incoming, String method, String reference, String reason,
+            java.time.LocalDateTime occurredAt, boolean simulated, FinancialEntryCard adjustment) { }
+    public record CustomerCompensationOfferCard(Long entryId, Long bookingId, BigDecimal amount,
+            String reason, String responseStatus, String payoutMethod) { }
+    /** Sensitive details are only populated for an authorized Admin/Manager view. */
+    public record AdminPayoutDetails(Long entryId, String responseStatus, String payoutMethod,
+            String bankName, String accountHolder, String accountNumber) { }
     public record CustomerFinancialCard(String type, BigDecimal amount, String status, String paymentMethod,
             String reference, java.time.LocalDateTime paidAt) {
         public String getTypeLabel() { return switch(type) { case "REFUND" -> "Hoàn tiền"; case "PRICE_REDUCTION" -> "Giảm giá"; case "COMPENSATION" -> "Bồi thường"; default -> type; }; }

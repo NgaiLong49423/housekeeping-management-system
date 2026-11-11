@@ -2,11 +2,13 @@ package com.housekeeping.management.service.impl;
 
 import com.housekeeping.management.service.StaffAvailabilityService;
 import com.housekeeping.management.service.StaffManagementService;
-import com.housekeeping.management.service.CompanySettingsService;
+import com.housekeeping.management.service.CompanyOperatingHoursService;
+import com.housekeeping.management.service.BookingQueryService;
 
 import com.housekeeping.management.domain.StaffType;
 import com.housekeeping.management.dto.request.PortalForms.AvailabilityForm;
 import com.housekeeping.management.dto.request.PortalForms.AvailabilityBatchForm;
+import com.housekeeping.management.dto.request.PortalForms.OperatingHoursForm;
 import com.housekeeping.management.entity.Staff;
 import com.housekeeping.management.repository.StaffAvailabilityRepository;
 import java.time.LocalTime;
@@ -18,20 +20,24 @@ import java.util.stream.Stream;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Isolation;
 
 @Service
 public class StaffAvailabilityServiceImpl implements StaffAvailabilityService {
     private final StaffManagementService staffManagement;
     private final StaffAvailabilityRepository availability;
-    private final CompanySettingsService settings;
+    private final CompanyOperatingHoursService settings;
+    private final BookingQueryService bookings;
 
-    public StaffAvailabilityServiceImpl(StaffManagementService staffManagement, StaffAvailabilityRepository availability, CompanySettingsService settings) {
+    public StaffAvailabilityServiceImpl(StaffManagementService staffManagement, StaffAvailabilityRepository availability,
+            CompanyOperatingHoursService settings, BookingQueryService bookings) {
         this.staffManagement = staffManagement;
         this.availability = availability;
         this.settings = settings;
+        this.bookings = bookings;
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.SERIALIZABLE)
     public void save(Long userId, Long availabilityId, AvailabilityForm form) {
         Long staffId = requirePartTimeStaff(userId).getStaffId();
         settings.lockSettingsForScheduling();
@@ -40,7 +46,7 @@ public class StaffAvailabilityServiceImpl implements StaffAvailabilityService {
         availability.insert(staffId, form.workDate(), form.startTime(), form.endTime());
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.SERIALIZABLE)
     public int saveForDate(Long userId, LocalDate workDate, List<LocalTime> startTimes, List<LocalTime> endTimes) {
         Long staffId = requirePartTimeStaff(userId).getStaffId();
         settings.lockSettingsForScheduling();
@@ -67,7 +73,7 @@ public class StaffAvailabilityServiceImpl implements StaffAvailabilityService {
         return ranges.size();
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.SERIALIZABLE)
     public int saveBatch(Long userId, AvailabilityBatchForm form) {
         Long staffId = requirePartTimeStaff(userId).getStaffId();
         settings.lockSettingsForScheduling();
@@ -95,7 +101,7 @@ public class StaffAvailabilityServiceImpl implements StaffAvailabilityService {
         return dates.size();
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.SERIALIZABLE)
     public void replace(Long userId, Long availabilityId, AvailabilityForm form) {
         Long staffId = requirePartTimeStaff(userId).getStaffId();
         settings.lockSettingsForScheduling();
@@ -109,7 +115,7 @@ public class StaffAvailabilityServiceImpl implements StaffAvailabilityService {
         if (availability.isForPastDate(availabilityId,staffId,LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")))) {
             throw new IllegalStateException("Không thể sửa khoảng sẵn sàng của ngày đã qua; lịch sử chỉ được xem.");
         }
-        if (availability.containsFutureConfirmedBooking(availabilityId, staffId)) {
+        if (hasFutureConfirmedBookingWithinAvailability(availabilityId, staffId)) {
             throw new IllegalStateException("Không thể thay đổi khoảng đang chứa Booking CONFIRMED trong tương lai. Hãy yêu cầu Admin đổi nhân viên hoặc hủy lịch trước.");
         }
         validateInterval(staffId, form, availabilityId);
@@ -128,7 +134,7 @@ public class StaffAvailabilityServiceImpl implements StaffAvailabilityService {
             throw new IllegalArgumentException("Chỉ có thể đăng ký hoặc sửa lịch từ hôm nay trở đi.");
         }
         if (!quarterHour(form.startTime()) || !quarterHour(form.endTime())) throw new IllegalArgumentException("Giờ chỉ được chọn phút 00, 15, 30 hoặc 45.");
-        boolean inCompanyWindow = settings.operatingHoursForDate(form.workDate()).stream().anyMatch(hour -> hour.dayOfWeek() == form.workDate().getDayOfWeek().getValue()
+        boolean inCompanyWindow = settings.forDate(form.workDate()).stream().anyMatch(hour -> hour.dayOfWeek() == form.workDate().getDayOfWeek().getValue()
                         && !hour.closed() && hour.openingTime() != null && hour.closingTime() != null
                         && !form.startTime().isBefore(hour.openingTime()) && !form.endTime().isAfter(hour.closingTime()));
         if (!inCompanyWindow) throw new IllegalArgumentException("Khoảng Staff phải nằm trọn trong một khung giờ hoạt động của công ty.");
@@ -137,14 +143,14 @@ public class StaffAvailabilityServiceImpl implements StaffAvailabilityService {
         }
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.SERIALIZABLE)
     public void delete(Long userId, Long availabilityId) {
         Long staffId = requirePartTimeStaff(userId).getStaffId();
         settings.lockSettingsForScheduling();
         if (availability.isForPastDate(availabilityId,staffId,LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")))) {
             throw new IllegalStateException("Không thể thay đổi khoảng sẵn sàng của ngày đã qua; lịch sử chỉ được xem.");
         }
-        if (availability.containsFutureConfirmedBooking(availabilityId, staffId)) {
+        if (hasFutureConfirmedBookingWithinAvailability(availabilityId, staffId)) {
             throw new IllegalStateException("Không thể ngừng khoảng sẵn sàng đang chứa Booking CONFIRMED trong tương lai. Hãy yêu cầu Admin đổi nhân viên hoặc hủy lịch trước.");
         }
         if (availability.deactivate(availabilityId, staffId) != 1) {
@@ -152,7 +158,35 @@ public class StaffAvailabilityServiceImpl implements StaffAvailabilityService {
         }
     }
 
+    @Override
+    @Transactional
+    public void deactivateOutsideCompanyHours(LocalDate from, LocalDate until,
+            List<OperatingHoursForm> proposedHours) {
+        List<com.housekeeping.management.entity.StaffAvailability> active = until == null
+                ? availability.findAllByActiveTrueAndWorkDateGreaterThanEqual(from)
+                : availability.findAllByActiveTrueAndWorkDateGreaterThanEqualAndWorkDateLessThan(from, until);
+        List<com.housekeeping.management.entity.StaffAvailability> toDeactivate = active.stream().filter(interval -> {
+            List<OperatingHoursForm> windows = proposedHours == null
+                    ? settings.forDate(interval.getWorkDate()) : proposedHours;
+            int day = interval.getWorkDate().getDayOfWeek().getValue();
+            return windows.stream().noneMatch(window -> window.dayOfWeek() == day && !window.closed()
+                    && window.openingTime() != null && window.closingTime() != null
+                    && !interval.getStartTime().isBefore(window.openingTime())
+                    && !interval.getEndTime().isAfter(window.closingTime()));
+        }).toList();
+        toDeactivate.forEach(interval -> interval.setActive(false));
+        if (!toDeactivate.isEmpty()) availability.saveAll(toDeactivate);
+    }
+
     private static boolean quarterHour(LocalTime t) { return t.getSecond() == 0 && t.getNano() == 0 && t.getMinute() % 15 == 0; }
+
+    private boolean hasFutureConfirmedBookingWithinAvailability(Long availabilityId, Long staffId) {
+        return availability.findById(availabilityId)
+                .filter(interval -> interval.getStaffId().equals(staffId) && interval.isActive())
+                .map(interval -> bookings.hasFutureConfirmedBookingOverlapping(staffId, interval.getWorkDate(),
+                        interval.getStartTime(), interval.getEndTime()))
+                .orElse(false);
+    }
 
     private Staff requirePartTimeStaff(Long userId) {
         Staff staff = staffManagement.findActiveByUserIdForUpdate(userId);

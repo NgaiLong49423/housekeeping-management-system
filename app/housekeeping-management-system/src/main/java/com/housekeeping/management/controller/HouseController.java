@@ -52,7 +52,7 @@ public class HouseController {
 
     @GetMapping("/autocomplete")
     @ResponseBody
-    java.util.List<com.housekeeping.management.service.VietmapClient.Suggestion> autocomplete(@RequestParam String q) {
+    java.util.List<com.housekeeping.management.dto.response.LocationSuggestion> autocomplete(@RequestParam String q) {
         return houses.autocomplete(q);
     }
 

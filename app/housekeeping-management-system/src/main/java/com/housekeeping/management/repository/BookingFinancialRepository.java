@@ -5,12 +5,23 @@ import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface BookingFinancialRepository extends JpaRepository<BookingFinancialEntry, Long> {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select entry from BookingFinancialEntry entry where entry.entryId=:id")
+    java.util.Optional<BookingFinancialEntry> findByIdForUpdate(@Param("id") Long id);
+
+    @Query("select entry from BookingFinancialEntry entry join Booking booking on booking.bookingId=entry.bookingId "
+            + "where booking.customerId=:customerId and entry.entryType='COMPENSATION' and entry.status='APPROVED' "
+            + "order by entry.createdAt desc, entry.entryId desc")
+    List<BookingFinancialEntry> findApprovedCompensationsForCustomer(@Param("customerId") Long customerId);
     List<BookingFinancialEntry> findByBookingIdOrderByCreatedAtAscEntryIdAsc(Long bookingId);
+    java.util.Optional<BookingFinancialEntry> findFirstByResolutionActionId(Long resolutionActionId);
 
     List<BookingFinancialEntry> findAllByOrderByCreatedAtDescEntryIdDesc();
 
@@ -19,7 +30,7 @@ public interface BookingFinancialRepository extends JpaRepository<BookingFinanci
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update BookingFinancialEntry entry set entry.status='APPROVED', entry.approvedBy=:actor, entry.approvedAt=CURRENT_TIMESTAMP "
-            + "where entry.entryId=:id and entry.status='PENDING_APPROVAL' and entry.createdBy<>:actor")
+            + "where entry.entryId=:id and entry.status='PENDING_APPROVAL'")
     int approve(@Param("id") Long id, @Param("actor") Long actor);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
@@ -41,6 +52,11 @@ public interface BookingFinancialRepository extends JpaRepository<BookingFinanci
     int settle(@Param("id") Long id, @Param("adminId") Long adminId, @Param("method") String method,
             @Param("reference") String reference, @Param("simulated") boolean simulated,
             @Param("status") String status);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update BookingFinancialEntry entry set entry.receiptPath=:path where entry.entryId=:id "
+            + "and entry.status='APPROVED' and entry.receiptPath is null")
+    int attachReceipt(@Param("id") Long id, @Param("path") String path);
 
     @Query("select coalesce(sum(entry.amount), 0) from BookingFinancialEntry entry "
             + "where entry.status='PAID' and entry.simulated=false and entry.entryType in :types")

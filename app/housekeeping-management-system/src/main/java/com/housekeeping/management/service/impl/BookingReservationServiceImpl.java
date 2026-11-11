@@ -1,11 +1,12 @@
 package com.housekeeping.management.service.impl;
 
-import com.housekeeping.management.service.VietmapClient;
+import com.housekeeping.management.integration.vietmap.VietmapClient;
 import com.housekeeping.management.service.BookingReservationService;
 import com.housekeeping.management.service.HouseService;
 import com.housekeeping.management.service.AuthService;
 import com.housekeeping.management.service.ServiceManagementService;
 import com.housekeeping.management.service.StaffManagementService;
+import com.housekeeping.management.service.CompanySettingsService;
 
 import com.housekeeping.management.domain.StaffType;
 import com.housekeeping.management.entity.Services;
@@ -13,6 +14,8 @@ import com.housekeeping.management.entity.House;
 import com.housekeeping.management.entity.Staff;
 import com.housekeeping.management.entity.User;
 import com.housekeeping.management.repository.BookingPersistenceRepository;
+import com.housekeeping.management.repository.BookingDetailRepository;
+import com.housekeeping.management.entity.BookingDetail;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -35,16 +38,20 @@ public class BookingReservationServiceImpl implements BookingReservationService 
     private final StaffManagementService staffManagement;
     private final ServiceManagementService serviceManagement;
     private final VietmapClient vietmap;
+    private final CompanySettingsService companySettings;
+    private final BookingDetailRepository bookingDetails;
 
     public BookingReservationServiceImpl(BookingPersistenceRepository bookings, HouseService houseService,
             AuthService auth, StaffManagementService staffManagement, ServiceManagementService serviceManagement,
-            VietmapClient vietmap) {
+            VietmapClient vietmap, CompanySettingsService companySettings, BookingDetailRepository bookingDetails) {
         this.bookings = bookings;
         this.houseService = houseService;
         this.auth = auth;
         this.staffManagement = staffManagement;
         this.serviceManagement = serviceManagement;
         this.vietmap = vietmap;
+        this.companySettings = companySettings;
+        this.bookingDetails = bookingDetails;
     }
 
     @Transactional
@@ -56,7 +63,7 @@ public class BookingReservationServiceImpl implements BookingReservationService 
         // Lock order is always House then Staff. The Staff lock serializes overlap checks, including empty ranges.
         House house = houseService.findCustomerHouseForUpdate(customerId, houseId);
         Staff staff = staffManagement.findActiveForBookingUpdate(staffId);
-        bookings.lockCompanySettings();
+        companySettings.lockSettingsForScheduling();
         List<BookingPersistenceRepository.ServiceSnapshot> selectedServices = selectedServices(requestedServiceIds);
         int totalDurationMinutes = selectedServices.stream().mapToInt(BookingPersistenceRepository.ServiceSnapshot::durationMinutes)
                 .reduce(0, Math::addExact);
@@ -64,11 +71,11 @@ public class BookingReservationServiceImpl implements BookingReservationService 
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         LocalDateTime end = start.plusMinutes(totalDurationMinutes);
         if (end.toLocalDate().isAfter(start.toLocalDate())) throw new IllegalArgumentException("Booking phải kết thúc trong cùng ngày và khung giờ hoạt động.");
-        if (!bookings.companyAcceptsInterval(start.toLocalDate(), start.toLocalTime(), end.toLocalTime())) {
+        if (!companySettings.acceptsInterval(start.toLocalDate(), start.toLocalTime(), end.toLocalTime())) {
             throw new IllegalArgumentException("Toàn bộ lịch phải kết thúc trong cùng một khung giờ hoạt động của công ty.");
         }
-        if (bookings.isOnApprovedLeave(staffId, start.toLocalDate())) throw new IllegalArgumentException("Nhân viên đã được duyệt nghỉ trong ngày bắt đầu này.");
-        if (staff.getStaffType() == StaffType.PART_TIME && !bookings.partTimeAcceptsInterval(staffId, start.toLocalDate(), start.toLocalTime(), end.toLocalTime())) {
+        if (staffManagement.isOnApprovedLeave(staffId, start.toLocalDate())) throw new IllegalArgumentException("Nhân viên đã được duyệt nghỉ trong ngày bắt đầu này.");
+        if (staff.getStaffType() == StaffType.PART_TIME && !staffManagement.acceptsAvailabilityInterval(staffId, start.toLocalDate(), start.toLocalTime(), end.toLocalTime())) {
             throw new IllegalArgumentException("Toàn bộ lịch phải nằm trong một khoảng sẵn sàng đang hiệu lực của nhân viên.");
         }
         if (house.getLatitude() == null || house.getLongitude() == null) throw new IllegalArgumentException("Địa chỉ này chưa có tọa độ VietMap. Hãy cập nhật địa chỉ bằng kết quả gợi ý.");
@@ -78,12 +85,20 @@ public class BookingReservationServiceImpl implements BookingReservationService 
             if (travel.status()==TravelStatus.ROUTE_UNAVAILABLE) throw new IllegalStateException(travel.message());
             throw new IllegalArgumentException(travel.message());
         }
-        bookings.validateStillOpen(start, now());
+        validateRequestedStart(start, now());
 
         Long bookingId = bookings.insertBooking(customer.getUserId(), staff.getStaffId(), house.getHouseId(),
                 house.getAddress(), house.getLatitude(), house.getLongitude(), house.getAddressNote(),
                 start, end, totalDurationMinutes, totalAmount, cleanAreaNote(areaNote), now());
-        bookings.insertDetails(bookingId, selectedServices);
+        bookingDetails.saveAll(selectedServices.stream().map(snapshot -> {
+            BookingDetail detail = new BookingDetail();
+            detail.setBookingId(bookingId);
+            detail.setServiceId(snapshot.id());
+            detail.setServiceNameSnapshot(snapshot.name());
+            detail.setUnitPrice(snapshot.price());
+            detail.setDurationMinutes(snapshot.durationMinutes());
+            return detail;
+        }).toList());
         return bookingId;
     }
 
@@ -95,6 +110,13 @@ public class BookingReservationServiceImpl implements BookingReservationService 
     @Override
     @Transactional
     public java.util.Optional<BookingPaymentState> lockBookingForPayment(Long bookingId) {
+        return bookings.lockBooking(bookingId).map(booking -> new BookingPaymentState(
+                booking.customerId(), booking.staffId(), booking.status()));
+    }
+
+    @Override
+    @Transactional
+    public java.util.Optional<BookingPaymentState> lockBookingForEvidence(Long bookingId) {
         return bookings.lockBooking(bookingId).map(booking -> new BookingPaymentState(
                 booking.customerId(), booking.staffId(), booking.status()));
     }

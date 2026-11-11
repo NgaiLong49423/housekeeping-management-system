@@ -6,6 +6,8 @@ import com.housekeeping.management.service.BookingReservationService;
 
 import com.housekeeping.management.repository.FeedbackRepository;
 import com.housekeeping.management.domain.FeedbackTopic;
+import com.housekeeping.management.entity.Feedback;
+import java.util.Arrays;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,10 +36,17 @@ public class FeedbackServiceImpl implements FeedbackService {
         if (!"COMPLETED".equals(booking.status())) {
             throw new IllegalStateException("Chỉ có thể gửi phản hồi sau khi thanh toán thành công.");
         }
-        if (feedback.existsForBooking(bookingId)) {
+        if (feedback.existsByBookingId(bookingId)) {
             throw new IllegalStateException("Lịch hẹn này đã có phản hồi.");
         }
-        feedback.create(bookingId, customerId, rating, topics == null ? List.of() : topics, clean(content));
+        Feedback entity = new Feedback();
+        entity.setBookingId(bookingId);
+        entity.setCustomerId(customerId);
+        entity.setRating(rating);
+        entity.setTopics(String.join(",", topics == null ? List.of() : topics));
+        entity.setContent(clean(content));
+        entity.setStatus(com.housekeeping.management.domain.FeedbackStatus.OPEN);
+        feedback.save(entity);
     }
 
     @Transactional
@@ -51,7 +60,8 @@ public class FeedbackServiceImpl implements FeedbackService {
         if (!"COMPLETED".equals(booking.status())) {
             throw new IllegalStateException("Chỉ có thể cập nhật phản hồi sau khi lịch hẹn hoàn tất.");
         }
-        if (feedback.update(bookingId, customerId, rating, topics == null ? List.of() : topics, clean(content)) != 1) {
+        if (feedback.updateCustomerFeedback(bookingId, customerId, rating,
+                String.join(",", topics == null ? List.of() : topics), clean(content)) != 1) {
             throw new IllegalStateException("Phản hồi đã được Admin trả lời hoặc không thể chỉnh sửa.");
         }
     }
@@ -77,7 +87,18 @@ public class FeedbackServiceImpl implements FeedbackService {
 
     @Override
     public List<com.housekeeping.management.dto.response.PortalViews.FeedbackCard> findAll() {
-        return feedback.findAll();
+        return feedback.findAllForPortal().stream().map(row -> {
+            String topicCodes = (String) row[4];
+            List<String> topics = topicCodes == null || topicCodes.isBlank()
+                    ? List.of() : FeedbackTopic.labels(Arrays.asList(topicCodes.split(",")));
+            Object feedbackStatus = row[7];
+            Object bookingStatus = row[8];
+            return new com.housekeeping.management.dto.response.PortalViews.FeedbackCard(
+                    ((Number) row[0]).longValue(), ((Number) row[1]).longValue(), (String) row[2],
+                    row[3] == null ? null : ((Number) row[3]).intValue(), topics, (String) row[5], (String) row[6],
+                    feedbackStatus.toString(), bookingStatus.toString(), (java.time.LocalDateTime) row[9],
+                    (java.math.BigDecimal) row[10], (String) row[11]);
+        }).toList();
     }
 
     private static void validate(Integer rating, List<String> topics, String content) {

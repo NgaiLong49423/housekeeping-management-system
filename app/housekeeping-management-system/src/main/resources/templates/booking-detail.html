@@ -25,6 +25,10 @@
           <p class="text-secondary small mb-0" th:text="${booking.startLabel} + ' → ' + ${booking.endLabel}">
             Thời gian
           </p>
+          <a th:if="${currentUser.admin and booking.feedbackStatus != null}" class="btn btn-sm btn-outline-primary mt-2"
+             th:href="@{/admin/feedback/booking/{id}(id=${booking.id})}">Mở phản hồi của booking này</a>
+          <a th:if="${currentUser.admin}" class="btn btn-sm btn-outline-primary mt-2"
+             th:href="@{/admin/finance/new(bookingId=${booking.id})}">Tạo khoản thu/chi cho booking này</a>
         </div>
         <div>
           <span class="status-pill fs-6 py-2 px-3" th:classappend="${booking.statusClass}" th:text="${booking.statusLabel}">
@@ -233,6 +237,7 @@
               </div>
             </div>
             <form th:if="${feedbackForm != null}" method="post" th:object="${feedbackForm}"
+                  enctype="multipart/form-data"
                   th:action="${booking.feedbackStatus == null} ? @{/customer/bookings/{id}/feedback(id=${booking.id})} : @{/customer/bookings/{id}/feedback/edit(id=${booking.id})}" data-feedback-form>
               <fieldset class="mb-3 border-0 p-0">
                 <legend class="form-label fw-semibold">Chọn số sao</legend>
@@ -256,7 +261,40 @@
               </fieldset>
               <label class="form-label fw-semibold" for="feedback-content">Lời nhắn <span class="text-secondary fw-normal">(không bắt buộc với 4–5 sao)</span></label>
               <textarea id="feedback-content" th:field="*{content}" class="form-control" rows="4" maxlength="4000" data-feedback-content></textarea>
-              <button type="submit" class="btn btn-primary mt-3" th:text="${booking.feedbackStatus == null} ? 'Gửi phản hồi' : 'Lưu chỉnh sửa'">Gửi phản hồi</button>
+              <section class="border rounded p-3 mt-3" th:if="${feedbackCase == null}">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" th:field="*{reportIncident}" id="report-incident" data-report-incident>
+                  <label class="form-check-label fw-semibold" for="report-incident">Đánh dấu sự cố cần công ty xử lý</label>
+                </div>
+                <div class="small text-secondary mt-1">Đánh giá và báo sự cố sẽ được gửi cùng lúc. Nếu chỉ muốn góp ý thông thường, để trống mục này.</div>
+                <div class="mt-3" data-incident-fields hidden>
+                  <fieldset class="mb-3 border-0 p-0"><legend class="form-label">Loại sự cố</legend>
+                    <div class="feedback-topic-list">
+                      <label class="feedback-topic-option"><input class="form-check-input" type="checkbox" name="incidentTypes" value="CLEANLINESS"> Vệ sinh chưa đạt</label>
+                      <label class="feedback-topic-option"><input class="form-check-input" type="checkbox" name="incidentTypes" value="PROPERTY_DAMAGE"> Tài sản bị hư hại</label>
+                      <label class="feedback-topic-option"><input class="form-check-input" type="checkbox" name="incidentTypes" value="MISSING_PROPERTY"> Tài sản bị mất</label>
+                      <label class="feedback-topic-option"><input class="form-check-input" type="checkbox" name="incidentTypes" value="OTHER"> Khác</label>
+                    </div>
+                  </fieldset>
+                  <label class="form-label fw-semibold" for="incident-description">Mô tả sự cố</label>
+                  <textarea class="form-control" id="incident-description" name="incidentDescription" rows="3" maxlength="4000" data-incident-description></textarea>
+                  <section class="border rounded p-3 my-3" data-item-details>
+                    <h3 class="h6">Thông tin món đồ bị ảnh hưởng</h3>
+                    <p class="small text-secondary">Thông tin này giúp công ty đánh giá đề xuất bồi thường. Giá bạn nhập là ước tính, chưa phải số tiền công ty cam kết chi.</p>
+                    <label class="form-label">Tên/loại món đồ <span class="text-secondary fw-normal">(bắt buộc nếu báo mất hoặc hư hại)</span><input class="form-control" name="incidentItemDescription" maxlength="300" data-item-description></label>
+                    <div class="row g-2">
+                      <div class="col-md-6"><label class="form-label">Giá mua ban đầu hoặc giá trị bạn ước tính hiện tại (₫)<input class="form-control" name="estimatedItemValue" type="number" min="0.01" step="0.01" inputmode="decimal"></label></div>
+                      <div class="col-md-6"><label class="form-label">Đã sử dụng khoảng (tháng)<input class="form-control" name="itemAgeMonths" type="number" min="0" max="1200" step="1"></label></div>
+                    </div>
+                    <small class="form-text text-secondary">Có thể gửi ảnh món đồ hoặc hóa đơn ở mục ảnh bằng chứng bên dưới. Nếu không nhớ chính xác giá, để trống; Admin sẽ xem xét thông tin và trao đổi với bạn.</small>
+                  </section>
+                  <label class="form-label mt-3 fw-semibold">Ảnh bằng chứng <span class="text-secondary fw-normal">(không bắt buộc, tối đa 5 ảnh · JPEG/PNG · 5 MB/ảnh)</span>
+                    <input class="form-control mt-1" type="file" name="images" accept="image/jpeg,image/png,application/pdf,video/mp4,video/webm" multiple data-incident-images>
+                  </label>
+                  <label class="form-label mt-2">Link video dài (Google Drive)<input class="form-control" type="url" name="incidentDriveLink" maxlength="1000" placeholder="https://drive.google.com/..." pattern="https://(drive|docs)\.google\.com/.*"></label>
+                </div>
+              </section>
+              <button type="submit" class="btn btn-primary mt-3" th:text="${booking.feedbackStatus == null} ? 'Gửi đánh giá' : 'Lưu đánh giá'">Gửi phản hồi</button>
               <p class="small text-secondary mt-2 mb-0" th:if="${booking.feedbackStatus == null}">Bạn có thể chỉnh sửa phản hồi trước khi Admin trả lời.</p>
             </form>
             <p class="small text-secondary mt-3 mb-0" th:if="${booking.feedbackStatus == 'OPEN' and booking.feedbackRating == null}">Feedback lịch sử này được giữ nguyên và không thể chỉnh sửa.</p>
@@ -272,7 +310,65 @@
             <div th:if="${feedbackCase != null}">
               <div class="d-flex flex-wrap align-items-center gap-2 mb-2"><strong>Trạng thái xử lý</strong><span class="badge rounded-pill text-bg-info" th:text="${feedbackCase.statusLabel}">Đang xác minh</span></div>
               <p><strong>Loại:</strong> <span th:text="${#strings.listJoin(feedbackCase.typeLabels, ', ')}">Vệ sinh chưa đạt</span></p>
+              <section class="border rounded p-3 mb-3" th:if="${feedbackCase.itemDescription != null or feedbackCase.customerEstimatedValue != null or feedbackCase.itemAgeMonths != null}">
+                <h3 class="h6">Thông tin món đồ bạn đã gửi</h3>
+                <p class="mb-1" th:if="${feedbackCase.itemDescription != null}"><strong>Món đồ:</strong> <span th:text="${feedbackCase.itemDescription}"></span></p>
+                <p class="mb-1" th:if="${feedbackCase.customerEstimatedValue != null}"><strong>Giá trị bạn ước tính:</strong> <span th:text="|${#numbers.formatDecimal(feedbackCase.customerEstimatedValue,0,'POINT',0,'COMMA')} ₫|"></span></p>
+                <p class="mb-1" th:if="${feedbackCase.itemAgeMonths != null}"><strong>Thời gian sử dụng:</strong> <span th:text="|${feedbackCase.itemAgeMonths} tháng|"></span></p>
+                <small class="text-secondary">Đây là thông tin để công ty xem xét, chưa phải số tiền bồi thường đã chốt.</small>
+              </section>
               <div class="feedback-company-reply mb-3" th:if="${feedbackCase.customerOutcome != null}"><strong class="d-block mb-1">Kết quả xác minh và cách khắc phục</strong><p class="mb-0" style="white-space:pre-wrap" th:text="${feedbackCase.customerOutcome}"></p></div>
+              <section class="surface p-3 my-3" th:if="${resolutionPlans != null and !#lists.isEmpty(resolutionPlans)}">
+                <h3 class="h6">Phương án xử lý từ công ty</h3>
+                <article class="border rounded p-3 mb-3" th:each="plan : ${resolutionPlans}">
+                  <div class="d-flex justify-content-between gap-2"><strong th:text="|Phiên bản ${plan.version}|">Phiên bản</strong><span class="badge text-bg-secondary" th:text="${plan.status}">AWAITING_CUSTOMER</span></div>
+                  <p class="small text-danger mt-2" th:if="${plan.managerReason != null}" th:text="|Manager yêu cầu công ty bổ sung: ${plan.managerReason}|">Lý do</p>
+                  <div class="border rounded p-3 my-2" th:each="option : ${plan.options}">
+                    <label class="d-flex gap-2 align-items-start" th:if="${plan.status == 'AWAITING_CUSTOMER'}"><input type="radio" name="selectedOptionId" th:value="${option.id}" th:attr="form=|resolution-choice-${plan.id}|"><span><strong th:text="${option.title}">Phương án</strong></span></label>
+                    <strong th:unless="${plan.status == 'AWAITING_CUSTOMER'}" th:text="${option.title}">Phương án</strong>
+                    <p class="mt-1 mb-2" th:text="${option.description}">Mô tả</p>
+                    <ul class="small mb-0" th:if="${!#lists.isEmpty(option.actions)}"><li th:each="action : ${option.actions}">
+                      <span th:text="${action.type == 'CUSTOMER_PAYOUT' ? 'Khoản tiền cho bạn' : 'Công việc công ty thực hiện'}">Hạng mục</span>:
+                      <span th:text="${action.description}"></span><strong th:if="${action.amount != null}" th:text="| · ${#numbers.formatDecimal(action.amount,0,'POINT',0,'COMMA')} ₫|"></strong>
+                      <span class="d-block text-secondary" th:if="${action.calculationBasis != null}" th:text="|Căn cứ tính: ${action.calculationBasis}|"></span>
+                    </li></ul>
+                  </div>
+                  <form th:if="${plan.status == 'AWAITING_CUSTOMER'}" method="post" class="vstack gap-2 mt-3" th:id="|resolution-choice-${plan.id}|" th:action="@{/customer/bookings/{id}/feedback/cases/{caseId}/resolution-plans/{planId}/choice(id=${booking.id},caseId=${feedbackCase.id},planId=${plan.id})}">
+                    <label class="form-label">Nếu phương án có khoản tiền, bạn muốn nhận bằng
+                      <select class="form-select" name="payoutMethod"><option value="">Chọn nếu có khoản tiền</option><option value="CASH">Tiền mặt</option><option value="BANK_TRANSFER">Chuyển khoản</option></select>
+                    </label>
+                    <label class="form-label">Ghi chú thêm (không bắt buộc)<textarea class="form-control" name="message" maxlength="2000" rows="2"></textarea></label>
+                    <div class="d-flex flex-wrap gap-2"><button class="btn btn-primary" type="submit" name="decision" value="SELECT">Chọn phương án này</button><button class="btn btn-outline-secondary" type="submit" name="decision" value="DISCUSS">Tôi muốn trao đổi/điều chỉnh</button></div>
+                    <p class="small text-secondary mb-0">Thông tin tài khoản chỉ được yêu cầu sau khi Manager duyệt phương án chuyển khoản. Nếu điều khoản thay đổi, công ty sẽ gửi phiên bản mới để bạn xác nhận lại.</p>
+                  </form>
+                  <p class="small text-secondary mb-0" th:if="${plan.status == 'MANAGER_REVIEW'}">Bạn đã chọn phương án này. Hồ sơ đang chờ Manager duyệt; chưa có việc nào được thực hiện.</p>
+                  <p class="small text-secondary mb-0" th:if="${plan.status == 'RETURNED'}">Manager đã trả hồ sơ cho công ty bổ sung. Công ty sẽ gửi phiên bản mới để bạn xác nhận lại.</p>
+                  <div th:if="${plan.status == 'IN_PROGRESS'}" class="border-top pt-3 mt-3">
+                    <p class="small">Khi đã nhận đủ khoản tiền và công việc trong phương án, hãy xác nhận. Nếu chưa đúng, gửi yêu cầu tiếp tục xử lý.</p>
+                    <form method="post" class="d-flex flex-wrap gap-2 mb-2" th:action="@{/customer/bookings/{id}/feedback/cases/{caseId}/resolution-plans/{planId}/completion(id=${booking.id},caseId=${feedbackCase.id},planId=${plan.id})}">
+                      <input type="hidden" name="confirm" value="true"><button class="btn btn-success" type="submit">Xác nhận đã nhận kết quả</button>
+                    </form>
+                    <form method="post" class="d-flex flex-wrap gap-2" th:action="@{/customer/bookings/{id}/feedback/cases/{caseId}/resolution-plans/{planId}/completion(id=${booking.id},caseId=${feedbackCase.id},planId=${plan.id})}">
+                      <input type="hidden" name="confirm" value="false"><input class="form-control" name="message" maxlength="1000" placeholder="Mô tả phần chưa được giải quyết" required><button class="btn btn-outline-danger" type="submit">Yêu cầu xử lý tiếp</button>
+                    </form>
+                  </div>
+                  <p class="small text-success mb-0" th:if="${plan.status == 'COMPLETED'}">Bạn đã xác nhận kết quả cuối.</p>
+                  <p class="small text-danger mb-0" th:if="${plan.status == 'CUSTOMER_DISPUTED' and plan.completionFeedback != null}" th:text="|Nội dung cần xử lý tiếp: ${plan.completionFeedback}|">Ý kiến khách</p>
+                </article>
+              </section>
+              <section class="surface p-3 my-3" th:if="${workOrders != null and !#lists.isEmpty(workOrders)}">
+                <h3 class="h6">Tiến độ công việc đã duyệt</h3>
+                <article class="border rounded p-3 mb-2" th:each="work : ${workOrders}">
+                  <strong th:text="${work.scope}">Công việc</strong><p class="small mb-1" th:text="|Trạng thái: ${work.status} · Lịch: ${work.scheduledAt == null ? 'Đang sắp xếp' : work.scheduledAt}|">Tiến độ</p>
+                  <p class="small" th:if="${work.completionEvidence != null}" th:text="|Kết quả: ${work.completionEvidence}|">Bằng chứng</p>
+                  <div th:if="${work.status == 'COMPLETED'}" class="d-flex flex-wrap gap-2">
+                    <form method="post" th:action="@{/customer/bookings/{id}/feedback/work-orders/{workOrderId}/response(id=${booking.id},workOrderId=${work.id})}"><input type="hidden" name="decision" value="CONFIRMED"><button class="btn btn-success" type="submit">Xác nhận đã hoàn tất</button></form>
+                    <form method="post" class="d-flex gap-2" th:action="@{/customer/bookings/{id}/feedback/work-orders/{workOrderId}/response(id=${booking.id},workOrderId=${work.id})}"><input type="hidden" name="decision" value="DISPUTED"><input class="form-control" name="message" maxlength="1000" placeholder="Nội dung chưa hoàn tất" required><button class="btn btn-outline-danger" type="submit">Báo chưa hoàn tất</button></form>
+                  </div>
+                  <p class="small text-success mb-0" th:if="${work.status == 'CUSTOMER_CONFIRMED'}">Bạn đã xác nhận kết quả.</p>
+                  <p class="small text-danger mb-0" th:if="${work.status == 'DISPUTED'}" th:text="|Bạn đã yêu cầu xử lý tiếp: ${work.customerFeedback}|">Đang xử lý tiếp</p>
+                </article>
+              </section>
               <section class="surface p-3 my-3">
                 <h3 class="h6">Lịch sử trao đổi</h3>
                 <article th:each="message : ${feedbackCaseMessages}" class="border rounded p-3 mb-2">
@@ -282,16 +378,53 @@
                     <span th:if="${message.legacyTimestampUnknown}" class="badge text-bg-secondary">Phản hồi cũ · thời điểm gửi không được lưu</span>
                   </div>
                   <p th:if="${message.text != null}" class="mb-2 mt-2" style="white-space:pre-wrap" th:text="${message.text}"></p>
-                  <ul th:if="${!#lists.isEmpty(message.evidenceIds)}" class="mb-0"><li th:each="evidenceId : ${message.evidenceIds}"><a th:href="@{/feedback-case-evidence/{id}(id=${evidenceId})}" target="_blank" rel="noopener">Xem ảnh/chứng từ</a></li></ul>
+                  <ul th:if="${!#lists.isEmpty(message.evidenceIds)}" class="mb-0"><li th:each="evidenceId : ${message.evidenceIds}"><a th:href="@{/feedback-case-evidence/{id}(id=${evidenceId})}" target="_blank" rel="noopener noreferrer">Mở tệp bằng chứng</a></li></ul>
+                  <ul th:if="${!#lists.isEmpty(message.externalEvidenceUrls)}" class="mb-0"><li th:each="url : ${message.externalEvidenceUrls}"><a th:href="${url}" target="_blank" rel="noopener noreferrer">Mở video Google Drive</a><span class="small text-secondary"> · Quyền xem do người gửi quản lý.</span></li></ul>
                 </article>
                 <form th:if="${feedbackCase.status != 'RESOLVED'}" method="post" enctype="multipart/form-data" class="vstack gap-2 mt-3" th:action="@{/customer/bookings/{id}/feedback/incident/{caseId}/messages(id=${booking.id},caseId=${feedbackCase.id})}">
                   <label class="form-label">Tin nhắn <textarea name="message" class="form-control" rows="3" maxlength="4000" placeholder="Nhập nội dung trao đổi"></textarea></label>
-                  <label class="form-label">Ảnh đính kèm (tối đa 5 ảnh, JPEG/PNG, 5 MB/ảnh)<input class="form-control" type="file" name="images" accept="image/jpeg,image/png" multiple></label>
+                  <label class="form-label">Tệp bằng chứng (tối đa 5 mục; ảnh/PDF 5 MB, video MP4/WebM 50 MB, tối đa 1 video)<input class="form-control" type="file" name="images" accept="image/jpeg,image/png,application/pdf,video/mp4,video/webm" multiple></label>
+                  <label class="form-label">Link video dài (Google Drive)<input class="form-control" type="url" name="driveLink" maxlength="1000" placeholder="https://drive.google.com/..." pattern="https://(drive|docs)\.google\.com/.*"></label>
                   <button class="btn btn-outline-primary align-self-start" type="submit">Gửi tin nhắn</button>
                 </form>
                 <p th:if="${feedbackCase.status == 'RESOLVED'}" class="small text-secondary mb-0">Hồ sơ đã giải quyết; lịch sử trao đổi ở chế độ chỉ đọc.</p>
               </section>
             </div>
+            <section class="alert alert-info mt-3" th:each="offer : ${customerCompensationOffers}" data-payout-offer>
+              <h3 class="h6">Đề nghị bồi thường đã được duyệt</h3>
+              <p class="mb-1"><strong th:text="|${#numbers.formatDecimal(offer.amount,0,'POINT',0,'COMMA')} ₫|">0 ₫</strong></p>
+              <p class="small" th:text="${offer.reason}">Lý do</p>
+              <div th:if="${offer.responseStatus == 'PENDING_CUSTOMER'}">
+                <p class="small">Manager đã duyệt số tiền trên. Nếu đồng ý, chọn cách nhận. Chuyển khoản sẽ yêu cầu thông tin tài khoản để Admin thực hiện thủ công; hệ thống không tự chuyển tiền.</p>
+                <form method="post" class="vstack gap-2" th:action="@{/customer/bookings/{id}/compensation-offers/{entryId}/response(id=${booking.id},entryId=${offer.entryId})}">
+                  <input type="hidden" name="decision" value="ACCEPT">
+                  <label class="form-label">Cách nhận tiền
+                    <select class="form-select" name="payoutMethod" data-payout-method required><option value="">Chọn cách nhận</option><option value="BANK_TRANSFER">Chuyển khoản</option><option value="CASH">Tiền mặt</option></select>
+                  </label>
+                  <div class="row g-2" data-bank-details hidden>
+                    <div class="col-md-4"><label class="form-label">Ngân hàng<input class="form-control" name="bankName" maxlength="100" data-bank-field></label></div>
+                    <div class="col-md-4"><label class="form-label">Tên chủ tài khoản<input class="form-control" name="accountHolder" maxlength="150" data-bank-field></label></div>
+                    <div class="col-md-4"><label class="form-label">Số tài khoản<input class="form-control" name="accountNumber" maxlength="50" inputmode="numeric" data-bank-field></label></div>
+                    <p class="small text-secondary mb-0">Thông tin được mã hóa, chỉ Admin/Manager xem để thực hiện chuyển khoản và tự xóa sau khi ghi nhận quyết toán.</p>
+                  </div>
+                  <button class="btn btn-primary align-self-start" type="submit">Đồng ý nhận bồi thường</button>
+                </form>
+                <form method="post" class="mt-2" th:action="@{/customer/bookings/{id}/compensation-offers/{entryId}/response(id=${booking.id},entryId=${offer.entryId})}">
+                  <input type="hidden" name="decision" value="DISCUSS"><button class="btn btn-outline-secondary" type="submit">Muốn trao đổi phương án khác</button>
+                </form>
+              </div>
+              <div th:if="${offer.responseStatus == 'PENDING_DETAILS'}">
+                <p class="small">Manager đã duyệt gói bạn chọn. Chỉ cần cung cấp thông tin tài khoản để Admin thực hiện chuyển khoản đúng số tiền đã chấp thuận.</p>
+                <form method="post" class="vstack gap-2" th:action="@{/customer/bookings/{id}/compensation-offers/{entryId}/response(id=${booking.id},entryId=${offer.entryId})}">
+                  <input type="hidden" name="decision" value="ACCEPT"><input type="hidden" name="payoutMethod" value="BANK_TRANSFER">
+                  <div class="row g-2"><div class="col-md-4"><label class="form-label">Ngân hàng<input class="form-control" name="bankName" maxlength="100" required></label></div><div class="col-md-4"><label class="form-label">Tên chủ tài khoản<input class="form-control" name="accountHolder" maxlength="150" required></label></div><div class="col-md-4"><label class="form-label">Số tài khoản<input class="form-control" name="accountNumber" maxlength="50" inputmode="numeric" required></label></div></div>
+                  <p class="small text-secondary mb-0">Thông tin được mã hóa, chỉ Admin/Manager xem để chuyển khoản và bị xóa sau khi quyết toán.</p>
+                  <button class="btn btn-primary align-self-start" type="submit">Gửi thông tin chuyển khoản</button>
+                </form>
+              </div>
+              <p th:if="${offer.responseStatus == 'ACCEPTED'}" class="mb-0">Bạn đã chọn <strong th:text="${offer.payoutMethod == 'BANK_TRANSFER' ? 'chuyển khoản' : 'tiền mặt'}">cách nhận</strong>. Công ty sẽ thực hiện và cập nhật trạng thái tại đây.</p>
+              <p th:if="${offer.responseStatus == 'NEEDS_DISCUSSION'}" class="mb-0">Bạn đã yêu cầu trao đổi phương án khác. Công ty sẽ cập nhật hồ sơ này.</p>
+            </section>
             <div class="mt-3" th:if="${!#lists.isEmpty(customerFinancialEntries)}">
               <h3 class="h6">Khoản hoàn/giảm/bồi thường</h3>
               <ul class="mb-0"><li th:each="entry : ${customerFinancialEntries}">
@@ -301,7 +434,7 @@
                 <span th:if="${entry.status == 'PROPOSED' or entry.status == 'PENDING_APPROVAL'}" class="d-block small text-secondary">Đây là số tiền đề xuất, đang chờ Manager duyệt và chưa cam kết chi.</span>
               </li></ul>
             </div>
-            <form th:if="${feedbackCase == null and booking.feedbackStatus != 'RESOLVED' and booking.feedbackRating != null}"
+            <form th:if="${feedbackCase == null and feedbackForm == null and booking.feedbackStatus != 'RESOLVED' and booking.feedbackRating != null}"
                   method="post" enctype="multipart/form-data" th:action="@{/customer/bookings/{id}/feedback/incident(id=${booking.id})}" class="incident-report-form">
               <fieldset class="mb-3 border-0 p-0"><legend class="form-label fw-semibold">Bạn muốn báo vấn đề gì?</legend>
                 <div class="feedback-topic-list">
@@ -313,7 +446,18 @@
               </fieldset>
               <label class="form-label fw-semibold" for="incident-description">Mô tả chi tiết</label>
               <textarea class="form-control" id="incident-description" name="description" rows="3" maxlength="4000" required></textarea>
-              <label class="form-label mt-3 fw-semibold">Ảnh bằng chứng <span class="text-secondary fw-normal">(không bắt buộc, tối đa 5 ảnh/lần · JPEG/PNG · 5 MB/ảnh)</span><input class="form-control mt-1" type="file" name="images" accept="image/jpeg,image/png" multiple></label>
+              <section class="border rounded p-3 my-3" data-item-details>
+                <h3 class="h6">Thông tin món đồ bị ảnh hưởng</h3>
+                <p class="small text-secondary">Khai giá trị ước tính nếu biết. Đây là thông tin để Admin xem xét, chưa phải số tiền bồi thường đã chốt.</p>
+                <label class="form-label">Tên/loại món đồ <span class="text-secondary fw-normal">(bắt buộc nếu báo mất hoặc hư hại)</span><input class="form-control" name="itemDescription" maxlength="300" data-item-description></label>
+                <div class="row g-2">
+                  <div class="col-md-6"><label class="form-label">Giá mua ban đầu hoặc giá trị ước tính hiện tại (₫)<input class="form-control" name="estimatedItemValue" type="number" min="0.01" step="0.01" inputmode="decimal"></label></div>
+                  <div class="col-md-6"><label class="form-label">Đã sử dụng khoảng (tháng)<input class="form-control" name="itemAgeMonths" type="number" min="0" max="1200" step="1"></label></div>
+                </div>
+                <small class="form-text text-secondary">Bạn có thể đính kèm ảnh món đồ hoặc hóa đơn ở mục ảnh bằng chứng.</small>
+              </section>
+              <label class="form-label mt-3 fw-semibold">Tệp bằng chứng <span class="text-secondary fw-normal">(tối đa 5 mục; ảnh/PDF 5 MB, video MP4/WebM 50 MB, tối đa 1 video)</span><input class="form-control mt-1" type="file" name="images" accept="image/jpeg,image/png,application/pdf,video/mp4,video/webm" multiple></label>
+              <label class="form-label">Link video dài (Google Drive)<input class="form-control" type="url" name="driveLink" maxlength="1000" placeholder="https://drive.google.com/..." pattern="https://(drive|docs)\.google\.com/.*"></label>
               <p class="small text-secondary">Công ty sẽ tiếp nhận và xác minh; gửi báo cáo không tự động thay đổi khoản thanh toán.</p>
               <button class="btn btn-outline-danger" type="submit">Gửi yêu cầu hỗ trợ</button>
             </form>
@@ -323,12 +467,41 @@
         <script>
           document.querySelectorAll('[data-feedback-form]').forEach((form) => {
             const content = form.querySelector('[data-feedback-content]');
+            const reportIncident = form.querySelector('[data-report-incident]');
+            const incidentFields = form.querySelector('[data-incident-fields]');
+            const incidentDescription = form.querySelector('[data-incident-description]');
+            const itemDescription = form.querySelector('[data-item-description]');
+            const updateAssetRequirement = () => {
+              const assetReported = [...form.querySelectorAll('input[name="incidentTypes"]:checked')]
+                .some(input => ['PROPERTY_DAMAGE', 'MISSING_PROPERTY'].includes(input.value));
+              if (itemDescription) itemDescription.required = assetReported && (!reportIncident || reportIncident.checked);
+            };
+            const updateIncidentFields = () => {
+              const enabled = !reportIncident || reportIncident.checked;
+              if (incidentFields) incidentFields.hidden = !enabled;
+              if (incidentDescription) incidentDescription.required = enabled;
+              if (incidentFields) incidentFields.querySelectorAll('input, textarea').forEach((input) => input.disabled = !enabled);
+              updateAssetRequirement();
+            };
+            if (reportIncident) reportIncident.addEventListener('change', updateIncidentFields);
+            form.querySelectorAll('input[name="incidentTypes"]').forEach((input) => input.addEventListener('change', updateAssetRequirement));
+            updateIncidentFields();
             const updateRequired = () => {
               const selected = form.querySelector('input[name="rating"]:checked');
               content.required = !!selected && Number(selected.value) <= 3;
             };
             form.querySelectorAll('input[name="rating"]').forEach((input) => input.addEventListener('change', updateRequired));
             updateRequired();
+          });
+          document.querySelectorAll('.incident-report-form').forEach((form) => {
+            const itemDescription = form.querySelector('[data-item-description]');
+            const updateAssetRequirement = () => {
+              if (!itemDescription) return;
+              itemDescription.required = [...form.querySelectorAll('input[name="incidentTypes"]:checked')]
+                .some(input => ['PROPERTY_DAMAGE', 'MISSING_PROPERTY'].includes(input.value));
+            };
+            form.querySelectorAll('input[name="incidentTypes"]').forEach((input) => input.addEventListener('change', updateAssetRequirement));
+            updateAssetRequirement();
           });
         </script>
         </div>
@@ -452,5 +625,19 @@
     </main>
     <footer th:replace="~{fragments/layout :: footer}">
     </footer>
+    <script>
+      document.querySelectorAll('[data-payout-offer]').forEach((offer) => {
+        const method = offer.querySelector('[data-payout-method]');
+        const fields = offer.querySelector('[data-bank-details]');
+        if (!method || !fields) return;
+        const sync = () => {
+          const show = method.value === 'BANK_TRANSFER';
+          fields.hidden = !show;
+          fields.querySelectorAll('[data-bank-field]').forEach((input) => { input.required = show; });
+        };
+        method.addEventListener('change', sync);
+        sync();
+      });
+    </script>
   </body>
 </html>

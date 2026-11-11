@@ -3,6 +3,8 @@ package com.housekeeping.management.controller;
 import com.housekeeping.management.dto.request.PortalForms.BookingForm;
 import com.housekeeping.management.dto.request.PortalForms.FeedbackForm;
 import com.housekeeping.management.dto.request.PortalForms.FeedbackIncidentForm;
+import com.housekeeping.management.dto.request.PortalForms.IncidentItemDetails;
+import com.housekeeping.management.dto.request.PortalForms.CustomerCompensationResponseForm;
 import com.housekeeping.management.dto.response.PortalViews.BookingCard;
 import com.housekeeping.management.dto.response.PortalViews.DetailCard;
 import com.housekeeping.management.dto.response.BookingAvailabilityOptions;
@@ -10,7 +12,7 @@ import com.housekeeping.management.dto.response.BookingAvailabilityDates;
 import com.housekeeping.management.domain.FeedbackTopic;
 import com.housekeeping.management.entity.House;
 import com.housekeeping.management.service.BookingReservationService;
-import com.housekeeping.management.service.FeedbackService;
+import com.housekeeping.management.service.CustomerFeedbackSubmissionService;
 import com.housekeeping.management.service.FeedbackCaseService;
 import com.housekeeping.management.service.CaseAttachmentStorageService;
 import com.housekeeping.management.service.BookingFinancialService;
@@ -19,6 +21,7 @@ import com.housekeeping.management.service.BookingCancellationService;
 import com.housekeeping.management.service.BookingArrivalService;
 import com.housekeeping.management.service.BookingIncidentService;
 import com.housekeeping.management.service.CustomerDelayReportService;
+import com.housekeeping.management.service.IncidentResolutionService;
 import com.housekeeping.management.service.PortalQueryService;
 import com.housekeeping.management.service.BookingAvailabilityService;
 import com.housekeeping.management.web.PortalMessages;
@@ -48,7 +51,7 @@ public class BookingController {
     private final PortalQueryService query;
     private final BookingCancellationService cancellation;
     private final BookingReservationService reservations;
-    private final FeedbackService feedbackService;
+    private final CustomerFeedbackSubmissionService feedbackSubmission;
     private final FeedbackCaseService feedbackCases;
     private final CaseAttachmentStorageService attachments;
     private final BookingFinancialService financials;
@@ -57,15 +60,18 @@ public class BookingController {
     private final BookingAvailabilityService bookingAvailability;
     private final BookingIncidentService incidents;
     private final CustomerDelayReportService customerDelayReports;
+    private final IncidentResolutionService resolutions;
 
     public BookingController(PortalQueryService query, BookingCancellationService cancellation,
-            BookingReservationService reservations, FeedbackService feedbackService, FeedbackCaseService feedbackCases, CaseAttachmentStorageService attachments, BookingFinancialService financials, HouseService houses, BookingArrivalService arrival,
+            BookingReservationService reservations, CustomerFeedbackSubmissionService feedbackSubmission,
+            FeedbackCaseService feedbackCases,
+            CaseAttachmentStorageService attachments, BookingFinancialService financials, HouseService houses, BookingArrivalService arrival,
             BookingAvailabilityService bookingAvailability,
-            BookingIncidentService incidents, CustomerDelayReportService customerDelayReports) {
+            BookingIncidentService incidents, CustomerDelayReportService customerDelayReports, IncidentResolutionService resolutions) {
         this.query = query;
         this.cancellation = cancellation;
         this.reservations = reservations;
-        this.feedbackService = feedbackService;
+        this.feedbackSubmission = feedbackSubmission;
         this.feedbackCases = feedbackCases;
         this.attachments = attachments;
         this.financials = financials;
@@ -74,6 +80,7 @@ public class BookingController {
         this.bookingAvailability = bookingAvailability;
         this.incidents = incidents;
         this.customerDelayReports = customerDelayReports;
+        this.resolutions = resolutions;
     }
 
     @PostMapping("/customer/bookings/{id}/report-staff-delay")
@@ -94,10 +101,16 @@ public class BookingController {
         return "redirect:/customer/bookings/" + id;
     }
 
-    @GetMapping({"/customer/bookings", "/staff/bookings", "/admin/bookings"})
+    @GetMapping({"/customer/bookings", "/staff/bookings", "/admin/bookings", "/manager/bookings"})
     String bookings(@AuthenticationPrincipal PortalUser user, Model model) {
         List<BookingCard> items = query.bookings(user);
         model.addAttribute("bookings", items);
+        if ("CUSTOMER".equals(user.getRole())) {
+            model.addAttribute("pendingCompensationBookingIds",financials.customerCompensationOffers(user.getAccountId()).stream()
+                    .filter(offer -> "PENDING_CUSTOMER".equals(offer.responseStatus()))
+                    .map(com.housekeeping.management.dto.response.PortalViews.CustomerCompensationOfferCard::bookingId)
+                    .collect(java.util.stream.Collectors.toSet()));
+        }
         model.addAttribute("confirmedCount", items.stream().filter(b -> b.status().equals("CONFIRMED")).count());
         model.addAttribute("completedCount", items.stream().filter(b -> b.status().equals("COMPLETED")).count());
         model.addAttribute("unpaidCount", items.stream().filter(b -> "AWAITING_PAYMENT".equals(b.status())).count());
@@ -231,7 +244,7 @@ public class BookingController {
         return failure.getMessage() != null && failure.getMessage().startsWith("Địa chỉ nằm ngoài bán kính phục vụ");
     }
 
-    @GetMapping({"/customer/bookings/{id}", "/staff/bookings/{id}", "/admin/bookings/{id}"})
+    @GetMapping({"/customer/bookings/{id}", "/staff/bookings/{id}", "/admin/bookings/{id}", "/manager/bookings/{id}"})
     String detail(@PathVariable Long id, @AuthenticationPrincipal PortalUser user, Model model) {
         BookingCard booking = query.booking(id, user);
         List<DetailCard> details = query.details(id, user);
@@ -243,22 +256,76 @@ public class BookingController {
         model.addAttribute("details", details);
         model.addAttribute("bookingImages", query.bookingImages(id, user));
         if (user.isAdmin()) model.addAttribute("assignableStaff", query.staff(null));
-        if ("CUSTOMER".equals(user.getRole()) && booking.feedbackStatus() == null) {
-            model.addAttribute("feedbackForm", new FeedbackForm(null, List.of(), ""));
-        } else if ("CUSTOMER".equals(user.getRole()) && "OPEN".equals(booking.feedbackStatus())
-                && booking.feedbackRating() != null) {
-            model.addAttribute("feedbackForm", new FeedbackForm(booking.feedbackRating(), booking.feedbackTopicCodes(), booking.feedbackContent()));
+        if ("CUSTOMER".equals(user.getRole()) && (booking.feedbackStatus() == null
+                || ("OPEN".equals(booking.feedbackStatus()) && booking.feedbackRating() != null))) {
+            model.addAttribute("feedbackForm", booking.feedbackStatus() == null
+                    ? new FeedbackForm(null, List.of(), "")
+                    : new FeedbackForm(booking.feedbackRating(), booking.feedbackTopicCodes(), booking.feedbackContent()));
         }
         if ("CUSTOMER".equals(user.getRole()) && booking.feedbackStatus() != null) {
             var incidentCase=feedbackCases.customerCase(id, user.getAccountId());
             model.addAttribute("feedbackCase", incidentCase);
             model.addAttribute("feedbackEvidenceIds", incidentCase==null ? List.of() : attachments.customerEvidenceIds(incidentCase.id(),user.getAccountId()));
             model.addAttribute("feedbackCaseMessages", incidentCase==null ? List.of() : feedbackCases.customerMessages(incidentCase.id(),user.getAccountId()));
+            model.addAttribute("resolutionPlans",incidentCase==null ? List.of() : resolutions.customerPlans(incidentCase.id(),id,user.getAccountId()));
+            model.addAttribute("workOrders",incidentCase==null ? List.of() : resolutions.workOrders(incidentCase.id(),null,true,user.getAccountId()));
             model.addAttribute("incidentForm", new FeedbackIncidentForm(List.of(), ""));
         }
-        if ("CUSTOMER".equals(user.getRole())) model.addAttribute("customerFinancialEntries",financials.customerVisible(id,user.getAccountId()));
+        if ("CUSTOMER".equals(user.getRole())) {
+            model.addAttribute("customerFinancialEntries",financials.customerVisible(id,user.getAccountId()));
+            model.addAttribute("customerCompensationOffers",financials.customerCompensationOffersForBooking(id,user.getAccountId()));
+        }
         model.addAttribute("feedbackTopics", FeedbackTopic.values());
         return "booking-detail";
+    }
+
+    @PostMapping("/customer/bookings/{id}/compensation-offers/{entryId}/response")
+    String respondToCompensationOffer(@PathVariable Long id, @PathVariable Long entryId,
+            @Valid @ModelAttribute CustomerCompensationResponseForm form, BindingResult errors,
+            @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
+        try {
+            if (errors.hasErrors()) throw new IllegalArgumentException("Kiểm tra lại lựa chọn và thông tin nhận tiền.");
+            financials.respondToCompensationOffer(id,entryId,user.getAccountId(),form);
+            flash.addFlashAttribute("success", "Đã gửi lựa chọn của bạn cho công ty.");
+        } catch (IllegalArgumentException | IllegalStateException failure) {
+            flash.addFlashAttribute("error", PortalMessages.business(failure));
+        }
+        return "redirect:/customer/bookings/" + id;
+    }
+
+    @PostMapping("/customer/bookings/{id}/feedback/cases/{caseId}/resolution-plans/{planId}/choice")
+    String chooseIncidentResolution(@PathVariable Long id, @PathVariable Long caseId, @PathVariable Long planId,
+            @Valid @ModelAttribute com.housekeeping.management.dto.request.PortalForms.CustomerResolutionChoiceForm form,
+            BindingResult errors, @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
+        try {
+            if(errors.hasErrors()) throw new IllegalArgumentException("Hãy chọn một phương án hoặc ghi nội dung cần trao đổi.");
+            resolutions.customerChoice(caseId,planId,id,user.getAccountId(),form);
+            flash.addFlashAttribute("success","Đã ghi nhận lựa chọn và chuyển hồ sơ cho Manager duyệt.");
+        } catch(IllegalArgumentException | IllegalStateException failure) { flash.addFlashAttribute("error",PortalMessages.business(failure)); }
+        return "redirect:/customer/bookings/"+id;
+    }
+
+    @PostMapping("/customer/bookings/{id}/feedback/work-orders/{workOrderId}/response")
+    String respondToWorkOrder(@PathVariable Long id, @PathVariable Long workOrderId,
+            @Valid @ModelAttribute com.housekeeping.management.dto.request.PortalForms.CustomerWorkOrderResponseForm form,
+            BindingResult errors, @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
+        try {
+            if(errors.hasErrors()) throw new IllegalArgumentException("Hãy xác nhận kết quả hoặc ghi rõ phần chưa hoàn tất.");
+            resolutions.customerWorkOrderResponse(workOrderId,id,user.getAccountId(),form);
+            flash.addFlashAttribute("success","Đã lưu xác nhận/ý kiến của bạn.");
+        } catch(IllegalArgumentException | IllegalStateException failure) { flash.addFlashAttribute("error",PortalMessages.business(failure)); }
+        return "redirect:/customer/bookings/"+id;
+    }
+
+    @PostMapping("/customer/bookings/{id}/feedback/cases/{caseId}/resolution-plans/{planId}/completion")
+    String confirmIncidentResolution(@PathVariable Long id, @PathVariable Long caseId, @PathVariable Long planId,
+            @RequestParam boolean confirm, @RequestParam(required=false) String message,
+            @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
+        try {
+            resolutions.customerConfirmResolution(caseId,planId,id,user.getAccountId(),confirm,message);
+            flash.addFlashAttribute("success",confirm?"Đã xác nhận kết quả; hồ sơ được hoàn tất.":"Đã ghi nhận nội dung chưa được giải quyết; hồ sơ tiếp tục mở.");
+        } catch(IllegalArgumentException | IllegalStateException failure) { flash.addFlashAttribute("error",PortalMessages.business(failure)); }
+        return "redirect:/customer/bookings/"+id;
     }
 
     @PostMapping("/customer/bookings/{id}/incident-response")
@@ -284,24 +351,29 @@ public class BookingController {
 
     @PostMapping("/customer/bookings/{id}/feedback")
     String feedback(@PathVariable Long id, @AuthenticationPrincipal PortalUser user,
-            @Valid @ModelAttribute FeedbackForm form, BindingResult errors, RedirectAttributes flash) {
-        return persistFeedback(id, user, form, errors, flash, false);
+            @Valid @ModelAttribute FeedbackForm form, BindingResult errors,
+            @RequestParam(required=false) List<org.springframework.web.multipart.MultipartFile> images,
+            RedirectAttributes flash) {
+        return persistFeedback(id, user, form, errors, images, flash, false);
     }
 
     @PostMapping("/customer/bookings/{id}/feedback/edit")
     String editFeedback(@PathVariable Long id, @AuthenticationPrincipal PortalUser user,
-            @Valid @ModelAttribute FeedbackForm form, BindingResult errors, RedirectAttributes flash) {
-        return persistFeedback(id, user, form, errors, flash, true);
+            @Valid @ModelAttribute FeedbackForm form, BindingResult errors,
+            @RequestParam(required=false) List<org.springframework.web.multipart.MultipartFile> images,
+            RedirectAttributes flash) {
+        return persistFeedback(id, user, form, errors, images, flash, true);
     }
 
     private String persistFeedback(Long id, PortalUser user, FeedbackForm form, BindingResult errors,
-            RedirectAttributes flash, boolean edit) {
+            List<org.springframework.web.multipart.MultipartFile> images, RedirectAttributes flash, boolean edit) {
         if (errors.hasErrors()) {
             flash.addFlashAttribute("error", "Hãy chọn điểm đánh giá hợp lệ và kiểm tra nội dung lời nhắn.");
         } else try {
-            if (edit) feedbackService.update(id, user.getAccountId(), form.rating(), form.topics(), form.content());
-            else feedbackService.submit(id, user.getAccountId(), form.rating(), form.topics(), form.content());
-            flash.addFlashAttribute("success", "Đã lưu phản hồi cho công ty.");
+            feedbackSubmission.submit(id, user.getAccountId(), form, edit, images);
+            flash.addFlashAttribute("success", Boolean.TRUE.equals(form.reportIncident())
+                    ? "Đã gửi đánh giá và hồ sơ sự cố kèm bằng chứng cho công ty."
+                    : "Đã lưu phản hồi cho công ty.");
         } catch (IllegalArgumentException | IllegalStateException failure) {
             flash.addFlashAttribute("error", PortalMessages.business(failure));
         }
@@ -316,8 +388,10 @@ public class BookingController {
             if (errors.hasErrors()) throw new IllegalArgumentException("Hãy chọn loại sự cố và mô tả nội dung tối đa 4.000 ký tự.");
             if(images!=null && images.stream().filter(file->file!=null&&!file.isEmpty()).count()>5)
                 throw new IllegalArgumentException("Mỗi lần gửi tối đa 5 ảnh bằng chứng.");
-            Long caseId=feedbackCases.open(id, user.getAccountId(), form.incidentTypes(), form.description());
+            Long caseId=feedbackCases.open(id, user.getAccountId(), form.incidentTypes(), form.description(),
+                    new IncidentItemDetails(form.itemDescription(),form.estimatedItemValue(),form.itemAgeMonths()));
             if(images!=null) for(var image:images) if(image!=null&&!image.isEmpty()) attachments.uploadCustomerEvidence(caseId,id,user.getAccountId(),image);
+            if(form.driveLink()!=null && !form.driveLink().isBlank()) attachments.addCustomerDriveEvidence(caseId,id,user.getAccountId(),feedbackCases.initialCustomerMessageId(caseId),form.driveLink());
             flash.addFlashAttribute("success", "Đã gửi khiếu nại sự cố. Công ty sẽ xác minh và cập nhật kết quả trên lịch này.");
         } catch (IllegalArgumentException | IllegalStateException failure) {
             flash.addFlashAttribute("error", PortalMessages.business(failure));
@@ -328,6 +402,7 @@ public class BookingController {
     @PostMapping("/customer/bookings/{id}/feedback/incident/{caseId}/messages")
     String sendFeedbackCaseMessage(@PathVariable Long id, @PathVariable Long caseId,
             @RequestParam(required=false) String message,
+            @RequestParam(required=false) String driveLink,
             @RequestParam(required=false) List<org.springframework.web.multipart.MultipartFile> images,
             @RequestParam(required=false) org.springframework.web.multipart.MultipartFile image,
             @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
@@ -337,9 +412,10 @@ public class BookingController {
             List<org.springframework.web.multipart.MultipartFile> files=new java.util.ArrayList<>();
             if(images!=null) files.addAll(images.stream().filter(file->file!=null&&!file.isEmpty()).toList());
             if(image!=null&&!image.isEmpty()) files.add(image);
-            if(files.size()>5) throw new IllegalArgumentException("Mỗi tin nhắn tối đa 5 ảnh bằng chứng.");
-            messageId=feedbackCases.addCustomerMessage(caseId,id,user.getAccountId(),message,!files.isEmpty());
+            if(files.size()+(driveLink!=null&&!driveLink.isBlank()?1:0)>5) throw new IllegalArgumentException("Mỗi tin nhắn tối đa 5 tệp/liên kết bằng chứng.");
+            messageId=feedbackCases.addCustomerMessage(caseId,id,user.getAccountId(),message,!files.isEmpty() || (driveLink!=null&&!driveLink.isBlank()));
             if(!files.isEmpty()) attachments.uploadCustomerMessageEvidence(caseId,id,user.getAccountId(),messageId,files);
+            if(driveLink!=null&&!driveLink.isBlank()) attachments.addCustomerDriveEvidence(caseId,id,user.getAccountId(),messageId,driveLink);
             flash.addFlashAttribute("success","Đã gửi tin nhắn vào hồ sơ sự cố.");
         } catch (IllegalArgumentException | IllegalStateException failure) {
             if(messageId!=null) feedbackCases.discardUnsentMessage(caseId,messageId,user.getAccountId(),false);

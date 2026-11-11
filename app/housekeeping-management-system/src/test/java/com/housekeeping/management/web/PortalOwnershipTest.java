@@ -13,13 +13,16 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.AccessDeniedException;
 
 class PortalOwnershipTest {
     @Test
     void roleAndIdMustBothMatchToReadBookingOrEvidence() {
-        PortalQueryService query = new com.housekeeping.management.service.impl.PortalQueryServiceImpl(mock(JdbcTemplate.class), mock(FeedbackService.class));
+        PortalQueryService query = new com.housekeeping.management.service.impl.PortalQueryServiceImpl(
+                mock(BookingPersistenceRepository.class), mock(BookingDetailRepository.class), mock(BookingImageRepository.class),
+                mock(ServicesRepository.class), mock(StaffAccountRepository.class), mock(UserRepository.class),
+                mock(StaffProfileRepository.class), mock(StaffFollowRepository.class), mock(StaffAvailabilityRepository.class),
+                mock(PaymentPersistenceRepository.class), mock(FeedbackRepository.class), mock(FeedbackService.class));
         var now = OffsetDateTime.now();
         var card = new PortalViews.BookingCard(42L, 1L, 2L, "Customer", "Staff", now, now.plusHours(1), "CONFIRMED", BigDecimal.TEN,
                 null, null, null, null, null);

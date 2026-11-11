@@ -10,6 +10,7 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.access.AccessDeniedException;
+import com.housekeeping.management.entity.Feedback;
 
 class FeedbackServiceTest {
     private BookingReservationService bookings;
@@ -28,11 +29,14 @@ class FeedbackServiceTest {
     @Test
     void customerCanSubmitRatedFeedbackOnceAfterSuccessfulPayment() {
         when(bookings.lockBookingForFeedback(30L)).thenReturn(Optional.of(booking(4L, "COMPLETED")));
-        when(feedback.existsForBooking(30L)).thenReturn(false);
+        when(feedback.existsByBookingId(30L)).thenReturn(false);
 
         service.submit(30L, 4L, 5, List.of("CLEANING_QUALITY"), "  Nhân viên làm việc cẩn thận.  ");
 
-        verify(feedback).create(30L, 4L, 5, List.of("CLEANING_QUALITY"), "Nhân viên làm việc cẩn thận.");
+        verify(feedback).save(argThat(entity -> entity.getBookingId().equals(30L)
+                && entity.getCustomerId().equals(4L) && entity.getRating() == 5
+                && entity.getTopics().equals("CLEANING_QUALITY")
+                && entity.getContent().equals("Nhân viên làm việc cẩn thận.")));
     }
 
     @Test
@@ -45,16 +49,16 @@ class FeedbackServiceTest {
         assertThatThrownBy(() -> service.submit(31L, 4L, 2, List.of(), "Góp ý"))
                 .isInstanceOf(IllegalStateException.class);
 
-        when(feedback.existsForBooking(30L)).thenReturn(true);
+        when(feedback.existsByBookingId(30L)).thenReturn(true);
         assertThatThrownBy(() -> service.submit(30L, 4L, 2, List.of(), "Góp ý"))
                 .isInstanceOf(IllegalStateException.class);
-        verify(feedback, never()).create(anyLong(), anyLong(), anyInt(), anyList(), any());
+        verify(feedback, never()).save(any(Feedback.class));
     }
 
     @Test
     void validatesRatingTopicsAndConditionalMessageAndAllowsEditingBeforeReply() {
         when(bookings.lockBookingForFeedback(30L)).thenReturn(Optional.of(booking(4L, "COMPLETED")));
-        when(feedback.update(30L, 4L, 5, List.of("TIMELINESS"), null)).thenReturn(1);
+        when(feedback.updateCustomerFeedback(30L, 4L, 5, "TIMELINESS", null)).thenReturn(1);
 
         assertThatThrownBy(() -> service.submit(30L, 4L, 0, List.of(), "Bad rating"))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -64,14 +68,14 @@ class FeedbackServiceTest {
                 .isInstanceOf(IllegalArgumentException.class);
 
         service.update(30L, 4L, 5, List.of("TIMELINESS"), " ");
-        verify(feedback).update(30L, 4L, 5, List.of("TIMELINESS"), null);
+        verify(feedback).updateCustomerFeedback(30L, 4L, 5, "TIMELINESS", null);
     }
 
     @Test
     void customerCannotEditAfterAdminReply() {
         when(bookings.lockBookingForFeedback(30L)).thenReturn(Optional.of(booking(4L, "COMPLETED")));
-        when(feedback.existsForBooking(30L)).thenReturn(true);
-        when(feedback.update(30L, 4L, 5, List.of(), null)).thenReturn(0);
+        when(feedback.existsByBookingId(30L)).thenReturn(true);
+        when(feedback.updateCustomerFeedback(30L, 4L, 5, "", null)).thenReturn(0);
         assertThatThrownBy(() -> service.update(30L, 4L, 5, List.of(), null))
                 .isInstanceOf(IllegalStateException.class);
     }

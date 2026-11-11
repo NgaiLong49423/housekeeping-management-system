@@ -19,4 +19,8 @@ public interface StaffLeaveRepository extends JpaRepository<StaffLeave, Long> {
     @Query("select request from StaffLeave request where request.leaveId = :leaveId")
     Optional<StaffLeave> findByIdForUpdate(@Param("leaveId") Long leaveId);
 
+    boolean existsByStaff_StaffIdAndStatusAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
+            Long staffId, com.housekeeping.management.domain.LeaveStatus status,
+            java.time.LocalDate startDate, java.time.LocalDate endDate);
+
 }

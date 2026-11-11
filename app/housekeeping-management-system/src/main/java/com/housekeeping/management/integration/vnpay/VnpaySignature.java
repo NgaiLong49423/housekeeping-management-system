@@ -1,4 +1,4 @@
-package com.housekeeping.management.service;
+package com.housekeeping.management.integration.vnpay;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;

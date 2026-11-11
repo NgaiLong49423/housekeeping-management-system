@@ -92,7 +92,7 @@ class BookingCompletionServiceTest {
         var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, images);
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, "CONFIRMED", start,
                 start, start.plusMinutes(1), null, null)));
-        when(images.hasEvidence(42L)).thenReturn(true);
+        when(images.existsByBookingId(42L)).thenReturn(true);
         when(bookings.changeStatus(42L, "CONFIRMED", "AWAITING_PAYMENT")).thenReturn(1);
 
         service.completeBooking(42L, 7L);
@@ -111,7 +111,7 @@ class BookingCompletionServiceTest {
 
         assertThatThrownBy(() -> service.completeBooking(42L, 7L))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("bắt đầu công việc");
-        when(images.hasEvidence(42L)).thenReturn(false);
+        when(images.existsByBookingId(42L)).thenReturn(false);
         assertThatThrownBy(() -> service.completeBooking(42L, 7L))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("ảnh minh chứng");
         verify(bookings, never()).changeStatus(any(), any(), any());

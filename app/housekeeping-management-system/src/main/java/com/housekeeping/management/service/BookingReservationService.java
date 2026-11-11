@@ -29,6 +29,7 @@ public interface BookingReservationService {
     public Long createBooking(Long customerId, Long staffId, Long houseId, LocalDateTime start, List<Long> requestedServiceIds, String areaNote);
     public boolean hasInsufficientTravelGap(Long staffId, LocalDateTime start, LocalDateTime end, BigDecimal latitude, BigDecimal longitude, Long exceptBookingId);
     java.util.Optional<BookingPaymentState> lockBookingForPayment(Long bookingId);
+    java.util.Optional<BookingPaymentState> lockBookingForEvidence(Long bookingId);
     java.util.Optional<Long> bookingCustomerId(Long bookingId);
     java.math.BigDecimal amountForPayment(Long bookingId);
     int completeBookingAfterPayment(Long bookingId);

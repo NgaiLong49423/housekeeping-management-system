@@ -1,6 +1,8 @@
-package com.housekeeping.management.service;
+package com.housekeeping.management.startup;
 
 import com.housekeeping.management.repository.BookingImageRepository;
+import com.housekeeping.management.repository.BookingFinancialRepository;
+import com.housekeeping.management.repository.FeedbackCaseEvidenceRepository;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -20,14 +22,20 @@ public class EvidenceStorageReconciler implements ApplicationRunner {
     private static final Logger LOGGER = LoggerFactory.getLogger(EvidenceStorageReconciler.class);
     private static final Duration STALE_FILE_AGE = Duration.ofHours(24);
     private final BookingImageRepository bookingImages;
+    private final BookingFinancialRepository financialEntries;
+    private final FeedbackCaseEvidenceRepository caseEvidence;
     private final Path storageRoot;
     private final boolean cleanupEnabled;
 
     public EvidenceStorageReconciler(
             BookingImageRepository bookingImages,
+            BookingFinancialRepository financialEntries,
+            FeedbackCaseEvidenceRepository caseEvidence,
             @Value("${app.evidence.storage-root:./var/evidence}") String storageRoot,
             @Value("${app.evidence.cleanup-enabled:false}") boolean cleanupEnabled) {
         this.bookingImages = bookingImages;
+        this.financialEntries = financialEntries;
+        this.caseEvidence = caseEvidence;
         this.storageRoot = Path.of(storageRoot).toAbsolutePath().normalize();
         this.cleanupEnabled = cleanupEnabled;
     }
@@ -36,7 +44,12 @@ public class EvidenceStorageReconciler implements ApplicationRunner {
     public void run(ApplicationArguments args) throws IOException {
         Files.createDirectories(storageRoot);
         Set<String> referencedFiles = new HashSet<>();
-        referencedFiles.addAll(bookingImages.findAllImageUrls());
+        bookingImages.findAll().stream().map(com.housekeeping.management.entity.BookingImage::getImageUrl)
+                .forEach(referencedFiles::add);
+        caseEvidence.findAll().stream().map(com.housekeeping.management.entity.FeedbackCaseEvidence::getImagePath)
+                .forEach(referencedFiles::add);
+        financialEntries.findAll().stream().map(com.housekeeping.management.entity.BookingFinancialEntry::getReceiptPath)
+                .filter(java.util.Objects::nonNull).forEach(referencedFiles::add);
         Instant staleBefore = Instant.now().minus(STALE_FILE_AGE);
 
         try (var files = Files.list(storageRoot)) {

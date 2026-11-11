@@ -7,6 +7,8 @@ import org.springframework.web.multipart.MultipartFile;
 public interface CaseAttachmentStorageService {
     void uploadCustomerEvidence(Long caseId, Long bookingId, Long customerId, MultipartFile upload);
 
+    void uploadCustomerEvidence(Long caseId, Long bookingId, Long customerId, List<MultipartFile> uploads);
+
     void uploadCustomerMessageEvidence(Long caseId, Long bookingId, Long customerId, Long messageId, MultipartFile upload);
 
     void uploadCustomerMessageEvidence(Long caseId, Long bookingId, Long customerId, Long messageId, List<MultipartFile> uploads);
@@ -14,6 +16,9 @@ public interface CaseAttachmentStorageService {
     void uploadAdminMessageEvidence(Long caseId, Long adminId, Long messageId, MultipartFile upload);
 
     void uploadAdminMessageEvidence(Long caseId, Long adminId, Long messageId, List<MultipartFile> uploads);
+
+    void addCustomerDriveEvidence(Long caseId, Long bookingId, Long customerId, Long messageId, String url);
+    void addAdminDriveEvidence(Long caseId, Long adminId, Long messageId, String url);
 
     void uploadReceipt(Long entryId, Long adminId, MultipartFile upload);
 

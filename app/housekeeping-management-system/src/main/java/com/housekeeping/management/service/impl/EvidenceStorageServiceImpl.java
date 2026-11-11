@@ -2,6 +2,8 @@ package com.housekeeping.management.service.impl;
 
 import com.housekeeping.management.repository.BookingImageRepository;
 import com.housekeeping.management.service.EvidenceStorageService;
+import com.housekeeping.management.service.BookingReservationService;
+import com.housekeeping.management.entity.BookingImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.file.AtomicMoveNotSupportedException;
@@ -28,14 +30,17 @@ public class EvidenceStorageServiceImpl implements EvidenceStorageService {
     private static final ZoneOffset BUSINESS_OFFSET = ZoneOffset.ofHours(7);
 
     private final BookingImageRepository bookingImages;
+    private final BookingReservationService bookings;
     private final TransactionTemplate transactionTemplate;
     private final Path storageRoot;
 
     public EvidenceStorageServiceImpl(
             BookingImageRepository bookingImages,
+            BookingReservationService bookings,
             PlatformTransactionManager transactionManager,
             @Value("${app.evidence.storage-root:./var/evidence}") String storageRoot) {
         this.bookingImages = bookingImages;
+        this.bookings = bookings;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.storageRoot = Path.of(storageRoot).toAbsolutePath().normalize();
     }
@@ -59,7 +64,7 @@ public class EvidenceStorageServiceImpl implements EvidenceStorageService {
             Path finalForCleanup = finalFile;
 
             Long saved = transactionTemplate.execute(status -> {
-                BookingImageRepository.BookingAccess booking = bookingImages.lockBooking(bookingId)
+                BookingReservationService.BookingPaymentState booking = bookings.lockBookingForEvidence(bookingId)
                         .orElseThrow(() -> new IllegalArgumentException("Lịch hẹn không tồn tại."));
                 if (!"CONFIRMED".equals(booking.status())) {
                     throw new IllegalStateException("Chỉ có thể tải ảnh cho lịch đang được xác nhận.");
@@ -67,8 +72,11 @@ public class EvidenceStorageServiceImpl implements EvidenceStorageService {
                 if (!booking.staffId().equals(staffId)) {
                     throw new IllegalArgumentException("Chỉ nhân viên được phân công mới có thể tải ảnh minh chứng.");
                 }
-                Long imageId = bookingImages.insertImage(bookingId, finalForCleanup.getFileName().toString(),
-                        LocalDateTime.now(BUSINESS_OFFSET).withNano(0));
+                BookingImage evidence = new BookingImage();
+                evidence.setBookingId(bookingId);
+                evidence.setImageUrl(finalForCleanup.getFileName().toString());
+                evidence.setUploadedAt(LocalDateTime.now(BUSINESS_OFFSET).withNano(0));
+                Long imageId = bookingImages.saveAndFlush(evidence).getImageId();
                 try {
                     moveIntoFinalStorage(tempForCleanup, finalForCleanup);
                 } catch (IOException failure) {

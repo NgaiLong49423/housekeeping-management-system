@@ -174,6 +174,16 @@ public class PaymentServiceImpl implements PaymentService {
                 payments.sumSuccessfulSimulatedPayments());
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<PaymentService.AccountingPayment> successfulPaymentsForAccounting() {
+        return payments.findAllByStatusOrderByPaidAtDescPaymentIdDesc(PaymentStatus.SUCCESS).stream()
+                .map(payment -> new PaymentService.AccountingPayment(payment.getPaymentId(), payment.getBookingId(),
+                        payment.getAmount(), payment.getPaymentMethod().name(), payment.getTransactionCode(),
+                        payment.getPaidAt(), payment.isSimulated()))
+                .toList();
+    }
+
     private static OnlinePayment onlinePayment(Payment payment) {
         return new OnlinePayment(payment.getPaymentId(), payment.getBookingId(), payment.getAmount(),
                 payment.getPaymentMethod().name(), payment.getStatus().name(), payment.getTransactionCode(), payment.getCreatedAt());

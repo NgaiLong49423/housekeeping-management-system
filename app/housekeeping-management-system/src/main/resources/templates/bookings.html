@@ -123,6 +123,7 @@
                 </td>
                 <td>
                   <span class="status-pill" th:classappend="${booking.statusClass}" th:text="${booking.statusLabel}">Trạng thái</span>
+                  <span th:if="${currentUser.role == 'CUSTOMER' and pendingCompensationBookingIds != null and pendingCompensationBookingIds.contains(booking.id)}" class="badge text-bg-warning d-block mt-1">Chờ bạn xác nhận bồi thường</span>
                 </td>
                 <td>
                   <span class="small font-monospace" th:classappend="${booking.paymentStatus == 'SUCCESS' ? 'text-success font-weight-bold' : (booking.paymentStatus == 'FAILED' ? 'text-danger' : (booking.paymentStatus == 'PENDING' ? 'text-warning' : 'text-muted'))}" th:text="${booking.paymentStatus == null ? (booking.status == 'AWAITING_PAYMENT' ? '⏳ Chờ thanh toán' : 'Chưa phát sinh') : (booking.paymentStatus == 'SUCCESS' ? '✓ Đã thanh toán' : (booking.paymentStatus == 'FAILED' ? '✕ Lần trước thất bại' : '⏳ Đang xử lý'))}">

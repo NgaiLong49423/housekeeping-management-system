@@ -1,4 +1,4 @@
-package com.housekeeping.management.service;
+package com.housekeeping.management.integration.vnpay;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

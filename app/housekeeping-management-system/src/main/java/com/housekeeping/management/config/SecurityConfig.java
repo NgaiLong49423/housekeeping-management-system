@@ -42,6 +42,11 @@ public class SecurityConfig {
                     .requestMatchers("/payments/vnpay/return", "/payments/vnpay/ipn").permitAll()
                     .requestMatchers("/customer/**").hasRole("CUSTOMER")
                     .requestMatchers("/staff/**").hasRole("STAFF")
+                    .requestMatchers("/manager/**").access((authentication, context) -> {
+                        var principal = authentication.get().getPrincipal();
+                        return new AuthorizationDecision(principal instanceof PortalUser user
+                                && "MANAGER".equals(user.getRole()) && authorization.isActiveAdmin(user.getUserId()));
+                    })
                     .requestMatchers("/admin/**").access((authentication, context) -> {
                         var principal = authentication.get().getPrincipal();
                         return new AuthorizationDecision(principal instanceof PortalUser user

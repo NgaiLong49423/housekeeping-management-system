@@ -36,7 +36,9 @@ public class FeedbackAttachmentController {
 
     private ResponseEntity<Resource> response(Path file) {
         String lower=file.toString().toLowerCase(java.util.Locale.ROOT);
-        MediaType mime=lower.endsWith(".pdf")?MediaType.APPLICATION_PDF:lower.endsWith(".png")?MediaType.IMAGE_PNG:MediaType.IMAGE_JPEG;
+        MediaType mime=lower.endsWith(".pdf")?MediaType.APPLICATION_PDF:lower.endsWith(".png")?MediaType.IMAGE_PNG:
+                lower.endsWith(".mp4")?MediaType.parseMediaType("video/mp4"):
+                lower.endsWith(".webm")?MediaType.parseMediaType("video/webm"):MediaType.IMAGE_JPEG;
         return ResponseEntity.ok().contentType(mime).cacheControl(CacheControl.noStore())
                 .header(HttpHeaders.CONTENT_DISPOSITION,"inline").body(new FileSystemResource(file));
     }

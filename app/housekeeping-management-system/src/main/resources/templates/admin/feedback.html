@@ -7,119 +7,36 @@
       <div class="page-heading">
         <span class="eyebrow">Quản lý vận hành · Gọn Nhà</span>
         <h1>Phản hồi khách hàng</h1>
-        <p class="lead">Đọc góp ý theo từng lịch hẹn, gửi phản hồi và đánh dấu nội dung đã giải quyết.</p>
+        <p class="lead">Theo dõi đánh giá và sự cố theo booking, trả lời khách và xử lý các mục đang chờ.</p>
       </div>
       <div th:replace="~{fragments/layout :: alerts}"></div>
+      <nav class="nav nav-pills gap-2 mb-3" aria-label="Lọc phản hồi theo trạng thái">
+        <a class="nav-link" th:classappend="${selectedStatus == 'all'} ? ' active'"
+           th:href="@{/admin/feedback(status='all',bookingId=${selectedBookingId})}">Tất cả <span class="badge text-bg-light" th:text="${feedbackCount}">0</span></a>
+        <a class="nav-link" th:classappend="${selectedStatus == 'processing'} ? ' active'"
+           th:href="@{/admin/feedback(status='processing',bookingId=${selectedBookingId})}">Đang xử lý <span class="badge text-bg-light" th:text="${processingCount}">0</span></a>
+        <a class="nav-link" th:classappend="${selectedStatus == 'pending'} ? ' active'"
+           th:href="@{/admin/feedback(status='pending',bookingId=${selectedBookingId})}">Đang chờ duyệt <span class="badge text-bg-light" th:text="${pendingCount}">0</span></a>
+        <a class="nav-link" th:classappend="${selectedStatus == 'resolved'} ? ' active'"
+           th:href="@{/admin/feedback(status='resolved',bookingId=${selectedBookingId})}">Đã xử lý <span class="badge text-bg-light" th:text="${resolvedCount}">0</span></a>
+      </nav>
       <section class="surface p-4">
-        <p th:if="${#lists.isEmpty(feedback)}" class="text-secondary mb-0">Chưa có phản hồi nào.</p>
-        <article th:each="item : ${feedback}" class="border-bottom py-4">
+        <p th:if="${#lists.isEmpty(feedback)}" class="text-secondary mb-0">Không có phản hồi trong trạng thái này.</p>
+        <article th:each="item : ${feedback}" class="border-bottom py-4" th:id="|feedback-booking-${item.bookingId}|">
           <div class="d-flex flex-wrap justify-content-between gap-2">
-            <h2 class="h6 mb-0" th:text="|${item.customerName} · Lịch #${item.bookingId}|">Khách hàng · Lịch</h2>
-            <span class="badge" th:classappend="${item.status == 'RESOLVED'} ? 'text-bg-success' : 'text-bg-secondary'"
-                  th:text="${item.statusLabel}">Đã tiếp nhận</span>
+            <h2 class="h6 mb-0"><a class="text-decoration-none" th:href="@{/admin/feedback/{id}(id=${item.id})}"
+                  th:text="|${item.customerName} · Lịch #${item.bookingId}|">Khách hàng · Lịch</a></h2>
+            <span class="badge" th:classappend="${queueStatusByFeedback[item.id] == 'resolved'} ? 'text-bg-success' : (${queueStatusByFeedback[item.id] == 'pending'} ? 'text-bg-warning' : 'text-bg-primary')"
+                  th:text="${queueStatusByFeedback[item.id] == 'resolved'} ? 'Đã xử lý' : (${queueStatusByFeedback[item.id] == 'pending'} ? 'Đang chờ duyệt' : 'Đang xử lý')">Đang xử lý</span>
           </div>
           <p class="small text-secondary mt-2 mb-0" th:text="|Booking ${item.bookingStatus} · ${item.bookingStartLabel} · Staff: ${item.staffName} · ${#numbers.formatDecimal(item.bookingAmount,0,'POINT',0,'COMMA')} ₫|">Thông tin booking</p>
-          <p class="mt-3 mb-2" th:if="${item.rating != null}"><strong>Đánh giá tổng thể:</strong> <span th:text="|${item.rating}/5 sao|">5/5 sao</span></p>
-          <p class="small text-secondary mt-3 mb-2" th:if="${item.rating == null}">Feedback lịch sử chưa có điểm đánh giá.</p>
-          <div class="mb-2" th:if="${!#lists.isEmpty(item.topics)}"><strong>Chủ đề:</strong>
-            <ul class="mb-0"><li th:each="topic : ${item.topics}" th:text="${topic}">Đúng giờ</li></ul></div>
-          <p class="mt-3 mb-2" style="white-space: pre-wrap" th:text="${item.content}">Nội dung phản hồi</p>
-          <p th:if="${item.adminReply != null and caseByFeedback[item.id] == null}" class="small text-secondary" style="white-space: pre-wrap">
-            <strong>Phản hồi hiện tại:</strong> <span th:text="${item.adminReply}"></span>
-          </p>
-          <form th:if="${item.status != 'RESOLVED' and caseByFeedback[item.id] == null}" method="post" class="vstack gap-2" th:action="@{/admin/feedback/{id}/reply(id=${item.id})}">
-            <label class="form-label mb-0" for="reply" th:for="|reply-${item.id}|">Trả lời khách hàng</label>
-            <textarea id="reply" class="form-control" rows="3" name="reply" th:id="|reply-${item.id}|" th:text="${item.adminReply}" required></textarea>
-            <button class="btn btn-outline-primary align-self-start" type="submit" th:text="${item.adminReply == null} ? 'Gửi phản hồi' : 'Cập nhật phản hồi'">Gửi phản hồi</button>
-          </form>
-          <form th:if="${item.status == 'RESPONDED' and caseByFeedback[item.id] == null}" method="post" class="mt-2" th:action="@{/admin/feedback/{id}/resolve(id=${item.id})}">
-            <button class="btn btn-success" type="submit">Đánh dấu đã giải quyết</button>
-          </form>
-        </article>
-      </section>
-      <section class="surface p-4 mt-4">
-        <h2 class="h5">Hồ sơ sự cố cần xác minh</h2>
-        <p class="small text-secondary">Công ty xử lý với khách trước. Quyết định nội bộ về Staff được ghi riêng và cần người quản lý duyệt.</p>
-        <article th:each="incident : ${incidentCases}" class="border-bottom py-4" th:id="|case-${incident.id}|">
-          <h3 class="h6">Booking #<span th:text="${incident.bookingId}"></span> · <span th:text="${#strings.listJoin(incident.typeLabels, ', ')}"></span></h3>
-          <p class="small text-secondary" th:if="${feedbackById[incident.feedbackId] != null}"
-             th:text="|Khách hàng: ${feedbackById[incident.feedbackId].customerName} · Staff: ${feedbackById[incident.feedbackId].staffName} · ${feedbackById[incident.feedbackId].bookingStartLabel} · ${#numbers.formatDecimal(feedbackById[incident.feedbackId].bookingAmount,0,'POINT',0,'COMMA')} ₫|">Thông tin booking</p>
-          <p><strong>Trạng thái:</strong> <span th:text="${incident.statusLabel}">Đã tiếp nhận</span></p>
-          <section class="surface p-3 my-3">
-            <h4 class="h6">Trao đổi với khách hàng</h4>
-            <p th:if="${caseMessages[incident.id] == null or #lists.isEmpty(caseMessages[incident.id])}" class="small text-secondary">Chưa có tin nhắn.</p>
-            <article th:each="message : ${caseMessages[incident.id]}" class="border rounded p-3 mb-2">
-              <div class="d-flex justify-content-between gap-2 flex-wrap small text-secondary">
-                <strong th:text="|${message.senderName} · ${message.senderRole == 'ADMIN' ? 'Công ty' : 'Khách hàng'}|">Người gửi</strong>
-                <time th:if="${!message.legacyTimestampUnknown}" th:text="${#temporals.format(message.sentAt, 'dd/MM/yyyy HH:mm')}">thời điểm</time>
-                <span th:if="${message.legacyTimestampUnknown}" class="badge text-bg-secondary">Reply cũ · thời điểm gửi không được lưu</span>
-              </div>
-              <p th:if="${message.text != null}" class="mb-2 mt-2" style="white-space:pre-wrap" th:text="${message.text}"></p>
-              <ul th:if="${!#lists.isEmpty(message.evidenceIds)}" class="mb-0"><li th:each="evidenceId : ${message.evidenceIds}"><a th:href="@{/feedback-case-evidence/{id}(id=${evidenceId})}" target="_blank" rel="noopener">Xem ảnh/chứng từ</a></li></ul>
-            </article>
-            <form th:if="${incident.status != 'RESOLVED'}" method="post" enctype="multipart/form-data" class="vstack gap-2 mt-3" th:action="@{/admin/feedback/cases/{id}/messages(id=${incident.id})}">
-              <label class="form-label">Tin nhắn <textarea name="message" class="form-control" rows="3" maxlength="4000" placeholder="Trao đổi với khách hàng"></textarea></label>
-              <label class="form-label">Ảnh đính kèm (tối đa 5 ảnh, JPEG/PNG, 5 MB/ảnh)<input class="form-control" type="file" name="images" accept="image/jpeg,image/png" multiple></label>
-              <button class="btn btn-primary align-self-start" type="submit">Gửi tin nhắn</button>
-            </form>
-          </section>
-          <p th:if="${incident.customerOutcome != null}" style="white-space:pre-wrap"><strong>Kết quả gửi khách:</strong> <span th:text="${incident.customerOutcome}"></span></p>
-          <p th:if="${incident.remedyType != null}"><strong>Biện pháp:</strong> <span th:text="${incident.remedyType}"></span> · <span th:text="${incident.remedyCompleted ? 'Đã thực hiện' : 'Chưa hoàn tất'}"></span></p>
-          <p th:if="${incident.internalFinding != null}" style="white-space:pre-wrap"><strong>Kết luận nội bộ:</strong> <span th:text="${incident.internalFinding}"></span></p>
-          <p th:if="${incident.staffAction != null}"><strong>Đề xuất xử lý Staff:</strong> <span th:text="${incident.staffAction}"></span> · <span th:text="${incident.staffActionStatus}"></span></p>
-          <section class="surface p-3 my-3" th:if="${caseFinancialEntries[incident.id] != null}">
-            <h4 class="h6">Khoản tiền gắn với hồ sơ</h4>
-            <p th:if="${#lists.isEmpty(caseFinancialEntries[incident.id])}" class="small text-secondary">Chưa có khoản tiền.</p>
-            <article th:each="entry : ${caseFinancialEntries[incident.id]}" class="border rounded p-3 mb-2">
-              <p class="mb-1"><strong th:text="${entry.typeLabel}">Loại khoản</strong> · <span th:text="|${#numbers.formatDecimal(entry.amount,0,'POINT',0,'COMMA')} ₫|">0 ₫</span> · <span th:text="${entry.statusLabel}">Chờ Manager duyệt</span></p>
-              <p class="small mb-1" th:text="${entry.reason}">Lý do</p>
-              <p class="small text-secondary mb-2" th:text="|Người lập #${entry.createdBy} · Người duyệt ${entry.approvedBy == null ? 'chưa có' : '#' + entry.approvedBy}|">Người lập/duyệt</p>
-              <p class="small text-warning-emphasis" th:if="${entry.status == 'PENDING_APPROVAL'}">Khách thấy khoản đề xuất này là “Chờ duyệt”; chưa cam kết chi.</p>
-              <p class="small text-secondary" th:if="${entry.simulated}">Giao dịch mô phỏng, không phải dòng tiền thật.</p>
-              <form th:if="${currentUser.manager and entry.status == 'PENDING_APPROVAL' and entry.createdBy != currentUser.userId}" method="post" th:action="@{/admin/financial-entries/{id}/approve(id=${entry.id})}" class="d-inline">
-                <input type="hidden" name="returnCaseId" th:value="${incident.id}"><button class="btn btn-sm btn-outline-success" type="submit">Manager duyệt</button>
-              </form>
-              <form th:if="${currentUser.manager and entry.status == 'PENDING_APPROVAL' and entry.createdBy != currentUser.userId}" method="post" th:action="@{/admin/financial-entries/{id}/reject(id=${entry.id})}" class="d-flex gap-2 mt-2">
-                <input type="hidden" name="returnCaseId" th:value="${incident.id}"><input class="form-control form-control-sm" name="reason" maxlength="500" placeholder="Lý do từ chối" required><button class="btn btn-sm btn-outline-danger" type="submit">Từ chối</button>
-              </form>
-            </article>
-          </section>
-          <div th:if="${staffActionHistory[incident.id] != null and !#lists.isEmpty(staffActionHistory[incident.id])}"><strong>Lịch sử quyết định nội bộ:</strong><ul><li th:each="action : ${staffActionHistory[incident.id]}"><span th:text="|${action.type} · ${action.status} · ${action.reason}|">Cảnh cáo</span><p class="small mb-0" th:if="${action.staffNotice != null}" th:text="|Thông báo Staff: ${action.staffNotice}|"></p></li></ul></div>
-          <form th:if="${incident.status != 'RESOLVED'}" method="post" class="vstack gap-2" th:action="@{/admin/feedback/cases/{id}/review(id=${incident.id})}">
-            <label class="form-label">Trạng thái xác minh
-              <select class="form-select" name="caseStatus" required><option value="INVESTIGATING" th:selected="${incident.status == 'RECEIVED' or incident.status == 'INVESTIGATING'}">Đang xác minh</option><option value="VERIFIED" th:selected="${incident.status == 'VERIFIED'}">Đã xác minh</option><option value="NOT_SUBSTANTIATED" th:selected="${incident.status == 'NOT_SUBSTANTIATED'}">Chưa đủ căn cứ</option></select>
-            </label>
-            <label class="form-label">Biện pháp khắc phục
-              <select class="form-select" name="remedyType"><option value="" th:selected="${incident.remedyType == null}">Chưa chọn</option><option value="RE_CLEAN" th:selected="${incident.remedyType == 'RE_CLEAN'}">Dọn lại</option><option value="REPAIR" th:selected="${incident.remedyType == 'REPAIR'}">Sửa chữa</option><option value="REPLACE" th:selected="${incident.remedyType == 'REPLACE'}">Thay thế</option><option value="PRICE_REDUCTION" th:selected="${incident.remedyType == 'PRICE_REDUCTION'}">Giảm giá</option><option value="REFUND" th:selected="${incident.remedyType == 'REFUND'}">Hoàn tiền</option><option value="COMPENSATION" th:selected="${incident.remedyType == 'COMPENSATION'}">Bồi thường</option><option value="OTHER" th:selected="${incident.remedyType == 'OTHER'}">Khác</option></select>
-            </label>
-            <label class="form-label w-100">Kết quả/cách xử lý khách sẽ thấy
-              <textarea class="form-control" name="customerOutcome" rows="3" maxlength="4000" th:text="${incident.customerOutcome}"></textarea>
-              <small class="form-text text-secondary">Bắt buộc khi chọn “Đã xác minh” hoặc “Chưa đủ căn cứ”. Tối đa 4.000 ký tự. Khi thay đổi, nội dung được gửi cho khách và lưu thành tin nhắn trong lịch sử trao đổi.</small>
-            </label>
-            <label class="form-check-label"><input class="form-check-input" type="checkbox" name="remedyCompleted" value="true" th:checked="${incident.remedyCompleted}"> Biện pháp đã thực hiện xong/khách đã xác nhận</label>
-            <label class="form-label w-100">Kết luận nội bộ
-              <textarea class="form-control" name="internalFinding" rows="2" maxlength="4000" th:text="${incident.internalFinding}"></textarea>
-              <small class="form-text text-secondary">Tối đa 4.000 ký tự. Chỉ Admin và Manager xem được, khách không nhìn thấy.</small>
-            </label>
-            <label class="form-label">Đề xuất xử lý Staff (không bắt buộc)
-              <select class="form-select" name="staffAction"><option value="">Không thay đổi</option><option value="NONE">Không xử lý</option><option value="COACHING">Nhắc nhở/hướng dẫn</option><option value="PROPOSE_WARNING">Đề xuất cảnh cáo</option><option value="PROPOSE_FINAL_WARNING">Đề xuất cảnh cáo mức cuối</option><option value="PROPOSE_RECOVERY">Đề xuất thu hồi nội bộ (xem xét riêng)</option><option value="OTHER">Biện pháp khác</option></select>
-            </label>
-            <label class="form-label w-100">Nội dung thông báo riêng cho Staff
-              <textarea class="form-control" name="staffNotice" rows="2" maxlength="1000" placeholder="Chỉ Staff liên quan thấy sau khi Manager duyệt"></textarea>
-              <small class="form-text text-secondary">Bắt buộc nếu đề xuất nhắc nhở/cảnh cáo/thu hồi; tối đa 1.000 ký tự. Staff chỉ thấy sau khi Manager duyệt.</small>
-            </label>
-            <button class="btn btn-outline-primary align-self-start" type="submit">Lưu xác minh</button>
-          </form>
-          <div class="d-flex gap-2 mt-2" th:if="${currentUser.manager and incident.staffActionStatus == 'PENDING'}">
-            <form method="post" th:action="@{/admin/feedback/cases/{id}/staff-action/approve(id=${incident.id})}"><button class="btn btn-outline-success" type="submit">Quản lý duyệt</button></form>
-            <form method="post" th:action="@{/admin/feedback/cases/{id}/staff-action/reject(id=${incident.id})}"><button class="btn btn-outline-secondary" type="submit">Từ chối</button></form>
+          <p class="mt-3 mb-0" th:if="${item.rating != null}"><strong>Đánh giá:</strong> <span th:text="|${item.rating}/5 sao|">5/5 sao</span></p>
+          <div th:if="${incidentByFeedback[item.id] != null}" class="mt-3">
+            <span class="badge text-bg-light border">Có hồ sơ sự cố</span>
+            <span class="small text-secondary ms-2" th:text="${#strings.listJoin(incidentByFeedback[item.id].typeLabels, ', ')}">Loại sự cố</span>
           </div>
-          <form th:if="${caseCanResolve[incident.id]}" method="post" class="mt-2" th:action="@{/admin/feedback/cases/{id}/resolve(id=${incident.id})}">
-            <button class="btn btn-success" type="submit">Đóng hồ sơ sự cố</button>
-          </form>
-          <p th:if="${(incident.status == 'VERIFIED' or incident.status == 'NOT_SUBSTANTIATED') and !caseCanResolve[incident.id]}" class="small text-secondary mt-2 mb-0">Chưa thể đóng hồ sơ: cần có trả lời khách, hoàn tất biện pháp khắc phục, quyết toán/hủy các khoản đang mở và xử lý xong đề xuất nội bộ đang chờ.</p>
+          <a class="btn btn-sm btn-outline-primary mt-3" th:href="@{/admin/feedback/{id}(id=${item.id})}">Xem chi tiết</a>
         </article>
-        <p th:if="${#lists.isEmpty(incidentCases)}" class="text-secondary mb-0">Chưa có hồ sơ sự cố.</p>
       </section>
     </main>
     <footer th:replace="~{fragments/layout :: footer}"></footer>

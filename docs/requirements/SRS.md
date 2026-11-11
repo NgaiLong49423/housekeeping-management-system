@@ -2,7 +2,7 @@
 > **File:** `docs/requirements/SRS.md`\
 > **Version:** v6.2.0\
 > **Created:** 2026-06-14\
-> **Last Updated:** 2026-11-10\
+> **Last Updated:** 2026-11-11\
 > **Status:** Active\
 # SRS — SOFTWARE REQUIREMENTS SPECIFICATION
 
@@ -148,8 +148,12 @@ One server-rendered Java Spring MVC web application, single company, SQL Server.
 - AC-FEED-03: Migration V9 giữ feedback cũ không rating, không thêm bảng nghiệp vụ, và SQL Server constraint cùng JPA mapping phản ánh tính hợp lệ của rating/nội dung/trạng thái.
 
 ### FR-CASE — Khiếu nại sự cố và trách nhiệm nội bộ
-- Feedback có thể mở tối đa một hồ sơ sự cố cho booking, chọn nhiều loại `CLEANLINESS`, `PROPERTY_DAMAGE`, `MISSING_PROPERTY`, `OTHER`, có mô tả khách gửi và tệp bằng chứng JPEG/PNG. Customer sở hữu booking đã hoàn tất và có feedback mới được mở hồ sơ; chỉ được bổ sung, không sửa/xóa bằng chứng, cho đến khi case resolve.
-- Trạng thái case: `RECEIVED`, `INVESTIGATING`, `VERIFIED`, `NOT_SUBSTANTIATED`, `RESOLVED`. Admin lưu kết quả/cách khắc phục cho Customer thấy và kết luận nội bộ riêng. Chỉ resolve sau reply feedback, kết luận xác minh, đánh dấu biện pháp đã hoàn tất, các khoản hoàn/bồi thường yêu cầu đã quyết toán và không còn khoản tài chính/đề xuất xử lý Staff đang chờ.
+- Feedback có thể mở tối đa một hồ sơ sự cố cho booking, chọn nhiều loại `CLEANLINESS`, `PROPERTY_DAMAGE`, `MISSING_PROPERTY`, `OTHER`, có mô tả khách gửi và tệp bằng chứng. Customer sở hữu booking đã hoàn tất và có feedback mới được mở hồ sơ; bằng chứng append-only cho đến khi case resolve. Ảnh/PDF tối đa 5 MB mỗi tệp; mỗi tin tối đa một video MP4/WebM 50 MB và tổng tối đa 5 tệp. Video dài có thể gửi link HTTPS Drive; hệ thống không xác thực quyền chia sẻ.
+- Với quy trình sự cố mới, mỗi lần Admin xác minh được lưu vào lịch sử riêng cùng trạng thái, kết luận nội bộ và các mã ảnh/PDF/video/link Drive đã xem. Manager có thể xem lịch sử này nhưng không sửa thay phần điều tra; Customer không thấy kết luận nội bộ.
+- Hồ sơ mới dùng quy trình phiên bản: Admin xác minh, tách kết luận nội bộ khỏi nội dung khách thấy, rồi gửi tối đa ba phương án. Mỗi phương án có thể kết hợp nhiều công việc nội bộ và khoản chi; khoản chi phải nêu số tiền cùng căn cứ. Không suy ra bồi thường tự động từ giá Customer khai. Customer chọn một phương án hoặc yêu cầu điều chỉnh; mọi thay đổi lập version mới và cần Customer xác nhận lại.
+- Manager chỉ duyệt sau khi Customer chọn phương án; có thể duyệt hoặc trả Admin bổ sung kèm lý do. Phương án bị trả hoặc chưa duyệt không được thực hiện. Với khoản tiền, Customer chọn tiền mặt/chuyển khoản trước Manager; thông tin tài khoản chỉ yêu cầu sau khi duyệt và được mã hóa.
+- Sau duyệt, Admin lập work order cho từng việc nội bộ, lưu Staff phụ trách, lịch, phạm vi, chi phí/vật tư ước tính và thực tế, bằng chứng hoàn tất. Khoản chi thực tế phải khớp số tiền được khách đồng ý và xuất hiện trong sổ tài chính liên kết booking/hồ sơ/bước phương án. Thay số tiền cần version mới, Customer xác nhận và Manager duyệt lại.
+- Khách xác nhận kết quả cuối hoặc báo chưa hoàn tất. Hồ sơ mới chỉ đóng khi mọi work order được Customer xác nhận, mọi khoản tiền được quyết toán và lần xác nhận cuối được lưu. Hồ sơ cũ giữ nguyên luồng lịch sử, không tự sinh thỏa thuận/chấp thuận.
 - Admin có thể đề xuất `NONE`, `COACHING`, `PROPOSE_WARNING`, `PROPOSE_FINAL_WARNING`, `PROPOSE_RECOVERY`, `OTHER` khi case đã VERIFIED; thông báo nhắc nhở/cảnh cáo/thu hồi phải có nội dung riêng cho Staff. Manager duyệt/từ chối. Mỗi đề xuất/quyết định được lưu lịch sử; không tự kết luận lỗi, tự tăng cảnh cáo theo số lần, hoặc tự động khấu trừ tiền lương. Thu hồi nội bộ chỉ được lập sau khi quyết định `PROPOSE_RECOVERY` được duyệt, rồi vẫn phải qua duyệt khoản tiền riêng. Sau khi duyệt, Staff chỉ thấy quyết định và thông báo của chính mình, có thể xác nhận đã nhận mà không bị coi là thừa nhận lỗi.
 - AC-CASE-01: Staff và Customer khác không xem hồ sơ, feedback hoặc bằng chứng; Customer chỉ xem case của booking mình. Staff chỉ thấy thông báo quyết định đã duyệt của chính mình. Upload sau resolve hoặc tệp sai định dạng/kích thước bị từ chối.
 - AC-CASE-02: Kết luận khách thấy tách khỏi nội dung nội bộ; không resolve khi thiếu reply hoặc còn khoản/đề xuất xử lý đang chờ.
@@ -158,7 +162,7 @@ One server-rendered Java Spring MVC web application, single company, SQL Server.
 - Manager duyệt/từ chối khoản chờ ngay trong hồ sơ, chỉ khi khác người lập. Customer thấy số tiền đề xuất cùng “Chờ duyệt”, sau duyệt “Đã duyệt, chờ thực hiện”; chỉ thể hiện đã chi/hoàn khi quyết toán được ghi nhận. Khoản mô phỏng phải có nhãn rõ. Migration V16 tạo bảng tin nhắn thứ 21 và gắn bằng chứng hiện hữu vào tin ban đầu, không làm mất hồ sơ cũ.
 
 ### FR-FIN — Khoản tiền, chứng từ và đối soát
-- `Payments` chỉ lưu lần thu booking. `Booking_Financial_Entries` lưu từng `REFUND`, `PRICE_REDUCTION`, `REMEDIATION_COST`, `COMPENSATION`, `STAFF_RECOVERY` gắn booking và hồ sơ nếu phù hợp; ghi lý do, số tiền VND, người lập/duyệt, phương thức, mã giao dịch, chứng từ, trạng thái và thời điểm.
+- `Payments` chỉ lưu lần thu booking. `Booking_Financial_Entries` lưu từng `REFUND`, `PRICE_REDUCTION`, `REMEDIATION_COST`, `COMPENSATION`, `STAFF_RECOVERY` gắn booking, hồ sơ và bước phương án nếu phù hợp; ghi lý do, số tiền VND, người lập/duyệt, phương thức, mã giao dịch, chứng từ, trạng thái và thời điểm. Khoản chi của hồ sơ mới phải khớp đúng phương án Customer chọn và Manager duyệt.
 - Mọi khoản cần Manager khác người lập duyệt. Chỉ khoản đã quyết toán cùng chứng từ mới tính dòng tiền thật; `SIMULATED` tách riêng. ONLINE hiện là VNPay sandbox và được đánh dấu mô phỏng; không thể hiện giả lập như đã hoàn tiền thật.
 - Báo cáo tách doanh thu dịch vụ, hoàn/giảm, chi phí khắc phục/bồi thường và thu hồi nội bộ; thuần = doanh thu - hoàn/giảm - chi phí/bồi thường + thu hồi. Giao dịch mô phỏng không tham gia thuần dòng tiền thật.
 - AC-FIN-01: Khoản phải thuộc booking hợp lệ; chi phí/bồi thường/thu hồi nội bộ phải link case; thu hồi Staff chỉ lập khi case VERIFIED và quyết định Staff được duyệt.

@@ -84,7 +84,7 @@ public class AdminCompanySettingsController {
 
     @org.springframework.web.bind.annotation.GetMapping("/location/autocomplete")
     @org.springframework.web.bind.annotation.ResponseBody
-    java.util.List<com.housekeeping.management.service.VietmapClient.Suggestion> locationAutocomplete(@RequestParam String q) {
+    java.util.List<com.housekeeping.management.dto.response.LocationSuggestion> locationAutocomplete(@RequestParam String q) {
         return settings.locationAutocomplete(q);
     }
 

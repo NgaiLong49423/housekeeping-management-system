@@ -18,7 +18,7 @@ class HousekeepingManagementSystemApplicationTests extends SqlServerIntegrationT
 
     @Test
     void freshSqlServerSchemaContainsExactlyTheApprovedBusinessTables() {
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("13");
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("17");
         Integer tableCount = jdbc.queryForObject("""
                 SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
                 WHERE TABLE_SCHEMA='dbo' AND TABLE_TYPE='BASE TABLE'
@@ -55,12 +55,15 @@ class HousekeepingManagementSystemApplicationTests extends SqlServerIntegrationT
     }
 
     @Test
-    void hibernateScansExactlyTheFifteenApprovedBusinessEntities() {
+    void hibernateScansAllApprovedBusinessEntities() {
         assertThat(entityManagerFactory.getMetamodel().getEntities())
                 .extracting(entityType -> entityType.getJavaType().getSimpleName())
                 .containsExactlyInAnyOrder("User", "Staff", "StaffProfile", "Services", "CompanySettings",
                         "CompanyOperatingHour", "House", "StaffAvailability", "StaffLeave", "Booking",
-                        "BookingDetail", "BookingImage", "Payment", "Feedback", "StaffFollow");
+                        "BookingDetail", "BookingImage", "Payment", "Feedback", "StaffFollow",
+                        "BookingFinancialEntry", "BookingDelayCompensationTier", "FeedbackCase",
+                        "FeedbackCaseEvidence", "FeedbackCaseMessage", "StaffIncidentAction",
+                        "FinancialPayoutResponse");
     }
 
     @Test
@@ -78,6 +81,7 @@ class HousekeepingManagementSystemApplicationTests extends SqlServerIntegrationT
         assertThat(new ClassPathResource("db/shared/V9__add_customer_feedback_ratings_and_topics.sql").exists()).isTrue();
         assertThat(new ClassPathResource("db/shared/V12__allow_staff_early_work_start.sql").exists()).isTrue();
         assertThat(new ClassPathResource("db/shared/V13__add_customer_staff_delay_report.sql").exists()).isTrue();
+        assertThat(new ClassPathResource("db/shared/V17__add_customer_compensation_payout_responses.sql").exists()).isTrue();
         assertThat(new ClassPathResource("db/refactor/V7__seed_demo_arrival_booking.sql").exists()).isTrue();
     }
 }
