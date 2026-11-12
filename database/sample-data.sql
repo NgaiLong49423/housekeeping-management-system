@@ -104,4 +104,51 @@ WHERE NOT EXISTS (
 )
 OPTION (MAXRECURSION 100);
 
+-- 3. Bổ sung các gói dịch vụ dọn dẹp chuyên nghiệp
+DECLARE @NewServices TABLE (
+    service_name NVARCHAR(150),
+    description NVARCHAR(MAX),
+    price DECIMAL(12,2),
+    duration_minutes INT,
+    status VARCHAR(20),
+    image_url NVARCHAR(500)
+);
+
+INSERT INTO @NewServices (service_name, description, price, duration_minutes, status, image_url)
+VALUES
+(N'Vệ sinh toilet & phòng tắm chuyên sâu', 
+ N'Tẩy ố vàng gạch men, khử cặn canxi trên vách kính tắm và vòi sen inox, khử khuẩn bồn cầu, khử mùi hôi cống thoát nước.', 
+ 130000.00, 90, 'ACTIVE', 
+ N'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=600'),
+
+(N'Giặt hấp sofa & đệm ngủ tại nhà', 
+ N'Phun hút hơi nước nóng 100°C diệt 99% vi khuẩn và nấm mốc, hút sạch bụi mịn và mạt bụi trên sofa vải nỉ, da, đệm lò xo.', 
+ 280000.00, 150, 'ACTIVE', 
+ N'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=600'),
+
+(N'Vệ sinh máy lạnh & lưới lọc bụi', 
+ N'Xịt rửa dàn lạnh, vệ sinh lưới lọc kháng khuẩn, thông ống thoát nước ngưng và kiểm tra độ lạnh giúp tiết kiệm điện.', 
+ 160000.00, 60, 'ACTIVE', 
+ N'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=600'),
+
+(N'Ủi đồ & Chăm sóc trang phục', 
+ N'Ủi phẳng quần áo sơ mi, váy đầm, vest bằng bàn ủi hơi nước đứng cao cấp, gấp gọn gàng hoặc treo tủ theo yêu cầu.', 
+ 100000.00, 60, 'ACTIVE', 
+ N'https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?w=600'),
+
+(N'Khử khuẩn & Khử mùi sinh học Nano', 
+ N'Phun sương Nano bạc khử trùng toàn bộ bề mặt nội thất, tiêu diệt vi khuẩn, khử mùi ẩm mốc, khói thuốc và thú cưng.', 
+ 200000.00, 90, 'ACTIVE', 
+ N'https://images.unsplash.com/photo-1585421514738-01798e348b17?w=600'),
+
+(N'Dọn dẹp & Chăm sóc ban công sân vườn', 
+ N'Quét dọn lá cây, chà rong rêu bám trên gạch ban công, tưới cây cảnh, sắp xếp bàn ghế ngoài trời ngăn nắp và sạch thoáng.', 
+ 140000.00, 90, 'ACTIVE', 
+ N'https://images.unsplash.com/photo-1598928506311-c55ded91a20c?w=600');
+
+INSERT INTO dbo.Services (service_name, description, price, duration_minutes, status, image_url)
+SELECT s.service_name, s.description, s.price, s.duration_minutes, s.status, s.image_url
+FROM @NewServices s
+WHERE NOT EXISTS (SELECT 1 FROM dbo.Services existing WHERE existing.service_name = s.service_name);
+
 COMMIT TRANSACTION;
