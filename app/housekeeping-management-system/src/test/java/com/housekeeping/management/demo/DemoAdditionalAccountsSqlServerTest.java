@@ -140,7 +140,7 @@ class DemoAdditionalAccountsSqlServerTest {
     void phoneNumbersStayUniqueAndMigrationsCanRunAgainWithoutDuplicates() throws Exception {
         int usersBefore = jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Users", Integer.class);
         int housesBefore = jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Houses", Integer.class);
-        jdbc.execute(script("db/shared/V32__rename_demo_accounts_to_realistic_names.sql"));
+        jdbc.execute(script("db/shared/V35__rename_demo_accounts_to_realistic_names.sql"));
         jdbc.execute(script("db/shared/V33__seed_additional_demo_staff_and_customers.sql"));
 
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Users", Integer.class)).isEqualTo(usersBefore);

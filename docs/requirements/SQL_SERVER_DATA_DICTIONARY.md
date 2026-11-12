@@ -73,9 +73,9 @@ V29 không thay đổi schema. Chỉ trong `home_cleaning_demo`, migration đồ
 
 V32 và V33 không thay đổi schema. Chỉ trong `home_cleaning_demo`: V32 đổi `Users.full_name` của năm tài khoản demo ban đầu từ tên tạm "… Demo" sang họ tên tiếng Việt (và `Houses.recipient_name` của Customer demo khi còn tên tạm); V33 thêm năm Staff (`Users`, `Staff`, `Staff_Profiles`) và năm Customer (`Users`, mỗi người một `Houses` mặc định loại `HOME` có tọa độ trong bán kính `Company_Settings`). Bản ghi chỉ được chèn khi email/Staff/địa chỉ chưa tồn tại.
 
-## Migration V35 — lý do khóa tài khoản
+## Migration V37 — lý do khóa tài khoản
 
-V35 (dùng chung cho cả hai database) thêm ba cột vào `Users` để lưu lý do khóa, người và thời điểm đổi trạng thái gần nhất; chi tiết ở mục `Users`. Không thêm bảng, tổng vẫn 25 bảng.
+V37 (dùng chung cho cả hai database) thêm ba cột vào `Users` để lưu lý do khóa, người và thời điểm đổi trạng thái gần nhất; chi tiết ở mục `Users`. Không thêm bảng, tổng vẫn 25 bảng.
 
 ## Mapping kiểu dữ liệu đề xuất
 | Logical | SQL Server |
@@ -94,7 +94,7 @@ Recommended Java: `Long`, `BigDecimal`, `LocalDate`, `LocalTime`, `LocalDateTime
 
 ## 1. Users
 `user_id PK BIGINT IDENTITY`, `full_name NVARCHAR(150) NOT NULL`, `email NVARCHAR(255) NOT NULL UNIQUE`, `password_hash NVARCHAR(255) NOT NULL`, `phone NVARCHAR(20) NOT NULL`, `role VARCHAR(20) NOT NULL CHECK CUSTOMER/STAFF/ADMIN/MANAGER`, `status VARCHAR(20) NOT NULL DEFAULT ACTIVE CHECK ACTIVE/INACTIVE`. V15 chuyển người quản lý hiện hữu từ `ADMIN` + cờ V10 sang `MANAGER`, bỏ `can_manage_incidents`, và tạo filtered unique index `UX_Users_Single_Manager` bảo đảm chỉ tồn tại một hàng Manager. Manager có toàn bộ quyền Admin; chỉ Manager được tạo/khóa Admin và duyệt khoản tài chính/quyết định xử lý Staff.
-V35 thêm `status_reason NVARCHAR(500) NULL`, `status_changed_at DATETIME2(0) NULL`, `status_changed_by BIGINT NULL FK -> Users`. CHECK `CK_Users_StatusReasonOnlyWhenLocked`: lý do chỉ có khi `status = INACTIVE` và không rỗng; CHECK `CK_Users_StatusChangeAudit`: `status_changed_at` và `status_changed_by` cùng NULL hoặc cùng có giá trị. Mọi lần khóa mới (Customer, Staff, Admin) bắt buộc có lý do 5–500 ký tự; mở khóa xóa lý do và ghi người/thời điểm mở. Tài khoản đã khóa trước V35 giữ lý do NULL. Phân quyền khóa: Manager khóa được Customer, Staff, Admin; Admin khóa được Customer và Staff, không khóa Admin khác. Customer hoặc Staff còn Booking `CONFIRMED`/`AWAITING_PAYMENT` thì chưa khóa được.
+V37 thêm `status_reason NVARCHAR(500) NULL`, `status_changed_at DATETIME2(0) NULL`, `status_changed_by BIGINT NULL FK -> Users`. CHECK `CK_Users_StatusReasonOnlyWhenLocked`: lý do chỉ có khi `status = INACTIVE` và không rỗng; CHECK `CK_Users_StatusChangeAudit`: `status_changed_at` và `status_changed_by` cùng NULL hoặc cùng có giá trị. Mọi lần khóa mới (Customer, Staff, Admin) bắt buộc có lý do 5–500 ký tự; mở khóa xóa lý do và ghi người/thời điểm mở. Tài khoản đã khóa trước V37 giữ lý do NULL. Phân quyền khóa: Manager khóa được Customer, Staff, Admin; Admin khóa được Customer và Staff, không khóa Admin khác. Customer hoặc Staff còn Booking `CONFIRMED`/`AWAITING_PAYMENT` thì chưa khóa được.
 
 **Không** có created_at/updated_at. Backend role authorization.
 
