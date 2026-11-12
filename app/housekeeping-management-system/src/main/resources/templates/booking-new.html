@@ -23,6 +23,7 @@
       <div id="bookingDraftNotice" class="mb-3" hidden></div>
 
       <form method="post" th:action="@{/customer/bookings/multiple}" th:object="${bookingForm}" data-booking-form>
+        <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
         <div class="row g-4 align-items-start">
           <!-- Main Form Wizard Column -->
           <div class="col-lg-8 vstack gap-4">

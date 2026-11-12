@@ -93,7 +93,8 @@
               <a th:if="${editHouseId != null}" th:href="@{/customer/houses}" class="btn btn-sm btn-outline-secondary">Hủy sửa</a>
             </div>
             <form id="houseForm" method="post" th:object="${houseForm}"
-                  th:action="${editHouseId == null ? '/customer/houses' : '/customer/houses/' + editHouseId}">
+                  th:action="@{${editHouseId == null ? '/customer/houses' : '/customer/houses/' + editHouseId}}">
+                <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                 <div class="row g-3">
                   <div class="col-12">
                     <label class="form-label" for="recipientName">Họ và tên người nhận</label>
@@ -111,7 +112,10 @@
                       <span class="input-group-text bg-white border-end-0">
                         <svg th:replace="~{fragments/icons :: map-pin}"></svg>
                       </span>
-                      <input class="form-control border-start-0 ps-0" id="vietmapSearch" autocomplete="off" placeholder="Nhập tên đường, tòa nhà hoặc bấm chọn tỉnh bên dưới…" required>
+                      <input class="form-control border-start-0 ps-0" id="vietmapSearch" autocomplete="off"
+                             placeholder="Nhập tên đường, tòa nhà hoặc bấm chọn tỉnh bên dưới…"
+                             th:value="${editingHouse != null ? editingHouse.address : ''}"
+                             th:required="${editHouseId == null}">
                     </div>
                     <input type="hidden" th:field="*{vietmapRefId}" id="vietmapRefId">
 
@@ -125,7 +129,8 @@
                     </div>
 
                     <div id="vietmapSuggestions" class="list-group position-absolute w-100 shadow-sm" style="z-index:1050; max-height:280px; overflow-y:auto; display:none; top:calc(100% + 4px); background:#ffffff; border:1.5px solid var(--line-strong); border-radius:var(--radius-md);"></div>
-                    <p class="small text-secondary mt-2 mb-0" id="selectedAddress">Chưa chọn kết quả VietMap.</p>
+                    <p class="small text-secondary mt-2 mb-0" id="selectedAddress"
+                       th:text="${editingHouse != null ? ('✓ Đang dùng địa chỉ VietMap đã lưu: ' + editingHouse.address) : 'Chưa chọn kết quả VietMap.'}">Chưa chọn kết quả VietMap.</p>
                   </div>
                   <div class="col-12">
                     <label class="form-label" for="streetAddress">Số nhà, hẻm/ngõ, tên đường <span class="text-danger">*</span></label>
@@ -219,11 +224,14 @@
         };
 
         // When page loads with an existing address (e.g. edit mode or validation return)
+        const isEditMode = Boolean(document.querySelector('input[name="editHouseId"]') || window.location.search.includes('editId=') || (form && form.action.includes('/customer/houses/')));
         if (input && input.value && input.value.trim().length > 0) {
           if (!ref.value) {
             ref.value = detectRefId(input.value);
           }
           selected.innerHTML = `<span class="badge bg-success-subtle text-success me-1">✓ Đã xác thực</span> ${input.value}`;
+        } else if (isEditMode) {
+          selected.innerHTML = `<span class="badge bg-info-subtle text-info me-1">✓ Đang dùng địa chỉ đã lưu</span> Bạn có thể giữ nguyên hoặc tìm địa chỉ mới.`;
         }
 
         const showSuggestions = (items) => {
@@ -333,6 +341,9 @@
                 } else {
                   ref.value = detectRefId(q);
                 }
+                input.setCustomValidity('');
+              } else if (isEditMode) {
+                // Giữ nguyên tọa độ và địa chỉ cũ đã lưu của căn nhà
                 input.setCustomValidity('');
               } else {
                 event.preventDefault();

@@ -1175,7 +1175,13 @@ if (bookingForm) {
       const result=await response.json();
       if(request!==houseAreaRequest)return;
       houseAreaState=result.eligible?"eligible":"ineligible";
-      if(houseServiceAreaError){houseServiceAreaError.hidden=false;houseServiceAreaError.classList.toggle("text-danger",!result.eligible);houseServiceAreaError.classList.toggle("text-secondary",Boolean(result.eligible));houseServiceAreaError.textContent=result.message;}
+      if(houseServiceAreaError){
+        houseServiceAreaError.hidden = false;
+        houseServiceAreaError.classList.toggle("text-danger", !result.eligible);
+        houseServiceAreaError.classList.toggle("text-success", Boolean(result.eligible));
+        houseServiceAreaError.classList.remove("text-secondary");
+        houseServiceAreaError.textContent = (result.eligible ? "✓ " : "⚠️ ") + result.message;
+      }
     } catch(error) {
       if(request!==houseAreaRequest)return;
       houseAreaState="error";

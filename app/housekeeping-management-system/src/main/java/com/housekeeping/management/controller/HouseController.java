@@ -42,6 +42,7 @@ public class HouseController {
                         house.getAddressDetail(), "",
                         house.getAddressType(), house.isDefaultAddress(), house.getAddressNote()));
                 model.addAttribute("editHouseId", editId);
+                model.addAttribute("editingHouse", house);
             }
         } else if (editId != null) {
             model.addAttribute("editHouseId", editId);
