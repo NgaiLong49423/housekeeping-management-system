@@ -682,8 +682,14 @@ if (bookingForm) {
     if(preference==="staff"&&preferredStaff.value)query.set("staffId",preferredStaff.value);
     try {
       const response=await fetch(`/customer/bookings/availability-dates?${query}`,{headers:{Accept:"application/json"}});
-      const result=await response.json().catch(()=>({}));
-      if(!response.ok)throw new Error(result.detail||result.message||"Không tải được danh sách ngày còn nhân viên làm.");
+      const body=await response.text();
+      let result={};
+      try { result=body?JSON.parse(body):{}; } catch { result={}; }
+      if(!response.ok) {
+        const detail=result.detail||result.message||result.error||(typeof result==="string"?result:body.replace(/^"|"$/g,""));
+        throw new Error(detail||"Không tải được danh sách ngày còn nhân viên làm.");
+      }
+      if(typeof result!=="object"||result===null)throw new Error("Dữ liệu lịch ngày không hợp lệ.");
       if(request!==calendarSequence)return;
       availableDates=result.dates||[];
       const available=new Set(availableDates);

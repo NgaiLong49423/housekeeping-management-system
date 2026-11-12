@@ -144,29 +144,31 @@ public class BookingController {
 
     @GetMapping("/customer/bookings/availability-options")
     @org.springframework.web.bind.annotation.ResponseBody
-    BookingAvailabilityOptions availabilityOptions(@RequestParam LocalDate workDate,
+    org.springframework.http.ResponseEntity<?> availabilityOptions(@RequestParam LocalDate workDate,
             @RequestParam List<Long> serviceIds, @RequestParam(required = false) Long staffId,
             @RequestParam(required = false) String startTime,@RequestParam Long houseId,
             @AuthenticationPrincipal PortalUser user) {
         if (user == null || !"CUSTOMER".equals(user.getRole())) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         try {
-            return bookingAvailability.options(workDate,serviceIds,staffId,
-                    startTime == null || startTime.isBlank() ? null : LocalTime.parse(startTime),user.getUserId(),houseId);
+            return org.springframework.http.ResponseEntity.ok(bookingAvailability.options(workDate,serviceIds,staffId,
+                    startTime == null || startTime.isBlank() ? null : LocalTime.parse(startTime),user.getUserId(),houseId));
         } catch (IllegalArgumentException | IllegalStateException | java.time.DateTimeException failure) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,failure.getMessage(),failure);
+            return org.springframework.http.ResponseEntity.badRequest().body(
+                    org.springframework.http.ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,failure.getMessage()));
         }
     }
 
     @GetMapping("/customer/bookings/availability-dates")
     @org.springframework.web.bind.annotation.ResponseBody
-    BookingAvailabilityDates availabilityDates(@RequestParam List<Long> serviceIds,
+    org.springframework.http.ResponseEntity<?> availabilityDates(@RequestParam List<Long> serviceIds,
             @RequestParam(required = false) Long staffId, @RequestParam Long houseId,
             @AuthenticationPrincipal PortalUser user) {
         if (user == null || !"CUSTOMER".equals(user.getRole())) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         try {
-            return bookingAvailability.availableDates(serviceIds,staffId,user.getUserId(),houseId);
+            return org.springframework.http.ResponseEntity.ok(bookingAvailability.availableDates(serviceIds,staffId,user.getUserId(),houseId));
         } catch (IllegalArgumentException failure) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,failure.getMessage(),failure);
+            return org.springframework.http.ResponseEntity.badRequest().body(
+                    org.springframework.http.ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,failure.getMessage()));
         }
     }
 

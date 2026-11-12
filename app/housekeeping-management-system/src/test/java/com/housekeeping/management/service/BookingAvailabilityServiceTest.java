@@ -49,8 +49,10 @@ class BookingAvailabilityServiceTest {
         org.mockito.Mockito.lenient().when(availability.staffOnApprovedLeave(date)).thenReturn(List.of());
         org.mockito.Mockito.lenient().when(availability.bookedIntervals(date)).thenReturn(List.of());
         House house=new House();house.setLatitude(new BigDecimal("10.0"));house.setLongitude(new BigDecimal("106.0"));
+        house.setAddressDetail("12 Nguyễn Trãi");
         org.mockito.Mockito.lenient().when(houses.findCustomerHouse(99L,100L)).thenReturn(house);
-        org.mockito.Mockito.lenient().when(houses.ensureRouteLocation(99L,100L)).thenReturn(house);
+        org.mockito.Mockito.lenient().when(houses.isWithinServiceRadius(org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any())).thenReturn(true);
         org.mockito.Mockito.lenient().when(reservations.assessTravel(org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.isNull())).thenReturn(new BookingReservationService.TravelAssessment(
@@ -140,10 +142,22 @@ class BookingAvailabilityServiceTest {
 
     @Test
     void availabilityRequiresHouseOwnedByTheSignedInCustomer() {
-        when(houses.ensureRouteLocation(99L,100L)).thenThrow(new IllegalArgumentException("Nhà không thuộc tài khoản của bạn."));
+        when(houses.findCustomerHouse(99L,100L)).thenThrow(new IllegalArgumentException("Nhà không thuộc tài khoản của bạn."));
 
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.options(date,List.of(1L),null,null,99L,100L))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("không thuộc tài khoản");
+    }
+
+    @Test
+    void availabilityRejectsHouseWithoutSpecificStreetDetail() {
+        House house = new House();
+        house.setLatitude(new BigDecimal("10.0"));
+        house.setLongitude(new BigDecimal("106.0"));
+        house.setAddressDetail("Phường Bến Nghé");
+        when(houses.findCustomerHouse(99L, 100L)).thenReturn(house);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.availableDates(List.of(1L), null, 99L, 100L))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("số nhà và tên đường");
     }
 
     private Services activeService(Long id,int duration) {

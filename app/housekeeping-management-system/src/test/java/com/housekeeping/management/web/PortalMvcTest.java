@@ -364,6 +364,17 @@ class PortalMvcTest {
     }
 
     @Test
+    void customerCalendarReturnsSpecificHouseValidationFailure() throws Exception {
+        when(bookingAvailability.availableDates(List.of(10L), null, customer.getUserId(), 30L))
+                .thenThrow(new IllegalArgumentException("Địa chỉ nhà cần có số nhà và tên đường cụ thể trước khi xem giờ."));
+
+        mvc.perform(get("/customer/bookings/availability-dates").with(user(customer))
+                        .param("serviceIds", "10").param("houseId", "30"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("Địa chỉ nhà cần có số nhà và tên đường cụ thể trước khi xem giờ."));
+    }
+
+    @Test
     void bookingFormRendersRetrySelectionsForFailedDate() throws Exception {
         var retry=java.util.Map.of("houseId",30,"serviceIds",List.of(10),"areaNote","Cổng xanh",
                 "days",List.of(java.util.Map.of("date","2026-11-10","staffId",2,"time","09:00")));
@@ -949,6 +960,23 @@ class PortalMvcTest {
         mvc.perform(post("/staff/schedules/20/delete").with(user(staff)).with(csrf()).param("weekStart", "2026-11-09"))
                 .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/staff/schedules?weekStart=2026-11-09"));
         verify(availability).delete(22L, 20L);
+    }
+
+    @Test
+    void staffSchedulePageRendersCompanyWindowsForMultiIntervalControls() throws Exception {
+        when(query.isPartTime(2L)).thenReturn(true);
+        when(companySettings.scheduleWindows()).thenReturn(java.util.stream.IntStream.rangeClosed(1, 7)
+                .mapToObj(day -> new CompanySettingsService.ScheduleWindow(LocalDate.of(1900, 1, 1), day,
+                        false, java.time.LocalTime.of(8, 0), java.time.LocalTime.of(18, 0)))
+                .toList());
+
+        String page = mvc.perform(get("/staff/schedules").with(user(staff)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(page).contains("id=\"company-operating-hours-source\"", "data-company-window",
+                "data-start=\"08:00\"", "data-end=\"18:00\"", "data-staff-multi-form",
+                "data-add-interval", "name=\"startTimes\"");
     }
 
     @Test
