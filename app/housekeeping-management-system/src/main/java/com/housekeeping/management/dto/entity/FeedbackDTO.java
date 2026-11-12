@@ -1,6 +1,6 @@
 package com.housekeeping.management.dto.entity;
 
-import com.housekeeping.management.domain.FeedbackStatus;
+import com.housekeeping.management.enums.FeedbackStatus;
 import com.housekeeping.management.entity.Feedback;
 
 public record FeedbackDTO(Long feedbackId, Long bookingId, Long customerId, String content, Integer rating,

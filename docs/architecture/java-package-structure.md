@@ -42,7 +42,7 @@ app/housekeeping-management-system/
     │   │   │   ├── impl/
     │   │   ├── integration/ # adapter/client theo hệ thống bên ngoài
     │   │   ├── startup/     # tác vụ vòng đời khi ứng dụng khởi động
-    │   │   ├── domain/       # enum/value types khi hữu ích
+    │   │   ├── enums/       # toàn bộ enum trạng thái hệ thống
     │   │   └── HousekeepingManagementSystemApplication.java
     │   └── resources/
     │       ├── templates/    # Thymeleaf
@@ -57,7 +57,7 @@ app/housekeeping-management-system/
 - `controller/`: tiếp nhận request MVC, binding/validation cấu trúc, gọi service rồi trả view/redirect/response. Controller mỏng, không truy cập repository trực tiếp.
 - `dto/request/`: dữ liệu form/request và validation ở ranh giới ứng dụng.
 - `dto/response/`: view model hoặc response chỉ khi cần. Không đưa password hash hay toàn bộ entity graph ra ngoài.
-- `entity/`: ánh xạ các bảng nghiệp vụ dùng JPA trong Data Dictionary. Bảng nghiệp vụ được truy cập bằng ứng dụng phải có entity phù hợp; không bỏ entity để viết JDBC riêng. Enum/domain types có thể giữ ở `domain/`.
+- `entity/`: ánh xạ các bảng nghiệp vụ dùng JPA trong Data Dictionary. Bảng nghiệp vụ được truy cập bằng ứng dụng phải có entity phù hợp; không bỏ entity để viết JDBC riêng. Toàn bộ enum trạng thái được quản lý tập trung ở `enums/`.
 - `repository/`: truy cập dữ liệu nghiệp vụ bằng Spring Data JPA; repository là interface (thường extends `JpaRepository`) và được service implementation inject trực tiếp. Ưu tiên derived query theo tên; dùng JPQL, projection, `@Lock` và `@Modifying` khi truy vấn phức tạp hoặc cần khóa/cập nhật có điều kiện. Không dùng `JdbcTemplate`, JDBC trực tiếp, native SQL hay câu SQL để đọc/ghi dữ liệu nghiệp vụ trong mã Java. Ngoại lệ hẹp: `config/SqlServerDatabaseInitializer` được dùng JDBC để tạo database khi khởi động; không dùng nó cho truy vấn ứng dụng. SQL quản lý schema vẫn nằm trong migration Flyway và công cụ database được phê duyệt. Không tạo `repository/impl/`.
 - `service/`: interface của use case/nghiệp vụ, là contract cho controller và các service khác.
 - `service/impl/`: implementation được Spring quản lý bằng `@Service`; chứa business rules, ownership checks và `@Transactional` boundaries. Dùng constructor injection. Service implementation chỉ gọi repository thuộc domain mình sở hữu; khi cần nghiệp vụ domain khác, phụ thuộc service interface của domain đó. Với dữ liệu chỉ đọc liên domain, dùng query service của domain sở hữu dữ liệu và giữ query service không phụ thuộc ngược các use case để tránh vòng bean. Một use case có thể dùng nhiều repository trong cùng domain.

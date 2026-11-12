@@ -25,8 +25,8 @@ public interface FeedbackCaseRepository extends JpaRepository<FeedbackCase, Long
 
     @Query("select feedback.feedbackId from Feedback feedback join Booking booking on booking.bookingId=feedback.bookingId "
             + "where feedback.bookingId=:bookingId and feedback.customerId=:customerId and booking.customerId=:customerId "
-            + "and booking.status=com.housekeeping.management.domain.BookingStatus.COMPLETED "
-            + "and feedback.status<>com.housekeeping.management.domain.FeedbackStatus.RESOLVED")
+            + "and booking.status=com.housekeeping.management.enums.BookingStatus.COMPLETED "
+            + "and feedback.status<>com.housekeeping.management.enums.FeedbackStatus.RESOLVED")
     Optional<Long> eligibleFeedbackId(@Param("bookingId") Long bookingId, @Param("customerId") Long customerId);
 
     @Query("select feedback.feedbackId from Feedback feedback where feedback.bookingId=:bookingId and feedback.customerId=:customerId")
@@ -67,9 +67,9 @@ public interface FeedbackCaseRepository extends JpaRepository<FeedbackCase, Long
     boolean hasSettledAcceptedCompensation(@Param("caseId") Long caseId);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("update Feedback feedback set feedback.status=com.housekeeping.management.domain.FeedbackStatus.RESOLVED "
+    @Query("update Feedback feedback set feedback.status=com.housekeeping.management.enums.FeedbackStatus.RESOLVED "
             + "where feedback.feedbackId=(select incident.feedbackId from FeedbackCase incident where incident.caseId=:caseId) "
-            + "and feedback.status=com.housekeeping.management.domain.FeedbackStatus.RESPONDED")
+            + "and feedback.status=com.housekeeping.management.enums.FeedbackStatus.RESPONDED")
     int resolveFeedback(@Param("caseId") Long caseId);
 
     default int resolveCase(Long id) {
@@ -79,10 +79,10 @@ public interface FeedbackCaseRepository extends JpaRepository<FeedbackCase, Long
     }
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("update Feedback feedback set feedback.status=com.housekeeping.management.domain.FeedbackStatus.RESPONDED, "
+    @Query("update Feedback feedback set feedback.status=com.housekeeping.management.enums.FeedbackStatus.RESPONDED, "
             + "feedback.adminReply=coalesce(nullif(trim(feedback.adminReply),''),:reply) where feedback.feedbackId="
             + "(select incident.feedbackId from FeedbackCase incident where incident.caseId=:caseId) "
-            + "and feedback.status in (com.housekeeping.management.domain.FeedbackStatus.OPEN,com.housekeeping.management.domain.FeedbackStatus.RESPONDED)")
+            + "and feedback.status in (com.housekeeping.management.enums.FeedbackStatus.OPEN,com.housekeeping.management.enums.FeedbackStatus.RESPONDED)")
     int markFeedbackResponded(@Param("caseId") Long caseId, @Param("reply") String reply);
 
     @Query("select (count(incident)>0) from FeedbackCase incident join Feedback feedback on feedback.feedbackId=incident.feedbackId "

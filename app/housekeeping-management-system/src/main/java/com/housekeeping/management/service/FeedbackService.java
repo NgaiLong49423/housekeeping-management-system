@@ -1,6 +1,6 @@
 package com.housekeeping.management.service;
 
-import com.housekeeping.management.domain.FeedbackTopic;
+import com.housekeeping.management.enums.FeedbackTopic;
 import java.util.List;
 
 public interface FeedbackService {

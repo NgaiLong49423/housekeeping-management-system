@@ -4,7 +4,7 @@ import com.housekeeping.management.service.BookingCompletionService;
 
 import com.housekeeping.management.repository.BookingImageRepository;
 import com.housekeeping.management.repository.BookingPersistenceRepository;
-import com.housekeeping.management.domain.BookingDelayCompensation;
+import com.housekeeping.management.dto.BookingDelayCompensation;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

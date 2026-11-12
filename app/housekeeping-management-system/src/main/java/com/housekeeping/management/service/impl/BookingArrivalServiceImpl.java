@@ -3,9 +3,9 @@ package com.housekeeping.management.service.impl;
 import com.housekeeping.management.service.BookingArrivalService;
 import com.housekeeping.management.service.BookingDelayCompensationSettingsService;
 
-import com.housekeeping.management.domain.BookingDelayCompensation;
+import com.housekeeping.management.dto.BookingDelayCompensation;
 import com.housekeeping.management.repository.BookingPersistenceRepository;
-import com.housekeeping.management.domain.BookingDelayCompensation.Tier;
+import com.housekeeping.management.dto.BookingDelayCompensation.Tier;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import org.springframework.stereotype.Service;

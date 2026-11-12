@@ -1,6 +1,6 @@
 package com.housekeeping.management.repository;
 
-import com.housekeeping.management.domain.BookingStatus;
+import com.housekeeping.management.enums.BookingStatus;
 import com.housekeeping.management.entity.Booking;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -44,15 +44,15 @@ public interface BookingPersistenceRepository extends JpaRepository<Booking, Lon
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update Booking booking set booking.status=:newStatus where booking.bookingId=:id "
-            + "and booking.status=:expectedStatus and (:newStatus<>com.housekeeping.management.domain.BookingStatus.AWAITING_PAYMENT "
+            + "and booking.status=:expectedStatus and (:newStatus<>com.housekeeping.management.enums.BookingStatus.AWAITING_PAYMENT "
             + "or booking.workStartedAt is not null)")
     int changeStatusEntity(@Param("id") Long id, @Param("expectedStatus") BookingStatus expected,
             @Param("newStatus") BookingStatus next);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("update Booking booking set booking.status=com.housekeeping.management.domain.BookingStatus.AWAITING_PAYMENT, "
+    @Query("update Booking booking set booking.status=com.housekeeping.management.enums.BookingStatus.AWAITING_PAYMENT, "
             + "booking.serviceCompletedAt=:at where booking.bookingId=:id and booking.staffId=:staff "
-            + "and booking.status=com.housekeeping.management.domain.BookingStatus.CONFIRMED "
+            + "and booking.status=com.housekeeping.management.enums.BookingStatus.CONFIRMED "
             + "and booking.workStartedAt is not null and booking.serviceCompletedAt is null")
     int completeWork(@Param("id") Long id, @Param("staff") Long staff, @Param("at") LocalDateTime at);
 
@@ -72,19 +72,19 @@ public interface BookingPersistenceRepository extends JpaRepository<Booking, Lon
     }
 
     @Query("select (count(booking)>0) from Booking booking where booking.bookingId=:id "
-            + "and booking.status=com.housekeeping.management.domain.BookingStatus.AWAITING_PAYMENT")
+            + "and booking.status=com.housekeeping.management.enums.BookingStatus.AWAITING_PAYMENT")
     boolean isAwaitingPayment(@Param("id") Long id);
 
     @Query("select coalesce(booking.totalAmount-booking.delayDiscountAmount,0) from Booking booking where booking.bookingId=:id")
     BigDecimal bookingAmount(@Param("id") Long id);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("update Booking booking set booking.status=com.housekeeping.management.domain.BookingStatus.COMPLETED "
-            + "where booking.bookingId=:id and booking.status=com.housekeeping.management.domain.BookingStatus.AWAITING_PAYMENT")
+    @Query("update Booking booking set booking.status=com.housekeeping.management.enums.BookingStatus.COMPLETED "
+            + "where booking.bookingId=:id and booking.status=com.housekeeping.management.enums.BookingStatus.AWAITING_PAYMENT")
     int completeAfterPayment(@Param("id") Long id);
 
     @Query("select booking.bookingId from Booking booking where booking.staffId=:staffId "
-            + "and booking.status=com.housekeeping.management.domain.BookingStatus.CONFIRMED "
+            + "and booking.status=com.housekeeping.management.enums.BookingStatus.CONFIRMED "
             + "and booking.endTime>:now and booking.startTime>=:from and booking.startTime<:until order by booking.startTime")
     List<Long> futureConfirmedBookingIds(@Param("staffId") Long staffId, @Param("from") LocalDateTime from,
             @Param("until") LocalDateTime until, @Param("now") LocalDateTime now);
@@ -104,23 +104,23 @@ public interface BookingPersistenceRepository extends JpaRepository<Booking, Lon
     }
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("update Booking booking set booking.status=com.housekeeping.management.domain.BookingStatus.CANCELLED, "
+    @Query("update Booking booking set booking.status=com.housekeeping.management.enums.BookingStatus.CANCELLED, "
             + "booking.cancelledAt=:at, booking.cancelledBy=:actor, booking.cancellationReason=:reason "
-            + "where booking.bookingId=:id and booking.status=com.housekeeping.management.domain.BookingStatus.CONFIRMED")
+            + "where booking.bookingId=:id and booking.status=com.housekeeping.management.enums.BookingStatus.CONFIRMED")
     int cancel(@Param("id") Long id, @Param("actor") Long actor, @Param("reason") String reason,
             @Param("at") LocalDateTime at);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("update Booking booking set booking.status=com.housekeeping.management.domain.BookingStatus.CANCELLED, "
+    @Query("update Booking booking set booking.status=com.housekeeping.management.enums.BookingStatus.CANCELLED, "
             + "booking.cancelledAt=:at, booking.cancelledBy=:actor, booking.cancellationReason=:reason "
             + "where booking.bookingId=:id and booking.customerId=:actor "
-            + "and booking.status=com.housekeeping.management.domain.BookingStatus.CONFIRMED and booking.workStartedAt is null")
+            + "and booking.status=com.housekeeping.management.enums.BookingStatus.CONFIRMED and booking.workStartedAt is null")
     int cancelByCustomer(@Param("id") Long id, @Param("actor") Long actor, @Param("reason") String reason,
             @Param("at") LocalDateTime at);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update Booking booking set booking.staffId=:replacement where booking.bookingId=:id "
-            + "and booking.staffId=:expected and booking.status=com.housekeeping.management.domain.BookingStatus.CONFIRMED")
+            + "and booking.staffId=:expected and booking.status=com.housekeeping.management.enums.BookingStatus.CONFIRMED")
     int assignStaff(@Param("id") Long id, @Param("expected") Long expected, @Param("replacement") Long replacement);
 
     @Query("select booking from Booking booking where booking.staffId=:staffId and booking.status in :statuses "
@@ -183,7 +183,7 @@ public interface BookingPersistenceRepository extends JpaRepository<Booking, Lon
     }
 
     @Query("select booking from Booking booking where booking.staffId=:staffId and booking.startTime>=:from "
-            + "and booking.startTime<:until and booking.status=com.housekeeping.management.domain.BookingStatus.CONFIRMED "
+            + "and booking.startTime<:until and booking.status=com.housekeeping.management.enums.BookingStatus.CONFIRMED "
             + "and booking.endTime>:now and booking.endTime>:availabilityStart and booking.startTime<:availabilityEnd")
     List<Booking> findFutureConfirmedWithinInterval(@Param("staffId") Long staffId, @Param("from") LocalDateTime from,
             @Param("until") LocalDateTime until, @Param("now") LocalDateTime now,
@@ -193,7 +193,7 @@ public interface BookingPersistenceRepository extends JpaRepository<Booking, Lon
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update Booking booking set booking.customerArrivedAt=:at "
             + "where booking.bookingId=:id "
-            + "and booking.customerId=:customer and booking.status=com.housekeeping.management.domain.BookingStatus.CONFIRMED "
+            + "and booking.customerId=:customer and booking.status=com.housekeeping.management.enums.BookingStatus.CONFIRMED "
             + "and booking.customerArrivedAt is null "
             + "and booking.serviceCompletedAt is null")
     int confirmCustomerArrival(@Param("id") Long id, @Param("customer") Long customer,
@@ -203,7 +203,7 @@ public interface BookingPersistenceRepository extends JpaRepository<Booking, Lon
     @Query("update Booking booking set booking.arrivalVerifiedAt=:actualAt, booking.arrivalVerificationRecordedAt=:recordedAt, booking.arrivalVerifiedBy=:admin, "
             + "booking.arrivalVerificationSource='ADMIN', booking.arrivalVerificationNote=:note, "
             + "booking.delayMinutes=:delay, booking.delayDiscountPercent=:percent, booking.delayDiscountAmount=:amount "
-            + "where booking.bookingId=:id and booking.status=com.housekeeping.management.domain.BookingStatus.CONFIRMED "
+            + "where booking.bookingId=:id and booking.status=com.housekeeping.management.enums.BookingStatus.CONFIRMED "
             + "and booking.customerDelayReportedAt is not null and booking.arrivalVerifiedAt is null "
             + "and booking.serviceCompletedAt is null")
     int verifyDisputedArrival(@Param("id") Long id, @Param("admin") Long admin,
@@ -213,14 +213,14 @@ public interface BookingPersistenceRepository extends JpaRepository<Booking, Lon
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update Booking booking set booking.staffArrivedAt=:at, booking.delayMinutes=:delay, "
             + "booking.delayDiscountPercent=:percent, booking.delayDiscountAmount=:amount "
-            + "where booking.bookingId=:id and booking.staffId=:staff and booking.status=com.housekeeping.management.domain.BookingStatus.CONFIRMED "
+            + "where booking.bookingId=:id and booking.staffId=:staff and booking.status=com.housekeeping.management.enums.BookingStatus.CONFIRMED "
             + "and booking.staffArrivedAt is null")
     int confirmStaffArrival(@Param("id") Long id, @Param("staff") Long staff, @Param("at") LocalDateTime at,
             @Param("delay") int delay, @Param("percent") BigDecimal percent, @Param("amount") BigDecimal amount);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update Booking booking set booking.customerDelayReportedAt=:at where booking.bookingId=:id "
-            + "and booking.customerId=:customer and booking.status=com.housekeeping.management.domain.BookingStatus.CONFIRMED "
+            + "and booking.customerId=:customer and booking.status=com.housekeeping.management.enums.BookingStatus.CONFIRMED "
             + "and booking.startTime<=:at and booking.serviceCompletedAt is null "
             + "and booking.customerDelayReportedAt is null")
     int reportCustomerDelay(@Param("id") Long id, @Param("customer") Long customer,
@@ -230,7 +230,7 @@ public interface BookingPersistenceRepository extends JpaRepository<Booking, Lon
     @Query("update Booking booking set booking.incidentReportedAt=coalesce(booking.incidentReportedAt,:at), "
             + "booking.incidentNote=:note, booking.incidentExpectedArrivalAt=:eta, booking.incidentCustomerResponse=null, "
             + "booking.incidentCustomerRespondedAt=null where booking.bookingId=:id "
-            + "and booking.staffId=:staff and booking.status=com.housekeeping.management.domain.BookingStatus.CONFIRMED "
+            + "and booking.staffId=:staff and booking.status=com.housekeeping.management.enums.BookingStatus.CONFIRMED "
             + "and booking.workStartedAt is null and (booking.incidentReportedAt is null or booking.incidentCustomerResponse='EXPIRED' or "
             + "(booking.incidentCustomerResponse='ACCEPTED' and booking.incidentExpectedArrivalAt<:at))")
     int reportStaffIncident(@Param("id") Long id, @Param("staff") Long staff, @Param("note") String note,
@@ -243,9 +243,9 @@ public interface BookingPersistenceRepository extends JpaRepository<Booking, Lon
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update Booking booking set booking.incidentCustomerResponse='DECLINED', "
-            + "booking.incidentCustomerRespondedAt=:at, booking.status=com.housekeeping.management.domain.BookingStatus.CANCELLED, "
+            + "booking.incidentCustomerRespondedAt=:at, booking.status=com.housekeeping.management.enums.BookingStatus.CANCELLED, "
             + "booking.cancelledAt=:at, booking.cancelledBy=:customer, booking.cancellationReason=:reason "
-            + "where booking.bookingId=:id and booking.customerId=:customer and booking.status=com.housekeeping.management.domain.BookingStatus.CONFIRMED "
+            + "where booking.bookingId=:id and booking.customerId=:customer and booking.status=com.housekeeping.management.enums.BookingStatus.CONFIRMED "
             + "and booking.incidentReportedAt is not null and booking.incidentExpectedArrivalAt is not null "
             + "and booking.incidentCustomerResponse is null and booking.workStartedAt is null")
     int declineIncident(@Param("id") Long id, @Param("customer") Long customer, @Param("at") LocalDateTime at,
@@ -254,7 +254,7 @@ public interface BookingPersistenceRepository extends JpaRepository<Booking, Lon
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update Booking booking set booking.incidentCustomerResponse='ACCEPTED', "
             + "booking.incidentCustomerRespondedAt=:at "
-            + "where booking.bookingId=:id and booking.customerId=:customer and booking.status=com.housekeeping.management.domain.BookingStatus.CONFIRMED "
+            + "where booking.bookingId=:id and booking.customerId=:customer and booking.status=com.housekeeping.management.enums.BookingStatus.CONFIRMED "
             + "and booking.incidentReportedAt is not null and booking.incidentExpectedArrivalAt is not null "
             + "and booking.incidentCustomerResponse is null and booking.workStartedAt is null "
             + "and booking.incidentExpectedArrivalAt>=:at")
@@ -268,7 +268,7 @@ public interface BookingPersistenceRepository extends JpaRepository<Booking, Lon
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update Booking booking set booking.workStartedAt=:at where booking.bookingId=:id "
-            + "and booking.staffId=:staff and booking.status=com.housekeeping.management.domain.BookingStatus.CONFIRMED "
+            + "and booking.staffId=:staff and booking.status=com.housekeeping.management.enums.BookingStatus.CONFIRMED "
             + "and booking.workStartedAt is null and booking.staffArrivedAt is not null "
             + "and (:lateBeyondGrace=false or booking.incidentReportedAt is not null) "
             + "and (booking.incidentReportedAt is null or (booking.incidentCustomerResponse='ACCEPTED' "

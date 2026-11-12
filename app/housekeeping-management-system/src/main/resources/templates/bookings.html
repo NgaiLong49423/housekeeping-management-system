@@ -13,11 +13,12 @@
           </span>
           <h1 th:text="${currentUser.role == 'CUSTOMER' ? 'Lịch của tôi' : (currentUser.role == 'STAFF' ? 'Công việc của tôi' : 'Tổng quan lịch hẹn')}">
           </h1>
-          <p th:text="'Xin chào ' + ${currentUser.displayName} + ', chúc bạn một ngày làm việc và sinh hoạt thật nhẹ nhàng.'">
+          <p th:text="'Xin chào ' + ${ui.label(currentUser.displayName)} + ', chúc bạn một ngày làm việc và sinh hoạt thật nhẹ nhàng.'">
           </p>
         </div>
         <a th:if="${currentUser.role == 'CUSTOMER'}" class="btn btn-primary" th:href="@{/customer/bookings/new}">
-          + Đặt lịch mới
+          <svg th:replace="~{fragments/icons :: plus}"></svg>
+          <span>Đặt lịch mới</span>
         </a>
       </div>
 
@@ -28,38 +29,46 @@
       <div class="row g-3 mb-4">
         <div class="col-6 col-lg-3">
           <div class="stat-card">
-            <div class="d-flex justify-content-between align-items-center">
-              <span>Tất cả lịch hẹn</span>
-              <span class="small" aria-hidden="true">📅</span>
+            <div class="d-flex justify-content-between align-items-center gap-2">
+              <span class="stat-label">Tất cả lịch hẹn</span>
+              <span class="stat-icon">
+                <svg th:replace="~{fragments/icons :: calendar}"></svg>
+              </span>
             </div>
-            <strong th:text="${#lists.size(bookings)}">0</strong>
+            <strong th:classappend="${#lists.isEmpty(bookings)} ? 'is-zero'" th:text="${#lists.size(bookings)}">0</strong>
           </div>
         </div>
         <div class="col-6 col-lg-3">
           <div class="stat-card mint">
-            <div class="d-flex justify-content-between align-items-center">
-              <span>Đã xác nhận</span>
-              <span class="small" aria-hidden="true">⏱</span>
+            <div class="d-flex justify-content-between align-items-center gap-2">
+              <span class="stat-label">Đã xác nhận</span>
+              <span class="stat-icon mint">
+                <svg th:replace="~{fragments/icons :: calendar-check}"></svg>
+              </span>
             </div>
-            <strong th:text="${confirmedCount}">0</strong>
+            <strong th:classappend="${confirmedCount == 0} ? 'is-zero'" th:text="${confirmedCount}">0</strong>
           </div>
         </div>
         <div class="col-6 col-lg-3">
           <div class="stat-card">
-            <div class="d-flex justify-content-between align-items-center">
-              <span>Đã hoàn thành</span>
-              <span class="small" aria-hidden="true">✓</span>
+            <div class="d-flex justify-content-between align-items-center gap-2">
+              <span class="stat-label">Đã hoàn thành</span>
+              <span class="stat-icon mint">
+                <svg th:replace="~{fragments/icons :: check-circle}"></svg>
+              </span>
             </div>
-            <strong th:text="${completedCount}">0</strong>
+            <strong th:classappend="${completedCount == 0} ? 'is-zero'" th:text="${completedCount}">0</strong>
           </div>
         </div>
         <div class="col-6 col-lg-3">
           <div class="stat-card warm">
-            <div class="d-flex justify-content-between align-items-center">
-              <span>Chưa thanh toán</span>
-              <span class="small" aria-hidden="true">💳</span>
+            <div class="d-flex justify-content-between align-items-center gap-2">
+              <span class="stat-label">Chưa thanh toán</span>
+              <span class="stat-icon warm">
+                <svg th:replace="~{fragments/icons :: credit-card}"></svg>
+              </span>
             </div>
-            <strong th:text="${unpaidCount}">0</strong>
+            <strong th:classappend="${unpaidCount == 0} ? 'is-zero'" th:text="${unpaidCount}">0</strong>
           </div>
         </div>
       </div>
@@ -85,19 +94,22 @@
 
         <!-- Empty State -->
         <div class="empty-state py-5" th:if="${#lists.isEmpty(bookings)}">
-          <span class="empty-icon" aria-hidden="true">📅</span>
+          <div class="empty-illustration">
+            <svg th:replace="~{fragments/icons :: illustration-bookings}"></svg>
+          </div>
           <h3>Chưa có lịch hẹn nào</h3>
-          <p>
+          <p th:text="${currentUser.role == 'CUSTOMER' ? 'Bạn chưa có lịch dọn dẹp nào được tạo. Chọn gói dịch vụ, nhân viên yêu thích và khung giờ phù hợp để bắt đầu.' : (currentUser.role == 'STAFF' ? 'Hiện chưa có ca dọn dẹp nào được phân công cho bạn. Hãy kiểm tra mục Lịch sẵn sàng để cập nhật khung giờ nhận việc.' : 'Hệ thống chưa ghi nhận lịch hẹn nào. Hãy kiểm tra Danh mục dịch vụ và Lịch sẵn sàng để sẵn sàng đón khách đặt lịch.')}">
             Các lịch hẹn mới sẽ xuất hiện tại đây ngay khi có dữ liệu.
           </p>
           <a th:if="${currentUser.role == 'CUSTOMER'}" class="btn btn-primary" th:href="@{/customer/bookings/new}">
-            Đặt dịch vụ đầu tiên
+            <svg th:replace="~{fragments/icons :: plus}"></svg>
+            <span>Đặt dịch vụ đầu tiên</span>
           </a>
         </div>
 
         <!-- Bookings Table -->
         <div class="table-responsive" th:unless="${#lists.isEmpty(bookings)}">
-          <table class="table align-middle">
+          <table class="table table-zebra table-stack-mobile align-middle">
             <thead>
               <tr>
                 <th scope="col">Mã lịch hẹn</th>
@@ -110,28 +122,55 @@
             </thead>
             <tbody>
               <tr th:each="booking : ${bookings}" th:data-status="${booking.status}" data-booking-row>
-                <td>
-                  <strong class="d-block text-dark" th:text="'#GN-' + ${booking.id}">#GN-0</strong>
-                  <small class="text-muted" th:text="${#numbers.formatDecimal(booking.payableAmount,0,'POINT',0,'COMMA')} + ' ₫'">0 ₫</small>
+<td data-label="Mã lịch hẹn">
+                  <div>
+                    <strong class="d-block text-dark" th:text="'#GN-' + ${booking.id}">#GN-0</strong>
+                    <small class="text-muted" th:text="${#numbers.formatDecimal(booking.payableAmount,0,'POINT',0,'COMMA')} + ' ₫'">0 ₫</small>
+                  </div>
                 </td>
-                <td>
-                  <strong class="d-block text-dark" th:text="${booking.customerName}">Khách hàng</strong>
-                  <small class="text-muted" th:text="'NV: ' + ${booking.staffName}">Nhân viên</small>
+                <td data-label="Khách / Nhân viên">
+                  <div>
+                    <strong class="d-block text-dark" th:text="${ui.label(booking.customerName)}">Khách hàng</strong>
+                    <small class="text-muted" th:text="'NV: ' + ${ui.label(booking.staffName)}">Nhân viên</small>
+                  </div>
                 </td>
-                <td>
+                <td data-label="Bắt đầu">
                   <span class="text-body" th:text="${booking.startLabel}">Thời gian</span>
                 </td>
-                <td>
+                <td data-label="Trạng thái">
                   <span class="status-pill" th:classappend="${booking.statusClass}" th:text="${booking.statusLabel}">Trạng thái</span>
                   <span th:if="${currentUser.role == 'CUSTOMER' and pendingCompensationBookingIds != null and pendingCompensationBookingIds.contains(booking.id)}" class="badge text-bg-warning d-block mt-1">Chờ bạn xác nhận bồi thường</span>
                 </td>
-                <td>
-                  <span class="small font-monospace" th:classappend="${booking.paymentStatus == 'SUCCESS' ? 'text-success font-weight-bold' : (booking.paymentStatus == 'FAILED' ? 'text-danger' : (booking.paymentStatus == 'PENDING' ? 'text-warning' : 'text-muted'))}" th:text="${booking.paymentStatus == null ? (booking.status == 'AWAITING_PAYMENT' ? '⏳ Chờ thanh toán' : 'Chưa phát sinh') : (booking.paymentStatus == 'SUCCESS' ? '✓ Đã thanh toán' : (booking.paymentStatus == 'FAILED' ? '✕ Lần trước thất bại' : '⏳ Đang xử lý'))}">
+                <td data-label="Thanh toán">
+                  <span th:if="${booking.paymentStatus == 'SUCCESS'}" class="payment-badge paid">
+                    <svg th:replace="~{fragments/icons :: check-circle}"></svg>
+                    <span th:text="${booking.method == 'CASH' ? 'Đã thu tiền mặt' : (booking.method != null ? 'Đã trả qua VNPay' : 'Đã thanh toán')}">Đã thanh toán</span>
+                  </span>
+                  <span th:if="${booking.paymentStatus == 'FAILED'}" class="payment-badge failed">
+                    <svg th:replace="~{fragments/icons :: x-circle}"></svg>
+                    <span>Lần trước thất bại</span>
+                  </span>
+                  <span th:if="${booking.paymentStatus == 'PENDING'}" class="payment-badge unpaid">
+                    <svg th:replace="~{fragments/icons :: clock}"></svg>
+                    <span>Đang xử lý</span>
+                  </span>
+                  <span th:if="${booking.paymentStatus == null and booking.status == 'AWAITING_PAYMENT'}" class="payment-badge unpaid">
+                    <svg th:replace="~{fragments/icons :: clock}"></svg>
+                    <span>Chờ thanh toán</span>
+                  </span>
+                  <span th:if="${booking.paymentStatus == null and booking.status != 'AWAITING_PAYMENT'}" class="payment-badge void">
+                    <span>Chưa phát sinh</span>
                   </span>
                 </td>
-                <td class="text-end">
+                <td data-label="Chi tiết" class="text-end">
+                  <a th:if="${currentUser.role == 'CUSTOMER' and booking.status == 'AWAITING_PAYMENT' and booking.paymentStatus != 'SUCCESS'}"
+                     class="btn btn-primary btn-sm me-1" th:href="@{/customer/bookings/{id}(id=${booking.id})}">
+                    <svg th:replace="~{fragments/icons :: qr-code}"></svg>
+                    <span>Thanh toán QR</span>
+                  </a>
                   <a class="btn btn-light btn-sm" th:href="@{/{role}/bookings/{id}(role=${#strings.toLowerCase(currentUser.role)},id=${booking.id})}">
-                    Xem chi tiết →
+                    <span>Xem chi tiết</span>
+                    <svg th:replace="~{fragments/icons :: arrow-right}"></svg>
                   </a>
                   <form th:if="${currentUser.role == 'CUSTOMER' and booking.status == 'CONFIRMED' and booking.customerDelayReportedAt == null and !booking.start.isAfter(now)}"
                         method="post" th:action="@{/customer/bookings/{id}/report-staff-delay(id=${booking.id})}" class="mt-1">
@@ -144,6 +183,10 @@
           <p class="text-center text-secondary py-4 mb-0" data-filter-empty hidden>
             Không có lịch hẹn phù hợp với bộ lọc đã chọn.
           </p>
+          <div class="table-footer-bar">
+            <span th:text="'Tổng số: ' + ${#lists.size(bookings)} + ' lịch hẹn'">Tổng số: 0 lịch hẹn</span>
+            <span>Tính theo giờ Việt Nam</span>
+          </div>
         </div>
       </section>
     </main>

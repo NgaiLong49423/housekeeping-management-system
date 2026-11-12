@@ -9,7 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.housekeeping.management.repository.BookingPersistenceRepository;
-import com.housekeeping.management.domain.BookingDelayCompensation.Tier;
+import com.housekeeping.management.dto.BookingDelayCompensation.Tier;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;

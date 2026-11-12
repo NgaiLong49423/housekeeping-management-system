@@ -1,13 +1,14 @@
 package com.housekeeping.management.service;
 
+import com.housekeeping.management.enums.ServiceStatus;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.housekeeping.management.SqlServerIntegrationTest;
-import com.housekeeping.management.domain.StaffType;
-import com.housekeeping.management.domain.UserRole;
-import com.housekeeping.management.domain.UserStatus;
-import com.housekeeping.management.domain.LeaveStatus;
+import com.housekeeping.management.enums.StaffType;
+import com.housekeeping.management.enums.UserRole;
+import com.housekeeping.management.enums.UserStatus;
+import com.housekeeping.management.enums.LeaveStatus;
 import com.housekeeping.management.dto.request.PortalForms.LeaveRequestForm;
 import com.housekeeping.management.entity.Services;
 import com.housekeeping.management.entity.House;
@@ -328,7 +329,7 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
         service.setServiceName("Dịch vụ đã sửa");
         service.setPrice(new BigDecimal("999999.00"));
         service.setDurationMinutes(120);
-        service.setStatus(Services.Status.INACTIVE);
+        service.setStatus(ServiceStatus.INACTIVE);
         services.saveAndFlush(service);
 
         assertThat(jdbc.queryForMap("""
@@ -529,7 +530,7 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
         service.setServiceName("Concurrent booking test service");
         service.setDurationMinutes(60);
         service.setPrice(new BigDecimal("100000.00"));
-        service.setStatus(Services.Status.ACTIVE);
+        service.setStatus(ServiceStatus.ACTIVE);
         return service;
     }
 }

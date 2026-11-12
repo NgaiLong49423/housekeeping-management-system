@@ -425,6 +425,9 @@ document.querySelectorAll("[data-upload-form]").forEach(form => {
 const bookingForm = document.querySelector("[data-booking-form]");
 if (bookingForm) {
   const house = bookingForm.elements.houseId;
+  const houseServiceAreaError = bookingForm.querySelector("#houseServiceAreaError");
+  let houseAreaState = house.value ? "checking" : "empty";
+  let houseAreaRequest = 0;
   const services = [...bookingForm.querySelectorAll("input[name=serviceIds]")];
   const calendarDates = bookingForm.querySelector("[data-available-dates]");
   const previousDatesButton = bookingForm.querySelector("[data-date-prev]");
@@ -455,6 +458,38 @@ if (bookingForm) {
   let calendarError = "";
   let calendarNotice = "";
   let availableDates = [];
+
+  const DRAFT_KEY = "gonnha_booking_draft_v1";
+  let draftSaveTimer = null;
+  const scheduleDraftSave = () => {
+    clearTimeout(draftSaveTimer);
+    draftSaveTimer = setTimeout(() => {
+      try {
+        const chosenServices = services.filter(i => i.checked).map(i => i.value);
+        const daysArr = [...days.entries()].map(([date, d]) => ({
+          date,
+          time: d.time || "",
+          staffId: d.staffId ? String(d.staffId) : ""
+        }));
+        const noteEl = bookingForm.querySelector("#areaNote");
+        const draft = {
+          serviceIds: chosenServices,
+          houseId: house.value || "",
+          bookingPreference: preference,
+          preferredStaffId: preferredStaff.value || "",
+          areaNote: noteEl ? noteEl.value : "",
+          days: daysArr,
+          savedAt: Date.now()
+        };
+        if (chosenServices.length > 0 || house.value || daysArr.length > 0) {
+          sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+        }
+      } catch (e) {}
+    }, 250);
+  };
+  const clearBookingDraft = () => {
+    try { sessionStorage.removeItem(DRAFT_KEY); } catch (e) {}
+  };
   const selectedServices = () => services.filter(input => input.checked);
   const timeFor = (day, time) => day.timeOptions.find(option => option.startTime === time);
   const weekdayDate = value => new Date(`${value}T12:00:00`).toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" });
@@ -484,33 +519,151 @@ if (bookingForm) {
       chip.className = "booking-date-chip";
       const label = document.createElement("span"); label.textContent = weekdayDate(date);
       const remove = document.createElement("button"); remove.type = "button"; remove.className = "btn-close"; remove.setAttribute("aria-label", `Bỏ ngày ${weekdayDate(date)}`);
-      remove.addEventListener("click", () => { days.delete(date); render(); });
+      remove.addEventListener("click", () => { days.delete(date); render(); scheduleDraftSave(); });
       chip.append(label, remove); selectedDates.append(chip);
     });
   };
+  const staffCards = [...bookingForm.querySelectorAll('[data-staff-card-id]')];
+  const syncStaffCards = () => {
+    const currentId = preferredStaff.value;
+    staffCards.forEach(card => {
+      const isSelected = String(card.dataset.staffCardId) === String(currentId);
+      card.classList.toggle('selected', isSelected);
+      card.setAttribute('aria-selected', String(isSelected));
+    });
+  };
+  staffCards.forEach(card => {
+    card.addEventListener('click', () => {
+      preference = 'staff';
+      const staffRadio = preferenceInputs.find(i => i.value === 'staff');
+      if (staffRadio) staffRadio.checked = true;
+      preferredStaffWrap.hidden = false;
+      preferredStaff.value = card.dataset.staffCardId;
+      preferredStaff.dispatchEvent(new Event('change'));
+    });
+    card.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        card.click();
+      }
+    });
+  });
+
   const renderAvailableDates = () => {
     const previousScroll = calendarDates.scrollLeft;
     calendarDates.replaceChildren();
-    preferredStaffWrap.hidden = preference !== "staff";
-    if (!selectedServices().length) { calendarStatus.textContent = "Chọn dịch vụ để xem ngày có nhân viên làm."; updateDateNavigation(); return; }
-    if (preference === "staff" && !preferredStaff.value) { calendarStatus.textContent = "Chọn nhân viên trước; chỉ các ngày người đó có giờ phù hợp mới hiện."; updateDateNavigation(); return; }
-    if (calendarPending) { calendarStatus.textContent = "Đang kiểm tra ngày và lịch nhân viên…"; updateDateNavigation(); return; }
-    if (calendarError) {
-      calendarStatus.textContent=calendarError;
-      const retry=document.createElement("button"); retry.type="button"; retry.className="btn btn-sm btn-outline-primary ms-2"; retry.textContent="Tải lại ngày";
-      retry.addEventListener("click",loadAvailableDates,{once:true}); calendarStatus.append(retry); updateDateNavigation(); return;
+    preferredStaffWrap.hidden = preference !== 'staff';
+    const navControls = bookingForm.querySelector('[data-date-nav-controls]');
+
+    if (!selectedServices().length) {
+      calendarStatus.textContent = 'Chọn dịch vụ ở Bước 01 để xem ngày có nhân viên làm.';
+      if (navControls) navControls.style.display = 'none';
+      if (previousDatesButton) previousDatesButton.style.display = 'none';
+      if (nextDatesButton) nextDatesButton.style.display = 'none';
+      const guide = document.createElement('div');
+      guide.className = 'booking-dates-empty-guide';
+      guide.innerHTML = '<div class="empty-guide-icon"><svg class="ui-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg></div><div class="empty-guide-text"><strong class="d-block mb-1 text-dark">Chưa chọn dịch vụ ở Bước 01</strong><p class="small text-secondary mb-0">Vui lòng tích chọn ít nhất một dịch vụ bạn cần ở trên để hệ thống tự động kiểm tra ngày làm việc của nhân viên.</p></div>';
+      calendarDates.append(guide);
+      updateDateNavigation();
+      return;
     }
+
+    if (preference === 'staff' && !preferredStaff.value) {
+      calendarStatus.textContent = 'Chọn nhân viên trước; chỉ các ngày người đó có giờ phù hợp mới hiện.';
+      if (navControls) navControls.style.display = 'none';
+      if (previousDatesButton) previousDatesButton.style.display = 'none';
+      if (nextDatesButton) nextDatesButton.style.display = 'none';
+      const guide = document.createElement('div');
+      guide.className = 'booking-dates-empty-guide';
+      guide.innerHTML = '<div class="empty-guide-icon text-brand"><svg class="ui-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></div><div class="empty-guide-text"><strong class="d-block mb-1 text-dark">Vui lòng chọn nhân viên ưu tiên ở trên</strong><p class="small text-secondary mb-0">Nhấp chọn một nhân viên từ danh sách thẻ ở trên để xem ngay những ngày nhân viên đó có ca làm việc.</p></div>';
+      calendarDates.append(guide);
+      updateDateNavigation();
+      return;
+    }
+
+    if (calendarPending) {
+      calendarStatus.textContent = 'Đang kiểm tra ngày và lịch nhân viên…';
+      if (navControls) navControls.style.display = 'none';
+      const loading = document.createElement('div');
+      loading.className = 'booking-dates-loading p-4 text-center w-100';
+      loading.innerHTML = '<span class="spinner-border spinner-border-sm text-primary me-2" role="status"></span><span class="small text-secondary">Đang tải lịch ngày và kiểm tra nhân viên khả dụng…</span>';
+      calendarDates.append(loading);
+      updateDateNavigation();
+      return;
+    }
+
+    if (calendarError) {
+      calendarStatus.textContent = calendarError;
+      if (navControls) navControls.style.display = 'none';
+      const retry = document.createElement('button');
+      retry.type = 'button';
+      retry.className = 'btn btn-sm btn-outline-primary ms-2';
+      retry.textContent = 'Tải lại ngày';
+      retry.addEventListener('click', loadAvailableDates, { once: true });
+      calendarStatus.append(retry);
+      updateDateNavigation();
+      return;
+    }
+
+    if (navControls) navControls.style.display = '';
+    if (previousDatesButton) previousDatesButton.style.display = '';
+    if (nextDatesButton) nextDatesButton.style.display = '';
+
     calendarStatus.textContent = calendarNotice || (availableDates.length
-      ? "Chỉ các ngày còn mốc giờ hợp lệ mới được hiển thị. Chọn một hoặc nhiều ngày."
-      : "Không có ngày phù hợp trong 30 ngày tới.");
+      ? 'Chỉ các ngày còn mốc giờ hợp lệ mới được hiển thị. Chọn một hoặc nhiều ngày.'
+      : 'Không có ngày phù hợp trong 30 ngày tới.');
+
+    if (!availableDates.length) {
+      if (navControls) navControls.style.display = 'none';
+      if (previousDatesButton) previousDatesButton.style.display = 'none';
+      if (nextDatesButton) nextDatesButton.style.display = 'none';
+      const emptyNotice = document.createElement('div');
+      emptyNotice.className = 'booking-dates-empty-guide';
+      emptyNotice.innerHTML = '<div class="empty-guide-icon text-muted"><svg class="ui-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg></div><div class="empty-guide-text"><strong class="d-block mb-1 text-dark">Không có ngày phù hợp trong 30 ngày tới</strong><p class="small text-secondary mb-0">Rất tiếc hiện chưa có ca làm việc nào trống đáp ứng thời lượng dịch vụ này. Vui lòng thử chọn nhân viên khác hoặc liên hệ hotline.</p></div>';
+      calendarDates.append(emptyNotice);
+      updateDateNavigation();
+      return;
+    }
+
     availableDates.forEach(date => {
-      const button = document.createElement("button"); button.type = "button"; button.className = "booking-available-date";
-      const selected = days.has(date); button.classList.toggle("selected",selected); button.setAttribute("aria-pressed",String(selected));
-      const weekday = document.createElement("strong"); weekday.textContent = new Date(`${date}T12:00:00`).toLocaleDateString("vi-VN",{weekday:"long"});
-      const dayLabel = document.createElement("span"); dayLabel.textContent = new Date(`${date}T12:00:00`).toLocaleDateString("vi-VN",{day:"2-digit",month:"2-digit",year:"numeric"});
-      button.append(weekday,dayLabel);
-      button.addEventListener("click",()=>toggleDate(date)); calendarDates.append(button);
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'booking-available-date';
+      const selected = days.has(date);
+      button.classList.toggle('selected', selected);
+      button.setAttribute('aria-pressed', String(selected));
+      button.setAttribute('title', `Chọn ngày ${weekdayDate(date)}`);
+
+      const d = new Date(`${date}T12:00:00`);
+      const fullWeekday = d.toLocaleDateString('vi-VN', { weekday: 'long' });
+      const dayNum = String(d.getDate()).padStart(2, '0');
+      const monthNum = String(d.getMonth() + 1).padStart(2, '0');
+
+      const weekday = document.createElement('span');
+      weekday.className = 'date-card-weekday';
+      weekday.textContent = fullWeekday;
+
+      const dayLabel = document.createElement('span');
+      dayLabel.className = 'date-card-day';
+      dayLabel.textContent = dayNum;
+
+      const monthYear = document.createElement('span');
+      monthYear.className = 'date-card-month';
+      monthYear.textContent = `Thg ${monthNum}`;
+
+      button.append(weekday, dayLabel, monthYear);
+
+      if (selected) {
+        const checkBadge = document.createElement('span');
+        checkBadge.className = 'date-card-check';
+        checkBadge.innerHTML = '<svg class="ui-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+        button.append(checkBadge);
+      }
+
+      button.addEventListener('click', () => toggleDate(date));
+      calendarDates.append(button);
     });
+
     calendarDates.scrollLeft = Math.min(previousScroll, Math.max(0, calendarDates.scrollWidth - calendarDates.clientWidth));
     updateDateNavigation();
     requestAnimationFrame(updateDateNavigation);
@@ -520,11 +673,9 @@ if (bookingForm) {
     const request=++calendarSequence;
     calendarError=""; calendarNotice=""; availableDates=[];
     if(!chosen.length||(preference==="staff"&&!preferredStaff.value)) { calendarPending=false; renderAvailableDates(); refresh(); return; }
-    if(!house.value) { calendarPending=false; availableDates=[]; calendarStatus.textContent="Chọn địa chỉ nhà để kiểm tra các ngày có tuyến di chuyển phù hợp."; updateDateNavigation(); refresh(); return; }
     calendarPending=true; renderAvailableDates(); refresh();
     const query=new URLSearchParams(); chosen.forEach(input=>query.append("serviceIds",input.value));
     if(preference==="staff"&&preferredStaff.value)query.set("staffId",preferredStaff.value);
-    query.set("houseId",house.value);
     try {
       const response=await fetch(`/customer/bookings/availability-dates?${query}`,{headers:{Accept:"application/json"}});
       if(!response.ok)throw new Error("Không tải được danh sách ngày còn nhân viên làm.");
@@ -547,9 +698,10 @@ if (bookingForm) {
     if(days.has(date))days.delete(date);
     else {
       days.forEach(day => { day.expanded = false; });
-      days.set(date,{date,time:"",staffId:preference==="staff"?preferredStaff.value:"",loading:false,options:null,timeOptions:[],error:"",notice:"",expanded:true});
+      days.set(date,{date,time:"",staffId:(preference==="staff"||Boolean(preferredStaff.value))?preferredStaff.value:"",loading:false,options:null,timeOptions:[],error:"",notice:"",expanded:true});
     }
     render();
+    scheduleDraftSave();
     if(days.has(date))loadDay(days.get(date));
   }
   async function loadDay(day) {
@@ -593,7 +745,7 @@ if (bookingForm) {
   const makeStaffSelect = (day, available, allowWithoutTime = false) => {
     const select = document.createElement("select"); select.className = "form-select booking-day-staff";
     select.append(new Option(preference === "staff" ? "Chọn nhân viên" : "Chọn giờ trước để xem nhân viên", ""));
-    available.forEach(person => select.add(new Option(person.name, person.id)));
+    available.forEach(person => { const typeLabel = person.staffType === 'FULL_TIME' ? 'Toàn thời gian' : (person.staffType === 'PART_TIME' ? 'Bán thời gian' : ''); const label = person.name + (!typeLabel ? '' : ' (' + typeLabel + ')'); select.add(new Option(label, person.id)); });
     select.value = day.staffId || "";
     select.disabled = day.loading || !selectedServices().length || (preference === "time" && !day.time && !allowWithoutTime);
     select.addEventListener("change", () => {
@@ -605,96 +757,437 @@ if (bookingForm) {
     });
     return select;
   };
+  const getDurationMinutes = () => {
+    return selectedServices().reduce((sum, input) => sum + Number(input.dataset.duration || 0), 0);
+  };
+  const getEndTime = (start, dur) => {
+    if (!start || !/^\d{2}:\d{2}$/.test(start) || !dur) return "";
+    const [h, m] = start.split(":").map(Number);
+    const total = h * 60 + m + dur;
+    const endH = Math.floor(total / 60) % 24;
+    const endM = total % 60;
+    return (endH < 10 ? "0" : "") + endH + ":" + (endM < 10 ? "0" : "") + endM;
+  };
   const renderDay = day => {
-    const card = document.createElement("article"); card.className = "booking-day-card"; card.dataset.bookingDate = day.date;
-    const head = document.createElement("header"); head.className = "booking-day-card-heading";
-    const title = document.createElement("strong"); title.textContent = weekdayDate(day.date);
-    const actions = document.createElement("div"); actions.className = "booking-day-card-actions";
-    const edit = document.createElement("button"); edit.type = "button"; edit.className = "btn btn-sm btn-outline-primary";
+    const durationMinutes = getDurationMinutes();
+    const card = document.createElement("article");
+    card.className = "booking-day-card" + (day.time && day.staffId ? " is-confirmed" : "");
+    card.dataset.bookingDate = day.date;
+
+    const head = document.createElement("header");
+    head.className = "booking-day-card-heading";
+
+    const titleWrap = document.createElement("div");
+    titleWrap.className = "d-flex align-items-center flex-wrap gap-2";
+    const title = document.createElement("strong");
+    title.className = "booking-day-card-title";
+    title.textContent = weekdayDate(day.date);
+    titleWrap.append(title);
+
+    if (day.time && day.staffId) {
+      const badge = document.createElement("span");
+      badge.className = "badge";
+      badge.style.background = "var(--brand-subtle)";
+      badge.style.color = "var(--brand-dark)";
+      badge.style.border = "1px solid var(--brand-border)";
+      badge.style.fontWeight = "600";
+      badge.textContent = "✓ " + day.time + " – " + getEndTime(day.time, durationMinutes);
+      titleWrap.append(badge);
+    } else {
+      const badge = document.createElement("span");
+      badge.className = "badge bg-light text-secondary border";
+      badge.textContent = "Chưa hoàn tất chọn giờ";
+      titleWrap.append(badge);
+    }
+
+    const actions = document.createElement("div");
+    actions.className = "booking-day-card-actions";
+    const edit = document.createElement("button");
+    edit.type = "button";
+    edit.className = "btn btn-sm btn-outline-primary";
     const selectedStaffName = allStaff.find(person => String(person.id) === String(day.staffId))?.name;
-    edit.textContent = day.expanded ? "Thu gọn" : (day.time && day.staffId ? `${day.time} · ${selectedStaffName || "Đã chọn"} · Sửa` : "Chọn giờ và nhân viên");
+    edit.textContent = day.expanded
+      ? "Thu gọn"
+      : (day.time && day.staffId ? day.time + " · " + (selectedStaffName || "Đã chọn") + " · Sửa" : "Chọn giờ và nhân viên");
     edit.setAttribute("aria-expanded", String(Boolean(day.expanded)));
-    edit.addEventListener("click", () => { days.forEach(item => { item.expanded = item === day ? !day.expanded : false; }); render(); });
-    const remove = document.createElement("button"); remove.type = "button"; remove.className = "btn btn-sm btn-outline-danger"; remove.textContent = "Bỏ ngày";
-    remove.addEventListener("click", () => { days.delete(day.date); render(); });
-    actions.append(edit, remove); head.append(title, actions); card.append(head);
-    const status = document.createElement("p"); status.className = "small text-secondary booking-day-status";
+    edit.addEventListener("click", () => {
+      days.forEach(item => { item.expanded = item === day ? !day.expanded : false; });
+      render();
+    });
+
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "btn btn-sm btn-outline-danger";
+    remove.textContent = "Bỏ ngày";
+    remove.addEventListener("click", () => { days.delete(day.date); render(); scheduleDraftSave(); });
+
+    actions.append(edit, remove);
+    head.append(titleWrap, actions);
+    card.append(head);
+
+    // Confirmed banner
+    if (day.time && day.staffId) {
+      const staffObj = allStaff.find(p => String(p.id) === String(day.staffId));
+      const sName = staffObj?.name || selectedStaffName || "Nhân viên";
+      const sType = staffObj?.staffType === 'FULL_TIME' ? 'Toàn thời gian' : (staffObj?.staffType === 'PART_TIME' ? 'Bán thời gian' : '');
+      const sAvatar = sName.trim().charAt(0) || 'N';
+      const confirmedBox = document.createElement("div");
+      confirmedBox.className = "booking-day-confirmed-card";
+      confirmedBox.innerHTML = `
+        <div class="booking-day-confirmed-left">
+          <div class="booking-day-confirmed-time">
+            <svg class="ui-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            <div>
+              <strong>${day.time} – ${getEndTime(day.time, durationMinutes)}</strong>
+              <small class="d-block text-secondary">Thời lượng dịch vụ: ${durationMinutes} phút</small>
+            </div>
+          </div>
+          <div class="booking-day-confirmed-staff">
+            <div class="booking-day-confirmed-avatar">${sAvatar}</div>
+            <div>
+              <strong>${sName}</strong>
+              <small class="d-block text-secondary">${sType ? sType : 'Nhân viên thực hiện'}</small>
+            </div>
+          </div>
+        </div>
+        <div class="booking-day-confirmed-status">
+          <span class="badge" style="background: #eaf7ec; color: #08752e; border: 1px solid #b8dfbe; font-size: 0.82rem; padding: 0.45rem 0.75rem;">
+            ✓ Sẵn sàng thực hiện
+          </span>
+        </div>
+      `;
+      card.append(confirmedBox);
+    } else if (!day.expanded) {
+      const unconfBox = document.createElement("div");
+      unconfBox.className = "booking-day-unconfigured-note d-flex align-items-center justify-content-between p-2 px-3 rounded-2 mt-1";
+      unconfBox.style.background = "var(--bg-subtle)";
+      unconfBox.style.fontSize = "0.85rem";
+      unconfBox.innerHTML = `
+        <span class="text-secondary">⚠️ Vui lòng hoàn tất chọn giờ và nhân viên để hoàn thiện lịch ngày này.</span>
+        <button type="button" class="btn btn-sm btn-link text-decoration-none text-primary p-0 fw-semibold">Chọn ngay →</button>
+      `;
+      unconfBox.querySelector("button").addEventListener("click", () => {
+        days.forEach(item => { item.expanded = item === day; });
+        render();
+      });
+      card.append(unconfBox);
+    }
+
+    const status = document.createElement("p");
+    status.className = "small text-secondary booking-day-status mt-2 mb-0";
     status.setAttribute("role", "status");
-    status.textContent = day.loading ? "Đang tải lịch…" : day.error || day.notice || day.options?.message || (day.time && day.staffId ? "Đã chọn giờ và nhân viên cho ngày này." : "Chọn giờ và nhân viên cho ngày này.");
-    status.classList.toggle("text-danger",Boolean(day.error||day.notice));
-    status.classList.toggle("text-secondary",!day.error&&!day.notice);
+    status.textContent = day.loading
+      ? "Đang tải lịch…"
+      : day.error || day.notice || day.options?.message || (day.time && day.staffId ? "Đã chọn giờ và nhân viên cho ngày này." : "Chọn giờ và nhân viên cho ngày này.");
+    status.classList.toggle("text-danger", Boolean(day.error || day.notice));
+    status.classList.toggle("text-secondary", !day.error && !day.notice);
     card.append(status);
+
     addHiddenSelection(card, day);
     if (!day.expanded) return card;
-    const eligibleStaff = day.time ? (timeFor(day, day.time)?.staffOptions || [])
+
+    const eligibleStaff = day.time
+      ? (timeFor(day, day.time)?.staffOptions || [])
       : [...new Map((day.timeOptions || []).flatMap(option => option.staffOptions || []).map(person => [String(person.id), person])).values()];
-    if (preference === "staff") {
+
+    const timeSection = document.createElement("div");
+    timeSection.className = "booking-time-section mt-3";
+
+    if (preference === "staff" || Boolean(preferredStaff.value)) {
       if (!day.staffId) {
-        const prompt = document.createElement("p"); prompt.className = "small text-secondary mb-0"; prompt.textContent = "Chọn nhân viên ở phía trên để xem các giờ người đó có thể làm."; card.append(prompt);
+        const prompt = document.createElement("div");
+        prompt.className = "alert alert-warning py-2 px-3 small mb-0";
+        prompt.textContent = "Vui lòng chọn một nhân viên ưu tiên ở Bước 03 phía trên để xem các ca làm việc của họ.";
+        timeSection.append(prompt);
+      } else if (!day.loading && day.options) {
+        const timeHeader = document.createElement("div");
+        timeHeader.className = "booking-section-subhead d-flex align-items-center justify-content-between mb-2";
+        timeHeader.innerHTML = `
+          <span class="fw-semibold text-dark d-flex align-items-center gap-2">
+            <svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            <span>Chọn khung giờ bắt đầu (Ca làm việc: ${durationMinutes} phút)</span>
+          </span>
+          <span class="small text-secondary">${(day.timeOptions || []).length} khung giờ trống</span>
+        `;
+        timeSection.append(timeHeader);
+
+        const morning = (day.timeOptions || []).filter(opt => opt.startTime < "12:00");
+        const afternoon = (day.timeOptions || []).filter(opt => opt.startTime >= "12:00");
+
+        const createGroup = (label, iconChar, opts) => {
+          if (!opts.length) return null;
+          const wrap = document.createElement("div");
+          wrap.className = "booking-time-group mb-2";
+          wrap.innerHTML = `<div class="booking-time-session-label"><span>${iconChar}</span> <span>${label} (${opts.length} mốc)</span></div>`;
+          const grid = document.createElement("div");
+          grid.className = "booking-time-grid";
+          opts.forEach(option => {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "booking-time-slot-btn" + (day.time === option.startTime ? " selected" : "");
+            btn.setAttribute("aria-pressed", String(day.time === option.startTime));
+            btn.innerHTML = `<strong>${option.startTime}</strong><small>${getEndTime(option.startTime, durationMinutes)}</small>`;
+            btn.addEventListener("click", () => {
+              day.time = option.startTime;
+              day.staffId = preferredStaff.value || day.staffId;
+              day.stale = false; day.restored = false; day.notice = "";
+              day.expanded = false;
+              render(); scheduleDraftSave(); loadDay(day);
+            });
+            grid.append(btn);
+          });
+          wrap.append(grid);
+          return wrap;
+        };
+
+        const mg = createGroup("Buổi sáng (08:00 – 12:00)", "🌅", morning);
+        const ag = createGroup("Buổi chiều & Tối (12:00 – 18:00)", "☀️", afternoon);
+        if (mg) timeSection.append(mg);
+        if (ag) timeSection.append(ag);
+        if (!mg && !ag) {
+          const empty = document.createElement("p");
+          empty.className = "small text-secondary mb-0";
+          empty.textContent = day.options.message || "Nhân viên này chưa có giờ phù hợp trong ngày.";
+          timeSection.append(empty);
+        }
       }
-    } else if (day.time) {
-      const staffLabel = document.createElement("label"); staffLabel.className = "booking-day-field";
-      const staffCaption = document.createElement("span"); staffCaption.textContent = "Nhân viên phù hợp với giờ đã chọn";
-      staffLabel.append(staffCaption, makeStaffSelect(day, eligibleStaff)); card.append(staffLabel);
-    } else if (day.stale && !day.loading && !day.timeOptions.length) {
-      const staffLabel = document.createElement("label"); staffLabel.className = "booking-day-field";
-      const staffCaption = document.createElement("span"); staffCaption.textContent = "Đổi nhân viên để xem các giờ khác";
-      staffLabel.append(staffCaption, makeStaffSelect(day, allStaff, true)); card.append(staffLabel);
-    }
-    if (preference === "time") {
-      const pickerLabel = document.createElement("label"); pickerLabel.className = "booking-day-field booking-day-time-field";
-      const pickerCaption = document.createElement("span"); pickerCaption.textContent = "Giờ bắt đầu";
-      const picker = document.createElement("div"); picker.className = "time-picker"; picker.dataset.quarterTime = ""; picker.dataset.bookingTimePicker = ""; picker.dataset.changeOnDone = "";
-      const trigger = document.createElement("input"); trigger.type = "text"; trigger.className = "form-control time-trigger"; trigger.dataset.timeTrigger = ""; trigger.readOnly = true; trigger.disabled = day.loading || !day.options || !selectedServices().length; trigger.placeholder = "Chọn giờ"; trigger.setAttribute("aria-label", `Giờ bắt đầu ${weekdayDate(day.date)}`);
-      const value = document.createElement("input"); value.type = "hidden"; value.dataset.timeValue = ""; value.value = day.time || "";
-      picker.append(trigger, value); pickerLabel.append(pickerCaption, picker); card.append(pickerLabel);
+    } else {
+      // PREFERENCE === "TIME" (Default mode)
+      const timeHeader = document.createElement("div");
+      timeHeader.className = "booking-section-subhead d-flex align-items-center justify-content-between mb-2";
+      timeHeader.innerHTML = `
+        <span class="fw-semibold text-dark d-flex align-items-center gap-2">
+          <svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          <span>Bước 1: Chọn giờ bắt đầu làm việc</span>
+        </span>
+        <span class="small text-secondary">Mỗi ca kéo dài ${durationMinutes} phút</span>
+      `;
+      timeSection.append(timeHeader);
+
+      if (day.timeOptions && day.timeOptions.length > 0) {
+        const morning = day.timeOptions.filter(opt => opt.startTime < "12:00");
+        const afternoon = day.timeOptions.filter(opt => opt.startTime >= "12:00");
+
+        const createGroup = (label, iconChar, opts) => {
+          if (!opts.length) return null;
+          const wrap = document.createElement("div");
+          wrap.className = "booking-time-group mb-2";
+          wrap.innerHTML = `<div class="booking-time-session-label"><span>${iconChar}</span> <span>${label} (${opts.length} mốc khả dụng)</span></div>`;
+          const grid = document.createElement("div");
+          grid.className = "booking-time-grid";
+          opts.forEach(option => {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "booking-time-slot-btn" + (day.time === option.startTime ? " selected" : "");
+            btn.setAttribute("aria-pressed", String(day.time === option.startTime));
+            btn.innerHTML = `<strong>${option.startTime}</strong><small>${getEndTime(option.startTime, durationMinutes)}</small>`;
+            btn.addEventListener("click", () => {
+              day.time = option.startTime;
+              day.stale = false; day.restored = false; day.notice = "";
+              if (preferredStaff.value) {
+                day.staffId = preferredStaff.value;
+                day.expanded = false;
+              } else {
+                const elig = timeFor(day, option.startTime)?.staffOptions || [];
+                if (!elig.some(p => String(p.id) === String(day.staffId))) {
+                  if (elig.length === 1) {
+                    day.staffId = elig[0].id;
+                    day.expanded = false;
+                  } else {
+                    day.staffId = "";
+                  }
+                } else if (day.staffId) {
+                  day.expanded = false;
+                }
+              }
+              render(); scheduleDraftSave(); loadDay(day);
+            });
+            grid.append(btn);
+          });
+          wrap.append(grid);
+          return wrap;
+        };
+
+        const mg = createGroup("Buổi sáng (08:00 – 12:00)", "🌅", morning);
+        const ag = createGroup("Buổi chiều & Tối (12:00 – 18:00)", "☀️", afternoon);
+        if (mg) timeSection.append(mg);
+        if (ag) timeSection.append(ag);
+      }
+
+      // Quarter-time picker fallback
+      const pickerLabel = document.createElement("details");
+      pickerLabel.className = "booking-time-custom-details mt-2";
+      pickerLabel.innerHTML = `<summary class="small text-secondary fw-semibold cursor-pointer mb-2">⚙️ Hoặc tùy chỉnh mốc giờ khác</summary>`;
+      const pickerField = document.createElement("div");
+      pickerField.className = "booking-day-field booking-day-time-field";
+      const picker = document.createElement("div");
+      picker.className = "time-picker";
+      picker.dataset.quarterTime = "";
+      picker.dataset.bookingTimePicker = "";
+      picker.dataset.changeOnDone = "";
+      const trigger = document.createElement("input");
+      trigger.type = "text";
+      trigger.className = "form-control time-trigger";
+      trigger.dataset.timeTrigger = "";
+      trigger.readOnly = true;
+      trigger.disabled = day.loading || !day.options || !selectedServices().length;
+      trigger.placeholder = "Chọn giờ tùy ý";
+      trigger.setAttribute("aria-label", "Giờ bắt đầu " + weekdayDate(day.date));
+      trigger.value = day.time || "";
+      const value = document.createElement("input");
+      value.type = "hidden";
+      value.dataset.timeValue = "";
+      value.value = day.time || "";
+      picker.append(trigger, value);
+      pickerField.append(picker);
+      pickerLabel.append(pickerField);
+      timeSection.append(pickerLabel);
+
       if (window.initQuarterTimePicker) window.initQuarterTimePicker(picker);
       picker.setAllowedTimes?.((day.timeOptions || []).map(option => option.startTime));
-      picker.addEventListener("change", () => { day.time = value.value; day.staffId = ""; day.stale=false;day.restored=false;day.notice = ""; render(); loadDay(day); });
-    }
-    if (preference === "staff" && day.staffId && !day.loading && day.options) {
-      const list = document.createElement("div"); list.className = "booking-availability-options booking-time-only-options";
-      (day.timeOptions || []).forEach(option => {
-        const button = document.createElement("button"); button.type = "button"; button.className = "booking-availability-option";
-        if (day.time === option.startTime) button.classList.add("selected");
-        button.setAttribute("aria-pressed", String(day.time === option.startTime));
-        const time = document.createElement("strong"); time.textContent = option.startTime;
-        button.append(time);
-        button.addEventListener("click", () => {
-          day.time = option.startTime; day.stale = false; day.restored = false; day.notice = ""; day.expanded = false;
-          render(); loadDay(day);
-        });
-        list.append(button);
+      picker.addEventListener("change", () => {
+        day.time = value.value;
+        day.staffId = "";
+        day.stale = false; day.restored = false; day.notice = "";
+        render(); loadDay(day);
       });
-      if (!list.childElementCount) { const empty = document.createElement("p"); empty.className = "small text-secondary mb-0"; empty.textContent = day.options.message || "Nhân viên này chưa có giờ phù hợp trong ngày."; list.append(empty); }
-      card.append(list);
     }
+
+    card.append(timeSection);
+
+    // SECTION 2: Chọn nhân viên thực hiện (khi preference === "time")
+    if (preference === "time" && !preferredStaff.value) {
+      const staffSection = document.createElement("div");
+      staffSection.className = "booking-staff-section mt-3 pt-3 border-top";
+
+      if (day.time) {
+        const staffHeader = document.createElement("div");
+        staffHeader.className = "booking-section-subhead d-flex align-items-center justify-content-between mb-2";
+        staffHeader.innerHTML = `
+          <span class="fw-semibold text-dark d-flex align-items-center gap-2">
+            <svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            <span>Bước 2: Chọn nhân viên cho ca ${day.time} – ${getEndTime(day.time, durationMinutes)}</span>
+          </span>
+          <span class="small text-secondary">${eligibleStaff.length} nhân viên sẵn sàng</span>
+        `;
+        staffSection.append(staffHeader);
+
+        const staffSelect = makeStaffSelect(day, eligibleStaff);
+        staffSelect.hidden = true;
+        staffSection.append(staffSelect);
+
+        const staffGrid = document.createElement("div");
+        staffGrid.className = "booking-day-staff-grid";
+        eligibleStaff.forEach(person => {
+          const isSelected = String(day.staffId) === String(person.id);
+          const sCard = document.createElement("div");
+          sCard.className = "booking-day-staff-card" + (isSelected ? " selected" : "");
+          sCard.tabIndex = 0;
+          sCard.role = "button";
+          const typeLabel = person.staffType === 'FULL_TIME' ? 'Toàn thời gian' : (person.staffType === 'PART_TIME' ? 'Bán thời gian' : '');
+          const avatarChar = (person.name || 'N').trim().charAt(0);
+          sCard.innerHTML = `
+            <div class="booking-day-staff-avatar">${avatarChar}</div>
+            <div class="booking-day-staff-details">
+              <span class="booking-day-staff-name">${person.name}</span>
+              <span class="booking-day-staff-type">${typeLabel}</span>
+            </div>
+            <span class="booking-day-staff-check" ${isSelected ? '' : 'style="display:none;"'}>
+              <svg class="ui-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </span>
+          `;
+          sCard.addEventListener("click", () => {
+            day.staffId = person.id;
+            staffSelect.value = person.id;
+            day.expanded = false;
+            day.notice = "";
+            render();
+            scheduleDraftSave();
+            loadDay(day);
+          });
+          staffGrid.append(sCard);
+        });
+        staffSection.append(staffGrid);
+      } else {
+        const prompt = document.createElement("p");
+        prompt.className = "small text-secondary mb-0 p-2 rounded-2";
+        prompt.style.background = "var(--bg-subtle)";
+        prompt.textContent = "👆 Hãy chọn một khung giờ ở Bước 1 trước để xem danh sách các nhân viên có thể nhận ca.";
+        staffSection.append(prompt);
+      }
+      card.append(staffSection);
+    } else if (day.stale && !day.loading && !day.timeOptions.length) {
+      const staffLabel = document.createElement("label");
+      staffLabel.className = "booking-day-field mt-3";
+      const staffCaption = document.createElement("span");
+      staffCaption.textContent = "Đổi nhân viên để xem các giờ khác";
+      staffLabel.append(staffCaption, makeStaffSelect(day, allStaff, true));
+      card.append(staffLabel);
+    }
+
     return card;
   };
   function render() {
     renderDateChips(); renderAvailableDates(); daysContainer.replaceChildren();
     const ordered = [...days.values()].sort((a,b) => a.date.localeCompare(b.date));
-    if (!ordered.length) { const empty = document.createElement("p"); empty.className = "small text-secondary mb-0"; empty.textContent = "Thêm ít nhất một ngày để xem lịch."; daysContainer.append(empty); }
+    if (!ordered.length) { const empty = document.createElement("div"); empty.className = "booking-time-empty-guide text-center py-4 px-3 surface border rounded-3 w-100"; empty.innerHTML = '<div class="d-inline-flex align-items-center justify-content-center p-3 rounded-circle mb-2" style="background: var(--bg-subtle); color: var(--muted);"><svg class="ui-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></div><strong class="d-block mb-1 text-dark">Chưa có ngày nào được chọn</strong><p class="small text-secondary mb-0">Thêm ít nhất một ngày để xem lịch.</p>'; daysContainer.append(empty); }
     ordered.forEach(day => daysContainer.append(renderDay(day)));
     refresh();
   }
   preferredStaff.value=requestedStaffId||"";
-  preferredStaff.addEventListener("change",()=>{
+  preferredStaff.addEventListener("change", () => {
+    if (preferredStaff.value) {
+      preference = "staff";
+      const staffRadio = preferenceInputs.find(i => i.value === "staff");
+      if (staffRadio) staffRadio.checked = true;
+      preferredStaffWrap.hidden = false;
+    }
+    syncStaffCards();
     days.forEach(day=>{day.time="";day.staffId=preferredStaff.value;day.stale=false;day.restored=false;day.notice="";});
     render(); loadAvailableDates(); days.forEach(loadDay);
+    scheduleDraftSave();
   });
   preferenceInputs.forEach(input => input.addEventListener("change", () => {
-    preference=input.value; days.forEach(day=>{day.time="";day.staffId=preference==="staff"?preferredStaff.value:"";day.stale=false;day.restored=false;day.notice="";});
-    if(preference==="staff"&&!preferredStaff.value)days.clear();
+    preference=input.value;
+    if (preference === "time") {
+      preferredStaff.value = "";
+      syncStaffCards();
+    }
+    days.forEach(day=>{day.time="";day.staffId=preference==="staff"?preferredStaff.value:"";day.stale=false;day.restored=false;day.notice="";});
+    if(preference==="staff"&&!preferredStaff.value)days.clear(); syncStaffCards();
     render(); loadAvailableDates(); days.forEach(loadDay);
+    scheduleDraftSave();
   }));
   services.forEach(input => input.addEventListener("change", () => {
     days.forEach(day=>{day.time="";day.staffId=preference==="staff"?preferredStaff.value:"";day.stale=false;day.restored=false;day.notice="";});
     render(); loadAvailableDates(); days.forEach(loadDay);
+    scheduleDraftSave();
   }));
+  async function checkHouseServiceArea() {
+    const request=++houseAreaRequest;
+    if(!house.value){houseAreaState="empty";if(houseServiceAreaError){houseServiceAreaError.hidden=true;houseServiceAreaError.textContent="";}refresh();return;}
+    houseAreaState="checking";
+    if(houseServiceAreaError){houseServiceAreaError.hidden=false;houseServiceAreaError.classList.remove("text-danger");houseServiceAreaError.classList.add("text-secondary");houseServiceAreaError.textContent="Đang kiểm tra địa chỉ trong bán kính phục vụ…";}
+    refresh();
+    try {
+      const response=await fetch(`/customer/bookings/house-service-area?houseId=${encodeURIComponent(house.value)}`,{headers:{Accept:"application/json"}});
+      if(!response.ok)throw new Error();
+      const result=await response.json();
+      if(request!==houseAreaRequest)return;
+      houseAreaState=result.eligible?"eligible":"ineligible";
+      if(houseServiceAreaError){houseServiceAreaError.hidden=false;houseServiceAreaError.classList.toggle("text-danger",!result.eligible);houseServiceAreaError.classList.toggle("text-secondary",Boolean(result.eligible));houseServiceAreaError.textContent=result.message;}
+    } catch(error) {
+      if(request!==houseAreaRequest)return;
+      houseAreaState="error";
+      if(houseServiceAreaError){houseServiceAreaError.hidden=false;houseServiceAreaError.classList.add("text-danger");houseServiceAreaError.textContent="Chưa kiểm tra được bán kính phục vụ. Vui lòng thử lại.";}
+    }
+    refresh();
+  }
   house.addEventListener("change",()=>{
+    checkHouseServiceArea();
     days.forEach(day=>{day.time="";day.staffId=preference==="staff"?preferredStaff.value:"";day.stale=false;day.restored=false;day.notice="";});
-    render();loadAvailableDates();days.forEach(loadDay);
+    render();days.forEach(loadDay);
+    scheduleDraftSave();
   });
   function refresh() {
     const selected = services.filter(input => input.checked);
@@ -716,6 +1209,8 @@ if (bookingForm) {
     let error = "";
     if (!selected.length) error = "Chọn ít nhất một dịch vụ.";
     else if (!house.value) error = "Chọn địa chỉ nhà cần dọn.";
+    else if (houseAreaState === "checking") error = "Đang kiểm tra địa chỉ trong bán kính phục vụ.";
+    else if (houseAreaState === "ineligible" || houseAreaState === "error" || houseAreaState === "empty") error = "Hãy chọn địa chỉ nhà nằm trong bán kính phục vụ.";
     else if (preference==="staff"&&!preferredStaff.value) error = "Chọn nhân viên ưu tiên trước khi xem ngày làm.";
     else if (!selectedDays.length) error = "Chọn ít nhất một ngày có nhân viên sẵn sàng.";
     else if (calendarPending||pending) error = "Đang tải lịch khả dụng cho các ngày đã chọn.";
@@ -726,9 +1221,14 @@ if (bookingForm) {
   }
   bookingForm.addEventListener("submit", event => {
     refresh();
-    if (submit.disabled || !bookingForm.reportValidity()) event.preventDefault();
+    if (submit.disabled || !bookingForm.reportValidity()) {
+      event.preventDefault();
+    } else {
+      clearBookingDraft();
+    }
   });
   const retryState=window.bookingRetryState;
+  let restoredFromDraft = false;
   if(retryState){
     if(retryState.houseId)house.value=String(retryState.houseId);
     if(Array.isArray(retryState.serviceIds))services.forEach(input=>input.checked=retryState.serviceIds.map(String).includes(input.value));
@@ -736,7 +1236,691 @@ if (bookingForm) {
     if(Array.isArray(retryState.days))retryState.days.forEach(item=>{
       if(item&&item.date&&item.staffId&&item.time)days.set(item.date,{date:item.date,time:item.time,staffId:String(item.staffId),loading:false,options:null,timeOptions:[],error:"",notice:"Lịch trước chưa được tạo. Hãy xác nhận lại lựa chọn.",expanded:true,restored:true,stale:false});
     });
+  } else {
+    try {
+      const raw = sessionStorage.getItem(DRAFT_KEY);
+      if (raw) {
+        const draft = JSON.parse(raw);
+        if (draft && typeof draft === "object") {
+          if (Array.isArray(draft.serviceIds) && draft.serviceIds.length > 0) {
+            services.forEach(input => {
+              input.checked = draft.serviceIds.map(String).includes(String(input.value));
+            });
+            restoredFromDraft = true;
+          }
+          if (draft.houseId && [...house.options].some(opt => opt.value === String(draft.houseId))) {
+            house.value = String(draft.houseId);
+            restoredFromDraft = true;
+          }
+          if (draft.bookingPreference) {
+            preference = draft.bookingPreference;
+            const pInput = preferenceInputs.find(i => i.value === preference);
+            if (pInput) pInput.checked = true;
+            preferredStaffWrap.hidden = preference !== "staff";
+            restoredFromDraft = true;
+          }
+          if (draft.preferredStaffId) {
+            preferredStaff.value = String(draft.preferredStaffId);
+          }
+          const note = bookingForm.querySelector("#areaNote");
+          if (note && draft.areaNote) note.value = draft.areaNote;
+          if (Array.isArray(draft.days) && draft.days.length > 0) {
+            draft.days.forEach(item => {
+              if (item && item.date) {
+                days.set(item.date, {
+                  date: item.date,
+                  time: item.time || "",
+                  staffId: item.staffId ? String(item.staffId) : (preference === "staff" ? preferredStaff.value : ""),
+                  loading: false,
+                  options: null,
+                  timeOptions: [],
+                  error: "",
+                  notice: "",
+                  expanded: !item.time || !item.staffId,
+                  restored: true,
+                  stale: false
+                });
+                restoredFromDraft = true;
+              }
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Could not restore booking draft", e);
+    }
   }
-  render(); loadAvailableDates();
+
+  if (restoredFromDraft) {
+    const noticeEl = document.querySelector("#bookingDraftNotice");
+    if (noticeEl) {
+      noticeEl.hidden = false;
+      noticeEl.className = "alert alert-info d-flex align-items-center justify-content-between p-3 mb-3 border-0 shadow-sm rounded-3";
+      noticeEl.style.cssText = "background-color: var(--brand-subtle); color: var(--brand-dark); border-left: 4px solid var(--brand) !important;";
+      noticeEl.innerHTML = `
+        <div class="d-flex align-items-center gap-2">
+          <span style="font-size: 1.15rem;">✨</span>
+          <span>Đã tự động lưu và khôi phục các dịch vụ, nhà và ngày giờ bạn đang điền dang dở.</span>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="clearDraftBtn">Xóa & Làm lại</button>
+      `;
+      noticeEl.querySelector("#clearDraftBtn")?.addEventListener("click", () => {
+        clearBookingDraft();
+        window.location.reload();
+      });
+    }
+  }
+
+  const areaNoteInput = bookingForm.querySelector("#areaNote");
+  if (areaNoteInput) areaNoteInput.addEventListener("input", scheduleDraftSave);
+
+  const toggleServicesBtn = bookingForm.querySelector("[data-toggle-services-btn]");
+  if (toggleServicesBtn) {
+    const extraItems = [...bookingForm.querySelectorAll('[data-service-item="extra"]')];
+    const toggleText = toggleServicesBtn.querySelector("[data-toggle-text]");
+    const toggleIcon = toggleServicesBtn.querySelector("[data-toggle-icon]");
+    let expanded = false;
+
+    const syncServicesVisibility = () => {
+      extraItems.forEach(item => {
+        const input = item.querySelector('input[name="serviceIds"]');
+        if (expanded || (input && input.checked)) {
+          item.style.display = "";
+        } else {
+          item.style.display = "none";
+        }
+      });
+      if (toggleText) {
+        toggleText.textContent = expanded ? "Thu gọn bớt dịch vụ" : "Xem thêm " + extraItems.length + " dịch vụ khác";
+      }
+      if (toggleIcon) {
+        toggleIcon.style.transform = expanded ? "rotate(180deg)" : "rotate(0deg)";
+        toggleIcon.style.transition = "transform 0.2s ease";
+      }
+    };
+
+    if (extraItems.some(item => item.querySelector('input[name="serviceIds"]')?.checked)) {
+      expanded = true;
+    }
+    syncServicesVisibility();
+
+    toggleServicesBtn.addEventListener("click", () => {
+      expanded = !expanded;
+      syncServicesVisibility();
+    });
+  }
+
+  syncStaffCards(); render(); loadAvailableDates(); checkHouseServiceArea();
   if(retryState?.days?.length)retryState.days.forEach(item=>{const day=days.get(item.date);if(day)loadDay(day);});
+  else if (restoredFromDraft && days.size > 0) days.forEach(day => loadDay(day));
 }
+
+if (document.querySelector(".admin-sidebar")) {
+  document.body.classList.add("has-admin-sidebar");
+}
+
+// Sync "Nghỉ" operating-hours rows (fallback alongside CSS :has(input:checked))
+document.querySelectorAll("[data-hours-row]").forEach(row => {
+  const toggle = row.querySelector("[data-closed-toggle]");
+  if (!toggle) return;
+  const timeInputs = [...row.querySelectorAll(".hours-time-input")];
+  const syncClosedState = () => {
+    const closed = toggle.checked;
+    row.classList.toggle("is-closed-day", closed);
+    timeInputs.forEach(input => {
+      if (closed) {
+        input.setAttribute("aria-disabled", "true");
+        input.setAttribute("tabindex", "-1");
+      } else {
+        input.removeAttribute("aria-disabled");
+        input.removeAttribute("tabindex");
+      }
+    });
+  };
+  toggle.addEventListener("change", syncClosedState);
+  syncClosedState();
+});
+
+// Expand collapsed <details> automatically if a child control triggers validation
+document.addEventListener("invalid", event => {
+  const hiddenDetails = event.target instanceof Element ? event.target.closest("details:not([open])") : null;
+  if (hiddenDetails) hiddenDetails.open = true;
+}, true);
+
+// Tactile loading feedback on valid form submission
+document.querySelectorAll("form").forEach(form => {
+  form.addEventListener("submit", event => {
+    if (event.defaultPrevented || !form.checkValidity()) return;
+    const submitter = event.submitter || form.querySelector('button[type="submit"]');
+    if (submitter) submitter.classList.add("is-submitting");
+  });
+});
+
+// Replay house sketch line-drawing animation on click
+const replayHouseSketchBtn = document.getElementById("replayHouseSketch");
+if (replayHouseSketchBtn) {
+  replayHouseSketchBtn.addEventListener("click", () => {
+    const viewport = document.getElementById("sketchViewport");
+    if (!viewport) return;
+    const svg = viewport.querySelector(".sketch-svg");
+    if (!svg) return;
+
+    // Tạm gỡ class .is-alive khi vẽ lại
+    viewport.classList.remove("is-alive");
+
+    // Replay SVG stroke and fill animations cleanly
+    const clone = svg.cloneNode(true);
+    svg.parentNode.replaceChild(clone, svg);
+
+    // Kích hoạt lại .is-alive sau 2.8s
+    setTimeout(() => {
+      viewport.classList.add("is-alive");
+    }, 2800);
+  });
+}
+
+// Senior UI/UX Performance & Living Animations Controller
+document.addEventListener('DOMContentLoaded', () => {
+  const house = document.getElementById('sketchViewport') || document.querySelector('.house');
+
+  if (house) {
+    // 1. IntersectionObserver: Tạm dừng hoạt ảnh khi Hero cuộn ra khỏi viewport để tối ưu GPU
+    if ('IntersectionObserver' in window) {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            house.classList.add('is-visible');
+          } else {
+            house.classList.remove('is-visible');
+          }
+        });
+      }, {
+        root: null,
+        threshold: 0.05
+      });
+      observer.observe(house);
+    } else {
+      house.classList.add('is-visible');
+    }
+
+    // 2. Kích hoạt hoạt ảnh sống động vô hạn sau khi chuỗi xuất hiện ban đầu hoàn tất (~2.8s)
+    setTimeout(() => {
+      house.classList.add('is-alive');
+    }, 2800);
+  }
+
+  // 3. Gỡ bỏ will-change sau 3 giây để giải phóng GPU memory
+  setTimeout(() => {
+    document.querySelectorAll('.will-change-anim').forEach(el => {
+      el.style.willChange = 'auto';
+    });
+  }, 3000);
+
+  // 4. Khởi tạo Apple/iOS Header, Segmented Control, Bottom Sheet, Scroll Reveal & 3D OrbitImages
+  initAppleHeaderAndScroll();
+  initSegmentedControl();
+  initMobileSheet();
+  initScrollReveal();
+  initOrbitImages();
+});
+
+// ==========================================================================
+// APPLE/IOS UI CONTROLLER: Header, Segmented Control, Bottom Sheet & Reveal
+// ==========================================================================
+
+// Đánh dấu JS đã sẵn sàng cho HTML
+document.documentElement.classList.add('js');
+
+// 1. Header Sticky & .is-scrolled (>24px)
+function initAppleHeaderAndScroll() {
+  const header = document.getElementById('siteHeader') || document.querySelector('.site-header');
+
+  let ticking = false;
+  window.addEventListener('scroll', () => {
+    if (!ticking) {
+      window.requestAnimationFrame(() => {
+        const scrollY = window.scrollY || window.pageYOffset;
+
+        // Thu gọn chiều cao header & viền kính mờ
+        if (header) {
+          if (scrollY > 24) header.classList.add('is-scrolled');
+          else header.classList.remove('is-scrolled');
+        }
+
+        ticking = false;
+      });
+      ticking = true;
+    }
+  }, { passive: true });
+}
+
+// 2. iOS Segmented Control: Viên thuốc trượt theo tab hoạt động
+function initSegmentedControl() {
+  const controls = document.querySelectorAll('.ios-segmented-control');
+  controls.forEach(control => {
+    const indicator = control.querySelector('.ios-segmented-indicator');
+    const items = control.querySelectorAll('.ios-segmented-item');
+    if (!indicator || !items.length) return;
+
+    function moveTo(item) {
+      if (!item) return;
+      indicator.style.width = `${item.offsetWidth}px`;
+      indicator.style.transform = `translateX(${item.offsetLeft}px)`;
+    }
+
+    const activeItem = control.querySelector('.ios-segmented-item.active') || items[0];
+
+    // Căn vị trí ban đầu
+    indicator.style.transition = 'none';
+    moveTo(activeItem);
+
+    requestAnimationFrame(() => {
+      indicator.style.transition = '';
+    });
+
+    items.forEach(item => {
+      item.addEventListener('mouseenter', () => moveTo(item));
+      item.addEventListener('mouseleave', () => moveTo(activeItem));
+    });
+
+    window.addEventListener('resize', () => {
+      const cur = control.querySelector('.ios-segmented-item.active') || items[0];
+      moveTo(cur);
+    }, { passive: true });
+  });
+}
+
+// 3. Mobile iOS Bottom Sheet (< 768px)
+function initMobileSheet() {
+  const toggleBtn = document.getElementById('iosMenuToggleBtn');
+  const sheet = document.getElementById('iosMobileSheet');
+  const backdrop = document.getElementById('iosSheetBackdrop');
+  const closeBtn = document.getElementById('iosSheetCloseBtn');
+  if (!toggleBtn || !sheet) return;
+
+  function openSheet() {
+    sheet.classList.add('is-open');
+    sheet.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeSheet() {
+    sheet.classList.remove('is-open');
+    sheet.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+
+  toggleBtn.addEventListener('click', openSheet);
+  if (backdrop) backdrop.addEventListener('click', closeSheet);
+  if (closeBtn) closeBtn.addEventListener('click', closeSheet);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && sheet.classList.contains('is-open')) {
+      closeSheet();
+    }
+  });
+}
+
+// 4. Scroll Reveal PowerPoint Slide Style & Price Counter Animation
+function initScrollReveal() {
+  const revealElements = document.querySelectorAll('[data-reveal]');
+  if (!revealElements.length) return;
+
+  if (!('IntersectionObserver' in window)) {
+    revealElements.forEach(el => el.classList.add('is-in'));
+    return;
+  }
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const el = entry.target;
+        const delay = parseInt(el.getAttribute('data-delay') || '0', 10);
+        if (delay > 0) {
+          el.style.transitionDelay = `${delay}ms`;
+        }
+        el.classList.add('is-in');
+        observer.unobserve(el);
+
+        // Kích hoạt animation đếm số cho giá tiền khi thẻ xuất hiện
+        const prices = el.querySelectorAll ? el.querySelectorAll('.price[data-price-val]') : [];
+        if (el.matches && el.matches('.price[data-price-val]')) {
+          animatePriceCount(el);
+        }
+        prices.forEach(p => animatePriceCount(p));
+
+        // Giải phóng will-change sau khi animation kết thúc
+        setTimeout(() => {
+          el.style.willChange = 'auto';
+        }, 1100 + delay);
+      }
+    });
+  }, {
+    threshold: 0.12,
+    rootMargin: '0px 0px -10% 0px'
+  });
+
+  revealElements.forEach(el => observer.observe(el));
+}
+
+// Hàm đếm số giá tiền từ 0 đến giá trị thực trong 900ms
+function animatePriceCount(priceEl) {
+  const raw = priceEl.getAttribute('data-price-val');
+  if (!raw) return;
+  const target = parseFloat(raw);
+  if (isNaN(target)) return;
+
+  const duration = 900;
+  const startTime = performance.now();
+  const formatter = new Intl.NumberFormat('vi-VN');
+
+  function step(now) {
+    const elapsed = now - startTime;
+    const progress = Math.min(1, elapsed / duration);
+    // Ease-out quad nảy nhẹ
+    const ease = 1 - (1 - progress) * (1 - progress);
+    const current = Math.round(target * ease);
+    priceEl.textContent = `${formatter.format(current)} ₫`;
+    if (progress < 1) {
+      requestAnimationFrame(step);
+    } else {
+      priceEl.textContent = `${formatter.format(target)} ₫`;
+    }
+  }
+  requestAnimationFrame(step);
+}
+
+// ==========================================================================
+// 5. DriftWall 3D Showcase & Interactive Parallax
+// Spec: tilt: 16 | turn: -14 | perspective: 1200 | parallax: 0.6 | lift: 64
+// ==========================================================================
+function initDriftWall() {
+  const canvas = document.getElementById('driftWallCanvas');
+  const stage = document.getElementById('driftWallStage');
+  if (!canvas || !stage) return;
+
+  const banner = stage.closest('.care-banner') || stage;
+  const isReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (isReducedMotion) return;
+
+  const BASE_TILT = 16;   // rotateX ban đầu
+  const BASE_TURN = -14;  // rotateY ban đầu
+  const PARALLAX_FACTOR = 0.6; // Hệ số di chuột theo spec của người dùng
+
+  let targetTilt = BASE_TILT;
+  let targetTurn = BASE_TURN;
+  let currentTilt = BASE_TILT;
+  let currentTurn = BASE_TURN;
+  let rafId = null;
+  let isHovering = false;
+
+  function updateParallax() {
+    // Nội suy mượt mà kiểu Spring iOS
+    currentTilt += (targetTilt - currentTilt) * 0.12;
+    currentTurn += (targetTurn - currentTurn) * 0.12;
+
+    canvas.style.setProperty('--tilt', `${currentTilt.toFixed(2)}deg`);
+    canvas.style.setProperty('--turn', `${currentTurn.toFixed(2)}deg`);
+
+    const deltaTilt = Math.abs(targetTilt - currentTilt);
+    const deltaTurn = Math.abs(targetTurn - currentTurn);
+
+    if (isHovering || deltaTilt > 0.05 || deltaTurn > 0.05) {
+      rafId = requestAnimationFrame(updateParallax);
+    } else {
+      rafId = null;
+    }
+  }
+
+  banner.addEventListener('mousemove', (e) => {
+    if (window.innerWidth < 768) return; // Chỉ áp dụng parallax góc nhìn trên tablet/desktop
+    const rect = banner.getBoundingClientRect();
+    const xRatio = (e.clientX - rect.left) / rect.width;
+    const yRatio = (e.clientY - rect.top) / rect.height;
+
+    // Chuẩn hóa [-0.5, 0.5] và nhân với biên độ góc nghiêng
+    const deltaX = (xRatio - 0.5) * 2; // -1 đến 1
+    const deltaY = (yRatio - 0.5) * 2; // -1 đến 1
+
+    targetTurn = BASE_TURN + deltaX * (12 * PARALLAX_FACTOR);
+    targetTilt = BASE_TILT - deltaY * (8 * PARALLAX_FACTOR);
+    isHovering = true;
+
+    if (!rafId) {
+      rafId = requestAnimationFrame(updateParallax);
+    }
+  }, { passive: true });
+
+  banner.addEventListener('mouseleave', () => {
+    targetTilt = BASE_TILT;
+    targetTurn = BASE_TURN;
+    isHovering = false;
+    if (!rafId) {
+      rafId = requestAnimationFrame(updateParallax);
+    }
+  });
+
+  // Tối ưu hóa: Dừng loop khi cuộn ra khỏi màn hình
+  if ('IntersectionObserver' in window) {
+    const bannerObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting && rafId) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        }
+      });
+    }, { threshold: 0.05 });
+    bannerObserver.observe(banner);
+  }
+}
+
+// ==========================================================================
+// 6. OrbitImages 3D Elliptical Orbit & Staff Picker
+// Spec: shape: ellipse | radiusX: 340 | radiusY: 80 | rotation: -8deg |
+//       duration: 30s | itemSize: 90px | depth: 0.6 | showPath: true
+// ==========================================================================
+function initOrbitImages() {
+  const stage = document.getElementById('orbitStage');
+  const track = document.getElementById('orbitItemsTrack');
+  if (!stage || !track) return;
+
+  const items = Array.from(track.querySelectorAll('.orbit-item'));
+  if (!items.length) return;
+
+  const isReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const BASE_RX = 340;
+  const BASE_RY = 80;
+  const ROTATION_DEG = -8;
+  const ROTATION_RAD = (ROTATION_DEG * Math.PI) / 180;
+  const DURATION_MS = 30000; // 30s đúng spec
+  const DEPTH = 0.6; // depth: 0.6 đúng spec
+  const cosRot = Math.cos(ROTATION_RAD);
+  const sinRot = Math.sin(ROTATION_RAD);
+
+  let isHovered = false;
+  let isDragging = false;
+  let dragStartX = 0;
+  let dragStartOffset = 0;
+  let currentOffsetAngle = 0;
+  let lastTimestamp = performance.now();
+  let rafId = null;
+  let isVisible = true;
+
+  function getScale() {
+    const w = stage.offsetWidth;
+    return Math.min(1, Math.max(0.42, w / 860));
+  }
+
+  function render(timestamp) {
+    if (!isVisible) {
+      rafId = null;
+      return;
+    }
+
+    const delta = timestamp - lastTimestamp;
+    lastTimestamp = timestamp;
+
+    if (!isHovered && !isDragging && !isReducedMotion) {
+      currentOffsetAngle += (delta * 2 * Math.PI) / DURATION_MS;
+      if (currentOffsetAngle >= 2 * Math.PI) {
+        currentOffsetAngle -= 2 * Math.PI;
+      }
+    }
+
+    const scale = getScale();
+    const rx = BASE_RX * scale;
+    const ry = BASE_RY * scale;
+    const n = items.length;
+
+    for (let i = 0; i < n; i++) {
+      const item = items[i];
+      const theta = currentOffsetAngle + (i * 2 * Math.PI) / n;
+
+      // Tọa độ elip phẳng
+      const x0 = rx * Math.cos(theta);
+      const y0 = ry * Math.sin(theta);
+
+      // Tọa độ xoay nghiêng -8 độ
+      const x = x0 * cosRot - y0 * sinRot;
+      const y = x0 * sinRot + y0 * cosRot;
+
+      // Độ sâu: sin(theta) đại diện cho vị trí trước/sau
+      const normZ = Math.sin(theta); // -1 đến +1
+      const itemScale = 1 + normZ * (DEPTH * 0.32);
+      const opacity = 0.68 + (normZ + 1) * 0.16;
+      // Khi normZ < 0 (nửa sau): z-index <= 9 (nằm sau badge tâm)
+      // Khi normZ > 0 (nửa trước): z-index >= 11 (nằm trước badge tâm)
+      const zIndex = Math.round((normZ + 1) * 10) + 1;
+
+      item.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) scale(${itemScale.toFixed(3)})`;
+      item.style.opacity = opacity.toFixed(2);
+      item.style.zIndex = zIndex;
+    }
+
+    rafId = requestAnimationFrame(render);
+  }
+
+  // Tạm dừng khi rê chuột lên ảnh thẻ
+  items.forEach(item => {
+    item.addEventListener('mouseenter', () => { isHovered = true; });
+    item.addEventListener('mouseleave', () => { isHovered = false; });
+
+    // Click vào ảnh trong quỹ đạo thì chuyển đến trang danh sách nhân viên yêu thích
+    item.addEventListener('click', () => {
+      window.location.href = '/customer/staff';
+    });
+  });
+
+  // Kéo vuốt quỹ đạo thủ công (Drag & Swipe)
+  stage.addEventListener('mousedown', (e) => {
+    if (e.target.closest('.orbit-center-badge')) return;
+    isDragging = true;
+    dragStartX = e.clientX;
+    dragStartOffset = currentOffsetAngle;
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    const dx = e.clientX - dragStartX;
+    currentOffsetAngle = dragStartOffset + (dx / 180) * Math.PI;
+  });
+
+  window.addEventListener('mouseup', () => {
+    isDragging = false;
+  });
+
+  // Hỗ trợ Touch trên Mobile
+  stage.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 1 && !e.target.closest('.orbit-center-badge')) {
+      isDragging = true;
+      dragStartX = e.touches[0].clientX;
+      dragStartOffset = currentOffsetAngle;
+    }
+  }, { passive: true });
+
+  window.addEventListener('touchmove', (e) => {
+    if (!isDragging || e.touches.length !== 1) return;
+    const dx = e.touches[0].clientX - dragStartX;
+    currentOffsetAngle = dragStartOffset + (dx / 180) * Math.PI;
+  }, { passive: true });
+
+  window.addEventListener('touchend', () => {
+    isDragging = false;
+  });
+
+  // Tạm dừng khi ra ngoài màn hình để tiết kiệm 100% tài nguyên GPU
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        isVisible = entry.isIntersecting;
+        if (isVisible && !rafId) {
+          lastTimestamp = performance.now();
+          rafId = requestAnimationFrame(render);
+        }
+      });
+    }, { threshold: 0.05 });
+    observer.observe(stage);
+  }
+
+  lastTimestamp = performance.now();
+  rafId = requestAnimationFrame(render);
+}
+
+// 7. Bộ chọn nhân viên yêu thích tương tác (Favorite Staff Picker)
+function initStaffPicker() {
+  const grid = document.getElementById('staffPickerGrid');
+  const bookBtn = document.getElementById('bookWithStaffBtn');
+  const bookText = document.getElementById('bookWithStaffText');
+  if (!grid || !bookBtn) return;
+
+  const cards = grid.querySelectorAll('.staff-pick-card');
+
+  window.selectStaffPick = function(staffId) {
+    cards.forEach(c => {
+      const isTarget = c.getAttribute('data-staff-id') === String(staffId);
+      c.classList.toggle('is-active', isTarget);
+      const radioText = c.querySelector('.staff-pick-radio-text');
+      if (radioText) {
+        radioText.textContent = isTarget ? 'Đang chọn' : 'Chọn nhân viên này';
+      }
+      if (isTarget) {
+        const name = c.getAttribute('data-staff-name') || 'nhân viên';
+        if (bookText) bookText.textContent = `Đặt lịch với ${name}`;
+        bookBtn.href = `/customer/bookings/new?staffId=${staffId}`;
+        c.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
+    });
+  };
+
+  cards.forEach(card => {
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.staff-pick-card__heart')) {
+        const heart = e.target.closest('.staff-pick-card__heart');
+        heart.classList.toggle('is-loved');
+        heart.style.transform = 'scale(1.35)';
+        setTimeout(() => { heart.style.transform = ''; }, 250);
+        return;
+      }
+      const staffId = card.getAttribute('data-staff-id');
+      window.selectStaffPick(staffId);
+    });
+  });
+}
+
+// 8. Thông báo Toast nhẹ nhàng cho trang Đăng nhập / Đăng ký
+window.showAuthNotice = function(msg) {
+  let toast = document.getElementById('authNoticeToast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'authNoticeToast';
+    toast.className = 'auth-toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.classList.add('is-visible');
+  clearTimeout(window._authToastTimer);
+  window._authToastTimer = setTimeout(() => {
+    toast.classList.remove('is-visible');
+  }, 3200);
+};

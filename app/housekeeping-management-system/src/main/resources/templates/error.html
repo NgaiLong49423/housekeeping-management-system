@@ -7,8 +7,8 @@
     </header>
     <main id="main" class="container d-flex align-items-center justify-content-center py-5">
       <section class="surface empty-state error-panel mx-auto p-4 p-md-5 w-100">
-        <span class="empty-icon" aria-hidden="true" style="background-color: var(--status-cancelled-bg); color: var(--status-cancelled-text); border-color: var(--status-cancelled-border);">
-          ⚠
+        <span class="empty-icon" style="background-color: var(--status-cancelled-bg); color: var(--status-cancelled-text); border-color: var(--status-cancelled-border);">
+          <svg th:replace="~{fragments/icons :: alert-circle}"></svg>
         </span>
         <span class="eyebrow justify-content-center">
           Thông báo hệ thống
@@ -16,15 +16,17 @@
         <h1 class="h3 mt-2 mb-3">
           Yêu cầu chưa thể hoàn tất
         </h1>
-        <p class="text-secondary mb-4" role="alert" th:text="${error != null ? error : 'Trang không khả dụng hoặc bạn không có quyền truy cập. Vui lòng quay lại trang trước hoặc trang chủ.'}">
+        <p class="text-secondary mb-4" role="alert" th:text="${error == null or error.isBlank() ? 'Trang không khả dụng hoặc bạn không có quyền truy cập. Vui lòng quay lại trang trước hoặc trang chủ.' : (error == 'Not Found' ? 'Không tìm thấy nội dung bạn yêu cầu hoặc liên kết đã thay đổi.' : (error == 'Forbidden' ? 'Bạn không có quyền truy cập vào khu vực này.' : (error == 'Bad Request' ? 'Yêu cầu chưa hợp lệ, vui lòng kiểm tra lại thông tin.' : error)))}">
           Trang không khả dụng hoặc bạn không có quyền truy cập. Vui lòng quay lại trang chính.
         </p>
         <div class="d-flex flex-wrap justify-content-center gap-3">
           <a class="btn btn-outline-primary" th:href="@{/}">
-            ← Về trang chủ
+            <svg th:replace="~{fragments/icons :: arrow-left}"></svg>
+            <span>Về trang chủ</span>
           </a>
           <a th:if="${currentUser != null}" class="btn btn-primary" th:href="@{/portal}">
-            Về trang của tôi →
+            <span>Về trang của tôi</span>
+            <svg th:replace="~{fragments/icons :: arrow-right}"></svg>
           </a>
         </div>
       </section>

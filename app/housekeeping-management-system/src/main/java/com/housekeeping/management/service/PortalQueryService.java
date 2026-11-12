@@ -8,7 +8,7 @@ import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.time.ZoneId;
 import java.util.List;
-import com.housekeeping.management.domain.FeedbackTopic;
+import com.housekeeping.management.enums.FeedbackTopic;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;

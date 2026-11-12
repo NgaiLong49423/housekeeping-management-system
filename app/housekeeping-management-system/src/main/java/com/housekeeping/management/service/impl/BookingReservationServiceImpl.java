@@ -1,5 +1,7 @@
 package com.housekeeping.management.service.impl;
 
+import com.housekeeping.management.enums.ServiceStatus;
+import com.housekeeping.management.enums.TravelStatus;
 import com.housekeeping.management.integration.vietmap.VietmapClient;
 import com.housekeeping.management.service.BookingReservationService;
 import com.housekeeping.management.service.HouseService;
@@ -8,7 +10,7 @@ import com.housekeeping.management.service.ServiceManagementService;
 import com.housekeeping.management.service.StaffManagementService;
 import com.housekeeping.management.service.CompanySettingsService;
 
-import com.housekeeping.management.domain.StaffType;
+import com.housekeeping.management.enums.StaffType;
 import com.housekeeping.management.entity.Services;
 import com.housekeeping.management.entity.House;
 import com.housekeeping.management.entity.Staff;
@@ -260,7 +262,7 @@ public class BookingReservationServiceImpl implements BookingReservationService 
         List<BookingPersistenceRepository.ServiceSnapshot> selected = new ArrayList<>(requestedIds.size());
         for (Long id : requestedIds) {
             Services service = byId.get(id);
-            if (service == null || service.getStatus() != Services.Status.ACTIVE) {
+            if (service == null || service.getStatus() != ServiceStatus.ACTIVE) {
                 throw new IllegalArgumentException("Một dịch vụ đã ngừng hoạt động hoặc không tồn tại.");
             }
             selected.add(new BookingPersistenceRepository.ServiceSnapshot(service.getServiceId(),

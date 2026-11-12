@@ -4,10 +4,12 @@ ALTER TABLE dbo.Feedback_Case_Evidence ADD media_type VARCHAR(20) NOT NULL
     content_type VARCHAR(100) NULL,
     original_name NVARCHAR(255) NULL,
     external_url NVARCHAR(1000) NULL;
-ALTER TABLE dbo.Feedback_Case_Evidence ADD CONSTRAINT CK_Feedback_Case_Evidence_Media_Source
-    CHECK ((image_path IS NOT NULL AND external_url IS NULL) OR (image_path IS NULL AND external_url IS NOT NULL));
-ALTER TABLE dbo.Feedback_Case_Evidence ADD CONSTRAINT CK_Feedback_Case_Evidence_Media_Type
-    CHECK (media_type IN ('IMAGE','PDF','VIDEO','DRIVE_LINK'));
+EXEC sys.sp_executesql N'
+    ALTER TABLE dbo.Feedback_Case_Evidence ADD CONSTRAINT CK_Feedback_Case_Evidence_Media_Source
+        CHECK ((image_path IS NOT NULL AND external_url IS NULL) OR (image_path IS NULL AND external_url IS NOT NULL));
+    ALTER TABLE dbo.Feedback_Case_Evidence ADD CONSTRAINT CK_Feedback_Case_Evidence_Media_Type
+        CHECK (media_type IN (''IMAGE'',''PDF'',''VIDEO'',''DRIVE_LINK''));
+';
 ALTER TABLE dbo.Feedback_Cases ADD resolution_workflow_required BIT NOT NULL
     CONSTRAINT DF_Feedback_Cases_Resolution_Workflow DEFAULT 0;
 

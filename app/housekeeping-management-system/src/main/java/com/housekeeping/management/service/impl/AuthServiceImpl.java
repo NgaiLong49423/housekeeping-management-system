@@ -4,8 +4,8 @@ import com.housekeeping.management.service.AuthService;
 import com.housekeeping.management.service.GlobalEmailUniquenessService;
 import com.housekeeping.management.service.StaffManagementService;
 
-import com.housekeeping.management.domain.UserRole;
-import com.housekeeping.management.domain.UserStatus;
+import com.housekeeping.management.enums.UserRole;
+import com.housekeeping.management.enums.UserStatus;
 import com.housekeeping.management.entity.User;
 import com.housekeeping.management.repository.UserRepository;
 import com.housekeeping.management.web.PortalUser;

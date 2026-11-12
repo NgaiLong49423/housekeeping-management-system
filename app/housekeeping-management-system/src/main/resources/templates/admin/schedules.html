@@ -5,29 +5,42 @@
     <header th:replace="~{fragments/layout :: header('schedules')}"></header>
     <main id="main" class="container py-4 py-md-5">
       <div class="page-heading">
-        <span class="eyebrow">Theo dõi lịch nhân viên</span>
+        <span class="eyebrow">
+          <svg th:replace="~{fragments/icons :: clock}"></svg>
+          <span>Theo dõi lịch nhân viên</span>
+        </span>
         <h1>Lịch sẵn sàng toàn hệ thống</h1>
-        <p class="lead">Các khoảng sẵn sàng do nhân viên bán thời gian đăng ký, theo giờ Việt Nam (UTC+7).</p>
+        <p class="lead">Các khoảng sẵn sàng do nhân viên bán thời gian đăng ký, hiển thị theo giờ Việt Nam.</p>
       </div>
       <div th:replace="~{fragments/layout :: alerts}"></div>
       <section class="surface p-4">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 pb-2 border-bottom">
+          <h2 class="h5 mb-0">Khung giờ sẵn sàng đã đăng ký</h2>
+          <span class="badge rounded-pill bg-light text-secondary border small" th:text="${#lists.size(schedules)} + ' ca rảnh'">0 ca rảnh</span>
+        </div>
         <div class="empty-state py-5" th:if="${#lists.isEmpty(schedules)}">
-          <span class="empty-icon" aria-hidden="true">⏱</span>
+          <div class="empty-illustration">
+            <svg th:replace="~{fragments/icons :: illustration-schedules}"></svg>
+          </div>
           <h3>Chưa có khoảng sẵn sàng</h3>
-          <p>Nhân viên chưa đăng ký khoảng thời gian nào.</p>
+          <p class="mb-0">Chưa có nhân viên bán thời gian nào khai báo ca rảnh sắp tới. Nhân viên toàn thời gian vẫn nhận lịch tự động theo khung giờ mở cửa của công ty.</p>
         </div>
         <div class="table-responsive" th:unless="${#lists.isEmpty(schedules)}">
-          <table class="table align-middle">
+          <table class="table table-zebra table-stack-mobile align-middle">
             <thead><tr><th>Nhân viên</th><th>Ngày</th><th>Bắt đầu</th><th>Kết thúc</th></tr></thead>
             <tbody>
               <tr th:each="slot : ${schedules}">
-                <td th:text="${slot.staffName}">Nhân viên</td>
-                <td th:text="${#temporals.format(slot.start, 'dd/MM/yyyy')}">Ngày</td>
-                <td th:text="${#temporals.format(slot.start, 'HH:mm')}">08:00</td>
-                <td th:text="${#temporals.format(slot.end, 'HH:mm')}">12:00</td>
+                <td data-label="Nhân viên"><strong class="text-dark" th:text="${ui.label(slot.staffName)}">Nhân viên</strong></td>
+                <td data-label="Ngày" th:text="${#temporals.format(slot.start, 'dd/MM/yyyy')}">Ngày</td>
+                <td data-label="Bắt đầu"><span class="meta-chip font-monospace" th:text="${#temporals.format(slot.start, 'HH:mm')}">08:00</span></td>
+                <td data-label="Kết thúc"><span class="meta-chip font-monospace" th:text="${#temporals.format(slot.end, 'HH:mm')}">12:00</span></td>
               </tr>
             </tbody>
           </table>
+          <div class="table-footer-bar">
+            <span th:text="'Hiển thị ' + ${#lists.size(schedules)} + ' khoảng sẵn sàng'">Hiển thị 0 khoảng sẵn sàng</span>
+            <span>Tính theo giờ Việt Nam</span>
+          </div>
         </div>
       </section>
     </main>

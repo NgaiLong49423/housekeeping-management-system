@@ -1,0 +1,29 @@
+# ==============================================================================
+# Housekeeping Management System - Cấu hình môi trường Local (Ví dụ)
+# ==============================================================================
+# Hướng dẫn:
+# 1. Sao chép file này thành application-local.properties (hoặc .env)
+# 2. Điều chỉnh thông số kết nối Microsoft SQL Server của máy bạn
+# 3. File cá nhân không nên commit lên Git để tránh ghi đè mật khẩu của nhau
+# ==============================================================================
+
+# Cổng khởi chạy ứng dụng (Mặc định: 8080)
+server.port=8080
+
+# Cấu hình kết nối Microsoft SQL Server
+# Lưu ý: Cần bật TCP/IP và xác thực Mixed Mode (SQL Server and Windows Authentication)
+spring.datasource.url=jdbc:sqlserver://localhost:1433;databaseName=Housekeeping_Database;encrypt=true;trustServerCertificate=true
+spring.datasource.username=sa
+spring.datasource.password=YourStrongPasswordHere
+
+# Khởi tạo lại Database khi start (true: xóa và tạo lại sạch dữ liệu; false: bảo toàn dữ liệu hiện có)
+app.database.reset-on-startup=false
+
+# Cấu hình cổng thanh toán VNPay Sandbox (Tùy chọn)
+app.payment.vnpay.tmn-code=
+app.payment.vnpay.hash-secret=
+app.payment.vnpay.pay-url=https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
+app.payment.vnpay.return-url=http://localhost:8080/payments/vnpay/return
+
+# Cấu hình VietMap API định tuyến & tính khoảng cách (Tùy chọn cho môi trường local)
+app.maps.vietmap.api-key=demo-local-vietmap-key

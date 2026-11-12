@@ -12,6 +12,19 @@ Ghi các thay đổi đáng chú ý theo thứ tự mới nhất trước. File 
 ## [Unreleased]
 
 ### Added
+- Tái cấu trúc và nâng cấp toàn diện Tính năng Quản lý Hủy đơn & Phí phạt (Order Cancellation & Penalty Policy) theo mô hình bTaskee:
+  - **Thay đổi Schema CSDL (Flyway V32):** Mở rộng bảng `Bookings` (`cancellation_fee`, `refund_amount`, `reschedule_count`), mở rộng bảng `Users` (`unpaid_penalty_debt`, `allow_cod`, `suspended_until`, enum `SUSPENDED`), tạo mới 3 bảng tài chính `UserWallets`, `WalletTransactions` và nhật ký `CancellationLogs`.
+  - **Ràng buộc Chống quỵt nợ phạt (Anti-Default / Debt Enforcement):** Khách hủy đơn tiền mặt (COD) bị ghi nhận nợ phạt vào `unpaid_penalty_debt` và bị cưỡng chế khóa quyền đặt đơn mới cho tới khi hoàn tất thanh toán.
+  - **Ràng buộc Chống "bom" đơn 30 ngày (Anti-Fraud Abuse Control):** Tự động phát cảnh báo (lần 1), tước quyền thanh toán tiền mặt `allow_cod = false` (lần 2), và tạm đình chỉ tài khoản 7 ngày `status = SUSPENDED` (lần 3 trở lên).
+  - **Ràng buộc Bảo vệ CTV (Worker Compensation):** Tự động trích 80% phí phạt chuyển thẳng vào ví `UserWallets` của CTV để bù đắp chi phí di chuyển và thời gian chờ ca; 20% thuộc về sàn.
+  - **Ràng buộc Chống Race Condition (Concurrency Protection):** Khóa bi quan `PESSIMISTIC_WRITE` (`SELECT ... WITH (UPDLOCK, ROWLOCK)`) trên đơn hàng, chặn tuyệt đối hủy đơn khi CTV đã bấm bắt đầu làm (`workStartedAt != null`) hoặc đơn đã hoàn thành (`COMPLETED`).
+  - **Ràng buộc Miễn trừ hợp lý:** Ân hạn 10 phút đầu sau đặt, miễn phí nếu đơn chưa có CTV nhận, miễn phí 100% nếu CTV đến trễ > 15 phút chưa check-in với lý do `WORKER_LATE`.
+  - **REST API Endpoints:** `GET /api/bookings/{id}/cancellation-preview` (xem trước mức phạt, tiền hoàn, quyền dời lịch) và `POST /api/bookings/{id}/cancel` (hủy đơn có mã lý do).
+  - **Unit Test Suite:** Bổ sung `BookingCancellationPolicyServiceTest` với 8 kịch bản kiểm thử, nâng tổng số test cases đạt chuẩn lên 306 bài kiểm thử thành công (`BUILD SUCCESS`).
+- Tinh chỉnh giao diện đặt lịch và danh mục dịch vụ:
+  - Trang chủ (`/`): Giới hạn hiển thị 4 dịch vụ tiêu biểu kèm nút "Xem tất cả dịch vụ" chuyển hướng sang `/services`.
+  - Trang đặt lịch Bước 01 (`/customer/bookings/new`): Thu gọn danh sách dịch vụ với 4 mục ban đầu kèm nút bo tròn "Xem thêm dịch vụ khác / Thu gọn" linh hoạt.
+  - Trang đặt lịch Bước 03 & 04: Bộ lọc nghiêm ngặt nhân viên yêu thích (`favorite == true`), tự động chốt ca và ẩn hoàn toàn "Bước 2: Chọn nhân viên" ở Bước 04 khi khách hàng đã chọn người yêu thích.
 - PayOS payment-link checkout with persistent attempts, signed/idempotent webhook confirmation, Customer checkout status, and integration setup documentation; legacy MoMo payment rows remain readable but are no longer an active checkout method.
 - `database/setup-demo.sql` tạo database/login demo riêng, chạy lại không xóa dữ liệu; profile `demo` có sẵn kết nối tương ứng để người clone chỉ cần chạy SQL rồi Run `Housekeeping Demo`, không bắt buộc tạo `.env`.
 - Profile `demo` nạp dữ liệu mẫu vào database SQL Server riêng bằng Flyway migration, không dùng lớp Java seeder; hướng dẫn tài khoản demo và `.env.example` được đồng bộ.

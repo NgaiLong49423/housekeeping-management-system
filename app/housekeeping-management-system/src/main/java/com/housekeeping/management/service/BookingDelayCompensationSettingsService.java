@@ -1,6 +1,6 @@
 package com.housekeeping.management.service;
 
-import com.housekeeping.management.domain.BookingDelayCompensation.Tier;
+import com.housekeeping.management.dto.BookingDelayCompensation.Tier;
 import java.util.List;
 
 public interface BookingDelayCompensationSettingsService {

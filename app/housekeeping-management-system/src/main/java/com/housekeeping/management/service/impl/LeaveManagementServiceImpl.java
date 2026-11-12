@@ -5,7 +5,7 @@ import com.housekeeping.management.service.BookingReservationService;
 import com.housekeeping.management.service.StaffManagementService;
 import com.housekeeping.management.service.AuthService;
 
-import com.housekeeping.management.domain.LeaveStatus;
+import com.housekeeping.management.enums.LeaveStatus;
 import com.housekeeping.management.dto.request.PortalForms.LeaveRequestForm;
 import com.housekeeping.management.dto.entity.StaffLeaveDTO;
 import com.housekeeping.management.dto.response.PortalViews.LeaveCard;

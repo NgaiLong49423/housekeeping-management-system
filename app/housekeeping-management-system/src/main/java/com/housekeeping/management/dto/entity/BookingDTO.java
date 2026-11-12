@@ -1,6 +1,6 @@
 package com.housekeeping.management.dto.entity;
 
-import com.housekeeping.management.domain.BookingStatus;
+import com.housekeeping.management.enums.BookingStatus;
 import com.housekeeping.management.entity.Booking;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;

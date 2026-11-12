@@ -2,7 +2,7 @@ package com.housekeeping.management.service.impl;
 
 import com.housekeeping.management.service.BookingDelayCompensationSettingsService;
 
-import com.housekeeping.management.domain.BookingDelayCompensation.Tier;
+import com.housekeeping.management.dto.BookingDelayCompensation.Tier;
 import com.housekeeping.management.repository.BookingDelayCompensationRepository;
 import com.housekeeping.management.entity.BookingDelayCompensationTier;
 import java.util.List;

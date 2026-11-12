@@ -1,7 +1,7 @@
 package com.housekeeping.management.service.impl;
 
 import com.housekeeping.management.repository.UserRepository;
-import com.housekeeping.management.service.DuplicateEmailException;
+import com.housekeeping.management.exception.DuplicateEmailException;
 import com.housekeeping.management.service.GlobalEmailUniquenessService;
 import java.util.function.Function;
 import org.springframework.stereotype.Service;
