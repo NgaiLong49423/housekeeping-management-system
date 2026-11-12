@@ -98,6 +98,7 @@ class PortalMvcTest {
     @MockitoBean AdminAccountService adminAccounts;
     @MockitoBean com.housekeeping.management.service.CustomerManagementService customerManagement;
     @MockitoBean AccountAuthorizationService accountAuthorization;
+    @MockitoBean PasswordChangeService passwordChanges;
 
     private final PortalUser customer = account(1L, "CUSTOMER", "Khách hàng kiểm thử");
     private final PortalUser staff = new PortalUser(2L, 22L, "staff@example.test", "unused-hash", "Nhân viên kiểm thử", "STAFF");
@@ -990,6 +991,105 @@ class PortalMvcTest {
             assertThat(((PortalUser) context.getAuthentication().getPrincipal()).getRole()).isEqualTo(user.getRole());
             mvc.perform(get("/portal").with(user(user))).andExpect(redirectedUrl("/" + user.getRole().toLowerCase() + "/bookings"));
         }
+    }
+
+    @Test
+    void firstLoginWithTemporaryPasswordGoesDirectlyToChangePassword() throws Exception {
+        PortalUser newStaff = new PortalUser(22L, 22L, "new-staff@example.test",
+                encoder.encode("temporary-password"), "Nhân viên mới", "STAFF", false, null, true);
+        when(identity.loadUserByUsername("new-staff@example.test")).thenReturn(newStaff);
+
+        mvc.perform(post("/login").with(csrf()).param("email", "new-staff@example.test")
+                        .param("password", "temporary-password"))
+                .andExpect(redirectedUrl("/account/change-password"));
+    }
+
+    @Test
+    void temporaryPasswordSessionCannotOpenOtherRoutesButCanOpenChangePageAndLogout() throws Exception {
+        PortalUser forcedStaff = new PortalUser(2L, 22L, staff.getUsername(), "unused-hash",
+                staff.getDisplayName(), "STAFF", false, null, true);
+        when(passwordChanges.isPasswordChangeRequired(22L)).thenReturn(true);
+
+        mvc.perform(get("/staff/bookings").with(user(forcedStaff)))
+                .andExpect(redirectedUrl("/account/change-password"));
+        mvc.perform(get("/portal").with(user(forcedStaff)))
+                .andExpect(redirectedUrl("/account/change-password"));
+        mvc.perform(get("/login").with(user(forcedStaff)))
+                .andExpect(redirectedUrl("/account/change-password"));
+        mvc.perform(post("/staff/schedules/day").with(user(forcedStaff)).with(csrf())
+                        .param("staffId", "22").param("workDate", "2026-11-16")
+                        .param("startTime", "08:00").param("endTime", "12:00"))
+                .andExpect(redirectedUrl("/account/change-password"));
+        mvc.perform(post("/account/change-password").with(user(forcedStaff)))
+                .andExpect(status().isForbidden());
+
+        mvc.perform(get("/account/change-password").with(user(forcedStaff)))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Mật khẩu hiện tại")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Xác nhận mật khẩu mới")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("/staff/bookings"))));
+        mvc.perform(post("/logout").with(user(forcedStaff)).with(csrf()))
+                .andExpect(redirectedUrl("/"));
+
+        PortalUser forcedAdmin = new PortalUser(3L, 3L, admin.getUsername(), "temporary-hash",
+                admin.getDisplayName(), "ADMIN", false, null, true);
+        when(passwordChanges.isPasswordChangeRequired(3L)).thenReturn(true);
+        mvc.perform(get("/admin/accounts").with(user(forcedAdmin)))
+                .andExpect(redirectedUrl("/account/change-password"));
+    }
+
+    @Test
+    void staleTemporaryPasswordSessionCanContinueAfterAnotherSessionChangesPassword() throws Exception {
+        PortalUser stalePrincipal = new PortalUser(2L, 22L, staff.getUsername(), "old-hash",
+                staff.getDisplayName(), "STAFF", false, null, true);
+        when(passwordChanges.isPasswordChangeRequired(22L)).thenReturn(false);
+
+        mvc.perform(get("/portal").with(user(stalePrincipal)))
+                .andExpect(redirectedUrl("/staff/bookings"));
+        mvc.perform(get("/account/change-password").with(user(stalePrincipal)))
+                .andExpect(redirectedUrl("/portal"));
+    }
+
+    @Test
+    void successfulPasswordChangeRefreshesSessionAndContinuesToRolePortal() throws Exception {
+        PortalUser forcedStaff = new PortalUser(2L, 22L, staff.getUsername(), "temporary-hash",
+                staff.getDisplayName(), "STAFF", false, null, true);
+        PortalUser updatedStaff = new PortalUser(2L, 22L, staff.getUsername(), "new-hash",
+                staff.getDisplayName(), "STAFF", false, null, false);
+        when(passwordChanges.isPasswordChangeRequired(22L)).thenReturn(true);
+        when(identity.loadUserByUsername(staff.getUsername())).thenReturn(updatedStaff);
+
+        MvcResult changed = mvc.perform(post("/account/change-password").with(user(forcedStaff)).with(csrf())
+                        .param("currentPassword", "temporary-password")
+                        .param("newPassword", "new-password")
+                        .param("confirmPassword", "new-password"))
+                .andExpect(redirectedUrl("/portal"))
+                .andReturn();
+
+        verify(passwordChanges).changePassword(eq(22L), any(com.housekeeping.management.dto.request.PortalForms.ChangePasswordForm.class));
+        var session = (org.springframework.mock.web.MockHttpSession) changed.getRequest().getSession(false);
+        SecurityContext context = (SecurityContext) session.getAttribute("SPRING_SECURITY_CONTEXT");
+        assertThat(((PortalUser) context.getAuthentication().getPrincipal()).isMustChangePassword()).isFalse();
+        mvc.perform(get("/portal").session(session)).andExpect(redirectedUrl("/staff/bookings"));
+    }
+
+    @Test
+    void failedPasswordChangeShowsErrorWithoutEchoingSubmittedPasswords() throws Exception {
+        PortalUser forcedStaff = new PortalUser(2L, 22L, staff.getUsername(), "temporary-hash",
+                staff.getDisplayName(), "STAFF", false, null, true);
+        when(passwordChanges.isPasswordChangeRequired(22L)).thenReturn(true);
+        org.mockito.Mockito.doThrow(new IllegalArgumentException("Mật khẩu hiện tại không chính xác."))
+                .when(passwordChanges).changePassword(eq(22L),
+                        any(com.housekeeping.management.dto.request.PortalForms.ChangePasswordForm.class));
+
+        mvc.perform(post("/account/change-password").with(user(forcedStaff)).with(csrf())
+                        .param("currentPassword", "wrong-secret-123")
+                        .param("newPassword", "new-secret-123")
+                        .param("confirmPassword", "new-secret-123"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Mật khẩu hiện tại không chính xác.")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("wrong-secret-123"))))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("new-secret-123"))));
     }
 
     @Test

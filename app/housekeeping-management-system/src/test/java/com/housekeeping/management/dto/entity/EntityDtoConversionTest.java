@@ -162,11 +162,13 @@ class EntityDtoConversionTest {
 
     @Test
     void userConversionRequiresHashSeparatelyAndNeverReturnsIt() {
-        UserDTO dto = new UserDTO(1L, "Customer", "customer@example.test", "0900", UserRole.CUSTOMER, UserStatus.ACTIVE);
+        UserDTO dto = new UserDTO(1L, "Customer", "customer@example.test", "0900",
+                UserRole.CUSTOMER, UserStatus.ACTIVE, true);
         User entity = dto.convertDTOToEntity("encoded-hash");
 
         assertThat(UserDTO.convertEntityToDTO(entity)).isEqualTo(dto);
         assertThat(entity.getPasswordHash()).isEqualTo("encoded-hash");
+        assertThat(entity.isMustChangePassword()).isTrue();
         assertThat(java.util.Arrays.stream(UserDTO.class.getRecordComponents())
                 .map(java.lang.reflect.RecordComponent::getName).toList()).doesNotContain("passwordHash");
     }

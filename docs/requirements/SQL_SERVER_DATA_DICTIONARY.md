@@ -1,8 +1,8 @@
 > **Document:** SQL Server Data Dictionary\
 > **File:** `docs/requirements/SQL_SERVER_DATA_DICTIONARY.md`\
-> **Version:** v5.9.0\
+> **Version:** v5.10.0\
 > **Created:** 2026-10-24\
-> **Last Updated:** 2026-11-12\
+> **Last Updated:** 2026-11-13\
 > **Status:** Active\
 # Từ điển dữ liệu SQL Server — 26 bảng
 
@@ -93,8 +93,9 @@ V37 (dùng chung cho cả hai database) thêm ba cột vào `Users` để lưu l
 Recommended Java: `Long`, `BigDecimal`, `LocalDate`, `LocalTime`, `LocalDateTime` cho local business time; xác định múi giờ ở application boundary trước khi code theo thời gian. Lat/lng `BigDecimal` (`DECIMAL(10,7)`). Với collations/email uniqueness kiểm tra case-insensitivity thực tế trên SQL Server; tránh phụ thuộc vào mặc định môi trường. Tên physical bảng và cột giữ nguyên theo logical contract trong DDL và `@Table/@Column`.
 
 ## 1. Users
-`user_id PK BIGINT IDENTITY`, `full_name NVARCHAR(150) NOT NULL`, `email NVARCHAR(255) NOT NULL UNIQUE`, `password_hash NVARCHAR(255) NOT NULL`, `phone NVARCHAR(20) NOT NULL`, `role VARCHAR(20) NOT NULL CHECK CUSTOMER/STAFF/ADMIN/MANAGER`, `status VARCHAR(20) NOT NULL DEFAULT ACTIVE CHECK ACTIVE/INACTIVE`. V15 chuyển người quản lý hiện hữu từ `ADMIN` + cờ V10 sang `MANAGER`, bỏ `can_manage_incidents`, và tạo filtered unique index `UX_Users_Single_Manager` bảo đảm chỉ tồn tại một hàng Manager. Manager có toàn bộ quyền Admin; chỉ Manager được tạo/khóa Admin và duyệt khoản tài chính/quyết định xử lý Staff.
+`user_id PK BIGINT IDENTITY`, `full_name NVARCHAR(150) NOT NULL`, `email NVARCHAR(255) NOT NULL UNIQUE`, `password_hash NVARCHAR(255) NOT NULL`, `phone NVARCHAR(20) NOT NULL`, `role VARCHAR(20) NOT NULL CHECK CUSTOMER/STAFF/ADMIN/MANAGER`, `status VARCHAR(20) NOT NULL DEFAULT ACTIVE CHECK ACTIVE/INACTIVE`, `must_change_password BIT NOT NULL DEFAULT 0`. V15 chuyển người quản lý hiện hữu từ `ADMIN` + cờ V10 sang `MANAGER`, bỏ `can_manage_incidents`, và tạo filtered unique index `UX_Users_Single_Manager` bảo đảm chỉ tồn tại một hàng Manager. Manager có toàn bộ quyền Admin; chỉ Manager được tạo/khóa Admin và duyệt khoản tài chính/quyết định xử lý Staff.
 V37 thêm `status_reason NVARCHAR(500) NULL`, `status_changed_at DATETIME2(0) NULL`, `status_changed_by BIGINT NULL FK -> Users`. CHECK `CK_Users_StatusReasonOnlyWhenLocked`: lý do chỉ có khi `status = INACTIVE` và không rỗng; CHECK `CK_Users_StatusChangeAudit`: `status_changed_at` và `status_changed_by` cùng NULL hoặc cùng có giá trị. Mọi lần khóa mới (Customer, Staff, Admin) bắt buộc có lý do 5–500 ký tự; mở khóa xóa lý do và ghi người/thời điểm mở. Tài khoản đã khóa trước V37 giữ lý do NULL. Phân quyền khóa: Manager khóa được Customer, Staff, Admin; Admin khóa được Customer và Staff, không khóa Admin khác. Customer hoặc Staff còn Booking `CONFIRMED`/`AWAITING_PAYMENT` thì chưa khóa được.
+V40 thêm `must_change_password` với mặc định `0`, vì vậy không buộc tài khoản hiện hữu hoặc tài khoản seed đổi mật khẩu. Khi Admin tạo Staff hoặc Manager tạo Admin, ứng dụng đặt thành `1`; lần đăng nhập đầu tiên chỉ được đổi mật khẩu hoặc đăng xuất. Đổi thành công cập nhật hash và xóa cờ trong cùng transaction.
 
 **Không** có created_at/updated_at. Backend role authorization.
 

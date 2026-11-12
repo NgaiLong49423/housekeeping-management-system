@@ -98,6 +98,16 @@ public final class PortalForms {
     public record CustomerRegistrationForm(@NotBlank @Size(max = 150) String name,
             @NotBlank @Email @Size(max = 255) String email, @NotBlank @Size(max = 20) String phone,
             @NotBlank @Size(min = 8, max = 72) String password, @NotBlank @Size(max = 72) String confirmPassword) { }
+    public record ChangePasswordForm(
+            @NotBlank(message = "Vui lòng nhập mật khẩu hiện tại.") @Size(max = 72) String currentPassword,
+            @NotBlank(message = "Vui lòng nhập mật khẩu mới.") @Size(min = 8, max = 72,
+                    message = "Mật khẩu mới phải có từ 8 đến 72 ký tự.") String newPassword,
+            @NotBlank(message = "Vui lòng xác nhận mật khẩu mới.") @Size(max = 72) String confirmPassword) {
+        @Override
+        public String toString() {
+            return "ChangePasswordForm[credentials=PROTECTED]";
+        }
+    }
     public record AdminAccountForm(@NotBlank @Size(max = 150) String name,
             @NotBlank @Email @Size(max = 255) String email, @NotBlank @Size(max = 20) String phone,
             @NotBlank @Size(min = 8, max = 72) String password) { }

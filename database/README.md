@@ -1,8 +1,8 @@
 > **Document:** Database Guide\
 > **File:** `database/README.md`\
-> **Version:** v3.7.0\
+> **Version:** v3.8.0\
 > **Created:** 2026-06-14\
-> **Last Updated:** 2026-11-12\
+> **Last Updated:** 2026-11-13\
 > **Status:** Draft\
 
 # Hướng dẫn database
@@ -27,7 +27,7 @@ Tạo SQL login riêng và map vào database demo; cấp quyền DDL cần thi�
 
 - `app/housekeeping-management-system/src/main/resources/db/primary/` là baseline của database chính `Housekeeping_Database`; Flyway ghi nhận lịch sử mới trong `flyway_primary_schema_history` để không sửa hay repair lịch sử cũ. Flyway tạo baseline version `0` rồi áp dụng V1; migration V1 chỉ cho phép database chính/acceptance rỗng (ngoại trừ hai bảng lịch sử Flyway).
 - `app/housekeeping-management-system/src/main/resources/db/refactor/` giữ baseline cho profile demo và bộ kiểm thử của profile đó; V7 chỉ seed Booking thử trong `home_cleaning_demo`.
-- `app/housekeeping-management-system/src/main/resources/db/shared/` chứa migration version dùng chung sau baseline; cả profile mặc định và `demo` nạp các migration dùng chung mới nhất đến V32 (các số version có khoảng trống lịch sử). V5 thêm ngày hiệu lực cho phiên bản giờ hoạt động.
+- `app/housekeeping-management-system/src/main/resources/db/shared/` chứa migration version dùng chung sau baseline; cả profile mặc định và `demo` nạp các migration dùng chung mới nhất đến V40 (các số version có khoảng trống lịch sử). V5 thêm ngày hiệu lực cho phiên bản giờ hoạt động.
 - Migration dùng chung V6 thêm thời điểm Staff xác nhận đến và báo sự cố trên `Bookings`; schema vẫn có 15 bảng nghiệp vụ. Hành vi báo sự cố được mở rộng tại V32.
 - Migration V8 thêm ETA, phản hồi Customer, giờ bắt đầu việc và các trường giảm trễ; không thêm bảng. Đây là schema nền, được V32 mở rộng thành lịch sử ETA riêng và đồng thuận cho từng mốc cụ thể. V12 cho phép bắt đầu sau khi có xác nhận đã đến, kể cả trước giờ hẹn; hành vi xác minh/khóa tranh chấp được cập nhật tại V31/V32. Mức giảm theo tier chỉ tính từ giờ đến đã xác minh.
 - Migration dùng chung V9 thêm rating và chủ đề cho `Feedbacks`, cho phép lời nhắn rỗng ở rating 4–5, giữ rating lịch sử là NULL và thêm trạng thái đã phản hồi trước khi resolve; không thêm bảng nghiệp vụ.
@@ -51,6 +51,7 @@ Tạo SQL login riêng và map vào database demo; cấp quyền DDL cần thi�
 - Migration demo-only V29 đồng bộ câu chữ của hai hồ sơ phản ánh, gắn một ảnh PNG minh họa vào tin Customer đầu tiên và ghi nhãn rõ trong tên ảnh/nội dung. Ảnh tài sản chỉ mô phỏng vết nứt; số tiền 120.000 ₫ chỉ là đề xuất demo, chưa được khách đồng ý, Manager duyệt hoặc chi. Migration không đổi schema và không sửa feedback ngoài hai hồ sơ demo. `DemoFeedbackEvidenceInstaller` chỉ chạy với profile `demo`, chép ảnh từ classpath vào `${app.evidence.storage-root}` trước reconciler và không ghi đè file đang có.
 - Migration demo-only V35 đổi họ tên tạm "… Demo" của năm tài khoản demo ban đầu (Customer, hai Staff, Admin, Manager) sang họ tên tiếng Việt, kèm tên người nhận trên địa chỉ của Customer demo; chỉ cập nhật khi tên tạm còn nguyên. Migration demo-only V33 thêm `staff3`–`staff7` (FULL_TIME/PART_TIME, có `Staff_Profiles.bio`) và `customer2`–`customer6@demo.gonnha.local`, mỗi Customer một địa chỉ nhà mặc định có tọa độ trong bán kính phục vụ tính từ `Company_Settings`. Mật khẩu dùng lại hash `Demo@12345` của V3; chèn theo `IF NOT EXISTS` trên email nên chạy lại không trùng. Cả hai không đổi schema và không chạy trên `Housekeeping_Database`.
 - Migration dùng chung V37 thêm `Users.status_reason`, `status_changed_at`, `status_changed_by` để lưu lý do khóa tài khoản và người/thời điểm đổi trạng thái gần nhất; CHECK chỉ cho phép lý do khi tài khoản ở trạng thái `INACTIVE`. Không thêm bảng và không đổi dữ liệu hiện có.
+- Migration dùng chung V40 thêm `Users.must_change_password` mặc định false; luồng Admin tạo Staff và Manager tạo Admin bật cờ để buộc đổi mật khẩu tạm ở lần đăng nhập đầu. Tài khoản hiện hữu không bị đánh dấu hồi tố.
 - Migration demo-only V39 thay địa chỉ tâm placeholder ban đầu và các địa chỉ placeholder/trùng của sáu Customer demo bằng các địa chỉ công khai có số nhà/tên đường, phường hiện hành và tọa độ trong bán kính phục vụ. Migration chỉ cập nhật `home_cleaning_demo`; địa chỉ tâm chỉ đổi nếu vẫn là placeholder nguyên bản. House cũ không còn Booking tham chiếu được xóa cùng thông tin người nhận/ghi chú; House có Booking tham chiếu được soft-delete để giữ FK và lịch sử. Sau đó tạo một địa chỉ mặc định đồng bộ cho mỗi Customer; không sửa snapshot địa chỉ trong Booking.
 - Migration demo-only V38 sửa địa chỉ placeholder chưa có tọa độ của `customer@demo.gonnha.local` thành địa chỉ mô phỏng đủ cụ thể, nằm trong bán kính phục vụ hiện tại. Chỉ sửa đúng địa chỉ mặc định còn nguyên dữ liệu placeholder trong `home_cleaning_demo`; không thay địa chỉ đã chỉnh hoặc dữ liệu database chính.
 - `db/migration/V1__create_initial_schema.sql`, `V2__add_momo_payment_attempts.sql`, `V3__replace_momo_with_payos.sql` là lịch sử của mô hình cũ. Giữ nguyên để bảo toàn lịch sử; không chỉnh nội dung migration đã áp dụng.

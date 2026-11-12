@@ -13,7 +13,7 @@
       <div class="col-md-6"><label class="form-label">Họ tên<input class="form-control" th:field="*{name}" maxlength="150" required></label></div>
       <div class="col-md-6"><label class="form-label">Email<input class="form-control" type="email" th:field="*{email}" maxlength="255" required></label></div>
       <div class="col-md-6"><label class="form-label">Số điện thoại<input class="form-control" th:field="*{phone}" maxlength="20" required></label></div>
-      <div class="col-md-6"><label class="form-label">Mật khẩu ban đầu<input class="form-control" type="password" th:field="*{password}" minlength="8" maxlength="72" autocomplete="new-password" required></label></div>
+      <div class="col-md-6"><label class="form-label">Mật khẩu tạm thời<input class="form-control" type="password" th:field="*{password}" minlength="8" maxlength="72" autocomplete="new-password" required></label><small class="text-secondary">Admin mới phải đổi mật khẩu ở lần đăng nhập đầu tiên.</small></div>
       <div class="col-12"><button class="btn btn-primary" type="submit">Tạo Admin</button></div>
     </form>
   </section>

@@ -1,8 +1,8 @@
 > **Document:** Software Requirements Specification\
 > **File:** `docs/requirements/SRS.md`\
-> **Version:** v7.1.0\
+> **Version:** v7.2.0\
 > **Created:** 2026-06-14\
-> **Last Updated:** 2026-11-12\
+> **Last Updated:** 2026-11-13\
 > **Status:** Active\
 # SRS — SOFTWARE REQUIREMENTS SPECIFICATION
 
@@ -35,8 +35,10 @@ One server-rendered Java Spring MVC web application, single company, SQL Server.
 ### FR-AUTH — Authentication and roles
 - FR-AUTH-01: `Users` là bảng xác thực duy nhất. Username/email unique, password_hash, status ACTIVE/INACTIVE, role CUSTOMER/STAFF/ADMIN/MANAGER. Chỉ có tối đa một Manager; Manager có toàn bộ quyền Admin và là vai trò duy nhất tạo/khóa Admin. Staff 1:1 với Users có role STAFF.
 - FR-AUTH-02: Spring Security HTTP Session và role-based access; ngăn User inactive; kiểm tra resource ownership và Staff assignment.
+- FR-AUTH-03: Tài khoản Staff do Admin tạo và Admin do Manager tạo có `must_change_password=true`; lần đăng nhập đầu tiên chỉ được mở trang đổi mật khẩu, thực hiện đổi mật khẩu hoặc đăng xuất. Tài khoản hiện hữu, Customer và Manager không thuộc hai luồng tạo này không bị buộc đổi. Đổi mật khẩu yêu cầu mật khẩu hiện tại, mật khẩu mới tối thiểu 8 ký tự/tối đa 72 byte UTF-8 và xác nhận trùng khớp; mật khẩu mới phải khác mật khẩu cũ. Cập nhật hash và tắt cờ nguyên tử.
 - AC-AUTH-01: Login các role qua một trang, password sai/inactive denied; Customer A cannot operate Customer B's House/Booking/Feedback; Manager vào được toàn bộ chức năng Admin, Admin không truy cập được quản trị tài khoản.
 - AC-AUTH-02: Không tồn tại cần thiết các bảng Customer, Admin, Accounts, Roles riêng trong schema mới.
+- AC-AUTH-03: Staff/Admin mới không thể truy cập URL hoặc thao tác nghiệp vụ trước khi đổi mật khẩu; sai mật khẩu hiện tại, xác nhận không khớp hoặc mật khẩu không hợp lệ không đổi hash/cờ. Đổi thành công duy trì session, cho phép vào portal theo role; lần đăng nhập tiếp theo không yêu cầu đổi lại. Tài khoản hiện hữu và Customer giữ nguyên hành vi.
 
 ### FR-SVC — Services
 - Admin xem/tạo/sửa/đổi ACTIVE/INACTIVE Service với name, description, optional image_url, price>=0, duration>0.

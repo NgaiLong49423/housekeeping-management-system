@@ -65,6 +65,7 @@ class ManagementServicesTest {
         assertThat(captured.getValue().getPasswordHash()).isEqualTo("bcrypt-hash");
         assertThat(captured.getValue().getRole()).isEqualTo(UserRole.CUSTOMER);
         assertThat(captured.getValue().getStatus()).isEqualTo(UserStatus.ACTIVE);
+        assertThat(captured.getValue().isMustChangePassword()).isFalse();
     }
 
     @Test
@@ -83,6 +84,7 @@ class ManagementServicesTest {
         verify(entities).persist(users.capture());
         verify(entities).persist(staff.capture());
         assertThat(users.getValue().getRole()).isEqualTo(UserRole.STAFF);
+        assertThat(users.getValue().isMustChangePassword()).isTrue();
         assertThat(staff.getValue().getUser()).isSameAs(users.getValue());
         assertThat(staff.getValue().getStaffType()).isEqualTo(StaffType.PART_TIME);
     }

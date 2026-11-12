@@ -11,6 +11,7 @@ public final class PortalUser extends User {
     private final String displayName;
     private final String role;
     private final String lockReason;
+    private final boolean mustChangePassword;
 
     public PortalUser(Long accountId, String email, String hash, String displayName, String role) {
         this(accountId, accountId, email, hash, displayName, role);
@@ -26,12 +27,18 @@ public final class PortalUser extends User {
      */
     public PortalUser(Long accountId, Long userId, String email, String hash, String displayName, String role,
             boolean locked, String lockReason) {
+        this(accountId, userId, email, hash, displayName, role, locked, lockReason, false);
+    }
+
+    public PortalUser(Long accountId, Long userId, String email, String hash, String displayName, String role,
+            boolean locked, String lockReason, boolean mustChangePassword) {
         super(email, hash, true, true, true, !locked, authorities(role));
         this.accountId = accountId;
         this.userId = userId;
         this.displayName = displayName;
         this.role = role;
         this.lockReason = locked ? lockReason : null;
+        this.mustChangePassword = mustChangePassword;
     }
 
     public String getLockReason() { return lockReason; }
@@ -40,6 +47,7 @@ public final class PortalUser extends User {
     public Long getUserId() { return userId; }
     public String getDisplayName() { return displayName; }
     public String getRole() { return role; }
+    public boolean isMustChangePassword() { return mustChangePassword; }
     public boolean isAdmin() { return "ADMIN".equals(role) || "MANAGER".equals(role); }
     public boolean isManager() { return "MANAGER".equals(role); }
 
