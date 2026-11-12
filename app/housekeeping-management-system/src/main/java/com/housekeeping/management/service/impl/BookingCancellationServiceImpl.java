@@ -27,17 +27,16 @@ public class BookingCancellationServiceImpl implements BookingCancellationServic
             throw new IllegalStateException("Công việc đã bắt đầu nên không thể hủy lịch.");
         }
         var now = OffsetDateTime.now(BUSINESS_OFFSET).withNano(0).toLocalDateTime();
-        boolean noShowDisputeOpen = booking.customerDelayReportedAt() != null && booking.arrivalVerifiedAt() == null;
-        boolean etaDisputeOpen = booking.incidentReportedAt() != null && booking.incidentExpectedArrivalAt() != null
-                && (booking.incidentCustomerResponse() == null || "EXPIRED".equals(booking.incidentCustomerResponse())
-                    || ("ACCEPTED".equals(booking.incidentCustomerResponse()) && now.isAfter(booking.incidentExpectedArrivalAt())));
-        boolean reportedStaffDelayCanCancel = (noShowDisputeOpen || etaDisputeOpen) && booking.workStartedAt() == null;
-        if (!reportedStaffDelayCanCancel && !BookingCancellationService.canCustomerCancel(
+        boolean declinedEta = "DECLINED".equals(booking.incidentCustomerResponse());
+        boolean missedAcceptedEta = "ACCEPTED".equals(booking.incidentCustomerResponse())
+                && booking.incidentExpectedArrivalAt() != null && now.isAfter(booking.incidentExpectedArrivalAt());
+        boolean etaAllowsFreeCancellation = (declinedEta || missedAcceptedEta) && booking.workStartedAt() == null;
+        if (!etaAllowsFreeCancellation && !BookingCancellationService.canCustomerCancel(
                 booking.status(), booking.startTime(), now, booking.workStartedAt())) {
             throw new IllegalStateException("Chỉ có thể hủy lịch đã xác nhận trước giờ bắt đầu ít nhất 2 giờ.");
         }
-        String reason = reportedStaffDelayCanCancel
-                ? "Khách hủy miễn phí do Staff đến trễ/chưa xác minh giờ đến."
+        String reason = etaAllowsFreeCancellation
+                ? "Khách hủy miễn phí do từ chối hoặc Staff lỡ ETA đã thống nhất."
                 : "Khách hàng yêu cầu hủy lịch.";
         if (bookings.cancelByCustomer(bookingId, customerId, reason, now) != 1) {
             throw new IllegalStateException("Trạng thái lịch hẹn vừa thay đổi. Hãy tải lại trang.");

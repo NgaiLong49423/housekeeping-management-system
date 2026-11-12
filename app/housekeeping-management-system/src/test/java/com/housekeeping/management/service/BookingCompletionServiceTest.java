@@ -82,22 +82,22 @@ class BookingCompletionServiceTest {
     }
 
     @Test
-    void customerReportedArrivalDisputeBlocksWorkUntilArrivalIsVerified() {
+    void customerReportedArrivalDoesNotBlockWorkWhenStaffSelfClaimedOnTime() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
         var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, mock(BookingImageRepository.class));
         var disputed = new BookingPersistenceRepository.BookingWorkflowState(42L, 3L, 7L, start,
-                start.plusHours(1), "CONFIRMED", new BigDecimal("150000"), start.plusMinutes(20), null,
+                start.plusHours(1), "CONFIRMED", new BigDecimal("150000"), start, null,
                 null, null, null, null, null, 15, BigDecimal.ZERO, BigDecimal.ZERO,
                 start.plusMinutes(10), null, null, null, null, null);
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(disputed));
 
-        assertThatThrownBy(() -> service.startBooking(42L, 7L))
-                .isInstanceOf(IllegalStateException.class).hasMessageContaining("xác minh");
-        verify(bookings, never()).startWork(any(), any(), any(), org.mockito.ArgumentMatchers.anyBoolean());
+        when(bookings.startWork(eq(42L), eq(7L), any(), eq(false))).thenReturn(1);
+        service.startBooking(42L, 7L);
+        verify(bookings).startWork(eq(42L), eq(7L), any(), eq(false));
     }
 
     @Test
-    void customerReportedDisputeAfterWorkStartedBlocksCompletion() {
+    void customerReportedDisputeDoesNotBlockCompletion() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
         BookingImageRepository images = mock(BookingImageRepository.class);
         var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, images);
@@ -106,10 +106,11 @@ class BookingCompletionServiceTest {
                 start.plusMinutes(3), null, null, null, null, null, null, BigDecimal.ZERO, BigDecimal.ZERO,
                 start.plusMinutes(10), null, null, null, null, null);
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(disputed));
+        when(images.existsByBookingId(42L)).thenReturn(true);
+        when(bookings.completeWork(eq(42L), eq(7L), any())).thenReturn(1);
 
-        assertThatThrownBy(() -> service.completeBooking(42L, 7L))
-                .isInstanceOf(IllegalStateException.class).hasMessageContaining("xác minh");
-        verify(bookings, never()).completeWork(any(), any(), any());
+        service.completeBooking(42L, 7L);
+        verify(bookings).completeWork(eq(42L), eq(7L), any());
     }
 
     @Test

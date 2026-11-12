@@ -173,10 +173,8 @@ public class PortalQueryServiceImpl implements PortalQueryService {
                     offset(b.getArrivalVerificationRecordedAt()), b.getArrivalVerifiedBy(),
                     b.getArrivalVerificationSource(), b.getArrivalVerificationNote(),
                     "CONFIRMED".equals(b.getStatus().name()) && b.getWorkStartedAt() == null
-                            && ((b.getCustomerDelayReportedAt() != null && b.getArrivalVerifiedAt() == null)
-                                || (b.getIncidentReportedAt() != null && b.getIncidentExpectedArrivalAt() != null
-                                    && (b.getIncidentCustomerResponse() == null || "EXPIRED".equals(b.getIncidentCustomerResponse())
-                                        || ("ACCEPTED".equals(b.getIncidentCustomerResponse()) && now.isAfter(b.getIncidentExpectedArrivalAt()))))
+                            && (("ACCEPTED".equals(b.getIncidentCustomerResponse())
+                                    && b.getIncidentExpectedArrivalAt() != null && now.isAfter(b.getIncidentExpectedArrivalAt()))
                                 || BookingCancellationService.canCustomerCancel(
                                     b.getStatus().name(), b.getStartTime(), now, b.getWorkStartedAt())));
         }).toList();

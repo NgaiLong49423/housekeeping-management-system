@@ -698,11 +698,10 @@ class PortalMvcTest {
     }
 
     @Test
-    void customerAndStaffMayConfirmArrivalBeforeScheduledStart() throws Exception {
+    void customerCanAcknowledgeStaffClaimAndStaffMustSelfConfirmArrival() throws Exception {
         String customerPage = mvc.perform(get("/customer/bookings/42").with(user(customer)))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
-        assertThat(customerPage).contains("Xác nhận nhân viên đã đến", "ghi nhận giờ có mặt thực tế")
-                .doesNotContain("Nút xác nhận sẽ mở lúc");
+        assertThat(customerPage).doesNotContain("Xác nhận giờ Staff khai là đúng");
 
         String staffPage = mvc.perform(get("/staff/bookings/42").with(user(staff)))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
@@ -714,6 +713,10 @@ class PortalMvcTest {
                 null, null, null, null, null, "0901234567", OffsetDateTime.now(ZoneOffset.ofHours(7)),
                 null, null, null, null, null, null, null, BigDecimal.ZERO, BigDecimal.ZERO, null, List.of(), List.of(), null);
         when(query.booking(eq(42L), any())).thenReturn(arrivedEarly);
+        String customerAcknowledgement = mvc.perform(get("/customer/bookings/42").with(user(customer)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(customerAcknowledgement).contains("Xác nhận giờ Staff khai là đúng",
+                "Staff vẫn phải tự xác nhận đến trước khi bắt đầu");
         String readyToStart = mvc.perform(get("/staff/bookings/42").with(user(staff)))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         assertThat(readyToStart).contains(">Bắt đầu công việc</button>").doesNotContain("Chỉ bắt đầu từ giờ hẹn");

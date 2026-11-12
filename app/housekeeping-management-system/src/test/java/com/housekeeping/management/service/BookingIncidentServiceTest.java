@@ -115,15 +115,11 @@ class BookingIncidentServiceTest {
         BookingDelayProposal proposal = pendingProposal(42L, 7L, start.plusMinutes(25));
         when(proposalRepository.findFirstByBookingIdOrderByProposalIdDesc(42L)).thenReturn(Optional.of(proposal));
         when(proposalRepository.respond(eq(proposal.getProposalId()), eq("ACCEPTED"), any())).thenReturn(1);
-        when(bookings.respondToIncident(eq(42L), eq(3L), eq("ACCEPTED"), any(), any(), any())).thenReturn(1);
+        when(bookings.respondToIncident(eq(42L), eq(3L), eq("ACCEPTED"), any())).thenReturn(1);
 
         service.respond(42L, 3L, "ACCEPTED");
 
-        ArgumentCaptor<BigDecimal> percent = ArgumentCaptor.forClass(BigDecimal.class);
-        ArgumentCaptor<BigDecimal> amount = ArgumentCaptor.forClass(BigDecimal.class);
-        verify(bookings).respondToIncident(eq(42L), eq(3L), eq("ACCEPTED"), any(), percent.capture(), amount.capture());
-        assertThat(percent.getValue()).isEqualByComparingTo("0");
-        assertThat(amount.getValue()).isEqualByComparingTo("0.00");
+        verify(bookings).respondToIncident(eq(42L), eq(3L), eq("ACCEPTED"), any());
     }
 
     @Test
@@ -139,10 +135,10 @@ class BookingIncidentServiceTest {
         BookingDelayProposal proposal = pendingProposal(42L, 7L, start.plusMinutes(15));
         when(proposalRepository.findFirstByBookingIdOrderByProposalIdDesc(42L)).thenReturn(Optional.of(proposal));
         when(proposalRepository.respond(eq(proposal.getProposalId()), eq("DECLINED"), any())).thenReturn(1);
-        when(bookings.respondToIncident(eq(42L), eq(3L), eq("DECLINED"), any(), any(), any())).thenReturn(1);
+        when(bookings.respondToIncident(eq(42L), eq(3L), eq("DECLINED"), any())).thenReturn(1);
 
         service.respond(42L, 3L, "DECLINED");
-        verify(bookings).respondToIncident(eq(42L), eq(3L), eq("DECLINED"), any(), eq(BigDecimal.ZERO), eq(BigDecimal.ZERO));
+        verify(bookings).respondToIncident(eq(42L), eq(3L), eq("DECLINED"), any());
         assertThatThrownBy(() -> service.respond(42L, 3L, "ACCEPTED"))
                 .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
     }

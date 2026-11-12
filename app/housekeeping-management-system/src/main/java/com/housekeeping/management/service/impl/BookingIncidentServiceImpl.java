@@ -84,8 +84,7 @@ public class BookingIncidentServiceImpl implements BookingIncidentService {
         if (now.isAfter(proposal.getExpectedArrivalAt())) {
             if ("DECLINED".equals(response)) {
                 if (proposals.respond(proposal.getProposalId(), "DECLINED", now) != 1
-                        || bookings.respondToIncident(bookingId, customerId, "DECLINED", now,
-                                java.math.BigDecimal.ZERO, java.math.BigDecimal.ZERO) != 1) {
+                        || bookings.respondToIncident(bookingId, customerId, "DECLINED", now) != 1) {
                     throw new IllegalStateException("Đề xuất ETA vừa thay đổi. Hãy tải lại trang.");
                 }
                 return;
@@ -100,8 +99,7 @@ public class BookingIncidentServiceImpl implements BookingIncidentService {
         if (proposals.respond(proposal.getProposalId(), response, now) != 1) {
             throw new IllegalStateException("Đề xuất ETA vừa được phản hồi. Hãy tải lại trang.");
         }
-        if (bookings.respondToIncident(bookingId, customerId, response, now,
-                java.math.BigDecimal.ZERO, java.math.BigDecimal.ZERO) != 1) {
+        if (bookings.respondToIncident(bookingId, customerId, response, now) != 1) {
             throw new IllegalStateException("Lịch vừa thay đổi. Hãy tải lại trang trước khi phản hồi.");
         }
     }

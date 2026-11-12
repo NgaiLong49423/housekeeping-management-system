@@ -226,13 +226,11 @@ public class BookingController {
         model.addAttribute("booking", booking);
         model.addAttribute("now", now);
         model.addAttribute("staffCanStartWork", "CONFIRMED".equals(booking.status())
-                && (booking.staffArrivedAt() != null || booking.arrivalVerifiedAt() != null)
+                && booking.staffArrivedAt() != null
                 && booking.workStartedAt() == null
-                && (booking.customerDelayReportedAt() == null || booking.arrivalVerifiedAt() != null)
                 && (booking.incidentReportedAt() == null || ("ACCEPTED".equals(booking.incidentCustomerResponse())
                     && booking.incidentExpectedArrivalAt() != null
-                    && ((booking.arrivalVerifiedAt() != null && !booking.arrivalVerifiedAt().isAfter(booking.incidentExpectedArrivalAt()))
-                        || (booking.staffArrivedAt() != null && !booking.staffArrivedAt().isAfter(booking.incidentExpectedArrivalAt()))))));
+                    && !booking.staffArrivedAt().isAfter(booking.incidentExpectedArrivalAt()))));
         model.addAttribute("details", details);
         model.addAttribute("bookingImages", query.bookingImages(id, user));
         if (user.isAdmin() || "CUSTOMER".equals(user.getRole())) model.addAttribute("assignableStaff", query.staff(user));

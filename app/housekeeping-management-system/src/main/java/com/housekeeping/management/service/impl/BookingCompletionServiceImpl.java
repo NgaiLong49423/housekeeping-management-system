@@ -29,16 +29,12 @@ public class BookingCompletionServiceImpl implements BookingCompletionService {
             throw new IllegalStateException("Lịch không còn ở trạng thái có thể bắt đầu.");
         }
         var now = java.time.LocalDateTime.now(java.time.ZoneOffset.ofHours(7)).withNano(0);
-        if (booking.staffArrivedAt() == null && booking.arrivalVerifiedAt() == null) {
+        if (booking.staffArrivedAt() == null) {
             throw new IllegalStateException("Hãy xác nhận đã đến trước khi bắt đầu công việc.");
         }
-        if (booking.customerDelayReportedAt() != null && booking.arrivalVerifiedAt() == null) {
-            throw new IllegalStateException("Customer đã báo Staff chưa đến. Cần Customer xác nhận giờ có mặt hoặc Admin xác minh trước khi bắt đầu.");
-        }
-        java.time.LocalDateTime effectiveArrival = booking.arrivalVerifiedAt() == null
-                ? booking.staffArrivedAt() : booking.arrivalVerifiedAt();
+        java.time.LocalDateTime effectiveArrival = booking.staffArrivedAt();
         boolean lateBeyondGrace = effectiveArrival.isAfter(booking.startTime());
-        if (lateBeyondGrace && booking.incidentReportedAt() == null && booking.arrivalVerifiedAt() == null) {
+        if (lateBeyondGrace && booking.incidentReportedAt() == null) {
             throw new IllegalStateException("Staff đến trễ cần gửi ETA cụ thể và chờ Customer đồng ý trước khi bắt đầu.");
         }
         if (booking.incidentReportedAt() != null && !"ACCEPTED".equals(booking.incidentCustomerResponse())) {
@@ -65,9 +61,6 @@ public class BookingCompletionServiceImpl implements BookingCompletionService {
         }
         if (booking.workStartedAt() == null) {
             throw new IllegalStateException("Cần xác nhận bắt đầu công việc trước khi hoàn thành.");
-        }
-        if (booking.customerDelayReportedAt() != null && booking.arrivalVerifiedAt() == null) {
-            throw new IllegalStateException("Customer đã báo Staff chưa đến. Cần Customer xác nhận hoặc Admin xác minh trước khi hoàn thành.");
         }
         if (!bookingImages.existsByBookingId(bookingId)) {
             throw new IllegalStateException("Cần tải ít nhất một ảnh minh chứng trước khi xác nhận hoàn thành.");

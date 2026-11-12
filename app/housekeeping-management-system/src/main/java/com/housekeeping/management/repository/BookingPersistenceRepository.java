@@ -53,8 +53,7 @@ public interface BookingPersistenceRepository extends JpaRepository<Booking, Lon
     @Query("update Booking booking set booking.status=com.housekeeping.management.domain.BookingStatus.AWAITING_PAYMENT, "
             + "booking.serviceCompletedAt=:at where booking.bookingId=:id and booking.staffId=:staff "
             + "and booking.status=com.housekeeping.management.domain.BookingStatus.CONFIRMED "
-            + "and booking.workStartedAt is not null and booking.serviceCompletedAt is null "
-            + "and (booking.customerDelayReportedAt is null or booking.arrivalVerifiedAt is not null)")
+            + "and booking.workStartedAt is not null and booking.serviceCompletedAt is null")
     int completeWork(@Param("id") Long id, @Param("staff") Long staff, @Param("at") LocalDateTime at);
 
     default int changeStatus(Long id, String expected, String next) {
@@ -192,18 +191,13 @@ public interface BookingPersistenceRepository extends JpaRepository<Booking, Lon
             @Param("availabilityEnd") LocalDateTime availabilityEnd);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("update Booking booking set booking.customerArrivedAt=:at, booking.arrivalVerifiedAt=:at, "
-            + "booking.arrivalVerificationRecordedAt=:at, booking.arrivalVerifiedBy=:customer, "
-            + "booking.arrivalVerificationSource='CUSTOMER', booking.delayMinutes=:delay, "
-            + "booking.delayDiscountPercent=:percent, booking.delayDiscountAmount=:amount "
+    @Query("update Booking booking set booking.customerArrivedAt=:at "
             + "where booking.bookingId=:id "
             + "and booking.customerId=:customer and booking.status=com.housekeeping.management.domain.BookingStatus.CONFIRMED "
-            + "and (booking.workStartedAt is null or booking.customerDelayReportedAt is not null) "
-            + "and (booking.customerArrivedAt is null or (booking.customerDelayReportedAt is not null and booking.arrivalVerifiedAt is null)) "
+            + "and booking.customerArrivedAt is null "
             + "and booking.serviceCompletedAt is null")
     int confirmCustomerArrival(@Param("id") Long id, @Param("customer") Long customer,
-            @Param("at") LocalDateTime at, @Param("delay") int delay,
-            @Param("percent") BigDecimal percent, @Param("amount") BigDecimal amount);
+            @Param("at") LocalDateTime at);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update Booking booking set booking.arrivalVerifiedAt=:actualAt, booking.arrivalVerificationRecordedAt=:recordedAt, booking.arrivalVerifiedBy=:admin, "
@@ -217,7 +211,8 @@ public interface BookingPersistenceRepository extends JpaRepository<Booking, Lon
             @Param("delay") int delay, @Param("percent") BigDecimal percent, @Param("amount") BigDecimal amount);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("update Booking booking set booking.staffArrivedAt=:at "
+    @Query("update Booking booking set booking.staffArrivedAt=:at, booking.delayMinutes=:delay, "
+            + "booking.delayDiscountPercent=:percent, booking.delayDiscountAmount=:amount "
             + "where booking.bookingId=:id and booking.staffId=:staff and booking.status=com.housekeeping.management.domain.BookingStatus.CONFIRMED "
             + "and booking.staffArrivedAt is null")
     int confirmStaffArrival(@Param("id") Long id, @Param("staff") Long staff, @Param("at") LocalDateTime at,
@@ -258,32 +253,26 @@ public interface BookingPersistenceRepository extends JpaRepository<Booking, Lon
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update Booking booking set booking.incidentCustomerResponse='ACCEPTED', "
-            + "booking.incidentCustomerRespondedAt=:at, "
-            + "booking.delayDiscountPercent=case when booking.staffArrivedAt is null then 0 else :percent end, "
-            + "booking.delayDiscountAmount=case when booking.staffArrivedAt is null then 0 else :amount end "
+            + "booking.incidentCustomerRespondedAt=:at "
             + "where booking.bookingId=:id and booking.customerId=:customer and booking.status=com.housekeeping.management.domain.BookingStatus.CONFIRMED "
             + "and booking.incidentReportedAt is not null and booking.incidentExpectedArrivalAt is not null "
             + "and booking.incidentCustomerResponse is null and booking.workStartedAt is null "
             + "and booking.incidentExpectedArrivalAt>=:at")
-    int acceptIncident(@Param("id") Long id, @Param("customer") Long customer, @Param("at") LocalDateTime at,
-            @Param("percent") BigDecimal percent, @Param("amount") BigDecimal amount);
+    int acceptIncident(@Param("id") Long id, @Param("customer") Long customer, @Param("at") LocalDateTime at);
 
-    default int respondToIncident(Long id, Long customer, String response, LocalDateTime at,
-            BigDecimal percent, BigDecimal amount) {
+    default int respondToIncident(Long id, Long customer, String response, LocalDateTime at) {
         return "DECLINED".equals(response)
                 ? declineIncident(id, customer, at, "Khách hủy miễn phí do Staff đến trễ.")
-                : acceptIncident(id, customer, at, percent, amount);
+                : acceptIncident(id, customer, at);
     }
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update Booking booking set booking.workStartedAt=:at where booking.bookingId=:id "
             + "and booking.staffId=:staff and booking.status=com.housekeeping.management.domain.BookingStatus.CONFIRMED "
-            + "and booking.workStartedAt is null and (booking.staffArrivedAt is not null or booking.arrivalVerifiedAt is not null) "
-            + "and (booking.customerDelayReportedAt is null or booking.arrivalVerifiedAt is not null) "
-            + "and (:lateBeyondGrace=false or booking.incidentReportedAt is not null or booking.arrivalVerifiedAt is not null) "
+            + "and booking.workStartedAt is null and booking.staffArrivedAt is not null "
+            + "and (:lateBeyondGrace=false or booking.incidentReportedAt is not null) "
             + "and (booking.incidentReportedAt is null or (booking.incidentCustomerResponse='ACCEPTED' "
-            + "and ((booking.arrivalVerifiedAt is not null and booking.arrivalVerifiedAt<=booking.incidentExpectedArrivalAt) "
-            + "or (booking.arrivalVerifiedAt is null and booking.staffArrivedAt<=booking.incidentExpectedArrivalAt))))")
+            + "and booking.staffArrivedAt<=booking.incidentExpectedArrivalAt))")
     int startWork(@Param("id") Long id, @Param("staff") Long staff, @Param("at") LocalDateTime at,
             @Param("lateBeyondGrace") boolean lateBeyondGrace);
 

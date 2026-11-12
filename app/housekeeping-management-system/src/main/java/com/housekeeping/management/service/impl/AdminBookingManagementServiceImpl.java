@@ -52,8 +52,8 @@ public class AdminBookingManagementServiceImpl implements AdminBookingManagement
         }
         LocalDateTime now = now();
         String normalizedNote = note == null ? "" : note.trim();
-        if (actualArrivalAt == null || actualArrivalAt.isBefore(booking.startTime()) || actualArrivalAt.isAfter(now)) {
-            throw new IllegalArgumentException("Giờ đến thực tế phải từ giờ hẹn trở đi và không được ở tương lai.");
+        if (actualArrivalAt == null || actualArrivalAt.isAfter(now)) {
+            throw new IllegalArgumentException("Giờ đến thực tế không được ở tương lai.");
         }
         if (normalizedNote.isBlank() || normalizedNote.length() > 500) {
             throw new IllegalArgumentException("Ghi chú xác minh bắt buộc và tối đa 500 ký tự.");
