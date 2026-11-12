@@ -1,8 +1,8 @@
 > **Document:** SQL Server Data Dictionary\
 > **File:** `docs/requirements/SQL_SERVER_DATA_DICTIONARY.md`\
-> **Version:** v5.7.0\
+> **Version:** v5.8.0\
 > **Created:** 2026-10-24\
-> **Last Updated:** 2026-11-11\
+> **Last Updated:** 2026-11-12\
 > **Status:** Active\
 # Từ điển dữ liệu SQL Server — 25 bảng
 
@@ -68,6 +68,10 @@ V28 mở rộng trạng thái `Staff_Incident_Actions` và `Feedback_Cases.staff
 ## Migration V29 — dữ liệu phản ánh demo và ảnh minh họa
 
 V29 không thay đổi schema. Chỉ trong `home_cleaning_demo`, migration đồng bộ nội dung cho hai hồ sơ demo (vệ sinh và hư hại tài sản), gắn ảnh PNG minh họa vào tin Customer đầu tiên qua `Feedback_Case_Evidence.message_id`, và làm rõ đề xuất 120.000 ₫ chưa được Customer đồng ý, Manager duyệt hoặc chi. Tên tệp và nội dung ghi rõ ảnh minh họa; không xem ảnh là bằng chứng của khách thật. File ảnh được đóng gói tại `src/main/resources/demo-evidence/`; `DemoFeedbackEvidenceInstaller` chỉ chạy trong profile `demo` để chép file vào evidence storage trước tác vụ đối soát.
+
+## Migration V32–V33 — tài khoản demo
+
+V32 và V33 không thay đổi schema. Chỉ trong `home_cleaning_demo`: V32 đổi `Users.full_name` của năm tài khoản demo ban đầu từ tên tạm "… Demo" sang họ tên tiếng Việt (và `Houses.recipient_name` của Customer demo khi còn tên tạm); V33 thêm năm Staff (`Users`, `Staff`, `Staff_Profiles`) và năm Customer (`Users`, mỗi người một `Houses` mặc định loại `HOME` có tọa độ trong bán kính `Company_Settings`). Bản ghi chỉ được chèn khi email/Staff/địa chỉ chưa tồn tại.
 
 ## Mapping kiểu dữ liệu đề xuất
 | Logical | SQL Server |

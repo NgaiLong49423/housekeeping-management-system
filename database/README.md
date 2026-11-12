@@ -1,6 +1,6 @@
 > **Document:** Database Guide\
 > **File:** `database/README.md`\
-> **Version:** v3.5.0\
+> **Version:** v3.6.0\
 > **Created:** 2026-06-14\
 > **Last Updated:** 2026-11-12\
 > **Status:** Active\
@@ -17,17 +17,35 @@ Chỉ `Housekeeping_Database` trên `localhost`, `127.0.0.1` hoặc `[::1]` mớ
 
 ## Flyway và lịch sử schema
 
-- `app/housekeeping-management-system/src/main/resources/db/primary/` là baseline của database chính thức `Housekeeping_Database`; Flyway ghi nhận lịch sử trong `flyway_primary_schema_history`. Flyway tạo baseline version `0` rồi áp dụng V1; migration V1 chỉ cho phép database chính/acceptance rỗng (ngoại trừ bảng lịch sử Flyway).
-- `app/housekeeping-management-system/src/main/resources/db/shared/` chứa migration version dùng chung sau baseline; ứng dụng nạp migration dùng chung liên tục từ V2 đến V29.
-- Migration V6 thêm thời điểm Staff xác nhận đến và báo sự cố trên `Bookings`.
-- Migration V8 thêm ETA, phản hồi đồng thuận của Customer, giờ Staff bắt đầu việc và thông tin giảm trừ do đến trễ trên `Bookings`.
-- Migration V14 thêm bảng `Booking_Delay_Compensation_Tiers` cấu hình giảm giá khi trễ.
-- Migration V15 chuyển Admin quản lý hiện tại thành vai trò `MANAGER`.
-- Migration V16 thêm bảng `Feedback_Case_Messages` và liên kết bằng chứng hiện có qua `message_id`.
-- Migration V17 thêm `Financial_Payout_Responses`.
-- Migration V25 rút gọn luồng sự cố còn 23 bảng nghiệp vụ; V26 thêm mốc hoàn tất Booking; V27 ghi trạng thái `SETTLED`; V28 thêm bằng chứng giải trình Staff và các lần Staff thực trả, đưa schema lên 25 bảng nghiệp vụ. V29 gắn ảnh minh họa cho dữ liệu phản ánh demo.
-- Cửa sổ xác nhận đến mặc định là 0 phút (từ giờ bắt đầu), môi trường local có thể cấu hình thông qua `application.properties`.
-- Nếu muốn xóa dữ liệu cũ và khởi tạo lại database sạch sẽ, có thể chạy [`recreate-primary-schema.sql`](recreate-primary-schema.sql) một lần trong đúng `Housekeeping_Database`.
+- `app/housekeeping-management-system/src/main/resources/db/primary/` là baseline của database chính `Housekeeping_Database`; Flyway ghi nhận lịch sử mới trong `flyway_primary_schema_history` để không sửa hay repair lịch sử cũ. Flyway tạo baseline version `0` rồi áp dụng V1; migration V1 chỉ cho phép database chính/acceptance rỗng (ngoại trừ hai bảng lịch sử Flyway).
+- `app/housekeeping-management-system/src/main/resources/db/refactor/` giữ baseline cho profile demo và bộ kiểm thử của profile đó; V7 chỉ seed Booking thử trong `home_cleaning_demo`.
+- `app/housekeeping-management-system/src/main/resources/db/shared/` chứa migration version dùng chung sau baseline; cả profile mặc định và `demo` nạp migration dùng chung liên tục từ V2 đến V29. V5 thêm ngày hiệu lực cho phiên bản giờ hoạt động.
+- Migration dùng chung V6 thêm thời điểm Staff xác nhận đến và báo sự cố trên `Bookings`; schema vẫn có 15 bảng nghiệp vụ. Báo sự cố chỉ được ghi trước giờ bắt đầu.
+- Migration V8 thêm ETA, phản hồi đồng thuận của Customer, giờ Staff bắt đầu việc và thông tin giảm trừ do đến trễ trên `Bookings`; không thêm bảng nghiệp vụ. Báo trễ là tùy chọn; nếu Staff đã gửi báo cáo thì cần Customer đồng ý trước khi bắt đầu. Migration V12 cho phép Staff bắt đầu sau khi xác nhận đã đến, kể cả trước giờ hẹn; nếu không báo trễ thì không cần Customer đồng thuận. Từ chối sự cố hủy miễn phí trước khi bắt đầu. Mức giảm 5%/10%/20% theo ngưỡng phút đã được phê duyệt, thanh toán vẫn diễn ra sau dịch vụ.
+- Migration dùng chung V9 thêm rating và chủ đề cho `Feedbacks`, cho phép lời nhắn rỗng ở rating 4–5, giữ rating lịch sử là NULL và thêm trạng thái đã phản hồi trước khi resolve; không thêm bảng nghiệp vụ.
+- Migration dùng chung V10 thêm hồ sơ khiếu nại, ảnh bằng chứng, lịch sử quyết định xử lý Staff và sổ khoản tiền; thêm cờ quản lý tạm thời và đánh dấu Payments ONLINE sandbox là mô phỏng. Tổng số bảng nghiệp vụ tăng từ 15 lên 19. Khoản tiền do Admin đề xuất, Manager duyệt và cần hóa đơn/biên nhận trước khi quyết toán.
+- Migration dùng chung V11 chỉ seed Admin quản lý demo khi database hiện tại là `home_cleaning_demo`; không thay đổi dữ liệu hay schema của database chính.
+- Migration dùng chung V12 thay `CK_Bookings_Work_Start`: work_started_at có thể trước start_time nhưng bắt buộc staff_arrived_at đã được ghi nhận. V12 không thêm bảng nghiệp vụ và không sửa migration V8 đã áp dụng.
+- Migration dùng chung V13 thêm thời điểm Customer báo Staff chưa đến; chỉ Customer sở hữu Booking và Admin xem được. Báo cáo không tự chặn bắt đầu, hủy lịch hay đổi tiền và không thêm bảng nghiệp vụ.
+- Migration dùng chung V14 thêm bảng `Booking_Delay_Compensation_Tiers` với các mức mặc định 1–15 phút/5%, 16–30/10%, trên 30/20%; Admin chỉnh ngưỡng và phần trăm tại `/admin/settings`. Tier phải liên tiếp từ phút 1 và mức cuối không giới hạn. Booking đã ghi nhận mức giảm giữ nguyên giá trị đã lưu. Bỏ giới hạn phần trăm cũ trong `Bookings`; sau V14 có 20 bảng nghiệp vụ.
+- Migration dùng chung V15 chuyển Admin quản lý hiện tại thành role `MANAGER`, thay cờ V10 bằng vai trò hệ thống và filtered unique index để chỉ có một Manager. Manager kế thừa toàn quyền Admin, quản lý tài khoản Admin tại `/admin/accounts`, và là người duy nhất duyệt khoản tiền cùng quyết định nội bộ Staff. V15 giữ nguyên các bảng nghiệp vụ.
+- Migration dùng chung V18 thêm tên/mô tả món đồ, giá trị Customer ước tính và thời gian sử dụng vào hồ sơ sự cố; các trường này chỉ là thông tin khai báo, không phải giá trị công ty đã xác nhận hay mức bồi thường đã chốt. V18 không thêm bảng nghiệp vụ.
+- Migration dùng chung V19 từng thêm năm bảng xác minh/phương án/phiếu việc và đưa schema lịch sử lên 27 bảng. Migration V23/V24 lần lượt thêm giờ và Staff Customer chọn cho work order; các migration này được giữ nguyên trong Flyway history.
+- Migration V20 không thay đổi schema. Chỉ database tên `home_cleaning_demo` nhận hai hồ sơ sự cố và Booking lịch sử.
+- Migration V21 chỉ chuẩn hóa mã chủ đề của hai phản hồi demo theo các giá trị `FeedbackTopic` mà ứng dụng hỗ trợ; chỉ chạy cập nhật trong `home_cleaning_demo`.
+- Migration V22 chuẩn hóa danh sách bằng chứng đã xem trống trong lịch sử xác minh demo theo định dạng ID phân tách bằng dấu phẩy mà ứng dụng sử dụng; chỉ chạy cập nhật trong `home_cleaning_demo`.
+- Migration V23 thêm thời gian Customer đề xuất cho phiếu công việc; lịch sử migration vẫn được giữ.
+- Migration V24 thêm Staff Customer đã chọn cho phiếu công việc; cấu trúc work order này được V25 xóa khỏi schema.
+- Migration V25 đưa schema hiện tại còn 23 bảng: xóa dữ liệu/bốn bảng phương án và work order V19, bỏ hai cột liên kết workflow cũ, thêm mong muốn xử lý của Customer, trạng thái hồ sơ và thời điểm đồng ý/nhận bồi thường. Chỉ sửa ví dụ demo trong database tên `home_cleaning_demo`; không chuyển dữ liệu demo thành thỏa thuận đã chốt.
+- Migration V26 thêm `Bookings.service_completed_at`; booking đã thanh toán/đang chờ thanh toán được backfill từ thời điểm thanh toán thành công hoặc giờ kết thúc lịch nếu thiếu. Hạn mở sự cố mới là 24 giờ kể từ mốc này. Không sửa các migration đã áp dụng và không chạy migration trên database demo đang dùng.
+- Migration V27 thêm trạng thái phản hồi `SETTLED`; khi khoản bồi thường đã chi, ciphertext tài khoản được xóa mà không vi phạm constraint. Các khoản bồi thường lịch sử đã thanh toán được backfill sang trạng thái này; Customer vẫn cần xác nhận đã nhận tiền để đóng hồ sơ.
+- Migration V28 tăng độ dài/trạng thái theo dõi xử lý Staff, lưu giải trình/kháng nghị cùng thời hạn 48 giờ, thời điểm quá hạn và quyết định/căn cứ/số tiền riêng; tạo bảng bằng chứng Staff nội bộ và bảng từng lần Admin ghi nhận Staff thực trả. Khoản thu hồi không tự khấu trừ lương; báo cáo cộng phần thực nhận, không cộng toàn nghĩa vụ. Dữ liệu cũ được giữ nguyên, không tự giả lập giải trình hay kết luận mới. Schema hiện tại có 25 bảng nghiệp vụ.
+- Migration demo-only V29 đồng bộ câu chữ của hai hồ sơ phản ánh, gắn một ảnh PNG minh họa vào tin Customer đầu tiên và ghi nhãn rõ trong tên ảnh/nội dung. Ảnh tài sản chỉ mô phỏng vết nứt; số tiền 120.000 ₫ chỉ là đề xuất demo, chưa được khách đồng ý, Manager duyệt hoặc chi. Migration không đổi schema và không sửa feedback ngoài hai hồ sơ demo. `DemoFeedbackEvidenceInstaller` chỉ chạy với profile `demo`, chép ảnh từ classpath vào `${app.evidence.storage-root}` trước reconciler và không ghi đè file đang có.
+- Migration demo-only V32 đổi họ tên tạm "… Demo" của năm tài khoản demo ban đầu (Customer, hai Staff, Admin, Manager) sang họ tên tiếng Việt, kèm tên người nhận trên địa chỉ của Customer demo; chỉ cập nhật khi tên tạm còn nguyên. Migration demo-only V33 thêm `staff3`–`staff7` (FULL_TIME/PART_TIME, có `Staff_Profiles.bio`) và `customer2`–`customer6@demo.gonnha.local`, mỗi Customer một địa chỉ nhà mặc định có tọa độ trong bán kính phục vụ tính từ `Company_Settings`. Mật khẩu dùng lại hash `Demo@12345` của V3; chèn theo `IF NOT EXISTS` trên email nên chạy lại không trùng. Cả hai không đổi schema và không chạy trên `Housekeeping_Database`.
+- `db/migration/V1__create_initial_schema.sql`, `V2__add_momo_payment_attempts.sql`, `V3__replace_momo_with_payos.sql` là lịch sử của mô hình cũ. Giữ nguyên để bảo toàn lịch sử; không chỉnh nội dung migration đã áp dụng.
+- Database cũ dùng schema/model trước đây không tự động chuyển đổi. Nếu chủ sở hữu xác nhận bỏ dữ liệu cũ trên database chính, chạy [`recreate-primary-schema.sql`](recreate-primary-schema.sql) một lần trong đúng `Housekeeping_Database`; script giữ nguyên lịch sử `flyway_schema_history` cũ, xóa toàn bộ bảng ứng dụng và dữ liệu (kể cả lịch sử Flyway mới nếu có), đồng thời kiểm tra đúng tên database. Sau đó chạy ứng dụng mặc định để baseline tạo 15 bảng và migration áp dụng tiếp để đạt schema hiện tại (25 bảng nghiệp vụ). Không chạy script ở môi trường có dữ liệu cần giữ.
+- `database/schema.sql` chỉ còn guard báo lỗi cho đường dẫn schema cũ; không dùng làm DDL. Baseline ở `db/primary` cùng migration tại `db/shared` là nguồn DDL cho ứng dụng mặc định.
+- Flyway `flyway_schema_history` là bảng tooling, không nằm trong 25 bảng nghiệp vụ.
 
 ### Khởi tạo Manager hệ thống
 Database demo seed tài khoản Manager riêng ở V11 và chuyển vai trò từ cờ cũ trong V15. Với database chính, nếu V15 không tìm thấy Admin đang có cờ quản lý để chuyển đổi, DBA cần gán vai trò cho đúng một tài khoản Admin đã xác minh (thay placeholder trước khi chạy):
