@@ -322,7 +322,11 @@ public class FeedbackCaseServiceImpl implements FeedbackCaseService {
         if (form == null || form.staffAction() == null || !ACTIONS.contains(form.staffAction())
                 || "NONE".equals(form.staffAction())) throw new IllegalArgumentException("Chọn cách xử lý Staff cần Manager xem xét.");
         FeedbackCase incident=cases.findByIdForUpdate(caseId).orElseThrow(() -> new IllegalArgumentException("Hồ sơ không tồn tại."));
-        if (incident.getReviewedAt() == null) throw new IllegalStateException("Admin cần xác minh hồ sơ trước khi đề xuất xử lý Staff.");
+        if ("RESOLVED".equals(incident.getCaseStatus())) throw new IllegalStateException("Hồ sơ đã hoàn tất, không thể mở đề xuất xử lý Staff.");
+        if (!"VERIFIED".equals(incident.getCaseStatus()) || incident.getReviewedAt() == null
+                || !hasSufficientEvidence(caseId)) {
+            throw new IllegalStateException("Chỉ đề xuất xử lý Staff khi hồ sơ đã xác minh và có bằng chứng được Admin rà soát.");
+        }
         if(!"NOT_PROPOSED".equals(incident.getStaffActionStatus())) throw new IllegalStateException("Hồ sơ này đã có luồng xử lý Staff.");
         if (actions.existsByCaseIdAndStatus(caseId,"PENDING")) throw new IllegalStateException("Đã có đề xuất Staff đang chờ Manager.");
         LocalDateTime now=LocalDateTime.now(java.time.ZoneOffset.ofHours(7)).withNano(0);
