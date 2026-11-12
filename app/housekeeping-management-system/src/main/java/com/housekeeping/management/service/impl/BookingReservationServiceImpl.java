@@ -1,5 +1,7 @@
 package com.housekeeping.management.service.impl;
 
+import com.housekeeping.management.enums.ServiceStatus;
+import com.housekeeping.management.enums.TravelStatus;
 import com.housekeeping.management.integration.vietmap.VietmapClient;
 import com.housekeeping.management.service.BookingReservationService;
 import com.housekeeping.management.service.HouseService;
@@ -283,7 +285,7 @@ public class BookingReservationServiceImpl implements BookingReservationService 
         List<BookingPersistenceRepository.ServiceSnapshot> selected = new ArrayList<>(requestedIds.size());
         for (Long id : requestedIds) {
             Services service = byId.get(id);
-            if (service == null || service.getStatus() != Services.Status.ACTIVE) {
+            if (service == null || service.getStatus() != ServiceStatus.ACTIVE) {
                 throw new IllegalArgumentException("Một dịch vụ đã ngừng hoạt động hoặc không tồn tại.");
             }
             selected.add(new BookingPersistenceRepository.ServiceSnapshot(service.getServiceId(),

@@ -1,5 +1,6 @@
 package com.housekeeping.management.dto.entity;
 
+import com.housekeeping.management.enums.ServiceStatus;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.housekeeping.management.enums.BookingStatus;
@@ -81,7 +82,7 @@ class EntityDtoConversionTest {
 
     @Test
     void servicesConvertsBothWaysAndCanUpdateManagedEntity() {
-        ServicesDTO dto = new ServicesDTO(1L, "Cleaning", "description", "image", 60, bd("100000"), Services.Status.ACTIVE);
+        ServicesDTO dto = new ServicesDTO(1L, "Cleaning", "description", "image", 60, bd("100000"), ServiceStatus.ACTIVE);
         Services entity = dto.convertDTOToEntity();
         assertThat(ServicesDTO.convertEntityToDTO(entity)).isEqualTo(dto);
         Services existing = new Services();

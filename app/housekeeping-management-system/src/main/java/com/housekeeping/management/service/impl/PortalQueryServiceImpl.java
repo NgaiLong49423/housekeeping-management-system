@@ -1,5 +1,6 @@
 package com.housekeeping.management.service.impl;
 
+import com.housekeeping.management.enums.ServiceStatus;
 import static com.housekeeping.management.dto.response.PortalViews.*;
 
 import com.housekeeping.management.enums.BookingStatus;
@@ -56,9 +57,9 @@ public class PortalQueryServiceImpl implements PortalQueryService {
     public List<ServiceCard> services(PortalUser user) {
         boolean includeInactive = user != null && user.isAdmin();
         return (includeInactive ? services.findAllByOrderByServiceNameAsc()
-                : services.findAllByStatusOrderByServiceNameAsc(Services.Status.ACTIVE)).stream()
+                : services.findAllByStatusOrderByServiceNameAsc(ServiceStatus.ACTIVE)).stream()
                 .map(s -> new ServiceCard(s.getServiceId(), s.getServiceName(), s.getDescription(),
-                        s.getDurationMinutes(), s.getPrice(), s.getImageUrl(), s.getStatus() == Services.Status.ACTIVE)).toList();
+                        s.getDurationMinutes(), s.getPrice(), s.getImageUrl(), s.getStatus() == ServiceStatus.ACTIVE)).toList();
     }
 
     public List<StaffCard> staff(PortalUser user) {

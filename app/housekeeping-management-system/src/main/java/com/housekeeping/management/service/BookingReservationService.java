@@ -1,5 +1,6 @@
 package com.housekeeping.management.service;
 
+import com.housekeeping.management.enums.TravelStatus;
 import com.housekeeping.management.enums.StaffType;
 import com.housekeeping.management.enums.UserRole;
 import com.housekeeping.management.enums.UserStatus;
@@ -19,8 +20,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public interface BookingReservationService {
-    public enum TravelStatus { FEASIBLE, OVERLAP, TOO_EARLY, TOO_LATE, DISTANCE_LIMIT_EXCEEDED, ROUTE_UNAVAILABLE }
-
     public record TravelAssessment(TravelStatus status,String message,LocalDateTime earliestStart,LocalDateTime latestStart,
     int routeMinutes,int availableGapMinutes,int requiredGapMinutes,Long relatedBookingId) {
         public boolean feasible(){return status==TravelStatus.FEASIBLE;}

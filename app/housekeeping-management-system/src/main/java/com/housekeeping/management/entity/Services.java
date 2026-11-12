@@ -1,5 +1,6 @@
 package com.housekeeping.management.entity;
 
+import com.housekeeping.management.enums.ServiceStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -20,8 +21,6 @@ import org.hibernate.annotations.Nationalized;
 @Setter
 @NoArgsConstructor
 public class Services {
-    public enum Status { ACTIVE, INACTIVE }
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "service_id", nullable = false)
@@ -47,5 +46,5 @@ public class Services {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20, nullable = false, columnDefinition = "varchar(20)")
-    private Status status = Status.ACTIVE;
+    private ServiceStatus status = ServiceStatus.ACTIVE;
 }

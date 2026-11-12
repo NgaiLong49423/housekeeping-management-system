@@ -1,5 +1,6 @@
 package com.housekeeping.management.service;
 
+import com.housekeeping.management.enums.ServiceStatus;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -328,7 +329,7 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
         service.setServiceName("Dịch vụ đã sửa");
         service.setPrice(new BigDecimal("999999.00"));
         service.setDurationMinutes(120);
-        service.setStatus(Services.Status.INACTIVE);
+        service.setStatus(ServiceStatus.INACTIVE);
         services.saveAndFlush(service);
 
         assertThat(jdbc.queryForMap("""
@@ -529,7 +530,7 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
         service.setServiceName("Concurrent booking test service");
         service.setDurationMinutes(60);
         service.setPrice(new BigDecimal("100000.00"));
-        service.setStatus(Services.Status.ACTIVE);
+        service.setStatus(ServiceStatus.ACTIVE);
         return service;
     }
 }

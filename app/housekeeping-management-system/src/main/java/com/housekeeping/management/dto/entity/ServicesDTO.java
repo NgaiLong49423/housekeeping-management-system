@@ -1,10 +1,11 @@
 package com.housekeeping.management.dto.entity;
 
+import com.housekeeping.management.enums.ServiceStatus;
 import com.housekeeping.management.entity.Services;
 import java.math.BigDecimal;
 
 public record ServicesDTO(Long serviceId, String serviceName, String description, String imageUrl,
-        Integer durationMinutes, BigDecimal price, Services.Status status) {
+        Integer durationMinutes, BigDecimal price, ServiceStatus status) {
     public static ServicesDTO convertEntityToDTO(Services entity) {
         if (entity == null) return null;
         return new ServicesDTO(entity.getServiceId(), entity.getServiceName(), entity.getDescription(),

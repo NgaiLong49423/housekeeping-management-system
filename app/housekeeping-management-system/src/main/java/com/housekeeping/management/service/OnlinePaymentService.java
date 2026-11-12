@@ -1,11 +1,10 @@
 package com.housekeeping.management.service;
 
+import com.housekeeping.management.enums.ReturnStatus;
 import java.util.Map;
 
 public interface OnlinePaymentService {
     record Checkout(String redirectUrl, boolean alreadyPaid) { }
-
-    enum ReturnStatus { PAID, FAILED, PENDING }
 
     record ReturnOutcome(Long bookingId, ReturnStatus status) { }
 

@@ -1,5 +1,6 @@
 package com.housekeeping.management.service.impl;
 
+import com.housekeeping.management.enums.TravelStatus;
 import com.housekeeping.management.service.AccountAuthorizationService;
 import com.housekeeping.management.service.AdminBookingManagementService;
 import com.housekeeping.management.service.BookingReservationService;
@@ -113,7 +114,7 @@ public class AdminBookingManagementServiceImpl implements AdminBookingManagement
         BookingReservationService.TravelAssessment travel=reservations.assessTravel(replacementStaffId,start,booking.endTime(),
                 booking.latitude(),booking.longitude(),bookingId);
         if(!travel.feasible()) {
-            if(travel.status()==BookingReservationService.TravelStatus.ROUTE_UNAVAILABLE)throw new IllegalStateException(travel.message());
+            if(travel.status()==TravelStatus.ROUTE_UNAVAILABLE)throw new IllegalStateException(travel.message());
             throw new IllegalArgumentException(travel.message());
         }
         if (bookings.assignStaff(bookingId, booking.staffId(), replacementStaffId) != 1) {

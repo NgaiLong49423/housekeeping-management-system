@@ -1,5 +1,6 @@
 package com.housekeeping.management.web;
 
+import com.housekeeping.management.enums.UiText;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -20,19 +21,6 @@ public class PortalAdvice {
                 .replaceAll("\\s{2,}", " ")
                 .trim();
         return cleaned.isEmpty() ? value.trim() : cleaned;
-    }
-
-    public enum UiText {
-        INSTANCE;
-
-        public String label(String value) {
-            return cleanLabel(value);
-        }
-
-        public String initial(String value) {
-            String cleaned = cleanLabel(value);
-            return (cleaned == null || cleaned.isEmpty()) ? "?" : cleaned.substring(0, 1).toUpperCase();
-        }
     }
 
     @ModelAttribute("ui")

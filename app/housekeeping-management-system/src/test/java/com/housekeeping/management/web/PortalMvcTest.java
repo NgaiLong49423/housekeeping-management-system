@@ -1,5 +1,6 @@
 package com.housekeeping.management.web;
 
+import com.housekeeping.management.enums.ReturnStatus;
 import static com.housekeeping.management.dto.response.PortalViews.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
@@ -980,7 +981,7 @@ class PortalMvcTest {
     @Test
     void vnpayReturnIsPublicAndShowsPaidResultOnTheBooking() throws Exception {
         when(onlinePayments.handleReturn(anyMap()))
-                .thenReturn(new OnlinePaymentService.ReturnOutcome(42L, OnlinePaymentService.ReturnStatus.PAID));
+                .thenReturn(new OnlinePaymentService.ReturnOutcome(42L, ReturnStatus.PAID));
 
         mvc.perform(get("/payments/vnpay/return").param("vnp_TxnRef", "1001").param("vnp_ResponseCode", "00"))
                 .andExpect(status().is3xxRedirection())
@@ -992,7 +993,7 @@ class PortalMvcTest {
     @Test
     void vnpayReturnForFailedPaymentShowsAnError() throws Exception {
         when(onlinePayments.handleReturn(anyMap()))
-                .thenReturn(new OnlinePaymentService.ReturnOutcome(42L, OnlinePaymentService.ReturnStatus.FAILED));
+                .thenReturn(new OnlinePaymentService.ReturnOutcome(42L, ReturnStatus.FAILED));
 
         mvc.perform(get("/payments/vnpay/return").param("vnp_TxnRef", "1001").param("vnp_ResponseCode", "24"))
                 .andExpect(redirectedUrl("/customer/bookings/42"))

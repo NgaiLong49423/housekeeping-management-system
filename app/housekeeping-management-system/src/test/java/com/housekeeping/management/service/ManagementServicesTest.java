@@ -1,5 +1,6 @@
 package com.housekeeping.management.service;
 
+import com.housekeeping.management.enums.ServiceStatus;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -93,7 +94,7 @@ class ManagementServicesTest {
         ServicesRepository services = mock(ServicesRepository.class);
         User user = new User(); user.setStatus(UserStatus.ACTIVE);
         Staff staff = new Staff(); staff.setUser(user);
-        Services service = new Services(); service.setStatus(Services.Status.ACTIVE);
+        Services service = new Services(); service.setStatus(ServiceStatus.ACTIVE);
         when(staffAccounts.findByStaffIdForUpdate(9L)).thenReturn(Optional.of(staff));
         when(staffAccounts.findById(9L)).thenReturn(Optional.of(staff));
         when(services.findById(4L)).thenReturn(Optional.of(service));
@@ -103,10 +104,10 @@ class ManagementServicesTest {
         ServiceManagementService serviceManagement = new com.housekeeping.management.service.impl.ServiceManagementServiceImpl(services, mock(AccountAuthorizationService.class));
         staffManagement.deactivate(99L, 9L); serviceManagement.deactivate(99L, 4L);
         assertThat(user.getStatus()).isEqualTo(UserStatus.INACTIVE);
-        assertThat(service.getStatus()).isEqualTo(Services.Status.INACTIVE);
+        assertThat(service.getStatus()).isEqualTo(ServiceStatus.INACTIVE);
         staffManagement.activate(99L, 9L); serviceManagement.activate(99L, 4L);
         assertThat(user.getStatus()).isEqualTo(UserStatus.ACTIVE);
-        assertThat(service.getStatus()).isEqualTo(Services.Status.ACTIVE);
+        assertThat(service.getStatus()).isEqualTo(ServiceStatus.ACTIVE);
     }
 
     @Test
@@ -139,7 +140,7 @@ class ManagementServicesTest {
         assertThat(captured.getValue().getDescription()).isEqualTo("Mô tả");
         assertThat(captured.getValue().getDurationMinutes()).isEqualTo(90);
         assertThat(captured.getValue().getPrice()).isEqualByComparingTo("125000.00");
-        assertThat(captured.getValue().getStatus()).isEqualTo(Services.Status.ACTIVE);
+        assertThat(captured.getValue().getStatus()).isEqualTo(ServiceStatus.ACTIVE);
     }
 
     @Test
