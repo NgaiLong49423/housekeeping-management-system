@@ -1,4 +1,11 @@
 @echo off
-echo The legacy local launcher is retired because it targets the old database schema.
-echo See docs\demo-setup.md for the current SQL Server demo setup.
-exit /b 1
+setlocal
+echo ============================================================
+echo  Starting Housekeeping Management System (Spring Boot)
+echo ============================================================
+cd /d "%~dp0app\housekeeping-management-system"
+if exist mvnw.cmd (
+    call mvnw.cmd spring-boot:run
+) else (
+    call mvn spring-boot:run
+)
