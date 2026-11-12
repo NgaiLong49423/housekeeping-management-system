@@ -114,6 +114,7 @@ mvn verify
         │   ├── dto/                         # Request Form và Response View
         │   ├── entity/                      # Các JPA Entity
         │   ├── enums/                       # Toàn bộ Enum trạng thái hệ thống
+        │   ├── exception/                   # Ngoại lệ nghiệp vụ tùy chỉnh
         │   ├── repository/                  # Spring Data JPA Repositories
         │   └── service/                     # Service Interfaces & service/impl/
         └── main/resources/
