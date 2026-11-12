@@ -279,7 +279,7 @@ class PortalMvcTest {
         String html = mvc.perform(get("/admin/settings").with(user(admin))).andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
         assertThat(html).contains("id=\"companyAddressSearch\"", "id=\"companyVietmapRefId\"", "/admin/settings/location/autocomplete",
-                        "mốc bắt đầu là lúc nhân viên có mặt")
+                        "Không giới hạn địa chỉ Booking")
                 .doesNotContain("id=\"latitude\"", "id=\"longitude\"");
     }
 
@@ -352,26 +352,13 @@ class PortalMvcTest {
     @Test
     void customerCalendarReturnsOnlyDatesWithMatchingStaffAvailability() throws Exception {
         LocalDate availableDay=LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).plusDays(4);
-        when(bookingAvailability.availableDates(List.of(10L),2L))
+        when(bookingAvailability.availableDates(List.of(10L),2L,customer.getUserId(),30L))
                 .thenReturn(new BookingAvailabilityDates(List.of(availableDay),"Chỉ các ngày có lịch mới hiện."));
 
         mvc.perform(get("/customer/bookings/availability-dates").with(user(customer))
-                        .param("serviceIds","10").param("staffId","2"))
+                        .param("serviceIds","10").param("staffId","2").param("houseId","30"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.dates[0]").value(availableDay.toString()));
-    }
-
-    @Test
-    void houseAreaLookupChecksOwnedHouseAndReturnsInlineEligibility() throws Exception {
-        House house=new House();house.setLatitude(new BigDecimal("10.0"));house.setLongitude(new BigDecimal("106.0"));
-        when(houses.assessCustomerHouseServiceArea(1L,30L)).thenReturn(
-                new HouseService.ServiceAreaAssessment(false,"Địa chỉ nhà này nằm ngoài bán kính phục vụ của công ty."));
-        mvc.perform(get("/customer/bookings/house-service-area").with(user(customer)).param("houseId","30"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.eligible").value(false))
-                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("ngoài bán kính")));
-        verify(houses).assessCustomerHouseServiceArea(1L,30L);
-        mvc.perform(get("/customer/bookings/house-service-area").with(user(staff)).param("houseId","30"))
-                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -444,11 +431,11 @@ class PortalMvcTest {
     }
 
     @Test
-    void customerHouseFormRequiresVietmapSelection() throws Exception {
+    void customerCanSubmitTypedAddressWithoutVietmapSuggestion() throws Exception {
         mvc.perform(post("/customer/houses").with(user(customer)).with(csrf())
                         .param("recipientName", "Khách Demo")
                         .param("recipientPhone", "0900000000")
-                        .param("vietmapRefId", "vietmap-ref-123")
+                        .param("address", "Số 1 đường Độc Lập, phường Bến Nghé, TP Hồ Chí Minh")
                         .param("addressType", "HOME")
                         .param("defaultAddress", "true")
                         .param("addressNote", "Cổng màu xanh"))
@@ -458,7 +445,8 @@ class PortalMvcTest {
         org.mockito.ArgumentCaptor<HouseForm> form = org.mockito.ArgumentCaptor.forClass(HouseForm.class);
         verify(houses).save(eq(customer.getUserId()), isNull(), form.capture());
         assertThat(form.getValue().recipientName()).isEqualTo("Khách Demo");
-        assertThat(form.getValue().vietmapRefId()).isEqualTo("vietmap-ref-123");
+        assertThat(form.getValue().address()).isEqualTo("Số 1 đường Độc Lập, phường Bến Nghé, TP Hồ Chí Minh");
+        assertThat(form.getValue().vietmapRefId()).isNull();
     }
 
     @Test
@@ -915,25 +903,6 @@ class PortalMvcTest {
                 .andExpect(redirectedUrl("/customer/bookings/new"))
                 .andExpect(flash().attributeExists("error"));
         verifyNoInteractions(reservations);
-    }
-
-    @Test
-    void outOfRadiusBookingReturnsCustomerToAddressWithSpecificInlineError() throws Exception {
-        when(reservations.createBooking(eq(1L), eq(2L), eq(30L), any(), eq(List.of(10L)), isNull()))
-                .thenThrow(new IllegalArgumentException("Địa chỉ nằm ngoài bán kính phục vụ hiện tại của công ty."));
-
-        mvc.perform(post("/customer/bookings/multiple").with(user(customer)).with(csrf())
-                        .param("houseId", "30").param("serviceIds", "10")
-                        .param("workDates", "2026-11-10").param("staffIds", "2").param("startTimes", "09:00"))
-                .andExpect(redirectedUrl("/customer/bookings/new?houseId=30"))
-                .andExpect(flash().attributeExists("houseServiceAreaError"))
-                .andExpect(flash().attribute("error", "Chưa tạo được lịch nào vì địa chỉ nằm ngoài bán kính phục vụ."));
-
-        mvc.perform(get("/customer/bookings/new").with(user(customer))
-                        .flashAttr("houseServiceAreaError", "Địa chỉ nhà này nằm ngoài bán kính phục vụ của công ty."))
-                .andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("id=\"houseServiceAreaError\"")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Địa chỉ nhà này nằm ngoài bán kính phục vụ của công ty.")));
     }
 
     @Test

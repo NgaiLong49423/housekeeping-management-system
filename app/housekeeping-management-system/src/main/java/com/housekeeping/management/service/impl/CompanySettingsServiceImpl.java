@@ -62,17 +62,6 @@ public class CompanySettingsServiceImpl implements CompanySettingsService {
                 company.getLatitude(), company.getLongitude(), company.getServiceRadiusKm(), hours.forDate(date)));
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    public ServiceCenter serviceCenter() {
-        CompanySettingsForm form = settingsForDate(today())
-                .orElseThrow(() -> new IllegalStateException("Cần cấu hình chính xác một vị trí và bán kính phục vụ của công ty."));
-        if (form.latitude() == null || form.longitude() == null || form.serviceRadiusKm() == null) {
-            throw new IllegalStateException("Admin chưa cấu hình tâm và bán kính phục vụ của công ty.");
-        }
-        return new ServiceCenter(form.latitude(), form.longitude(), form.serviceRadiusKm());
-    }
-
     @Transactional(readOnly = true)
     public CompanySettingsForm forDate(LocalDate date) {
         CompanySettingsForm current = settingsForDate(date)
@@ -140,13 +129,6 @@ public class CompanySettingsServiceImpl implements CompanySettingsService {
         VietmapClient.Place place = vietmap.place(form.vietmapRefId().trim());
         List<CompanySettings> companyRows = settings.findAllForUpdate();
         if (companyRows.size() > 1) throw new IllegalStateException("Phát hiện nhiều hơn một cấu hình công ty.");
-        List<Long> conflicts = bookings.futureActiveBookingsWithLocation().stream()
-                .filter(booking -> distanceKm(booking.latitude(), booking.longitude(),
-                        place.latitude(), place.longitude()) > form.serviceRadiusKm().doubleValue())
-                .map(BookingQueryService.BookingLocation::bookingId).toList();
-        if (!conflicts.isEmpty()) {
-            throw new IllegalStateException("Chưa thể đổi vị trí/bán kính. Hãy xử lý Booking: " + conflicts);
-        }
         CompanySettings company = companyRows.isEmpty() ? new CompanySettings() : companyRows.getFirst();
         company.setCompanyAddress(place.display());
         company.setLatitude(place.latitude());

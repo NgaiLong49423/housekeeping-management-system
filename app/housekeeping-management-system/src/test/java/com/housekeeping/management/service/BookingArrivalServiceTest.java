@@ -20,7 +20,7 @@ import org.mockito.ArgumentCaptor;
 
 class BookingArrivalServiceTest {
     @Test
-    void recordsAssignedStaffArrivalAndAppliesTenPercentAtSixteenMinutesLate() {
+    void staffSelfClaimRecordsArrivalWithoutCalculatingDiscount() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
         LocalDateTime start = LocalDateTime.now(ZoneOffset.ofHours(7)).minusMinutes(16).withNano(0);
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, start)));
@@ -34,9 +34,9 @@ class BookingArrivalServiceTest {
         ArgumentCaptor<BigDecimal> discount = ArgumentCaptor.forClass(BigDecimal.class);
         verify(bookings).confirmStaffArrival(eq(42L), eq(7L), recordedAt.capture(),
                 delayedMinutes.capture(), percent.capture(), discount.capture());
-        assertThat(delayedMinutes.getValue()).isGreaterThanOrEqualTo(11);
-        assertThat(percent.getValue()).isEqualByComparingTo("5");
-        assertThat(discount.getValue()).isEqualByComparingTo("7500.00");
+        assertThat(delayedMinutes.getValue()).isZero();
+        assertThat(percent.getValue()).isEqualByComparingTo("0");
+        assertThat(discount.getValue()).isEqualByComparingTo("0");
     }
 
     @Test
@@ -71,8 +71,26 @@ class BookingArrivalServiceTest {
 
         new com.housekeeping.management.service.impl.BookingArrivalServiceImpl(bookings, settings()).confirm(42L, 3L);
 
-        verify(bookings).confirmCustomerArrival(eq(42L), eq(3L), any(), eq(15),
-                eq(new BigDecimal("5")), eq(new BigDecimal("7500.00")));
+        verify(bookings).confirmCustomerArrival(eq(42L), eq(3L), any(), any(Integer.class),
+                eq(new BigDecimal("10")), eq(new BigDecimal("15000.00")));
+    }
+
+    @Test
+    void customerArrivalConfirmationCalculatesDiscountOnlyWhenItIsVerified() {
+        BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
+        LocalDateTime start = LocalDateTime.now(ZoneOffset.ofHours(7)).minusMinutes(20).withNano(0);
+        when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, start)));
+        when(bookings.confirmCustomerArrival(eq(42L), eq(3L), any(), any(Integer.class), any(), any())).thenReturn(1);
+
+        new com.housekeeping.management.service.impl.BookingArrivalServiceImpl(bookings, settings()).confirm(42L, 3L);
+
+        ArgumentCaptor<Integer> delayedMinutes = ArgumentCaptor.forClass(Integer.class);
+        ArgumentCaptor<BigDecimal> percent = ArgumentCaptor.forClass(BigDecimal.class);
+        ArgumentCaptor<BigDecimal> amount = ArgumentCaptor.forClass(BigDecimal.class);
+        verify(bookings).confirmCustomerArrival(eq(42L), eq(3L), any(), delayedMinutes.capture(), percent.capture(), amount.capture());
+        assertThat(delayedMinutes.getValue()).isGreaterThanOrEqualTo(20);
+        assertThat(percent.getValue()).isEqualByComparingTo("10");
+        assertThat(amount.getValue()).isEqualByComparingTo("15000.00");
     }
 
     private BookingPersistenceRepository.BookingWorkflowState workflow(Long staffId, LocalDateTime start) {

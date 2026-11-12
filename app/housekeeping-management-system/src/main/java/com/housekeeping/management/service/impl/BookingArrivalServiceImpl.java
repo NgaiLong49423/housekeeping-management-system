@@ -27,8 +27,13 @@ public class BookingArrivalServiceImpl implements BookingArrivalService {
         LocalDateTime now = LocalDateTime.now(ZoneOffset.ofHours(7)).withNano(0);
         var booking = bookings.lockBookingWorkflow(bookingId)
                 .orElseThrow(() -> new IllegalStateException("Lịch hẹn không tồn tại."));
-        if (booking.customerId().equals(customerId) && "CONFIRMED".equals(booking.status())
-                && booking.customerArrivedAt() != null) return;
+        if (!booking.customerId().equals(customerId)) throw new org.springframework.security.access.AccessDeniedException("Lịch hẹn không thuộc tài khoản của bạn.");
+        if (!"CONFIRMED".equals(booking.status())) throw new IllegalStateException("Chỉ Booking CONFIRMED mới xác nhận giờ đến.");
+        if (booking.customerDelayReportedAt() != null && booking.arrivalVerifiedAt() != null) return;
+        if (booking.workStartedAt() != null && booking.customerDelayReportedAt() == null) {
+            throw new IllegalStateException("Customer có thể xác nhận giờ đến trước khi dịch vụ bắt đầu.");
+        }
+        if (booking.customerArrivedAt() != null && booking.customerDelayReportedAt() == null) return;
         BookingDelayCompensation compensation = BookingDelayCompensation.calculate(
                 booking.startTime(), now, booking.totalAmount(), compensationSettings.get());
         if (bookings.confirmCustomerArrival(bookingId, customerId, now, compensation.delayedMinutes(),
@@ -41,11 +46,8 @@ public class BookingArrivalServiceImpl implements BookingArrivalService {
         LocalDateTime now = LocalDateTime.now(ZoneOffset.ofHours(7)).withNano(0);
         var booking = bookings.lockBookingWorkflow(bookingId)
                 .orElseThrow(() -> new IllegalStateException("Lịch hẹn không tồn tại."));
-        BookingDelayCompensation compensation = BookingDelayCompensation.calculate(
-                booking.startTime(), now, booking.totalAmount(), compensationSettings.get());
-        if (bookings.confirmStaffArrival(bookingId, staffId, now,
-                compensation.delayedMinutes(), java.math.BigDecimal.valueOf(compensation.discountPercent()),
-                compensation.discountAmount()) != 1)
+        if (bookings.confirmStaffArrival(bookingId, staffId, now, 0, java.math.BigDecimal.ZERO,
+                java.math.BigDecimal.ZERO) != 1)
             throw new IllegalStateException("Chỉ nhân viên được phân công mới xác nhận đã đến cho lịch CONFIRMED và mỗi Booking một lần.");
     }
 }

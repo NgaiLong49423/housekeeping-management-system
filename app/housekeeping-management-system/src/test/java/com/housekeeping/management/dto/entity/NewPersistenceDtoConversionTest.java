@@ -3,6 +3,7 @@ package com.housekeeping.management.dto.entity;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.housekeeping.management.entity.BookingDelayCompensationTier;
+import com.housekeeping.management.entity.BookingDelayProposal;
 import com.housekeeping.management.entity.FeedbackCase;
 import com.housekeeping.management.entity.FeedbackCaseEvidence;
 import com.housekeeping.management.entity.FinancialPayoutResponse;
@@ -17,6 +18,15 @@ class NewPersistenceDtoConversionTest {
     void delayTierMapsToAndFromJpaEntity() {
         BookingDelayCompensationTierDTO dto = new BookingDelayCompensationTierDTO(2, 16, 30, 10);
         assertThat(BookingDelayCompensationTierDTO.convertEntityToDTO(dto.convertDTOToEntity())).isEqualTo(dto);
+    }
+
+    @Test
+    void bookingDelayProposalMapsToAndFromJpaEntity() {
+        BookingDelayProposalDTO dto = new BookingDelayProposalDTO(12L, 42L, 7L,
+                LocalDateTime.of(2026, 11, 12, 10, 30), "Đang xử lý việc phát sinh",
+                LocalDateTime.of(2026, 11, 12, 9, 55), "ACCEPTED", LocalDateTime.of(2026, 11, 12, 10, 0));
+        BookingDelayProposal entity = dto.convertDTOToEntity();
+        assertThat(BookingDelayProposalDTO.convertEntityToDTO(entity)).isEqualTo(dto);
     }
 
     @Test

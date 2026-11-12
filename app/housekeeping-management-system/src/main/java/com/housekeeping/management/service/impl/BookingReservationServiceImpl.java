@@ -63,7 +63,7 @@ public class BookingReservationServiceImpl implements BookingReservationService 
         String normalizedAreaNote = cleanAreaNote(areaNote);
 
         // Lock order is always House then Staff. The Staff lock serializes overlap checks, including empty ranges.
-        House house = houseService.findCustomerHouseForUpdate(customerId, houseId);
+        House house = houseService.ensureRouteLocation(customerId, houseId);
         Staff staff = staffManagement.findActiveForBookingUpdate(staffId);
         companySettings.lockSettingsForScheduling();
         List<BookingPersistenceRepository.ServiceSnapshot> selectedServices = selectedServices(requestedServiceIds);
@@ -80,8 +80,6 @@ public class BookingReservationServiceImpl implements BookingReservationService 
         if (staff.getStaffType() == StaffType.PART_TIME && !staffManagement.acceptsAvailabilityInterval(staffId, start.toLocalDate(), start.toLocalTime(), end.toLocalTime())) {
             throw new IllegalArgumentException("Toàn bộ lịch phải nằm trong một khoảng sẵn sàng đang hiệu lực của nhân viên.");
         }
-        if (house.getLatitude() == null || house.getLongitude() == null) throw new IllegalArgumentException("Địa chỉ này chưa có tọa độ VietMap. Hãy cập nhật địa chỉ bằng kết quả gợi ý.");
-        if (!houseService.isWithinServiceRadius(house.getLatitude(), house.getLongitude())) throw new IllegalArgumentException("Địa chỉ nằm ngoài bán kính phục vụ hiện tại của công ty.");
         TravelAssessment travel = assessTravel(staffId,start,end,house.getLatitude(),house.getLongitude(),null);
         if (!travel.feasible()) {
             if (travel.status()==TravelStatus.ROUTE_UNAVAILABLE) throw new IllegalStateException(travel.message());
@@ -174,14 +172,10 @@ public class BookingReservationServiceImpl implements BookingReservationService 
                 boolean sameLocation=sameLocation(adjacent.latitude(),adjacent.longitude(),latitude,longitude);
                 if(!sameLocation) {
                     VietmapClient.MotorcycleRoute route;
-                    BigDecimal maximumDistanceMeters;
                     try {
-                        maximumDistanceMeters=houseService.serviceCenter().radiusKm().movePointRight(3);
                         route=vietmap.motorcycleRoute(adjacent.latitude(),adjacent.longitude(),latitude,longitude,adjacent.end());
                     }
                     catch(IllegalStateException routeFailure) { return TravelAssessment.unavailable("Chưa xác minh được tuyến từ booking trước đến địa chỉ này. " + routeFailure.getMessage()); }
-                    if(route.distanceMeters().compareTo(maximumDistanceMeters)>0)
-                        return distanceLimitExceeded("từ booking trước đến booking này",route.distanceMeters(),maximumDistanceMeters,adjacent.bookingId());
                     previousRoute=route.durationMinutes();
                 }
                 previousRequired=Math.addExact(previousRoute,15);
@@ -194,14 +188,10 @@ public class BookingReservationServiceImpl implements BookingReservationService 
                 boolean sameLocation=sameLocation(latitude,longitude,adjacent.latitude(),adjacent.longitude());
                 if(!sameLocation) {
                     VietmapClient.MotorcycleRoute route;
-                    BigDecimal maximumDistanceMeters;
                     try {
-                        maximumDistanceMeters=houseService.serviceCenter().radiusKm().movePointRight(3);
                         route=vietmap.motorcycleRoute(latitude,longitude,adjacent.latitude(),adjacent.longitude(),end);
                     }
                     catch(IllegalStateException routeFailure) { return TravelAssessment.unavailable("Chưa xác minh được tuyến từ địa chỉ này đến booking kế tiếp. " + routeFailure.getMessage()); }
-                    if(route.distanceMeters().compareTo(maximumDistanceMeters)>0)
-                        return distanceLimitExceeded("từ booking này đến booking kế tiếp",route.distanceMeters(),maximumDistanceMeters,adjacent.bookingId());
                     nextRoute=route.durationMinutes();
                 }
                 nextRequired=Math.addExact(nextRoute,15);
@@ -209,13 +199,8 @@ public class BookingReservationServiceImpl implements BookingReservationService 
                 latestStart=adjacent.start().minusMinutes((long)nextRequired+java.time.Duration.between(start,end).toMinutes());
             }
         }
-        if(previousAppointment==null) {
-            HouseService.ServiceCenter center=houseService.serviceCenter();
-            try { vietmap.motorcycleMinutesBeforeArrival(center.latitude(),center.longitude(),latitude,longitude,start); }
-            catch(IllegalStateException routeFailure) { return TravelAssessment.unavailable("Chưa xác minh được tuyến từ tâm công ty đến địa chỉ booking. " + routeFailure.getMessage()); }
-        }
         if(earliestStart!=null&&start.isBefore(earliestStart)) {
-            int rounded=roundUpToQuarterHour(earliestStart.toLocalTime().toSecondOfDay()/60);
+            int rounded=roundUpToHalfHour(earliestStart.toLocalTime().toSecondOfDay()/60);
             LocalTime firstSelectable=LocalTime.of((rounded/60)%24,rounded%60);
             boolean sameLocation=sameLocation(previousAppointment.latitude(),previousAppointment.longitude(),latitude,longitude);
             String msg=sameLocation
@@ -224,17 +209,17 @@ public class BookingReservationServiceImpl implements BookingReservationService 
                     : "Booking trước kết thúc lúc "+format(previousAppointment.end().toLocalTime())+
                             ". Tuyến đến địa chỉ này khoảng "+previousRoute+" phút, cộng 15 phút dự phòng cần "+previousRequired+
                             " phút; hiện chỉ cách "+previousGap+" phút. Đủ thời gian từ "+format(earliestStart.toLocalTime())+
-                            "; mốc đặt sớm nhất theo lưới 15 phút là "+format(firstSelectable)+".";
+                            "; mốc đặt sớm nhất theo lưới 30 phút là "+format(firstSelectable)+".";
             return new TravelAssessment(TravelStatus.TOO_EARLY,msg,earliestStart,latestStart,previousRoute,previousGap,previousRequired,previousAppointment.bookingId());
         }
         if(latestStart!=null&&start.isAfter(latestStart)) {
-            int rounded=roundDownToQuarterHour(latestStart.toLocalTime().toSecondOfDay()/60);
+            int rounded=roundDownToHalfHour(latestStart.toLocalTime().toSecondOfDay()/60);
             LocalTime lastSelectable=LocalTime.of((Math.max(0,rounded)/60)%24,Math.max(0,rounded)%60);
             String msg="Booking kế tiếp bắt đầu lúc "+format(nextAppointment.start().toLocalTime())+
                     ". Tuyến từ địa chỉ này khoảng "+nextRoute+" phút, cộng 15 phút dự phòng cần "+nextRequired+
                     " phút; hiện còn "+nextGap+" phút. Với dịch vụ "+java.time.Duration.between(start,end).toMinutes()+
                     " phút, cần bắt đầu không muộn hơn "+
-                    format(latestStart.toLocalTime())+" (mốc 15 phút cuối có thể chọn: "+format(lastSelectable)+").";
+                    format(latestStart.toLocalTime())+" (mốc 30 phút cuối có thể chọn: "+format(lastSelectable)+").";
             return new TravelAssessment(TravelStatus.TOO_LATE,msg,earliestStart,latestStart,nextRoute,nextGap,nextRequired,nextAppointment.bookingId());
         }
         return new TravelAssessment(TravelStatus.FEASIBLE,"",earliestStart,latestStart,
@@ -243,20 +228,12 @@ public class BookingReservationServiceImpl implements BookingReservationService 
                 previousAppointment!=null?previousAppointment.bookingId():nextAppointment==null?null:nextAppointment.bookingId());
     }
 
-    private static int roundUpToQuarterHour(int minute){return ((minute+14)/15)*15;}
-    private static int roundDownToQuarterHour(int minute){return (minute/15)*15;}
+    private static int roundUpToHalfHour(int minute){return ((minute+29)/30)*30;}
+    private static int roundDownToHalfHour(int minute){return (minute/30)*30;}
     private static boolean sameLocation(BigDecimal firstLatitude,BigDecimal firstLongitude,
             BigDecimal secondLatitude,BigDecimal secondLongitude) {
         return firstLatitude!=null&&firstLongitude!=null&&secondLatitude!=null&&secondLongitude!=null
                 &&firstLatitude.compareTo(secondLatitude)==0&&firstLongitude.compareTo(secondLongitude)==0;
-    }
-    private static TravelAssessment distanceLimitExceeded(String direction,BigDecimal distanceMeters,
-            BigDecimal maximumDistanceMeters,Long bookingId) {
-        BigDecimal actualKm=distanceMeters.movePointLeft(3).setScale(2,java.math.RoundingMode.CEILING);
-        BigDecimal maximumKm=maximumDistanceMeters.movePointLeft(3).setScale(2,java.math.RoundingMode.HALF_UP);
-        String message="Quãng đường tuyến VietMap "+direction+" là "+actualKm.toPlainString()+" km, vượt giới hạn "+
-                maximumKm.toPlainString()+" km theo bán kính phục vụ Admin. Hãy chọn nhân viên hoặc ngày khác.";
-        return new TravelAssessment(TravelStatus.DISTANCE_LIMIT_EXCEEDED,message,null,null,0,0,0,bookingId);
     }
     private static String format(LocalTime time){return time.format(DateTimeFormatter.ofPattern("HH:mm"));}
     private static String format(LocalDateTime time){return format(time.toLocalTime());}
@@ -268,8 +245,8 @@ public class BookingReservationServiceImpl implements BookingReservationService 
         if (start.isAfter(now.plusDays(30))) {
             throw new IllegalArgumentException("Chỉ có thể đặt lịch trong 30 ngày tới.");
         }
-        if (start.getSecond() != 0 || start.getNano() != 0 || start.getMinute() % 15 != 0) {
-            throw new IllegalArgumentException("Giờ bắt đầu chỉ được chọn phút 00, 15, 30 hoặc 45.");
+        if (start.getSecond() != 0 || start.getNano() != 0 || start.getMinute() % 30 != 0) {
+            throw new IllegalArgumentException("Giờ bắt đầu chỉ được chọn phút 00 hoặc 30.");
         }
     }
 

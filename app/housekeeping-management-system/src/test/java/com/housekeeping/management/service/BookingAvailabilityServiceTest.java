@@ -48,6 +48,7 @@ class BookingAvailabilityServiceTest {
         org.mockito.Mockito.lenient().when(availability.bookedIntervals(date)).thenReturn(List.of());
         House house=new House();house.setLatitude(new BigDecimal("10.0"));house.setLongitude(new BigDecimal("106.0"));
         org.mockito.Mockito.lenient().when(houses.findCustomerHouse(99L,100L)).thenReturn(house);
+        org.mockito.Mockito.lenient().when(houses.ensureRouteLocation(99L,100L)).thenReturn(house);
         org.mockito.Mockito.lenient().when(reservations.assessTravel(org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.isNull())).thenReturn(new BookingReservationService.TravelAssessment(
@@ -64,7 +65,7 @@ class BookingAvailabilityServiceTest {
                 .containsExactly("Full time", "Part time");
 
         var partTime = service.options(date,List.of(1L),11L,null,99L,100L);
-        assertThat(partTime.startTimes()).containsExactly("09:00","09:15","09:30","09:45","10:00");
+        assertThat(partTime.startTimes()).containsExactly("09:00","09:30","10:00");
     }
 
     @Test
@@ -90,7 +91,7 @@ class BookingAvailabilityServiceTest {
         when(companySettings.scheduleWindows()).thenReturn(java.util.stream.IntStream.rangeClosed(1,7)
                 .mapToObj(day->new ScheduleWindow(LocalDate.of(1900,1,1),day,false,LocalTime.of(6,0),LocalTime.of(21,0))).toList());
 
-        var result=service.availableDates(List.of(1L),null);
+        var result=service.availableDates(List.of(1L),null,99L,100L);
 
         assertThat(result.dates()).containsExactly(from.plusDays(1));
         service.options(date,List.of(1L),null,null,99L,100L); // Exercise the date-specific stubs from the shared fixture.
@@ -102,7 +103,7 @@ class BookingAvailabilityServiceTest {
         when(availability.bookedIntervals(date)).thenReturn(List.of(new Interval(11L,LocalTime.of(11,30),LocalTime.NOON)));
         var result = service.options(date,List.of(1L),11L,LocalTime.of(9,0),99L,100L);
         assertThat(result.staffOptions()).extracting(person -> person.id()).containsExactly(11L);
-        assertThat(result.startTimes()).contains("09:00","09:15","09:30","09:45","10:00");
+        assertThat(result.startTimes()).contains("09:00","09:30","10:00");
     }
 
     @Test
@@ -118,7 +119,7 @@ class BookingAvailabilityServiceTest {
 
         var result=service.options(date,List.of(1L),11L,selected,99L,100L);
 
-        assertThat(result.startTimes()).containsExactly("10:45","11:00");
+        assertThat(result.startTimes()).containsExactly("11:00");
         assertThat(result.message()).contains("Booking trước #44","10:35","10:45");
     }
 
@@ -137,7 +138,7 @@ class BookingAvailabilityServiceTest {
 
     @Test
     void availabilityRequiresHouseOwnedByTheSignedInCustomer() {
-        when(houses.findCustomerHouse(99L,100L)).thenThrow(new IllegalArgumentException("Nhà không thuộc tài khoản của bạn."));
+        when(houses.ensureRouteLocation(99L,100L)).thenThrow(new IllegalArgumentException("Nhà không thuộc tài khoản của bạn."));
 
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.options(date,List.of(1L),null,null,99L,100L))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("không thuộc tài khoản");

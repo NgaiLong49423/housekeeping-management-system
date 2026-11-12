@@ -8,7 +8,7 @@
         <div>
           <span class="eyebrow">Quản lý địa chỉ</span>
           <h1>Nhà của tôi</h1>
-          <p class="lead">Lưu thông tin người nhận và chọn địa chỉ từ gợi ý VietMap để hệ thống kiểm tra vùng phục vụ.</p>
+          <p class="lead">Nhập địa chỉ và thông tin người nhận. Hệ thống tra VietMap ở nền để ước tính thời gian di chuyển giữa các lịch.</p>
         </div>
       </div>
       <div th:replace="~{fragments/layout :: alerts}"></div>
@@ -30,11 +30,11 @@
               <div class="text-danger small" th:errors="*{recipientPhone}"></div>
             </div>
             <div class="col-12 position-relative">
-              <label class="form-label" for="vietmapSearch">Tìm địa chỉ</label>
-              <input class="form-control" id="vietmapSearch" autocomplete="off" placeholder="Nhập tối thiểu 3 ký tự" required>
+              <label class="form-label" for="houseAddress">Địa chỉ nhà</label>
+              <input class="form-control" id="houseAddress" th:field="*{address}" autocomplete="street-address" maxlength="500" placeholder="Số nhà, đường, phường/xã, tỉnh/thành" required>
               <input type="hidden" th:field="*{vietmapRefId}" id="vietmapRefId">
               <div id="vietmapSuggestions" class="list-group position-absolute w-100" style="z-index:10"></div>
-              <p class="small text-secondary mt-2" id="selectedAddress">Chưa chọn kết quả VietMap.</p>
+              <p class="small text-secondary mt-2" id="selectedAddress">Bạn có thể nhập địa chỉ trực tiếp; gợi ý VietMap chỉ hỗ trợ điền nhanh.</p>
             </div>
             <div class="col-md-6">
               <label class="form-label" for="addressType">Loại địa chỉ</label>
@@ -85,11 +85,9 @@
     <footer th:replace="~{fragments/layout :: footer}"></footer>
     <script>
       (() => {
-        const input = document.querySelector('#vietmapSearch'), ref = document.querySelector('#vietmapRefId'), list = document.querySelector('#vietmapSuggestions'), selected = document.querySelector('#selectedAddress');
+        const input = document.querySelector('#houseAddress'), ref = document.querySelector('#vietmapRefId'), list = document.querySelector('#vietmapSuggestions'), selected = document.querySelector('#selectedAddress');
         let timer;
-        input.addEventListener('input', () => { ref.value = ''; selected.textContent = 'Chưa chọn kết quả VietMap.'; clearTimeout(timer); if (input.value.trim().length < 3) { list.replaceChildren(); return; } timer = setTimeout(async () => { try { const response = await fetch(`/customer/houses/autocomplete?q=${encodeURIComponent(input.value.trim())}`); const suggestions = await response.json(); list.replaceChildren(...suggestions.map(item => { const button = document.createElement('button'); button.type = 'button'; button.className = 'list-group-item list-group-item-action'; button.textContent = item.display; button.addEventListener('click', () => { ref.value = item.refId; input.value = item.display; selected.textContent = `Đã chọn: ${item.display}`; list.replaceChildren(); }); return button; })); } catch { list.replaceChildren(); } }, 300); });
-        document.querySelector('form').addEventListener('submit', event => { if (!ref.value) { event.preventDefault(); input.setCustomValidity('Hãy chọn một kết quả địa chỉ VietMap.'); input.reportValidity(); } });
-        input.addEventListener('input', () => input.setCustomValidity(''));
+        input.addEventListener('input', () => { ref.value = ''; selected.textContent = 'Địa chỉ sẽ được xác minh khi lưu.'; clearTimeout(timer); if (input.value.trim().length < 3) { list.replaceChildren(); return; } timer = setTimeout(async () => { try { const response = await fetch(`/customer/houses/autocomplete?q=${encodeURIComponent(input.value.trim())}`); const suggestions = await response.json(); list.replaceChildren(...suggestions.map(item => { const button = document.createElement('button'); button.type = 'button'; button.className = 'list-group-item list-group-item-action'; button.textContent = item.display; button.addEventListener('click', () => { ref.value = item.refId; input.value = item.display; selected.textContent = `Đã điền gợi ý: ${item.display}`; list.replaceChildren(); }); return button; })); } catch { list.replaceChildren(); } }, 300); });
       })();
     </script>
   </body>

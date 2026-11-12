@@ -1,10 +1,9 @@
 package com.housekeeping.management.service.impl;
 
 import com.housekeeping.management.service.BookingIncidentService;
-import com.housekeeping.management.service.BookingDelayCompensationSettingsService;
-
-import com.housekeeping.management.domain.BookingDelayCompensation;
 import com.housekeeping.management.repository.BookingPersistenceRepository;
+import com.housekeeping.management.repository.BookingDelayProposalRepository;
+import com.housekeeping.management.entity.BookingDelayProposal;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import org.springframework.stereotype.Service;
@@ -14,12 +13,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class BookingIncidentServiceImpl implements BookingIncidentService {
     private static final int MAX_NOTE_LENGTH = 500;
     private final BookingPersistenceRepository bookings;
-    private final BookingDelayCompensationSettingsService compensationSettings;
+    private final BookingDelayProposalRepository proposals;
 
-    public BookingIncidentServiceImpl(BookingPersistenceRepository bookings,
-            BookingDelayCompensationSettingsService compensationSettings) {
+    public BookingIncidentServiceImpl(BookingPersistenceRepository bookings, BookingDelayProposalRepository proposals) {
         this.bookings = bookings;
-        this.compensationSettings = compensationSettings;
+        this.proposals = proposals;
     }
 
     @Transactional
@@ -34,17 +32,34 @@ public class BookingIncidentServiceImpl implements BookingIncidentService {
             throw new IllegalArgumentException("Chỉ nhân viên được phân công mới có thể báo sự cố.");
         }
         LocalDateTime now = LocalDateTime.now(ZoneOffset.ofHours(7)).withNano(0);
-        if (!"CONFIRMED".equals(booking.status()) || booking.workStartedAt() != null) {
+        if (!"CONFIRMED".equals(booking.status()) || booking.workStartedAt() != null || booking.serviceCompletedAt() != null) {
             throw new IllegalStateException("Chỉ báo sự cố khi lịch còn CONFIRMED và công việc chưa bắt đầu.");
         }
-        if (booking.staffArrivedAt() == null && (expectedArrivalAt == null || !expectedArrivalAt.isAfter(booking.startTime())
-                || expectedArrivalAt.isBefore(now))) {
-            throw new IllegalArgumentException("Giờ dự kiến đến phải sau giờ hẹn và không trước thời điểm hiện tại.");
+        if (expectedArrivalAt == null || !expectedArrivalAt.isAfter(booking.startTime()) || expectedArrivalAt.isBefore(now)) {
+            throw new IllegalArgumentException("ETA phải cụ thể, sau giờ hẹn và không trước thời điểm hiện tại.");
         }
-        LocalDateTime reportedArrival = booking.staffArrivedAt() == null ? expectedArrivalAt : booking.staffArrivedAt();
-        if (bookings.reportStaffIncident(bookingId, staffId, normalizedNote, reportedArrival, now) != 1) {
+        var previous = proposals.findFirstByBookingIdOrderByProposalIdDesc(bookingId).orElse(null);
+        boolean expiredPendingProposal = false;
+        if (previous != null && "PENDING".equals(previous.getStatus()) && now.isAfter(previous.getExpectedArrivalAt())) {
+            proposals.respond(previous.getProposalId(), "EXPIRED", now);
+            bookings.expireBookingEta(bookingId, now);
+            expiredPendingProposal = true;
+        }
+        if (previous != null && "ACCEPTED".equals(previous.getStatus())) {
+            if (!now.isAfter(previous.getExpectedArrivalAt())) throw new IllegalStateException("ETA đã được Customer đồng ý và chưa hết hạn.");
+            proposals.expireAccepted(previous.getProposalId(), now);
+            bookings.expireBookingEta(bookingId, now);
+        } else if (!expiredPendingProposal && booking.incidentReportedAt() != null && !"DECLINED".equals(booking.incidentCustomerResponse())
+                && !"EXPIRED".equals(booking.incidentCustomerResponse())) {
+            throw new IllegalStateException("Đề xuất ETA trước vẫn đang chờ phản hồi hoặc chưa hết hạn.");
+        }
+        if (bookings.reportStaffIncident(bookingId, staffId, normalizedNote, expectedArrivalAt, now) != 1) {
             throw new IllegalStateException("Lịch vừa thay đổi hoặc đã có báo cáo/khách phản hồi. Hãy tải lại trang.");
         }
+        BookingDelayProposal proposal = new BookingDelayProposal();
+        proposal.setBookingId(bookingId); proposal.setStaffId(staffId); proposal.setExpectedArrivalAt(expectedArrivalAt);
+        proposal.setReason(normalizedNote); proposal.setProposedAt(now); proposal.setStatus("PENDING");
+        proposals.save(proposal);
     }
 
     @Transactional
@@ -63,12 +78,30 @@ public class BookingIncidentServiceImpl implements BookingIncidentService {
             throw new IllegalArgumentException("Phản hồi sự cố không hợp lệ.");
         }
         LocalDateTime now = LocalDateTime.now(ZoneOffset.ofHours(7)).withNano(0);
-        BookingDelayCompensation compensation = booking.staffArrivedAt() == null
-                ? new BookingDelayCompensation(0, 0, java.math.BigDecimal.ZERO.setScale(2))
-                : BookingDelayCompensation.calculate(booking.startTime(), booking.staffArrivedAt(),
-                        booking.totalAmount(), compensationSettings.get());
+        var proposal = proposals.findFirstByBookingIdOrderByProposalIdDesc(bookingId)
+                .orElseThrow(() -> new IllegalStateException("Không tìm thấy đề xuất ETA cần phản hồi."));
+        if (!"PENDING".equals(proposal.getStatus())) throw new IllegalStateException("Đề xuất ETA này không còn chờ phản hồi.");
+        if (now.isAfter(proposal.getExpectedArrivalAt())) {
+            if ("DECLINED".equals(response)) {
+                if (proposals.respond(proposal.getProposalId(), "DECLINED", now) != 1
+                        || bookings.respondToIncident(bookingId, customerId, "DECLINED", now,
+                                java.math.BigDecimal.ZERO, java.math.BigDecimal.ZERO) != 1) {
+                    throw new IllegalStateException("Đề xuất ETA vừa thay đổi. Hãy tải lại trang.");
+                }
+                return;
+            }
+            proposals.respond(proposal.getProposalId(), "EXPIRED", now);
+            bookings.expireBookingEta(bookingId, now);
+            return;
+        }
+        if (!"ACCEPTED".equals(response) && !"DECLINED".equals(response)) {
+            throw new IllegalArgumentException("Phản hồi ETA không hợp lệ.");
+        }
+        if (proposals.respond(proposal.getProposalId(), response, now) != 1) {
+            throw new IllegalStateException("Đề xuất ETA vừa được phản hồi. Hãy tải lại trang.");
+        }
         if (bookings.respondToIncident(bookingId, customerId, response, now,
-                java.math.BigDecimal.valueOf(compensation.discountPercent()), compensation.discountAmount()) != 1) {
+                java.math.BigDecimal.ZERO, java.math.BigDecimal.ZERO) != 1) {
             throw new IllegalStateException("Lịch vừa thay đổi. Hãy tải lại trang trước khi phản hồi.");
         }
     }

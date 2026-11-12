@@ -32,27 +32,25 @@ class BookingCompletionServiceTest {
     }
 
     @Test
-    void lateArrivalCanStartWithoutOptionalIncidentReport() {
+    void lateArrivalRequiresEtaAndCustomerConsent() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
         var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, mock(BookingImageRepository.class));
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, "CONFIRMED", start,
                 start.plusMinutes(1), null, null, null)));
-        when(bookings.startWork(eq(42L), eq(7L), any(), eq(false))).thenReturn(1);
-
-        service.startBooking(42L, 7L);
-
-        verify(bookings).startWork(eq(42L), eq(7L), any(), eq(false));
+        assertThatThrownBy(() -> service.startBooking(42L, 7L))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("ETA");
+        verify(bookings, never()).startWork(any(), any(), any(), org.mockito.ArgumentMatchers.anyBoolean());
     }
 
     @Test
-    void arrivalBeyondFiveMinuteGraceRequiresIncidentBeforeStarting() {
+    void arrivalAfterScheduledTimeRequiresIncidentBeforeStarting() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
         var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, mock(BookingImageRepository.class));
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, "CONFIRMED", start,
                 start.plusMinutes(5).plusSeconds(1), null, null, null)));
 
         assertThatThrownBy(() -> service.startBooking(42L, 7L))
-                .isInstanceOf(IllegalStateException.class).hasMessageContaining("5 phút");
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("ETA");
         verify(bookings, never()).startWork(any(), any(), any(), org.mockito.ArgumentMatchers.anyBoolean());
     }
 
@@ -96,6 +94,22 @@ class BookingCompletionServiceTest {
         assertThatThrownBy(() -> service.startBooking(42L, 7L))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("xác minh");
         verify(bookings, never()).startWork(any(), any(), any(), org.mockito.ArgumentMatchers.anyBoolean());
+    }
+
+    @Test
+    void customerReportedDisputeAfterWorkStartedBlocksCompletion() {
+        BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
+        BookingImageRepository images = mock(BookingImageRepository.class);
+        var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, images);
+        var disputed = new BookingPersistenceRepository.BookingWorkflowState(42L, 3L, 7L, start,
+                start.plusHours(1), "CONFIRMED", new BigDecimal("150000"), start.plusMinutes(2),
+                start.plusMinutes(3), null, null, null, null, null, null, BigDecimal.ZERO, BigDecimal.ZERO,
+                start.plusMinutes(10), null, null, null, null, null);
+        when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(disputed));
+
+        assertThatThrownBy(() -> service.completeBooking(42L, 7L))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("xác minh");
+        verify(bookings, never()).completeWork(any(), any(), any());
     }
 
     @Test

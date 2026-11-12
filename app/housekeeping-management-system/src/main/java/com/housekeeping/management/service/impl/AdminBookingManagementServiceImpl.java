@@ -47,7 +47,7 @@ public class AdminBookingManagementServiceImpl implements AdminBookingManagement
         var booking = bookings.lockBookingWorkflow(bookingId)
                 .orElseThrow(() -> new IllegalArgumentException("Lịch hẹn không tồn tại."));
         if (!"CONFIRMED".equals(booking.status()) || booking.customerDelayReportedAt() == null
-                || booking.arrivalVerifiedAt() != null || booking.workStartedAt() != null) {
+                || booking.arrivalVerifiedAt() != null || booking.serviceCompletedAt() != null) {
             throw new IllegalStateException("Booking không còn chờ xác minh giờ đến.");
         }
         LocalDateTime now = now();
@@ -109,7 +109,7 @@ public class AdminBookingManagementServiceImpl implements AdminBookingManagement
                 && !staffManagement.acceptsAvailabilityInterval(replacementStaffId, start.toLocalDate(), start.toLocalTime(), booking.endTime().toLocalTime())) {
             throw new IllegalArgumentException("Toàn bộ lịch phải nằm trong khoảng sẵn sàng của nhân viên bán thời gian.");
         }
-        if (booking.latitude() == null || booking.longitude() == null || !houses.isWithinServiceRadius(booking.latitude(), booking.longitude())) throw new IllegalArgumentException("Địa chỉ Booking nằm ngoài vùng phục vụ hoặc thiếu tọa độ.");
+        if (booking.latitude() == null || booking.longitude() == null) throw new IllegalArgumentException("Không thể xác định vị trí địa chỉ Booking để tính tuyến.");
         BookingReservationService.TravelAssessment travel=reservations.assessTravel(replacementStaffId,start,booking.endTime(),
                 booking.latitude(),booking.longitude(),bookingId);
         if(!travel.feasible()) {

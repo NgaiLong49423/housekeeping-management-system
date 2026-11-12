@@ -37,13 +37,16 @@ public class BookingCompletionServiceImpl implements BookingCompletionService {
         }
         java.time.LocalDateTime effectiveArrival = booking.arrivalVerifiedAt() == null
                 ? booking.staffArrivedAt() : booking.arrivalVerifiedAt();
-        boolean lateBeyondGrace = effectiveArrival.isAfter(
-                booking.startTime().plusMinutes(BookingDelayCompensation.GRACE_PERIOD_MINUTES));
+        boolean lateBeyondGrace = effectiveArrival.isAfter(booking.startTime());
         if (lateBeyondGrace && booking.incidentReportedAt() == null && booking.arrivalVerifiedAt() == null) {
-            throw new IllegalStateException("Staff đến trễ quá 5 phút cần báo sự cố và chờ Customer đồng ý trước khi bắt đầu.");
+            throw new IllegalStateException("Staff đến trễ cần gửi ETA cụ thể và chờ Customer đồng ý trước khi bắt đầu.");
         }
         if (booking.incidentReportedAt() != null && !"ACCEPTED".equals(booking.incidentCustomerResponse())) {
             throw new IllegalStateException("Cần Customer đồng ý giờ đến trễ trước khi bắt đầu công việc.");
+        }
+        if ("ACCEPTED".equals(booking.incidentCustomerResponse()) && booking.incidentExpectedArrivalAt() != null
+                && effectiveArrival.isAfter(booking.incidentExpectedArrivalAt())) {
+            throw new IllegalStateException("Staff đã lỡ ETA được đồng ý. Cần gửi ETA mới và Customer đồng ý lại.");
         }
         if (bookings.startWork(bookingId, staffId, now, lateBeyondGrace) != 1) {
             throw new IllegalStateException("Lịch vừa thay đổi hoặc chưa đủ điều kiện bắt đầu. Hãy tải lại trang.");
@@ -62,6 +65,9 @@ public class BookingCompletionServiceImpl implements BookingCompletionService {
         }
         if (booking.workStartedAt() == null) {
             throw new IllegalStateException("Cần xác nhận bắt đầu công việc trước khi hoàn thành.");
+        }
+        if (booking.customerDelayReportedAt() != null && booking.arrivalVerifiedAt() == null) {
+            throw new IllegalStateException("Customer đã báo Staff chưa đến. Cần Customer xác nhận hoặc Admin xác minh trước khi hoàn thành.");
         }
         if (!bookingImages.existsByBookingId(bookingId)) {
             throw new IllegalStateException("Cần tải ít nhất một ảnh minh chứng trước khi xác nhận hoàn thành.");

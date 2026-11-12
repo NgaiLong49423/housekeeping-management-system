@@ -89,12 +89,12 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
     }
 
     @Test
-    void simplifiedFeedbackMigrationKeepsTwentyThreeBusinessTablesAndDropsWorkflows() {
+    void currentSchemaKeepsTwentySixBusinessTablesAndDropsRetiredWorkflows() {
         Integer tables=jdbc.queryForObject("""
                 SELECT COUNT(*) FROM sys.tables t JOIN sys.schemas s ON s.schema_id=t.schema_id
                 WHERE s.name='dbo' AND t.name<>'flyway_primary_schema_history'
                 """,Integer.class);
-        assertThat(tables).isEqualTo(23);
+        assertThat(tables).isEqualTo(26);
         Integer v10Columns=jdbc.queryForObject("""
                 SELECT COUNT(*) FROM sys.columns WHERE object_id=OBJECT_ID('dbo.Payments') AND name='is_simulated'
                 """,Integer.class);

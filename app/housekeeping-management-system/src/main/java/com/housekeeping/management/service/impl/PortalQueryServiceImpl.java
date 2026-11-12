@@ -157,6 +157,7 @@ public class PortalQueryServiceImpl implements PortalQueryService {
         Map<Long, Payment> paymentByBooking = new HashMap<>();
         for (Payment payment : payments.findAllByBookingIdInOrderByCreatedAtDescPaymentIdDesc(bookingIds))
             paymentByBooking.putIfAbsent(payment.getBookingId(), payment);
+        LocalDateTime now = LocalDateTime.now(VN);
         return rows.stream().map(b -> {
             User customer = userById.get(b.getCustomerId()); Staff staff = staffById.get(b.getStaffId());
             Feedback f = showFeedback ? feedbackByBooking.get(b.getBookingId()) : null; Payment p = paymentByBooking.get(b.getBookingId());
@@ -172,12 +173,12 @@ public class PortalQueryServiceImpl implements PortalQueryService {
                     offset(b.getArrivalVerificationRecordedAt()), b.getArrivalVerifiedBy(),
                     b.getArrivalVerificationSource(), b.getArrivalVerificationNote(),
                     "CONFIRMED".equals(b.getStatus().name()) && b.getWorkStartedAt() == null
-                            && (b.getIncidentReportedAt() != null
-                                || (b.getCustomerArrivedAt() == null && b.getArrivalVerifiedAt() == null
-                                    && b.getIncidentReportedAt() == null
-                                    && !LocalDateTime.now(VN).isBefore(b.getStartTime().plusMinutes(15)))
+                            && ((b.getCustomerDelayReportedAt() != null && b.getArrivalVerifiedAt() == null)
+                                || (b.getIncidentReportedAt() != null && b.getIncidentExpectedArrivalAt() != null
+                                    && (b.getIncidentCustomerResponse() == null || "EXPIRED".equals(b.getIncidentCustomerResponse())
+                                        || ("ACCEPTED".equals(b.getIncidentCustomerResponse()) && now.isAfter(b.getIncidentExpectedArrivalAt()))))
                                 || BookingCancellationService.canCustomerCancel(
-                                    b.getStatus().name(), b.getStartTime(), LocalDateTime.now(VN), b.getWorkStartedAt())));
+                                    b.getStatus().name(), b.getStartTime(), now, b.getWorkStartedAt())));
         }).toList();
     }
     private static OffsetDateTime offset(LocalDateTime value) { return value == null ? null : value.atOffset(VN); }

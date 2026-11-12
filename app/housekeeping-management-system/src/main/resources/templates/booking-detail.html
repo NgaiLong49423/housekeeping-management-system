@@ -40,7 +40,7 @@
       <div th:replace="~{fragments/layout :: alerts}">
       </div>
 
-      <div th:if="${currentUser.role == 'CUSTOMER' and booking.status == 'CONFIRMED' and booking.customerArrivedAt == null}"
+      <div th:if="${currentUser.role == 'CUSTOMER' and booking.status == 'CONFIRMED' and booking.customerArrivedAt == null and booking.customerDelayReportedAt == null}"
            class="alert alert-info border-0 shadow-sm" role="status">
         Khi nhân viên đến, vui lòng xác nhận trên trang này để tiện theo dõi lịch hẹn.
       </div>
@@ -113,16 +113,16 @@
             <p class="small mt-2 mb-0" th:if="${booking.incidentExpectedArrivalAt != null}"
                th:text="'Staff dự kiến đến lúc ' + ${#temporals.format(booking.incidentExpectedArrivalAt, 'HH:mm · dd/MM/yyyy')}">Giờ đến dự kiến</p>
             <p class="small text-success mt-2 mb-0" th:if="${booking.incidentCustomerResponse == 'ACCEPTED'}"
-               th:text="'Customer đã đồng ý chờ lúc ' + ${#temporals.format(booking.incidentCustomerRespondedAt, 'HH:mm · dd/MM/yyyy')}">Đã đồng ý chờ</p>
+               th:text="'Customer đã đồng ý ETA này lúc ' + ${#temporals.format(booking.incidentCustomerRespondedAt, 'HH:mm · dd/MM/yyyy')}">Đã đồng ý ETA</p>
             <p class="small text-danger mt-2 mb-0" th:if="${booking.incidentCustomerResponse == 'DECLINED'}">Customer đã từ chối chờ; booking được hủy miễn phí.</p>
+            <p class="small text-warning mt-2 mb-0" th:if="${booking.incidentCustomerResponse == 'EXPIRED'}">ETA đã hết hạn; cần Staff gửi ETA mới để Customer quyết định lại.</p>
             <p class="small text-warning mt-2 mb-0" th:if="${currentUser.admin and booking.incidentCustomerResponse == null}">Đang chờ Customer phản hồi; Staff chưa được bắt đầu công việc.</p>
             <div class="border-top mt-3 pt-3" th:if="${currentUser.role == 'CUSTOMER' and booking.status == 'CONFIRMED' and booking.incidentCustomerResponse == null and booking.workStartedAt == null and booking.incidentExpectedArrivalAt != null}">
-              <p class="mb-2">Vui lòng chọn sau khi Staff đã gọi cho bạn. Chưa phản hồi không được tính là đồng ý.</p>
-              <p class="small text-warning" th:if="${booking.incidentExpectedArrivalAt.isAfter(booking.start.plusMinutes(30))}">Giờ dự kiến muộn hơn 30 phút. Nếu tiếp tục, mức giảm tối thiểu theo chính sách là 20%; bạn vẫn có thể hủy miễn phí trước khi công việc bắt đầu.</p>
+              <p class="mb-2">Chọn chờ đúng ETA này hoặc từ chối và hủy miễn phí. Chưa phản hồi không được tính là đồng ý.</p>
               <div class="d-flex flex-wrap gap-2">
                 <form method="post" th:action="@{/customer/bookings/{id}/incident-response(id=${booking.id})}">
                   <input type="hidden" name="response" value="ACCEPTED">
-                  <button class="btn btn-primary" type="submit" th:text="${booking.delayMinutes != null and booking.delayMinutes > 30 ? 'Đồng ý tiếp tục (giảm 20%)' : 'Đồng ý chờ'}">Đồng ý chờ</button>
+                  <button class="btn btn-primary" type="submit">Đồng ý chờ đến ETA này</button>
                 </form>
                 <form method="post" th:action="@{/customer/bookings/{id}/incident-response(id=${booking.id})}" data-confirm="Từ chối giờ đến dự kiến và hủy lịch miễn phí?">
                   <input type="hidden" name="response" value="DECLINED">
@@ -130,7 +130,7 @@
                 </form>
               </div>
             </div>
-            <div class="alert alert-info mt-3 mb-0" th:if="${booking.delayMinutes != null and booking.delayMinutes > 0 and booking.incidentCustomerResponse == 'ACCEPTED'}">
+            <div class="alert alert-info mt-3 mb-0" th:if="${booking.delayMinutes != null and booking.delayMinutes > 0 and booking.arrivalVerifiedAt != null}">
               <span th:text="'Staff trễ ' + ${booking.delayMinutes} + ' phút. Mức giảm ' + ${#numbers.formatDecimal(booking.discountedPercent,0,'POINT',0,'COMMA')} + '%: '">Mức giảm</span>
               <strong th:text="${#numbers.formatDecimal(booking.delayDiscountAmount,0,'POINT',0,'COMMA')} + ' ₫'">0 ₫</strong>
               <span th:if="${booking.delayMinutes > 30}">. Bạn vẫn có thể hủy miễn phí trước khi công việc bắt đầu.</span>
@@ -139,23 +139,23 @@
 
           <section class="surface p-4" th:if="${booking.customerDelayReportedAt != null and (currentUser.role == 'CUSTOMER' or currentUser.admin)}">
             <h2 class="h6 mb-2">Customer đã báo Staff chưa đến</h2>
-            <p class="small text-secondary mb-0" th:text="'Đã ghi nhận lúc ' + ${booking.customerDelayReportedLabel} + '. Staff chưa thể bắt đầu cho đến khi bạn xác nhận giờ có mặt hoặc Admin xác minh.'">Thông tin báo trễ của Customer</p>
+            <p class="small text-secondary mb-0" th:text="'Đã ghi nhận lúc ' + ${booking.customerDelayReportedLabel} + '. Staff chưa thể bắt đầu hoặc hoàn tất cho đến khi bạn xác nhận giờ có mặt hoặc Admin xác minh.'">Thông tin báo trễ của Customer</p>
             <p class="small mt-2 mb-0" th:if="${booking.staffArrivedAt != null}" th:text="'Staff tự xác nhận đã đến lúc ' + ${booking.staffArrivalLabel} + '; thời điểm này đang chờ xác minh.'">Staff tự xác nhận đến</p>
             <p class="small mt-2 mb-0" th:if="${booking.arrivalVerifiedAt != null}" th:text="'Giờ đến đã xác minh: ' + ${booking.arrivalVerifiedLabel} + ' · nguồn ' + ${booking.arrivalVerificationSource} + ' · ghi nhận lúc ' + ${booking.arrivalVerificationRecordedLabel}">Giờ đến đã xác minh</p>
             <p class="small text-secondary mt-2 mb-0" th:if="${booking.arrivalVerificationNote != null}" th:text="'Ghi chú Admin: ' + ${booking.arrivalVerificationNote}">Ghi chú xác minh</p>
           </section>
 
-          <section class="surface p-4" th:if="${currentUser.role == 'CUSTOMER' and booking.status == 'CONFIRMED' and booking.customerArrivedAt == null and booking.customerDelayReportedAt == null and booking.incidentReportedAt == null and booking.workStartedAt == null and !booking.start.isAfter(now)}">
+          <section class="surface p-4" th:if="${currentUser.role == 'CUSTOMER' and booking.status == 'CONFIRMED' and booking.customerDelayReportedAt == null and !booking.start.isAfter(now)}">
             <h2 class="h6 mb-2">Staff chưa đến?</h2>
-            <p class="small text-secondary mb-3">Nếu Staff chưa có mặt sau giờ hẹn, hãy báo để tạm khóa bắt đầu công việc. Bạn vẫn có thể gửi báo cáo nếu Staff đã tự bấm “Tôi đã đến”.</p>
+            <p class="small text-secondary mb-3">Báo nếu Staff chưa có mặt hoặc giờ đến không đúng, kể cả sau khi Staff tự khai đã tới hoặc bắt đầu việc. Báo cáo không tự hủy lịch hay tính giảm tiền; nếu việc đã bắt đầu, phần hoàn tất sẽ chờ xác minh.</p>
             <form method="post" th:action="@{/customer/bookings/{id}/report-staff-delay(id=${booking.id})}">
               <button class="btn btn-outline-warning" type="submit">Báo Staff chưa đến</button>
             </form>
           </section>
 
-          <section class="surface p-4" th:if="${currentUser.admin and booking.status == 'CONFIRMED' and booking.customerDelayReportedAt != null and booking.arrivalVerifiedAt == null and booking.workStartedAt == null}">
+          <section class="surface p-4" th:if="${currentUser.admin and booking.status == 'CONFIRMED' and booking.customerDelayReportedAt != null and booking.arrivalVerifiedAt == null}">
             <h2 class="h5 mb-2">Xác minh giờ đến thực tế</h2>
-            <p class="small text-secondary">Nhập giờ Staff thực sự có mặt. Hệ thống tính giảm theo giờ này và mở khóa bắt đầu công việc.</p>
+            <p class="small text-secondary">Nhập giờ Staff thực sự có mặt. Hệ thống tính giảm theo giờ này; tranh chấp sau khi bắt đầu cũng phải xác minh trước khi hoàn tất.</p>
             <form method="post" th:action="@{/admin/bookings/{id}/arrival-dispute/verify(id=${booking.id})}">
               <label class="form-label" for="actualArrivalAt">Giờ đến thực tế</label>
               <input id="actualArrivalAt" name="actualArrivalAt" type="datetime-local" class="form-control mb-3" required
@@ -176,7 +176,7 @@
                 </select>
                 <button class="btn btn-outline-primary" type="submit">Lưu nhân viên</button>
               </div>
-              <p class="small text-secondary mt-2 mb-0">Hệ thống kiểm tra nhân viên đang hoạt động, ngày nghỉ, giờ sẵn sàng part-time và xung đột/đệm lịch 60 phút. Không đủ điều kiện thì không đổi lịch.</p>
+              <p class="small text-secondary mt-2 mb-0">Hệ thống kiểm tra nhân viên đang hoạt động, ngày nghỉ, giờ sẵn sàng part-time và tuyến di chuyển từ lịch liền kề (ETA cộng 15 phút; cùng địa điểm đệm 15 phút). Không đủ điều kiện thì không đổi lịch.</p>
             </form>
             <form method="post" th:action="@{/admin/bookings/{id}/cancel(id=${booking.id})}">
               <label class="form-label" for="adminCancelReason">Hủy lịch (ghi rõ lý do)</label>
@@ -510,23 +510,20 @@
             <p class="small text-secondary mb-3" th:if="${booking.workStartedAt == null and booking.incidentReportedAt == null and booking.customerDelayReportedAt == null}">
               Bạn có thể hủy trước giờ bắt đầu ít nhất 2 giờ hoàn toàn miễn phí.
             </p>
-            <p class="small text-secondary mb-3" th:if="${booking.incidentReportedAt != null and booking.workStartedAt == null}">Do Staff báo trễ, bạn có thể hủy miễn phí trước khi công việc bắt đầu.</p>
-            <p class="small text-secondary mb-3" th:if="${booking.customerArrivedAt == null and booking.arrivalVerifiedAt == null and booking.incidentReportedAt == null and booking.workStartedAt == null}">Nếu sau giờ hẹn 15 phút vẫn chưa xác minh được Staff có mặt, bạn có thể hủy lịch miễn phí. Việc Staff tự bấm “đã đến” chưa được xem là xác minh.</p>
+            <p class="small text-secondary mb-3" th:if="${booking.incidentReportedAt != null and booking.workStartedAt == null and booking.incidentCustomerResponse != 'ACCEPTED'}">ETA chưa được đồng ý hoặc đã hết hạn; bạn có thể hủy miễn phí trước khi việc bắt đầu.</p>
+            <p class="small text-secondary mb-3" th:if="${booking.customerDelayReportedAt != null and booking.arrivalVerifiedAt == null and booking.workStartedAt == null}">Bạn có thể hủy miễn phí khi báo cáo chưa đến còn mở. Báo cáo không tự hủy lịch.</p>
             <p class="small text-secondary mb-3" th:if="${booking.workStartedAt != null}">Công việc đã bắt đầu; Customer không thể hủy lịch.</p>
             <form method="post" th:action="@{/customer/bookings/{id}/cancel(id=${booking.id})}" data-confirm="Bạn muốn hủy lịch hẹn này?">
               <button class="btn btn-outline-danger w-100" type="submit" th:disabled="${!booking.cancellable}">
                 Hủy lịch hẹn miễn phí
               </button>
             </form>
-            <form th:if="${booking.status == 'CONFIRMED' and booking.customerArrivedAt == null}" method="post" th:action="@{/customer/bookings/{id}/arrived(id=${booking.id})}" class="mt-3">
-              <button class="btn btn-outline-primary w-100" type="submit">Xác nhận nhân viên đã đến</button>
+            <form th:if="${booking.status == 'CONFIRMED' and (booking.customerArrivedAt == null or (booking.customerDelayReportedAt != null and booking.arrivalVerifiedAt == null))}" method="post" th:action="@{/customer/bookings/{id}/arrived(id=${booking.id})}" class="mt-3">
+              <button class="btn btn-outline-primary w-100" type="submit" th:text="${booking.customerDelayReportedAt != null ? 'Xác nhận Staff đã đến lúc này' : 'Xác nhận nhân viên đã đến'}">Xác nhận nhân viên đã đến</button>
               <p class="small text-secondary mt-2 mb-0">Nếu bạn đã báo Staff chưa đến, xác nhận này ghi nhận giờ có mặt thực tế và mở khóa công việc.</p>
             </form>
             <p class="small text-danger mt-2 mb-0" th:if="${booking.workStartedAt == null and not booking.cancellable and booking.incidentReportedAt == null and booking.start.isAfter(now)}">
               Đã qua thời hạn cho phép hủy lịch (trong vòng 2 giờ trước khi bắt đầu).
-            </p>
-            <p class="small text-danger mt-2 mb-0" th:if="${booking.workStartedAt == null and not booking.cancellable and booking.incidentReportedAt == null and booking.customerArrivedAt == null and booking.arrivalVerifiedAt == null and !booking.start.isAfter(now) and now.isBefore(booking.start.plusMinutes(15))}">
-              Có thể hủy miễn phí sau khi đã qua đủ 15 phút kể từ giờ hẹn.
             </p>
           </section>
 
@@ -538,19 +535,19 @@
             </form>
           </section>
 
-          <section th:if="${currentUser.role == 'STAFF' and booking.status == 'CONFIRMED' and booking.workStartedAt == null and (booking.incidentReportedAt == null or booking.incidentExpectedArrivalAt == null)}" class="surface p-4">
+          <section th:if="${currentUser.role == 'STAFF' and booking.status == 'CONFIRMED' and booking.workStartedAt == null and (booking.incidentReportedAt == null or booking.incidentCustomerResponse == 'EXPIRED' or (booking.incidentCustomerResponse == null and booking.incidentExpectedArrivalAt != null and booking.incidentExpectedArrivalAt.isBefore(now)) or (booking.incidentCustomerResponse == 'ACCEPTED' and booking.incidentExpectedArrivalAt.isBefore(now)))}" class="surface p-4">
             <button class="btn btn-outline-warning w-100" type="button" data-bs-toggle="collapse"
                     th:attr="data-bs-target=|#delayIncident-${booking.id}|,aria-controls=|delayIncident-${booking.id}|" aria-expanded="false">
               Báo sự cố đến trễ (nếu cần)
             </button>
             <div class="collapse mt-3" th:id="|delayIncident-${booking.id}|">
-              <p class="small text-secondary mb-3">Chỉ gửi nếu bạn dự kiến đến trễ. Khách sẽ thấy báo cáo và cần đồng ý trước khi bạn bắt đầu sau khi đã gửi.</p>
+              <p class="small text-secondary mb-3">Nhập ETA cụ thể. Customer phải đồng ý đúng giờ này; nếu lỡ ETA, bạn cần gửi giờ mới và Customer đồng ý lại.</p>
               <form method="post" th:action="@{/staff/bookings/{id}/incident(id=${booking.id})}">
               <label class="form-label small fw-bold" for="incident-note" th:for="|incident-note-${booking.id}|">Mô tả sự cố</label>
               <textarea id="incident-note" th:id="|incident-note-${booking.id}|" name="note" class="form-control" rows="3" maxlength="500" required placeholder="Ví dụ: đang kẹt xe, dự kiến tới trễ khoảng 15 phút"></textarea>
               <label class="form-label small fw-bold mt-3" for="incident-eta" th:for="|incident-eta-${booking.id}|">Giờ dự kiến đến</label>
               <input id="incident-eta" type="datetime-local" th:id="|incident-eta-${booking.id}|" name="expectedArrivalAt" class="form-control"
-                       th:required="${booking.staffArrivedAt == null}"
+                       required
                        th:attr="min=${#temporals.format(now, 'yyyy-MM-dd''T''HH:mm')}" th:value="${#temporals.format(booking.start.isAfter(now) ? booking.start.plusMinutes(15) : now.plusMinutes(15), 'yyyy-MM-dd''T''HH:mm')}">
                 <button class="btn btn-outline-warning w-100 mt-3" type="submit">Gửi báo cáo cho khách</button>
               </form>

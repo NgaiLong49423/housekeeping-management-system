@@ -1,8 +1,8 @@
 > **Document:** Software Requirements Specification\
 > **File:** `docs/requirements/SRS.md`\
-> **Version:** v6.5.0\
+> **Version:** v7.0.0\
 > **Created:** 2026-06-14\
-> **Last Updated:** 2026-11-11\
+> **Last Updated:** 2026-11-12\
 > **Status:** Active\
 # SRS — SOFTWARE REQUIREMENTS SPECIFICATION
 
@@ -50,10 +50,10 @@ One server-rendered Java Spring MVC web application, single company, SQL Server.
 - AC-FOLLOW-01: Follow trùng không có dòng lặp; unfollow mất dòng.
 
 ### FR-HOUSE — Houses and VietMap addresses
-- Customer quản lý nhiều House gồm người nhận, số điện thoại, địa chỉ VietMap, loại địa chỉ, tùy chọn mặc định và optional address_note. Customer chọn suggestion có ref_id; backend tra tọa độ qua Place API, key chỉ ở server.
-- Mỗi Booking dùng đúng một House thuộc Customer; lưu snapshot địa chỉ và tọa độ. Booking yêu cầu có tọa độ và nằm trong bán kính đường chim bay từ vị trí cơ sở do Admin cấu hình; mặc định khởi điểm 10 km.
+- Customer quản lý nhiều House gồm người nhận, điện thoại, địa chỉ văn bản, loại, mặc định và optional address_note. Backend tra ngầm VietMap để lấy tọa độ định tuyến; Customer có thể nhập địa chỉ dạng văn bản mà không nhập tọa độ hoặc chọn suggestion.
+- Mỗi Booking dùng một House thuộc Customer và lưu snapshot địa chỉ/tọa độ nếu tra được. Không áp dụng giới hạn bán kính từ tâm cơ sở.
 - Soft delete House `is_deleted=1` chỉ khi không có Booking CONFIRMED hoặc AWAITING_PAYMENT; giữ FK/snapshots lịch sử; House deleted không thể được chọn trong Booking mới.
-- AC-HOUSE-01: Không thể đặt House không thuộc Customer, bị soft-delete, thiếu tọa độ VietMap hoặc nằm ngoài bán kính.
+- AC-HOUSE-01: Không thể đặt House không thuộc Customer hoặc bị soft-delete; tuyến không xác định được thì slot không khả dụng và nêu lý do.
 - AC-HOUSE-02: Soft delete với Booking chưa xong bị từ chối; COMPLETED/CANCELLED không ngăn xóa mềm; lịch sử giữ nguyên.
 - AC-HOUSE-03: Sửa House không sửa Booking address snapshots.
 - AC-HOUSE-04: Mỗi Customer có tối đa một House đang hoạt động được đặt làm mặc định; địa chỉ cũ được backfill người nhận/điện thoại và giữ nguyên chuỗi địa chỉ.
@@ -63,9 +63,9 @@ One server-rendered Java Spring MVC web application, single company, SQL Server.
 - Lịch tuần có ngày hiệu lực. Lịch nền hiện tại được backfill từ 1900-01-01; phiên bản áp dụng cho ngày D là phiên bản mới nhất có ngày hiệu lực không sau D. Admin có thể tạo nhiều phiên bản tương lai, xem lịch quá khứ ở chế độ chỉ đọc; ngày của phiên bản đã lưu không đổi. Có thể sửa lịch hôm nay hoặc sửa/hủy lịch tương lai.
 - Khi tạo/sửa/hủy phiên bản, chặn nếu khoảng ngày phiên bản chi phối có Booking `CONFIRMED` hoặc `AWAITING_PAYMENT`, kể cả khi giờ mới vẫn chứa booking. Booking `CANCELLED` không khóa. Hủy phiên bản tương lai không tự kích hoạt lại availability đã inactive.
 - Admin lưu địa điểm/bán kính riêng với các phiên bản giờ. Khi thay đổi giờ hiệu lực, availability Staff không còn nằm trọn trong giờ mới được inactive và giữ lịch sử.
-- Mọi giờ bắt đầu/kết thúc theo lưới 15 phút (:00/:15/:30/:45); server kiểm tra lại.
-- Tọa độ tâm cơ sở do Admin lưu cùng địa chỉ; bán kính dịch vụ mặc định 10 km, Admin có thể điều chỉnh. Đổi tâm/bán kính mà booking tương lai mất điều kiện phục vụ thì chặn lưu đến khi Admin xử lý.
-- Nếu đổi khung giờ hoặc bán kính khiến Booking CONFIRMED tương lai mất hợp lệ, Admin phải đổi nhân viên/hủy booking trước khi lưu. Availability ngoài giờ mới được giữ lịch sử nhưng inactive.
+- Giờ bắt đầu Booking theo lưới 30 phút (:00/:30); server kiểm tra lại.
+- Tâm/bán kính vẫn lưu để tương thích, không dùng chặn Booking hay reassignment.
+- Nếu đổi khung giờ khiến Booking CONFIRMED tương lai mất hợp lệ, Admin phải đổi nhân viên/hủy booking trước khi lưu. Availability ngoài giờ mới được giữ lịch sử nhưng inactive.
 - AC-CONFIG-01: Booking phải bắt đầu và kết thúc trong cùng một khung hợp lệ; không nhận khoảng bắc qua giờ nghỉ.
 - AC-CONFIG-02: Staff, Customer booking và Admin reassignment cùng tra phiên bản lịch theo ngày; một phiên bản mới chỉ thay lịch từ ngày hiệu lực trở đi.
 
@@ -83,22 +83,18 @@ One server-rendered Java Spring MVC web application, single company, SQL Server.
 - AC-LEAVE-02: Staff khác không duyệt/đọc trái quyền; review timestamps/reviewer consistent.
 
 ### FR-BOOK — Create Booking
-- Inputs: Customer, own House, chosen ACTIVE Staff, >=1 ACTIVE Services, proposed start, optional area_note. One booking form may include several service dates; each date has its own selected Staff and start time and persists as an independent Booking.
-- Availability calendar only offers dates with at least one Staff and 15-minute start that can fit all selected Services inside Admin hours and the Staff's active interval (for PART_TIME), after leave, existing-booking and 120-minute lead-time checks. When Customer filters by Staff, dates are limited to that Staff's eligible schedule.
-- Validate start alignment to 15-minute slots; now+>=120 minutes; start<=now+30 days; full interval inside a single company window; House within radius; Staff not on approved leave; type-specific availability.
-- Giờ Admin cấu hình và giờ Staff đăng ký là thời điểm nhân viên có mặt tại nhà khách, sẵn sàng bắt đầu phục vụ. Booking đầu ngày đi từ tâm công ty; hệ thống lấy ETA tuyến xe máy VietMap cơ sở + 15 phút để ước tính giờ xuất phát lùi từ giờ booking và truyền thời điểm đó vào Route v4. Giữa hai booking trong cùng ngày, khoảng trống tối thiểu là ETA tuyến VietMap từ địa chỉ booking trước đến địa chỉ sau + 15 phút dự phòng (ví dụ ETA 20 phút cần 35 phút). Quãng đường đường bộ VietMap giữa hai booking cùng Staff không được vượt `serviceRadiusKm` Admin đang cấu hình; đúng bằng ngưỡng thì chấp nhận. Quy tắc này chỉ áp dụng cho chặng giữa booking, không cộng phí; bán kính nhà quanh tâm công ty vẫn được kiểm tra riêng. Booking cùng Staff không được chồng giờ. Thời điểm khởi hành gửi VietMap chỉ hỗ trợ tránh khu vực hạn chế theo giờ, ETA không phải dự báo kẹt xe tương lai. API lỗi/không có tuyến từ chối booking. Nếu dự kiến trễ, Staff có thể ghi báo cáo sự cố trên Booking và liên hệ Customer trực tiếp; báo cáo hiển thị cho Customer và Admin. Không tự đổi/hủy lịch hoặc áp dụng quy tắc hoàn tiền mới.
-- Khi Customer tra giờ, availability-options bắt buộc nhận `houseId` và xác minh House thuộc Customer đang đăng nhập. Các mốc chồng giờ bị ẩn. Khi kiểm tra một mốc cụ thể, nếu thiếu thời gian di chuyển trước/sau thì loại mốc đó và nêu booking liên quan, khoảng trống hiện có, ETA, 15 phút dự phòng, thời điểm đủ điều kiện sớm nhất hoặc giờ bắt đầu muộn nhất. Lưới chọn vẫn theo 15 phút: đủ điều kiện từ 10:35 thì mốc đầu tiên có thể chọn là 10:45. Lỗi VietMap phải được phân biệt với thiếu thời gian di chuyển. Backend lặp lại cùng kiểm tra khi lưu; lỗi từng ngày giữ nguyên dịch vụ, House, ghi chú, giờ và Staff để Customer chỉnh sửa.
-- On success snapshot House address/lat/lng/address_note and per-Service name/unit price/duration; total_amount=sum unit prices, total_duration_minutes=sum durations, end=start+duration; `original_staff_id=staff_id`; status CONFIRMED.
-- One transaction with reliable concurrency coordination for parallel requests for same Staff. Do not use an unchecked `existsByOverlap` followed by insert alone.
-- Multi-date submission validates/persists each date independently. A date that fails availability or route validation is reported; other valid dates may still be created. The UI must show which dates need correction/removal and the count of successfully created bookings.
-- After a successful booking, remind Customer to confirm Staff arrival; repeat the reminder on each confirmed Booking detail until Customer records arrival.
-- AC-BOOK-01: Valid Booking persists header + >=1 detail atomically with correct totals, duration, snapshots, status, staff references.
-- AC-BOOK-02: Lead time <120min rejects, >=120min accepts when aligned to :00/:15/:30/:45; beyond 30d rejects.
-- AC-BOOK-03: Different Staff can be booked at same time; same Staff is checked against route-aware gap.
-- AC-BOOK-04: End outside current company/Staff interval rejects.
-- AC-BOOK-05: Concurrent requests for same Staff/slot: at most one confirmed successful; no partial write.
-- AC-BOOK-06: Single-date and multi-date success messages remind Customer to confirm Staff arrival; the detail reminder remains until confirmation.
-
+- Inputs: Customer, own House, chosen ACTIVE Staff, >=1 ACTIVE Services, proposed start, optional area_note. A multi-date form persists each date as an independent Booking.
+- Availability offers only 30-minute start-grid options that fit services within one company window and Staff availability, leave, existing appointments and 120-minute lead time. Customer enters a textual address; backend resolves it through VietMap without asking for coordinates.
+- Validate start alignment to :00/:30; now+>=120 minutes; start<=now+30 days; full interval inside one company window; Staff not on approved leave; type-specific availability. No service-radius restriction and no company-center-to-first-booking route.
+- Between adjacent same-Staff Bookings require VietMap route ETA + 15 minutes. Same address always requires 15 minutes. If route ETA cannot be resolved, reject that slot with the reason. Apply only between adjacent Bookings.
+- Backend repeats all checks at save; provider failure/no route blocks that slot. Multi-date submissions can independently succeed/fail.
+- On success snapshot House text/coordinates if resolved and each Service details; totals are sums; `original_staff_id=staff_id`; status CONFIRMED.
+- Coordinate concurrent same-Staff requests transactionally; unchecked overlap query followed by insert is insufficient.
+- AC-BOOK-01: Valid Booking persists header/details atomically with totals, duration and snapshots.
+- AC-BOOK-02: Lead time <120min rejects; >=120min accepts only on :00/:30; beyond 30 days rejects.
+- AC-BOOK-03: Adjacent same-Staff gap is ETA+15min, same-address gap is 15min; no first-leg/radius restriction; unavailable ETA blocks slot.
+- AC-BOOK-04: End outside company/Staff interval rejects.
+- AC-BOOK-05: Concurrent requests for same Staff/slot create at most one Booking, without partial writes.
 ### FR-CANCEL/REASSIGN — Cancellation and admin assignment
 - Customer self-cancel only when `now <= start_time-120min` and work has not started; additionally, Customer may cancel a Booking for a reported Staff delay for free while work has not started. Persist CANCELLED status + cancelled_by/at/reason; not physical delete.
 - Confirmed Booking House/time/services changes require cancel+rebook.
@@ -106,27 +102,26 @@ One server-rendered Java Spring MVC web application, single company, SQL Server.
 - AC-CANCEL-01: Exactly -120m allows customer cancellation; -119m rejects; cancellation leaves snapshots/details intact.
 - AC-REASSIGN-01: Admin reassignment changes current staff, not original staff, and cannot create conflicting active booking.
 
-### FR-ARRIVAL — Two-sided arrival record
-- Customer owning a CONFIRMED Booking and its assigned Staff may independently record arrival at any time, including before the scheduled start. Each timestamp is stored separately and does not change Booking status. Customer confirmation is optional; assigned Staff confirmation is required before work can start.
-- After the scheduled start, while Staff has not confirmed arrival and work has not started, the owning Customer may record once that Staff has not arrived. Store the report timestamp on the Booking and show it to the Customer and Admin only. It does not block Staff from starting, cancel the Booking, or change money; it is distinct from the Staff ETA/consent workflow.
-- AC-ARRIVAL-01: Other Customers, non-CONFIRMED and duplicate Customer confirmations are rejected; a valid pre-start confirmation is allowed.
-- AC-ARRIVAL-02: Unassigned Staff, non-CONFIRMED and duplicate Staff confirmations are rejected; a valid pre-start confirmation is allowed.
-- AC-ARRIVAL-03: A Customer report is accepted once only for their CONFIRMED Booking at/after scheduled start while Staff arrival and work-start timestamps are absent; it is hidden from Staff and visible to Admin and the owner.
-- Note: status-specific cancellation eligibility after work complete/payment is **TBD**; do not create new refund semantics.
+### FR-ARRIVAL — Arrival claim, Customer report and verification
+- Staff self-claim `staff_arrived_at`, Customer confirmation and Admin verification are separate facts. Staff self-claim alone is not verified arrival and never creates a delay discount.
+- From scheduled start while Booking is CONFIRMED and service is not completed, owning Customer can report Staff absent/arrival time incorrect once, including after Staff self-claimed arrival or sent an ETA. Persist the report time without changing Booking status or money.
+- An open report blocks Staff start until Customer confirms actual presence or Admin records actual arrival, actor, verification time, source and required note. If reported after work starts, block completion/payment until verification. Never auto-unlock on timeout.
+- Customer can cancel free while a no-show/ETA dispute is open and work has not started. Reporting alone never cancels. The no-show report is available while the service is in progress and until it is completed; an open report blocks completion/payment until verification.
+- AC-ARRIVAL-01: Enforce ownership, CONFIRMED, at/after start, one report, and service not completed; allow report despite Staff arrival claim, ETA, prior Customer arrival acknowledgement, or work start.
+- AC-ARRIVAL-02: Open report blocks start and completion; Customer or Admin verification records actual arrival and unlocks the applicable action; no timeout auto-unlocks.
+- AC-ARRIVAL-03: Customer can cancel free while a report is open before work starts; report alone changes neither status nor discount.
 
-### FR-INCIDENT — Staff delay, Customer consent and compensation
-- Assigned Staff may optionally report one delay incident for a CONFIRMED Booking before work starts. The report stores a required 1–500 character reason, expected arrival time later than scheduled start, and report timestamp. The Customer sees the report, Staff calls directly using the Booking phone, and Admin can review the report and response.
-- Early or late arrival alone does not block work start once assigned Staff has confirmed arrival. Staff may start early or wait until the scheduled start; timing does not alter the booked schedule, duration or amount. If Staff submits a delay report, Customer must explicitly accept waiting or decline; no response is not consent and blocks work start while that report is pending. Decline cancels the Booking free of charge before work starts.
-- Admin edits ordered delay tiers, each with an inclusive minimum minute, inclusive maximum minute (or no maximum for the final tier), and integer discount percent from 0 to 100. Tiers must start at minute 1, have no gaps or overlaps, and exactly one final unbounded tier. Initial defaults are 1–15 minutes => 5%, 16–30 => 10%, >30 => 20%.
-- On Staff arrival, calculate delay from scheduled start and round partial minutes upward using the active tier configuration. Calculate on total service amount and round the discount to whole VND. At a delay above 30 minutes Customer may cancel free before work starts or continue according to the active configured tier. Payment remains after service and uses total minus discount. A configuration edit affects Bookings whose Staff arrival has not yet been recorded; an already calculated Booking retains its stored discount.
-- AC-INCIDENT-01: Report persists ETA/reason/time and is visible to Customer/Admin; wrong Staff, invalid status, duplicate report, or report after work starts is rejected.
-- AC-INCIDENT-02: Only the owning Customer may accept/decline once. Decline cancels free; missing response blocks Staff start only when a delay report was submitted; without a report, Staff may start after confirming arrival regardless of scheduled time. Accepted delay permits start and records tiered discount on arrival.
-- AC-INCIDENT-03: Delay boundaries are evaluated using the current contiguous tier configuration; zero delay gives 0%; customer payment uses the stored discounted amount.
-- AC-INCIDENT-04: Only Admin can view and update delay tiers; invalid gaps, overlaps, ranges, percentages, missing tiers or a bounded final tier are rejected. Saving a configuration does not change discounts already recorded on Bookings.
-
+### FR-INCIDENT — Staff ETA consent and delay compensation
+- Assigned Staff submits a concrete ETA later than scheduled start, reason and time before work starts. Retain every ETA and response append-only in `Booking_Delay_Proposals`; Booking fields are only the current summary.
+- Customer accepts that exact ETA or declines and cancels free. No response blocks start. If an accepted ETA is missed, its consent expires; Staff must submit a new ETA and Customer must agree again. Customer can cancel free before work starts.
+- Only Customer confirmation or Admin verification records actual arrival and computes delay from scheduled start, rounding partial minutes up under configured tiers. Staff self-claim and no-show report do not set a discount. Keep the current 30% cap; payment uses the stored discount from verified arrival.
+- AC-INCIDENT-01: Only assigned Staff can submit a valid ETA; ownership/status/time checks apply and every proposal remains auditable.
+- AC-INCIDENT-02: Consent applies to one ETA. Decline cancels free; missed accepted ETA cannot authorize start; next ETA requires new consent.
+- AC-INCIDENT-03: Tiers use verified arrival from scheduled start; report alone leaves payable amount unchanged; discount is capped at 30%.
+- AC-INCIDENT-04: Only Admin can edit contiguous tiers; reject gaps/overlaps/invalid percentages or bounded final tier. Later edits do not change saved Booking discounts.
 ### FR-JOB — Work execution/evidence
 - Authorized assigned Staff upload multiple image evidence records tied to **Booking**, not Booking_Detail; image_url, uploaded_at. At least one image must exist before Staff confirms job completion. Staff confirms without Admin approval.
-- Staff first records work start; start is allowed after Staff arrival confirmation and Customer consent for a reported delay, whether before, at or after the scheduled time. Customer cannot cancel after work has started. On valid work completion Booking CONFIRMED -> AWAITING_PAYMENT. No work_completed_at field.
+- Staff first records work start; start is allowed after Staff arrival confirmation and Customer consent for a reported delay, whether before, at or after the scheduled time. Customer cannot cancel after work has started. On valid work completion Booking CONFIRMED -> AWAITING_PAYMENT. `service_completed_at` is set when Staff confirms work completion before payment.
 - AC-JOB-01: Staff A cannot upload image or confirm Staff B's Booking; storage path safe and file validation sane.
 - AC-JOB-02: Completion without any booking image is rejected server-side; with at least one image it yields AWAITING_PAYMENT, not COMPLETED. Evidence is booking-level; no per-detail image minimum is required.
 
@@ -152,14 +147,14 @@ One server-rendered Java Spring MVC web application, single company, SQL Server.
 - Với quy trình sự cố mới, mỗi lần Admin xác minh được lưu vào lịch sử riêng cùng trạng thái, kết luận nội bộ và các mã ảnh/PDF/video/link Drive đã xem. Manager có thể xem lịch sử này nhưng không sửa thay phần điều tra; Customer không thấy kết luận nội bộ.
 - Hồ sơ bắt đầu `RECEIVED` (Chờ Admin tiếp nhận), Admin tiếp nhận để sang `INVESTIGATING`; phản ánh mất tài sản phải chuyển `SEARCHING_ITEM` trước khi gửi kết quả cuối hoặc đề xuất bồi thường. Customer ghi mong muốn xử lý tùy chọn để Admin tham khảo, không tự định giá hay chốt bồi thường. Admin xác minh và trao đổi; kết quả không có khoản tiền chuyển `WAITING_CUSTOMER` để Customer xác nhận hoặc yêu cầu hỗ trợ thêm.
 - Chỉ `PROPERTY_DAMAGE`/`MISSING_PROPERTY` được tạo một đề xuất `COMPENSATION`; mất đồ phải qua bước tìm kiếm. Admin nhập số tiền và căn cứ, không lấy giá Customer khai để điền tự động. Customer chọn đồng ý hoặc cần trao đổi. Khi đồng ý, khoản chuyển `PENDING_APPROVAL`, hồ sơ `WAITING_MANAGER`; Manager chỉ duyệt sau đồng ý của Customer. Manager từ chối trả hồ sơ `INVESTIGATING`; Admin hủy đề xuất cũ và lập đề xuất mới để Customer xác nhận lại.
-- Sau duyệt, hồ sơ `WAITING_PAYOUT`; Customer chọn tiền mặt/chuyển khoản. Chỉ chọn chuyển khoản mới yêu cầu thông tin ngân hàng, mã hóa AES-GCM và chỉ Admin/Manager xem. Admin thực hiện chi ngoài hệ thống, lưu mã tham chiếu/chứng từ; sau chi, payout response chuyển sang `SETTLED`, ciphertext được xóa và hồ sơ chuyển `WAITING_CUSTOMER_CONFIRMATION`. Customer xác nhận đã nhận mới đóng hồ sơ. Thời điểm Customer đồng ý số tiền, chọn cách nhận và xác nhận nhận tiền được lưu riêng.
+- Sau duyệt, hồ sơ `WAITING_PAYOUT`; Customer chọn tiền mặt/chuyển khoản. Chỉ chọn chuyển khoản mới yêu cầu thông tin ngân hàng, mã hóa AES-GCM và chỉ Admin/Manager xem. Nếu có đề xuất xử lý Staff, chỉ quyết toán sau khi Manager chốt trách nhiệm cuối, kể cả hạn giải trình/kháng nghị; không cần chờ Staff hoàn trả đủ. Admin thực hiện chi ngoài hệ thống, lưu mã tham chiếu/chứng từ; sau chi, payout response chuyển sang `SETTLED`, ciphertext được xóa và hồ sơ chuyển `WAITING_CUSTOMER_CONFIRMATION`. Customer xác nhận đã nhận mới đóng hồ sơ. Thời điểm Customer đồng ý số tiền, chọn cách nhận và xác nhận nhận tiền được lưu riêng.
 - Giữ lịch sử trao đổi, bằng chứng, xác minh và xử lý Staff riêng. Không còn phương án nhiều lựa chọn, work order, chọn Staff/giờ làm lại hoặc trường chi phí/vật tư/bằng chứng công việc. Hồ sơ lịch sử không được tự gán sự đồng ý hay kết quả mới.
 - Khi có căn cứ Staff liên quan, Admin mở đề xuất xử lý và yêu cầu Staff giải trình trong 48 giờ. Staff xem nội dung/bằng chứng đã giới hạn quyền, gửi giải trình cùng ảnh/tài liệu; quá hạn chỉ ghi nhận không phản hồi, không xem là thừa nhận lỗi. Manager xem hai phía và chốt không quy trách nhiệm, biện pháp nội bộ, hoặc số tiền trách nhiệm vật chất dựa trên thiệt hại thực tế. Staff được phản đối một lần trong 48 giờ; Manager lưu kết luận cuối. Customer chỉ thấy “Đang xác minh nội bộ”, không thấy nội dung nội bộ. Khoản Customer đã chốt và Manager duyệt chỉ được Admin chi sau khi Manager chốt trách nhiệm Staff; không cần chờ Staff trả hết. Admin ghi từng lần Staff thực trả kèm ngày, phương thức, mã tham chiếu và chứng từ; hệ thống tính số dư, không tự khấu trừ lương. Số Staff hoàn trả độc lập với khoản Customer nhận. V28 thêm hai bảng cho tệp giải trình riêng tư và các lần thực nhận; dữ liệu quyết định Staff cũ được giữ nguyên.
 - AC-CASE-01: Staff và Customer khác không xem hồ sơ, feedback hoặc bằng chứng; Customer chỉ xem case của booking mình. Staff chỉ thấy thông báo quyết định đã duyệt của chính mình. Upload sau resolve hoặc tệp sai định dạng/kích thước bị từ chối.
 - AC-CASE-02: Kết luận khách thấy tách khỏi nội dung nội bộ; không resolve khi Customer chưa xác nhận kết quả/đã nhận tiền hoặc còn khoản bồi thường chưa hủy/quyết toán.
 - AC-CASE-03: Chỉ Manager đang hoạt động khác người đề xuất được duyệt; quyết định nội bộ bị từ chối phải giữ trong lịch sử.
 - Hồ sơ sự cố có timeline Customer/Admin theo thời gian; mô tả/ảnh ban đầu và reply Admin cũ được nhập lịch sử, reply cũ ghi rõ thời điểm gửi không được lưu. Mỗi tin mới tối đa 4.000 ký tự và 5 ảnh JPEG/PNG tối đa 5 MB/ảnh; tin/ảnh không sửa/xóa và hồ sơ đã giải quyết chỉ đọc. Customer có thể gửi chữ, ảnh hoặc cả hai; chỉ Customer sở hữu booking và Admin/Manager xem hoặc gửi tin.
-- Manager chỉ duyệt khoản bồi thường sau khi Customer đồng ý chính xác số tiền; khoản cần trao đổi hoặc bị hủy/từ chối phải được Admin lập lại để Customer xác nhận lại. Customer thấy rõ các bước chờ khách, chờ Manager, chọn cách nhận và xác nhận đã nhận; chỉ thể hiện đã chi khi Admin lưu chứng từ và quyết toán. Khoản mô phỏng phải có nhãn rõ. V25 giữ lịch sử Flyway, gỡ bốn bảng phương án/phiếu việc và dùng luồng trạng thái rút gọn; V26 thêm `Bookings.service_completed_at` để tính hạn báo sự cố 24 giờ; V27 cho phép xóa ciphertext sau quyết toán qua trạng thái `SETTLED`; V28 bổ sung luồng giải trình/kháng nghị Staff và thu hồi theo thực nhận. Schema hiện tại có 25 bảng nghiệp vụ.
+- Manager chỉ duyệt khoản bồi thường sau khi Customer đồng ý chính xác số tiền; khoản cần trao đổi hoặc bị hủy/từ chối phải được Admin lập lại để Customer xác nhận lại. Customer thấy rõ các bước chờ khách, chờ Manager, chọn cách nhận và xác nhận đã nhận; chỉ thể hiện đã chi khi Admin lưu chứng từ và quyết toán. Khoản mô phỏng phải có nhãn rõ. V25 giữ lịch sử Flyway, gỡ bốn bảng phương án/phiếu việc và dùng luồng trạng thái rút gọn; V26 thêm `Bookings.service_completed_at` để tính hạn báo sự cố 24 giờ; V27 cho phép xóa ciphertext sau quyết toán qua trạng thái `SETTLED`; V28 bổ sung luồng giải trình/kháng nghị Staff và thu hồi theo thực nhận. Schema hiện tại có 26 bảng nghiệp vụ.
 
 ### FR-FIN — Khoản tiền, chứng từ và đối soát
 - `Payments` chỉ lưu lần thu booking. `Booking_Financial_Entries` lưu `REFUND`, `PRICE_REDUCTION`, `REMEDIATION_COST`, `COMPENSATION` và giữ `STAFF_RECOVERY` chỉ để đọc lịch sử cũ; thu hồi Staff mới được lưu riêng theo từng lần thực nhận trong `Staff_Recovery_Installments`. Nghĩa vụ Staff là số tiền Manager kết luận, không phải khoản tiền đã thu. Báo cáo chỉ cộng từng khoản thực nhận có chứng từ, không cộng số dư còn nợ. Bồi thường khách chỉ Manager duyệt sau khi Customer đồng ý đúng số tiền, và Admin quyết toán đúng số tiền đó.
@@ -170,9 +165,9 @@ One server-rendered Java Spring MVC web application, single company, SQL Server.
 - AC-FIN-03: Tệp hóa đơn/biên nhận chỉ Admin xem; Customer/Staff không truy cập được. Hệ thống lưu chứng từ và mã tham chiếu, không tự phát hành hóa đơn thuế.
 
 ## 4. Data constraints
-- Approved model currently has 25 business tables (see `SQL_SERVER_DATA_DICTIONARY.md`); case messages/evidence, Staff action history/evidence/recovery installments, financial entries and delay compensation tiers are business records. Flyway schema history is tooling metadata, not a business table.
+- Approved model currently has 26 business tables (see `SQL_SERVER_DATA_DICTIONARY.md`); case messages/evidence, Staff action history/evidence/recovery installments, financial entries and delay compensation tiers are business records. Flyway schema history is tooling metadata, not a business table.
 - Reassignable staff current/original references; soft-delete House; preserved Booking history; no unnecessary created_at/updated_at fields beyond approved dictionary.
-- Enforce authorization, role-FK matching, statuses, totals, uniqueness, radius, time, concurrency, and state transitions in appropriate DB and service layers. Handle failure atomically.
+- Enforce authorization, role-FK matching, statuses, totals, uniqueness, route ETA, time, concurrency, and state transitions in appropriate DB and service layers. Handle failure atomically.
 
 ## 5. Non-functional quality (implementation expectations, not invented SLA)
 - App must compile and run on supported JDK/SQL Server, avoid secrets in git, protect authorization and CSRF, validate uploads, handle provider faults without false success, show understandable errors, support transaction-safe concurrent booking/payment.

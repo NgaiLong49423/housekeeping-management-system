@@ -425,9 +425,6 @@ document.querySelectorAll("[data-upload-form]").forEach(form => {
 const bookingForm = document.querySelector("[data-booking-form]");
 if (bookingForm) {
   const house = bookingForm.elements.houseId;
-  const houseServiceAreaError = bookingForm.querySelector("#houseServiceAreaError");
-  let houseAreaState = house.value ? "checking" : "empty";
-  let houseAreaRequest = 0;
   const services = [...bookingForm.querySelectorAll("input[name=serviceIds]")];
   const calendarDates = bookingForm.querySelector("[data-available-dates]");
   const previousDatesButton = bookingForm.querySelector("[data-date-prev]");
@@ -523,9 +520,11 @@ if (bookingForm) {
     const request=++calendarSequence;
     calendarError=""; calendarNotice=""; availableDates=[];
     if(!chosen.length||(preference==="staff"&&!preferredStaff.value)) { calendarPending=false; renderAvailableDates(); refresh(); return; }
+    if(!house.value) { calendarPending=false; availableDates=[]; calendarStatus.textContent="Chọn địa chỉ nhà để kiểm tra các ngày có tuyến di chuyển phù hợp."; updateDateNavigation(); refresh(); return; }
     calendarPending=true; renderAvailableDates(); refresh();
     const query=new URLSearchParams(); chosen.forEach(input=>query.append("serviceIds",input.value));
     if(preference==="staff"&&preferredStaff.value)query.set("staffId",preferredStaff.value);
+    query.set("houseId",house.value);
     try {
       const response=await fetch(`/customer/bookings/availability-dates?${query}`,{headers:{Accept:"application/json"}});
       if(!response.ok)throw new Error("Không tải được danh sách ngày còn nhân viên làm.");
@@ -693,30 +692,9 @@ if (bookingForm) {
     days.forEach(day=>{day.time="";day.staffId=preference==="staff"?preferredStaff.value:"";day.stale=false;day.restored=false;day.notice="";});
     render(); loadAvailableDates(); days.forEach(loadDay);
   }));
-  async function checkHouseServiceArea() {
-    const request=++houseAreaRequest;
-    if(!house.value){houseAreaState="empty";if(houseServiceAreaError){houseServiceAreaError.hidden=true;houseServiceAreaError.textContent="";}refresh();return;}
-    houseAreaState="checking";
-    if(houseServiceAreaError){houseServiceAreaError.hidden=false;houseServiceAreaError.classList.remove("text-danger");houseServiceAreaError.classList.add("text-secondary");houseServiceAreaError.textContent="Đang kiểm tra địa chỉ trong bán kính phục vụ…";}
-    refresh();
-    try {
-      const response=await fetch(`/customer/bookings/house-service-area?houseId=${encodeURIComponent(house.value)}`,{headers:{Accept:"application/json"}});
-      if(!response.ok)throw new Error();
-      const result=await response.json();
-      if(request!==houseAreaRequest)return;
-      houseAreaState=result.eligible?"eligible":"ineligible";
-      if(houseServiceAreaError){houseServiceAreaError.hidden=false;houseServiceAreaError.classList.toggle("text-danger",!result.eligible);houseServiceAreaError.classList.toggle("text-secondary",Boolean(result.eligible));houseServiceAreaError.textContent=result.message;}
-    } catch(error) {
-      if(request!==houseAreaRequest)return;
-      houseAreaState="error";
-      if(houseServiceAreaError){houseServiceAreaError.hidden=false;houseServiceAreaError.classList.add("text-danger");houseServiceAreaError.textContent="Chưa kiểm tra được bán kính phục vụ. Vui lòng thử lại.";}
-    }
-    refresh();
-  }
   house.addEventListener("change",()=>{
-    checkHouseServiceArea();
     days.forEach(day=>{day.time="";day.staffId=preference==="staff"?preferredStaff.value:"";day.stale=false;day.restored=false;day.notice="";});
-    render();days.forEach(loadDay);
+    render();loadAvailableDates();days.forEach(loadDay);
   });
   function refresh() {
     const selected = services.filter(input => input.checked);
@@ -738,8 +716,6 @@ if (bookingForm) {
     let error = "";
     if (!selected.length) error = "Chọn ít nhất một dịch vụ.";
     else if (!house.value) error = "Chọn địa chỉ nhà cần dọn.";
-    else if (houseAreaState === "checking") error = "Đang kiểm tra địa chỉ trong bán kính phục vụ.";
-    else if (houseAreaState === "ineligible" || houseAreaState === "error" || houseAreaState === "empty") error = "Hãy chọn địa chỉ nhà nằm trong bán kính phục vụ.";
     else if (preference==="staff"&&!preferredStaff.value) error = "Chọn nhân viên ưu tiên trước khi xem ngày làm.";
     else if (!selectedDays.length) error = "Chọn ít nhất một ngày có nhân viên sẵn sàng.";
     else if (calendarPending||pending) error = "Đang tải lịch khả dụng cho các ngày đã chọn.";
@@ -761,6 +737,6 @@ if (bookingForm) {
       if(item&&item.date&&item.staffId&&item.time)days.set(item.date,{date:item.date,time:item.time,staffId:String(item.staffId),loading:false,options:null,timeOptions:[],error:"",notice:"Lịch trước chưa được tạo. Hãy xác nhận lại lựa chọn.",expanded:true,restored:true,stale:false});
     });
   }
-  render(); loadAvailableDates(); checkHouseServiceArea();
+  render(); loadAvailableDates();
   if(retryState?.days?.length)retryState.days.forEach(item=>{const day=days.get(item.date);if(day)loadDay(day);});
 }

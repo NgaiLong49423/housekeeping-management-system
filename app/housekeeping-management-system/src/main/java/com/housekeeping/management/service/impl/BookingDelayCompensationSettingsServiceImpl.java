@@ -19,7 +19,7 @@ public class BookingDelayCompensationSettingsServiceImpl implements BookingDelay
 
     public List<Tier> get() {
         return tiers.findAllByOrderByMinDelayMinutesAsc().stream()
-                .map(tier -> new Tier(tier.getMinDelayMinutes(), tier.getMaxDelayMinutes(), tier.getDiscountPercent()))
+                .map(tier -> new Tier(tier.getMinDelayMinutes(), tier.getMaxDelayMinutes(), Math.min(30, tier.getDiscountPercent())))
                 .toList();
     }
 

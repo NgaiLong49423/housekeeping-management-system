@@ -72,6 +72,17 @@ public class VietmapClient {
         } catch (RestClientException e) { throw new IllegalStateException("Không xác minh được địa chỉ VietMap. Vui lòng thử lại."); }
     }
 
+    public Place geocodeAddress(String address) {
+        if (address == null || address.isBlank() || address.trim().length() < 3 || address.length() > 500) {
+            throw new IllegalArgumentException("Địa chỉ cần ít nhất 3 ký tự và tối đa 500 ký tự để xác định tuyến.");
+        }
+        List<Suggestion> suggestions = autocomplete(address.trim());
+        if (suggestions.isEmpty()) {
+            throw new IllegalArgumentException("VietMap chưa xác định được địa chỉ này. Hãy bổ sung số nhà, đường hoặc phường/xã.");
+        }
+        return place(suggestions.getFirst().refId());
+    }
+
     public int motorcycleMinutes(BigDecimal fromLat, BigDecimal fromLng, BigDecimal toLat, BigDecimal toLng) {
         return motorcycleMinutes(fromLat, fromLng, toLat, toLng, null);
     }

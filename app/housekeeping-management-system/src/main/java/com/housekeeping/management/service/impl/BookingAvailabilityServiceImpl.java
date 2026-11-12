@@ -30,7 +30,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@Transactional(readOnly = true)
 public class BookingAvailabilityServiceImpl implements BookingAvailabilityService {
     private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
     private final BookingAvailabilityRepository availability;
@@ -52,12 +51,11 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
     public BookingAvailabilityOptions options(LocalDate date,List<Long> serviceIds,Long selectedStaffId,
             LocalTime selectedTime,Long customerId,Long houseId) {
         int duration = serviceDuration(serviceIds);
-        House house=houses.findCustomerHouse(customerId,houseId);
-        if(house.getLatitude()==null||house.getLongitude()==null)
-            throw new IllegalArgumentException("Địa chỉ nhà chưa có tọa độ VietMap. Hãy cập nhật địa chỉ trước khi xem giờ.");
+        House house=houses.ensureRouteLocation(customerId,houseId);
         return options(date,duration,selectedStaffId,selectedTime,house.getLatitude(),house.getLongitude());
     }
 
+    @Transactional(readOnly = true)
     private BookingAvailabilityOptions options(LocalDate date,int duration,Long selectedStaffId,
             LocalTime selectedTime,java.math.BigDecimal latitude,java.math.BigDecimal longitude) {
         LocalDate today = LocalDate.now(BUSINESS_ZONE);
@@ -74,8 +72,8 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
         List<Interval> busy = availability.bookedIntervals(date);
         LocalDateTime earliest = LocalDateTime.now(BUSINESS_ZONE).plusMinutes(120);
         List<LocalTime> slots = generateSlots(date, duration, companyWindows, earliest);
-        if (selectedTime != null && (selectedTime.getSecond() != 0 || selectedTime.getNano() != 0 || selectedTime.getMinute() % 15 != 0)) {
-            throw new IllegalArgumentException("Giờ bắt đầu chỉ được chọn phút 00, 15, 30 hoặc 45.");
+        if (selectedTime != null && (selectedTime.getSecond() != 0 || selectedTime.getNano() != 0 || selectedTime.getMinute() % 30 != 0)) {
+            throw new IllegalArgumentException("Giờ bắt đầu chỉ được chọn phút 00 hoặc 30.");
         }
 
         List<BookingReservationService.TravelAssessment> selectedTravelChecks=new ArrayList<>();
@@ -126,8 +124,8 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
         }
         if(earliestStart!=null) {
             int earliestMinute=earliestStart.toLocalTime().toSecondOfDay()/60;
-            int quarter=((earliestMinute+14)/15)*15;
-            Set<String> filteredTimes=validTimes.stream().filter(value->LocalTime.parse(value).toSecondOfDay()/60>=quarter)
+            int halfHour=((earliestMinute+29)/30)*30;
+            Set<String> filteredTimes=validTimes.stream().filter(value->LocalTime.parse(value).toSecondOfDay()/60>=halfHour)
                     .collect(Collectors.toSet());
             validTimes=validTimes.stream().filter(filteredTimes::contains).toList();
             timeOptions=timeOptions.stream().filter(option->filteredTimes.contains(option.startTime())).toList();
@@ -136,10 +134,12 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
                 earliestStart==null?null:format(earliestStart.toLocalTime()),latestStart==null?null:format(latestStart.toLocalTime()));
     }
 
-    public BookingAvailabilityDates availableDates(List<Long> serviceIds, Long selectedStaffId) {
+    public BookingAvailabilityDates availableDates(List<Long> serviceIds, Long selectedStaffId, Long customerId, Long houseId) {
         LocalDate today=LocalDate.now(BUSINESS_ZONE);
         LocalDate through=today.plusDays(30);
         int duration=serviceDuration(serviceIds);
+        House selectedHouse = houses.ensureRouteLocation(customerId, houseId);
+        java.math.BigDecimal latitude = selectedHouse.getLatitude(), longitude = selectedHouse.getLongitude();
         List<BookingAvailabilityRepository.StaffOption> staff=availability.activeStaff();
         if(selectedStaffId!=null&&staff.stream().noneMatch(person->person.id().equals(selectedStaffId))) {
             return new BookingAvailabilityDates(List.of(),"Nhân viên đã chọn không còn hoạt động.");
@@ -170,7 +170,9 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
             List<Interval> busyThatDay=busy.getOrDefault(date,List.of());
             boolean found=generateSlots(date,duration,companyWindows,earliest).stream().anyMatch(time->staff.stream()
                     .filter(person->selectedStaffId==null||person.id().equals(selectedStaffId))
-                    .anyMatch(person->eligible(person,candidateDate,time,duration,companyWindows,staffHours,onLeave,busyThatDay)));
+                    .filter(person->eligible(person,candidateDate,time,duration,companyWindows,staffHours,onLeave,busyThatDay))
+                    .anyMatch(person -> reservations.assessTravel(person.id(), candidateDate.atTime(time),
+                            candidateDate.atTime(time).plusMinutes(duration), latitude, longitude, null).feasible()));
             if(found)result.add(date);
         }
         String message=result.isEmpty()?"Không có ngày nào trong 30 ngày tới còn giờ và nhân viên phù hợp."
@@ -224,9 +226,9 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
         if (date.isBefore(earliest.toLocalDate())) return result;
         for (Interval window : windows) {
             int openingMinute = window.start().toSecondOfDay() / 60;
-            int windowStart = ((openingMinute + 14) / 15) * 15;
+            int windowStart = ((openingMinute + 29) / 30) * 30;
             int windowEnd = window.end().toSecondOfDay() / 60;
-            for (int minute = windowStart; minute + duration <= windowEnd && minute + duration < 24 * 60; minute += 15) {
+            for (int minute = windowStart; minute + duration <= windowEnd && minute + duration < 24 * 60; minute += 30) {
                 LocalTime start = LocalTime.of(minute / 60,minute % 60);
                 if (date.equals(earliest.toLocalDate()) && start.isBefore(earliest.toLocalTime())) continue;
                 result.add(start);

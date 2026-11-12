@@ -35,7 +35,6 @@ class AdminBookingManagementServiceTest {
                 51L, 4L, 12L, 22L, LocalDateTime.of(2026, 11, 1, 10, 0), LocalDateTime.of(2026, 11, 1, 12, 0), "CONFIRMED", java.math.BigDecimal.TEN, java.math.BigDecimal.TEN);
         when(bookings.findBooking(51L)).thenReturn(Optional.of(confirmed));
         when(bookings.lockBooking(51L)).thenReturn(Optional.of(confirmed));
-        when(houses.isWithinServiceRadius(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
     }
 
     @Test
@@ -70,7 +69,9 @@ class AdminBookingManagementServiceTest {
                 start.plusMinutes(10), null, null, null, null, null);
         when(bookings.lockBookingWorkflow(51L)).thenReturn(Optional.of(workflow));
         when(compensationSettings.get()).thenReturn(java.util.List.of(
-                new com.housekeeping.management.domain.BookingDelayCompensation.Tier(1, 15, 5)));
+                new com.housekeeping.management.domain.BookingDelayCompensation.Tier(1, 15, 5),
+                new com.housekeeping.management.domain.BookingDelayCompensation.Tier(16, 30, 10),
+                new com.housekeeping.management.domain.BookingDelayCompensation.Tier(31, null, 20)));
         when(bookings.verifyDisputedArrival(org.mockito.ArgumentMatchers.eq(51L), org.mockito.ArgumentMatchers.eq(99L),
                 org.mockito.ArgumentMatchers.eq(actualArrival), org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.eq("Đã đối chiếu"), org.mockito.ArgumentMatchers.anyInt(),
@@ -81,9 +82,9 @@ class AdminBookingManagementServiceTest {
         verify(authorization).requireActiveAdmin(99L);
         verify(bookings).verifyDisputedArrival(org.mockito.ArgumentMatchers.eq(51L), org.mockito.ArgumentMatchers.eq(99L),
                 org.mockito.ArgumentMatchers.eq(actualArrival), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.eq("Đã đối chiếu"), org.mockito.ArgumentMatchers.eq(15),
-                org.mockito.ArgumentMatchers.eq(new java.math.BigDecimal("5")),
-                org.mockito.ArgumentMatchers.eq(new java.math.BigDecimal("7500.00")));
+                org.mockito.ArgumentMatchers.eq("Đã đối chiếu"), org.mockito.ArgumentMatchers.eq(20),
+                org.mockito.ArgumentMatchers.eq(new java.math.BigDecimal("10")),
+                org.mockito.ArgumentMatchers.eq(new java.math.BigDecimal("15000.00")));
     }
 
     @Test

@@ -21,24 +21,24 @@ class BookingDelayCompensationTest {
     }
 
     @Test
-    void appliesFiveMinuteGraceBeforeRoundingPartialMinutesUp() {
-        var onTime = BookingDelayCompensation.calculate(START, START.plusMinutes(5), PRICE, defaultTiers());
+    void calculatesFromScheduledStartAndRoundsPartialMinutesUp() {
+        var onTime = BookingDelayCompensation.calculate(START, START, PRICE, defaultTiers());
         assertThat(onTime.delayedMinutes()).isZero();
         assertThat(onTime.discountPercent()).isZero();
-        var oneSecondPastGrace = BookingDelayCompensation.calculate(START, START.plusMinutes(5).plusSeconds(1), PRICE, defaultTiers());
-        assertThat(oneSecondPastGrace.delayedMinutes()).isEqualTo(1);
-        assertThat(oneSecondPastGrace.discountPercent()).isEqualTo(5);
+        var oneSecondLate = BookingDelayCompensation.calculate(START, START.plusSeconds(1), PRICE, defaultTiers());
+        assertThat(oneSecondLate.delayedMinutes()).isEqualTo(1);
+        assertThat(oneSecondLate.discountPercent()).isEqualTo(5);
         var result = BookingDelayCompensation.calculate(START, START.plusMinutes(15).plusSeconds(1), PRICE, defaultTiers());
-        assertThat(result.delayedMinutes()).isEqualTo(11);
-        assertThat(result.discountPercent()).isEqualTo(5);
-        assertThat(result.discountAmount()).isEqualByComparingTo("7500.00");
+        assertThat(result.delayedMinutes()).isEqualTo(16);
+        assertThat(result.discountPercent()).isEqualTo(10);
+        assertThat(result.discountAmount()).isEqualByComparingTo("15000.00");
 
-        var rounded = BookingDelayCompensation.calculate(START, START.plusMinutes(6), new BigDecimal("100011.00"), defaultTiers());
+        var rounded = BookingDelayCompensation.calculate(START, START.plusMinutes(1), new BigDecimal("100011.00"), defaultTiers());
         assertThat(rounded.discountAmount()).isEqualByComparingTo("5001.00");
     }
 
     private static void assertCompensation(int minutes, int percent, String amount) {
-        var result = BookingDelayCompensation.calculate(START, START.plusMinutes(5L + minutes), PRICE, defaultTiers());
+        var result = BookingDelayCompensation.calculate(START, START.plusMinutes(minutes), PRICE, defaultTiers());
         assertThat(result.delayedMinutes()).isEqualTo(minutes);
         assertThat(result.discountPercent()).isEqualTo(percent);
         assertThat(result.discountAmount()).isEqualByComparingTo(amount);

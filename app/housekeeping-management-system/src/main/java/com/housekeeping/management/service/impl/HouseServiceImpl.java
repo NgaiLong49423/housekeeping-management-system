@@ -2,7 +2,6 @@ package com.housekeeping.management.service.impl;
 
 import com.housekeeping.management.service.HouseService;
 import com.housekeeping.management.integration.vietmap.VietmapClient;
-import com.housekeeping.management.service.CompanySettingsService;
 import com.housekeeping.management.service.BookingQueryService;
 import com.housekeeping.management.dto.response.LocationSuggestion;
 
@@ -18,16 +17,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class HouseServiceImpl implements HouseService {
-    private static final double EARTH_RADIUS_KM = 6371.0088;
     private final HouseRepository houses;
-    private final CompanySettingsService companySettings;
     private final BookingQueryService bookings;
     private final VietmapClient vietmap;
 
-    public HouseServiceImpl(HouseRepository houses, CompanySettingsService companySettings,
-            BookingQueryService bookings, VietmapClient vietmap) {
+    public HouseServiceImpl(HouseRepository houses, BookingQueryService bookings, VietmapClient vietmap) {
         this.houses = houses;
-        this.companySettings = companySettings;
         this.bookings = bookings;
         this.vietmap = vietmap;
     }
@@ -61,8 +56,16 @@ public class HouseServiceImpl implements HouseService {
                 : houses.findLockedByHouseIdAndCustomerIdAndDeletedFalse(houseId, customerId)
                         .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy nhà thuộc tài khoản của bạn."));
         boolean hasNewVietmapPlace = form.vietmapRefId() != null && !form.vietmapRefId().isBlank();
-        if (!hasNewVietmapPlace && house == null) throw new IllegalArgumentException("Hãy chọn một kết quả địa chỉ VietMap hợp lệ.");
-        VietmapClient.Place place = hasNewVietmapPlace ? vietmap.place(form.vietmapRefId().trim()) : null;
+        String requestedAddress = form.address() == null ? "" : form.address().trim();
+        boolean addressChanged = !requestedAddress.isBlank() && (house == null || !requestedAddress.equals(house.getAddress()));
+        if (!hasNewVietmapPlace && addressChanged && requestedAddress.length() < 3) {
+            throw new IllegalArgumentException("Địa chỉ cần ít nhất 3 ký tự.");
+        }
+        if (!hasNewVietmapPlace && !addressChanged && house == null) {
+            throw new IllegalArgumentException("Hãy nhập địa chỉ nhà để hệ thống xác định tuyến VietMap.");
+        }
+        VietmapClient.Place place = hasNewVietmapPlace ? vietmap.place(form.vietmapRefId().trim())
+                : addressChanged ? vietmap.geocodeAddress(requestedAddress) : null;
         String address = place == null ? house.getAddress() : place.display();
         BigDecimal latitude = place == null ? house.getLatitude() : place.latitude();
         BigDecimal longitude = place == null ? house.getLongitude() : place.longitude();
@@ -81,6 +84,20 @@ public class HouseServiceImpl implements HouseService {
         return houses.save(house);
     }
 
+    @Override
+    @Transactional
+    public House ensureRouteLocation(Long customerId, Long houseId) {
+        House house = findCustomerHouseForUpdate(customerId, houseId);
+        if (house.getLatitude() == null || house.getLongitude() == null) {
+            VietmapClient.Place place = vietmap.geocodeAddress(house.getAddress());
+            house.setLatitude(place.latitude());
+            house.setLongitude(place.longitude());
+            if (house.getAddress() == null || house.getAddress().isBlank()) house.setAddress(place.display());
+            houses.save(house);
+        }
+        return house;
+    }
+
     public List<LocationSuggestion> autocomplete(String query) {
         if (query == null || query.trim().length() < 3 || query.length() > 200) return List.of();
         return vietmap.autocomplete(query.trim()).stream()
@@ -95,41 +112,6 @@ public class HouseServiceImpl implements HouseService {
             throw new IllegalStateException("Không thể xóa nhà đang có lịch đã xác nhận hoặc chờ thanh toán.");
         }
         house.setDeleted(true);
-    }
-
-    @Transactional(readOnly = true)
-    public boolean isWithinServiceRadius(BigDecimal latitude, BigDecimal longitude) {
-        return serviceCenter().contains(latitude, longitude);
-    }
-
-    @Transactional(readOnly = true)
-    public ServiceAreaAssessment assessCustomerHouseServiceArea(Long customerId, Long houseId) {
-        House house = findCustomerHouse(customerId, houseId);
-        if (house.getLatitude() == null || house.getLongitude() == null) {
-            return new ServiceAreaAssessment(false, "Địa chỉ nhà chưa được xác minh tọa độ VietMap. Hãy cập nhật địa chỉ trước khi đặt.");
-        }
-        if (!isWithinServiceRadius(house.getLatitude(), house.getLongitude())) {
-            return new ServiceAreaAssessment(false, "Địa chỉ nhà này nằm ngoài bán kính phục vụ của công ty. Hãy chọn địa chỉ khác hoặc liên hệ Admin.");
-        }
-        return new ServiceAreaAssessment(true, "Địa chỉ nằm trong bán kính phục vụ.");
-    }
-
-    @Transactional(readOnly = true)
-    public ServiceCenter serviceCenter() {
-        CompanySettingsService.ServiceCenter company = companySettings.serviceCenter();
-        if (company.latitude()==null || company.longitude()==null || company.radiusKm()==null)
-            throw new IllegalStateException("Admin chưa cấu hình tâm và bán kính phục vụ của công ty.");
-        return new ServiceCenter(company.latitude(),company.longitude(),company.radiusKm());
-    }
-
-    static double distanceKm(double lat1, double lon1, double lat2, double lon2) {
-        double latitudeDelta = Math.toRadians(lat2 - lat1);
-        double longitudeDelta = Math.toRadians(lon2 - lon1);
-        double startLatitude = Math.toRadians(lat1);
-        double endLatitude = Math.toRadians(lat2);
-        double haversine = Math.pow(Math.sin(latitudeDelta / 2), 2)
-                + Math.cos(startLatitude) * Math.cos(endLatitude) * Math.pow(Math.sin(longitudeDelta / 2), 2);
-        return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(Math.min(1, haversine)));
     }
 
 }

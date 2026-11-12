@@ -65,7 +65,7 @@ class DemoProfileSqlServerTest {
     @Test
     void demoProfileMigratesSeedsAndAuthenticatesAllFourRolesOnSqlServer() throws Exception {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA='dbo' AND TABLE_TYPE='BASE TABLE' AND TABLE_NAME<>'flyway_schema_history'",
-                Integer.class)).isEqualTo(15);
+                Integer.class)).isEqualTo(26);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Users", Integer.class)).isEqualTo(4);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Staff", Integer.class)).isEqualTo(2);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Company_Operating_Hours", Integer.class)).isEqualTo(7);
