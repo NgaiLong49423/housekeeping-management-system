@@ -36,7 +36,6 @@
             <div>
               <label class="form-label" for="password">Mật khẩu</label>
               <input id="password" name="password" type="password" class="form-control" minlength="8" maxlength="72" autocomplete="new-password" required>
-              <div class="form-text">Mật khẩu có từ 8 đến 72 ký tự và tối đa 72 byte UTF-8.</div>
               <div th:if="${#fields.hasErrors('password')}" th:errors="*{password}" class="invalid-feedback d-block"></div>
             </div>
             <div>
