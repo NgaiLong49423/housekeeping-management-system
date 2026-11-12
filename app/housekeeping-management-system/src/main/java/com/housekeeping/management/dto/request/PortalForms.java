@@ -2,8 +2,8 @@ package com.housekeeping.management.dto.request;
 
 import jakarta.validation.constraints.*;
 import jakarta.validation.Valid;
-import com.housekeeping.management.domain.StaffType;
-import com.housekeeping.management.domain.HouseAddressType;
+import com.housekeeping.management.enums.StaffType;
+import com.housekeeping.management.enums.HouseAddressType;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.LocalDate;

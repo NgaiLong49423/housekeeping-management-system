@@ -1,5 +1,6 @@
 package com.housekeeping.management.service.impl;
 
+import com.housekeeping.management.enums.ServiceStatus;
 import com.housekeeping.management.service.AccountAuthorizationService;
 import com.housekeeping.management.service.ServiceManagementService;
 
@@ -24,8 +25,8 @@ public class ServiceManagementServiceImpl implements ServiceManagementService {
     public void save(Long adminId, Long serviceId, ServiceForm form) {
         authorization.requireActiveAdmin(adminId);
         Services service = serviceId == null ? null : findService(serviceId);
-        Services.Status status = service == null || service.getStatus() == null
-                ? Services.Status.ACTIVE : service.getStatus();
+        ServiceStatus status = service == null || service.getStatus() == null
+                ? ServiceStatus.ACTIVE : service.getStatus();
         String description = form.description() == null || form.description().isBlank() ? null : form.description().trim();
         ServicesDTO dto = new ServicesDTO(service == null ? null : service.getServiceId(), form.name().trim(),
                 description, form.imageUrl() == null || form.imageUrl().isBlank() ? null : form.imageUrl().trim(),
@@ -36,20 +37,20 @@ public class ServiceManagementServiceImpl implements ServiceManagementService {
     @Transactional
     public void deactivate(Long adminId, Long serviceId) {
         authorization.requireActiveAdmin(adminId);
-        findService(serviceId).setStatus(Services.Status.INACTIVE);
+        findService(serviceId).setStatus(ServiceStatus.INACTIVE);
     }
 
     @Transactional
     public void activate(Long adminId, Long serviceId) {
         authorization.requireActiveAdmin(adminId);
-        findService(serviceId).setStatus(Services.Status.ACTIVE);
+        findService(serviceId).setStatus(ServiceStatus.ACTIVE);
     }
 
     @Transactional(readOnly = true)
     public java.util.List<Services> findActiveByIds(java.util.List<Long> serviceIds) {
         if (serviceIds == null || serviceIds.isEmpty()) return java.util.List.of();
         return services.findAllById(serviceIds).stream()
-                .filter(service -> service.getStatus() == Services.Status.ACTIVE)
+                .filter(service -> service.getStatus() == ServiceStatus.ACTIVE)
                 .toList();
     }
 

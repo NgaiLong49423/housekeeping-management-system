@@ -56,7 +56,7 @@ public class SecurityConfig {
     SecurityFilterChain portalSecurity(HttpSecurity http, AccountAuthorizationService authorization) throws Exception {
         return http.authorizeHttpRequests(access -> access
                     .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
-                    .requestMatchers("/", "/services", "/login", "/register", "/css/**", "/js/**", "/images/**", "/vendor/**", "/error").permitAll()
+                    .requestMatchers("/", "/services", "/login", "/register", "/portal", "/bookings", "/schedules", "/css/**", "/js/**", "/images/**", "/vendor/**", "/error").permitAll()
                     // VNPay redirects the browser back and calls the IPN with GET requests, so CSRF does not apply.
                     .requestMatchers("/payments/vnpay/return", "/payments/vnpay/ipn").permitAll()
                     .requestMatchers("/customer/**").hasRole("CUSTOMER")
@@ -74,7 +74,7 @@ public class SecurityConfig {
                     .anyRequest().authenticated())
                 .formLogin(login -> login.loginPage("/login").usernameParameter("email")
                     .defaultSuccessUrl("/portal").failureHandler(new LockedAccountLoginFailureHandler()).permitAll())
-                .logout(logout -> logout.logoutSuccessUrl("/login?logout"))
+                .logout(logout -> logout.logoutSuccessUrl("/"))
                 .addFilterBefore(new LockedAccountSessionFilter(authorization), AuthorizationFilter.class)
                 .build();
     }

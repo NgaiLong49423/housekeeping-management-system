@@ -7,8 +7,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.housekeeping.management.domain.UserStatus;
-import com.housekeeping.management.domain.UserRole;
+import com.housekeeping.management.enums.UserStatus;
+import com.housekeeping.management.enums.UserRole;
 import com.housekeeping.management.dto.request.PortalForms.StaffProfileForm;
 import com.housekeeping.management.entity.Staff;
 import com.housekeeping.management.entity.StaffProfile;

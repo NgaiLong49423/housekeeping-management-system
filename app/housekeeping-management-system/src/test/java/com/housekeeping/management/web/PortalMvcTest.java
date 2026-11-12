@@ -1,5 +1,6 @@
 package com.housekeeping.management.web;
 
+import com.housekeeping.management.enums.ReturnStatus;
 import static com.housekeeping.management.dto.response.PortalViews.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
@@ -116,9 +117,9 @@ class PortalMvcTest {
         when(accountAuthorization.isActiveAdmin(5L)).thenReturn(true);
         when(adminAccounts.findAll(5L)).thenReturn(List.of());
         when(delayCompensationSettings.get()).thenReturn(List.of(
-                new com.housekeeping.management.domain.BookingDelayCompensation.Tier(1, 15, 5),
-                new com.housekeeping.management.domain.BookingDelayCompensation.Tier(16, 30, 10),
-                new com.housekeeping.management.domain.BookingDelayCompensation.Tier(31, null, 20)));
+                new com.housekeeping.management.dto.BookingDelayCompensation.Tier(1, 15, 5),
+                new com.housekeeping.management.dto.BookingDelayCompensation.Tier(16, 30, 10),
+                new com.housekeeping.management.dto.BookingDelayCompensation.Tier(31, null, 20)));
         when(query.services()).thenReturn(List.of(
             new ServiceCard(10L, "Dọn dẹp nhà theo giờ", "Làm sạch không gian sống, chăm chút từng góc nhỏ.", 120, new BigDecimal("140000"), true),
             new ServiceCard(11L, "Tổng vệ sinh nhà cửa", "Làm sạch kỹ lưỡng để tổ ấm thêm trong lành.", 180, new BigDecimal("350000"), true),
@@ -1091,7 +1092,7 @@ class PortalMvcTest {
     @Test
     void vnpayReturnIsPublicAndShowsPaidResultOnTheBooking() throws Exception {
         when(onlinePayments.handleReturn(anyMap()))
-                .thenReturn(new OnlinePaymentService.ReturnOutcome(42L, OnlinePaymentService.ReturnStatus.PAID));
+                .thenReturn(new OnlinePaymentService.ReturnOutcome(42L, ReturnStatus.PAID));
 
         mvc.perform(get("/payments/vnpay/return").param("vnp_TxnRef", "1001").param("vnp_ResponseCode", "00"))
                 .andExpect(status().is3xxRedirection())
@@ -1103,7 +1104,7 @@ class PortalMvcTest {
     @Test
     void vnpayReturnForFailedPaymentShowsAnError() throws Exception {
         when(onlinePayments.handleReturn(anyMap()))
-                .thenReturn(new OnlinePaymentService.ReturnOutcome(42L, OnlinePaymentService.ReturnStatus.FAILED));
+                .thenReturn(new OnlinePaymentService.ReturnOutcome(42L, ReturnStatus.FAILED));
 
         mvc.perform(get("/payments/vnpay/return").param("vnp_TxnRef", "1001").param("vnp_ResponseCode", "24"))
                 .andExpect(redirectedUrl("/customer/bookings/42"))
@@ -1149,7 +1150,7 @@ class PortalMvcTest {
         mvc.perform(post("/admin/leaves/21/approve").with(user(admin)).with(csrf()))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/admin/leaves"));
-        verify(leaveManagement).reviewLeaveRequest(21L, admin.getUserId(), com.housekeeping.management.domain.LeaveStatus.APPROVED);
+        verify(leaveManagement).reviewLeaveRequest(21L, admin.getUserId(), com.housekeeping.management.enums.LeaveStatus.APPROVED);
 
         mvc.perform(post("/admin/leaves/21/reject").with(user(staff)).with(csrf()))
                 .andExpect(status().isForbidden());
@@ -1196,6 +1197,28 @@ class PortalMvcTest {
                 .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/admin/bookings/42"));
         verify(adminBookingManagement).verifyDisputedArrival(42L, 3L,
                 LocalDateTime.parse("2026-11-12T10:15"), "Đã đối chiếu với khách");
+    }
+
+    @Test
+    void stripsDemoWordFromRenderedFrontendLabelsWithoutAlteringAccounts() throws Exception {
+        PortalUser demoCustomer = account(1L, "CUSTOMER", "Khách hàng Demo");
+        when(query.bookings(demoCustomer)).thenReturn(List.of(
+                new BookingCard(42L, 1L, 2L, "Khách hàng Demo", "Nhân viên bán thời gian Demo",
+                        start, start.plusHours(2), "CONFIRMED", new BigDecimal("140000"), null, null, null, null, null)));
+        when(query.staff(demoCustomer)).thenReturn(List.of(
+                new StaffCard(2L, "Nhân viên bán thời gian Demo", "0900000002", false, "PART_TIME", true, null, null)));
+
+        String bookingsHtml = mvc.perform(get("/customer/bookings").with(user(demoCustomer)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(bookingsHtml).contains("Xin chào Khách hàng,").contains("NV: Nhân viên bán thời gian");
+        assertThat(bookingsHtml).doesNotContainIgnoringCase("demo");
+
+        String staffHtml = mvc.perform(get("/customer/staff").with(user(demoCustomer)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(staffHtml).contains("Nhân viên bán thời gian");
+        assertThat(staffHtml).doesNotContainIgnoringCase("demo");
     }
 
     private void render(String url, PortalUser principal, String name) throws Exception {

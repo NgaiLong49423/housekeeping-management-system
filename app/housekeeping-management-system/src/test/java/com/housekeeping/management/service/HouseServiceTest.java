@@ -7,7 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.housekeeping.management.entity.House;
-import com.housekeeping.management.domain.HouseAddressType;
+import com.housekeeping.management.enums.HouseAddressType;
 import com.housekeeping.management.dto.request.PortalForms.HouseForm;
 import com.housekeeping.management.integration.vietmap.VietmapClient;
 import com.housekeeping.management.repository.HouseRepository;

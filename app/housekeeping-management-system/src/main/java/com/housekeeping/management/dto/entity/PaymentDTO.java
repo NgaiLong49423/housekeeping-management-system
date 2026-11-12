@@ -1,7 +1,7 @@
 package com.housekeeping.management.dto.entity;
 
-import com.housekeeping.management.domain.PaymentMethod;
-import com.housekeeping.management.domain.PaymentStatus;
+import com.housekeeping.management.enums.PaymentMethod;
+import com.housekeeping.management.enums.PaymentStatus;
 import com.housekeeping.management.entity.Payment;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;

@@ -28,7 +28,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
-/** V34 trên SQL Server thật: khóa tài khoản có lý do, chặn khóa khi còn Booking, và báo lý do lúc đăng nhập. */
+/** V35 trên SQL Server thật: khóa tài khoản có lý do, chặn khóa khi còn Booking, và báo lý do lúc đăng nhập. */
 @Tag("sqlserver")
 @ActiveProfiles("demo")
 @SpringBootTest
@@ -43,6 +43,11 @@ class AccountLockSqlServerTest {
         registry.add("spring.datasource.url", () -> SQL.container.getJdbcUrl() + ";databaseName=" + TEST_DATABASE);
         registry.add("spring.datasource.username", SQL.container::getUsername);
         registry.add("spring.datasource.password", SQL.container::getPassword);
+        // Dữ liệu demo (V3, V33…) nằm trong bộ migration db/refactor + db/shared của home_cleaning_demo;
+        // chỉ định rõ để test không phụ thuộc profile demo đang trỏ tới database nào.
+        registry.add("spring.flyway.locations", () -> "classpath:db/refactor,classpath:db/shared");
+        registry.add("spring.flyway.table", () -> "flyway_schema_history");
+        registry.add("spring.flyway.baseline-on-migrate", () -> "false");
         registry.add("app.evidence.storage-root", () ->
                 Path.of(System.getProperty("java.io.tmpdir"), "hsf302-account-lock-test-evidence").toString());
     }

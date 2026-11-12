@@ -5,8 +5,8 @@ import com.housekeeping.management.service.BookingReservationService;
 
 import com.housekeeping.management.repository.PaymentPersistenceRepository;
 import com.housekeeping.management.entity.Payment;
-import com.housekeeping.management.domain.PaymentMethod;
-import com.housekeeping.management.domain.PaymentStatus;
+import com.housekeeping.management.enums.PaymentMethod;
+import com.housekeeping.management.enums.PaymentStatus;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;

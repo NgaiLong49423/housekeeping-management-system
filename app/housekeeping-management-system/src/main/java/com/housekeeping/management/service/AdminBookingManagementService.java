@@ -1,6 +1,6 @@
 package com.housekeeping.management.service;
 
-import com.housekeeping.management.domain.StaffType;
+import com.housekeeping.management.enums.StaffType;
 import com.housekeeping.management.entity.Staff;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;

@@ -5,7 +5,7 @@ import com.housekeeping.management.service.FeedbackService;
 import com.housekeeping.management.service.BookingReservationService;
 
 import com.housekeeping.management.repository.FeedbackRepository;
-import com.housekeeping.management.domain.FeedbackTopic;
+import com.housekeeping.management.enums.FeedbackTopic;
 import com.housekeeping.management.entity.Feedback;
 import java.util.Arrays;
 import java.util.List;
@@ -45,7 +45,7 @@ public class FeedbackServiceImpl implements FeedbackService {
         entity.setRating(rating);
         entity.setTopics(String.join(",", topics == null ? List.of() : topics));
         entity.setContent(clean(content));
-        entity.setStatus(com.housekeeping.management.domain.FeedbackStatus.OPEN);
+        entity.setStatus(com.housekeeping.management.enums.FeedbackStatus.OPEN);
         feedback.save(entity);
     }
 

@@ -1,6 +1,6 @@
 package com.housekeeping.management.service.impl;
 
-import com.housekeeping.management.domain.BookingStatus;
+import com.housekeeping.management.enums.BookingStatus;
 import com.housekeeping.management.entity.Booking;
 import com.housekeeping.management.repository.BookingPersistenceRepository;
 import com.housekeeping.management.service.BookingQueryService;

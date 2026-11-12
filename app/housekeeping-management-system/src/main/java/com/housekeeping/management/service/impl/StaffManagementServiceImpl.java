@@ -5,9 +5,9 @@ import com.housekeeping.management.service.GlobalEmailUniquenessService;
 import com.housekeeping.management.service.StaffManagementService;
 import com.housekeeping.management.service.BookingStaffEligibilityService;
 
-import com.housekeeping.management.domain.AccountLockRules;
-import com.housekeeping.management.domain.UserRole;
-import com.housekeeping.management.domain.UserStatus;
+import com.housekeeping.management.dto.AccountLockRules;
+import com.housekeeping.management.enums.UserRole;
+import com.housekeeping.management.enums.UserStatus;
 import com.housekeeping.management.dto.request.PortalForms.StaffCreateForm;
 import com.housekeeping.management.dto.request.PortalForms.StaffUpdateForm;
 import com.housekeeping.management.dto.entity.StaffDTO;
@@ -145,7 +145,7 @@ public class StaffManagementServiceImpl implements StaffManagementService {
     @Transactional(readOnly = true)
     public boolean isOnApprovedLeave(Long staffId, java.time.LocalDate date) {
         return leaves.existsByStaff_StaffIdAndStatusAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
-                staffId, com.housekeeping.management.domain.LeaveStatus.APPROVED, date, date);
+                staffId, com.housekeeping.management.enums.LeaveStatus.APPROVED, date, date);
     }
 
     @Override

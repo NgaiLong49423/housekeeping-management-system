@@ -1,6 +1,6 @@
 package com.housekeeping.management.repository;
 
-import com.housekeeping.management.domain.PaymentStatus;
+import com.housekeeping.management.enums.PaymentStatus;
 import com.housekeeping.management.entity.Payment;
 import jakarta.persistence.LockModeType;
 import java.math.BigDecimal;
@@ -27,28 +27,28 @@ public interface PaymentPersistenceRepository extends JpaRepository<Payment, Lon
     boolean existsByBookingIdAndStatus(Long bookingId, PaymentStatus status);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("update Payment payment set payment.status=com.housekeeping.management.domain.PaymentStatus.FAILED "
-            + "where payment.bookingId=:bookingId and payment.paymentMethod=com.housekeeping.management.domain.PaymentMethod.ONLINE "
-            + "and payment.status=com.housekeeping.management.domain.PaymentStatus.PENDING")
+    @Query("update Payment payment set payment.status=com.housekeeping.management.enums.PaymentStatus.FAILED "
+            + "where payment.bookingId=:bookingId and payment.paymentMethod=com.housekeeping.management.enums.PaymentMethod.ONLINE "
+            + "and payment.status=com.housekeeping.management.enums.PaymentStatus.PENDING")
     int failPendingOnlineAttempts(@Param("bookingId") Long bookingId);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("update Payment payment set payment.status=com.housekeeping.management.domain.PaymentStatus.SUCCESS, payment.paidAt=:paidAt "
-            + "where payment.paymentId=:paymentId and payment.paymentMethod=com.housekeeping.management.domain.PaymentMethod.ONLINE "
-            + "and payment.status in (com.housekeeping.management.domain.PaymentStatus.PENDING, com.housekeeping.management.domain.PaymentStatus.FAILED)")
+    @Query("update Payment payment set payment.status=com.housekeeping.management.enums.PaymentStatus.SUCCESS, payment.paidAt=:paidAt "
+            + "where payment.paymentId=:paymentId and payment.paymentMethod=com.housekeeping.management.enums.PaymentMethod.ONLINE "
+            + "and payment.status in (com.housekeeping.management.enums.PaymentStatus.PENDING, com.housekeeping.management.enums.PaymentStatus.FAILED)")
     int markSuccess(@Param("paymentId") Long paymentId, @Param("paidAt") java.time.LocalDateTime paidAt);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("update Payment payment set payment.status=com.housekeeping.management.domain.PaymentStatus.FAILED "
-            + "where payment.paymentId=:paymentId and payment.paymentMethod=com.housekeeping.management.domain.PaymentMethod.ONLINE "
-            + "and payment.status=com.housekeeping.management.domain.PaymentStatus.PENDING")
+    @Query("update Payment payment set payment.status=com.housekeeping.management.enums.PaymentStatus.FAILED "
+            + "where payment.paymentId=:paymentId and payment.paymentMethod=com.housekeeping.management.enums.PaymentMethod.ONLINE "
+            + "and payment.status=com.housekeeping.management.enums.PaymentStatus.PENDING")
     int markFailed(@Param("paymentId") Long paymentId);
 
     @Query("select coalesce(sum(payment.amount), 0) from Payment payment "
-            + "where payment.status=com.housekeeping.management.domain.PaymentStatus.SUCCESS and payment.simulated=false")
+            + "where payment.status=com.housekeeping.management.enums.PaymentStatus.SUCCESS and payment.simulated=false")
     BigDecimal sumSuccessfulRealPayments();
 
     @Query("select coalesce(sum(payment.amount), 0) from Payment payment "
-            + "where payment.status=com.housekeeping.management.domain.PaymentStatus.SUCCESS and payment.simulated=true")
+            + "where payment.status=com.housekeeping.management.enums.PaymentStatus.SUCCESS and payment.simulated=true")
     BigDecimal sumSuccessfulSimulatedPayments();
 }

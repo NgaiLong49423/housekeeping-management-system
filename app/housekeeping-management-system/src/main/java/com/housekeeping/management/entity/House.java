@@ -8,7 +8,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import com.housekeeping.management.domain.HouseAddressType;
+import com.housekeeping.management.enums.HouseAddressType;
 import java.math.BigDecimal;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -80,7 +80,7 @@ public class House {
      */
     /** Phần số nhà/tên đường đã đủ cụ thể để đặt lịch hay chưa. */
     public boolean isSpecificAddress() {
-        return com.housekeeping.management.domain.SpecificAddressRules.isSpecific(addressDetail);
+        return com.housekeeping.management.dto.SpecificAddressRules.isSpecific(addressDetail);
     }
 
     public String getFullAddress() {

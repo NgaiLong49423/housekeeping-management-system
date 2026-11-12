@@ -1,7 +1,7 @@
 package com.housekeeping.management.entity;
 
-import com.housekeeping.management.domain.UserRole;
-import com.housekeeping.management.domain.UserStatus;
+import com.housekeeping.management.enums.UserRole;
+import com.housekeeping.management.enums.UserStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -52,6 +52,15 @@ public class User {
     @Column(name = "status", length = 20, nullable = false, columnDefinition = "varchar(20)")
     private UserStatus status = UserStatus.ACTIVE;
 
+    @Column(name = "unpaid_penalty_debt", precision = 12, scale = 2, nullable = false)
+    private java.math.BigDecimal unpaidPenaltyDebt = java.math.BigDecimal.ZERO;
+
+    @Column(name = "allow_cod", nullable = false)
+    private Boolean allowCod = true;
+
+    @Column(name = "suspended_until")
+    private java.time.LocalDateTime suspendedUntil;
+
     @Nationalized
     @Column(name = "status_reason", length = 500)
     private String statusReason;
@@ -62,7 +71,7 @@ public class User {
     @Column(name = "status_changed_by")
     private Long statusChangedBy;
 
-    /** Khóa tài khoản; lý do đã được chuẩn hóa bởi {@link com.housekeeping.management.domain.AccountLockRules}. */
+    /** Khóa tài khoản; lý do đã được chuẩn hóa bởi {@link com.housekeeping.management.dto.AccountLockRules}. */
     public void lock(String reason, Long changedBy, LocalDateTime changedAt) {
         status = UserStatus.INACTIVE;
         statusReason = reason;

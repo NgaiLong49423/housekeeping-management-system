@@ -5,7 +5,10 @@
     <header th:replace="~{fragments/layout :: header('feedback')}"></header>
     <main id="main" class="container py-4 py-md-5">
       <div class="page-heading">
-        <span class="eyebrow">Quản lý vận hành · Gọn Nhà</span>
+        <span class="eyebrow">
+          <svg th:replace="~{fragments/icons :: message-square}"></svg>
+          <span>Quản lý vận hành · Gọn Nhà</span>
+        </span>
         <h1>Phản hồi khách hàng</h1>
         <p class="lead">Theo dõi đánh giá và sự cố theo booking, trả lời khách và xử lý các mục đang chờ.</p>
       </div>
@@ -23,7 +26,13 @@
            th:href="@{/admin/feedback(status='resolved',bookingId=${selectedBookingId})}">Đã xử lý <span class="badge text-bg-light" th:text="${resolvedCount}">0</span></a>
       </nav>
       <section class="surface p-4">
-        <p th:if="${#lists.isEmpty(feedback)}" class="text-secondary mb-0">Không có phản hồi trong trạng thái này.</p>
+        <div th:if="${#lists.isEmpty(feedback)}" class="empty-state py-5">
+          <div class="empty-illustration">
+            <svg th:replace="~{fragments/icons :: illustration-feedback}"></svg>
+          </div>
+          <h3>Chưa có phản hồi nào</h3>
+          <p class="text-secondary mb-0">Không có phản hồi trong trạng thái này.</p>
+        </div>
         <article th:each="item : ${feedback}" class="border-bottom py-4" th:id="|feedback-booking-${item.bookingId}|">
           <div class="d-flex flex-wrap justify-content-between gap-2">
             <h2 class="h6 mb-0"><a class="text-decoration-none" th:href="@{/admin/feedback/{id}(id=${item.id})}"

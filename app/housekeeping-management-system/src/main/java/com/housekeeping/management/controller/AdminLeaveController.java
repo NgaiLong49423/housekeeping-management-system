@@ -1,6 +1,6 @@
 package com.housekeeping.management.controller;
 
-import com.housekeeping.management.domain.LeaveStatus;
+import com.housekeeping.management.enums.LeaveStatus;
 import com.housekeeping.management.service.LeaveManagementService;
 import com.housekeeping.management.web.PortalUser;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;

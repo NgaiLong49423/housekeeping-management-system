@@ -78,6 +78,11 @@ class CustomerLockBookingRaceSqlServerTest {
         registry.add("spring.datasource.url", () -> SQL_SERVER.getJdbcUrl() + ";databaseName=" + TEST_DATABASE);
         registry.add("spring.datasource.username", SQL_SERVER::getUsername);
         registry.add("spring.datasource.password", SQL_SERVER::getPassword);
+        // Dữ liệu demo (V3, V33…) nằm trong bộ migration db/refactor + db/shared của home_cleaning_demo;
+        // chỉ định rõ để test không phụ thuộc profile demo đang trỏ tới database nào.
+        registry.add("spring.flyway.locations", () -> "classpath:db/refactor,classpath:db/shared");
+        registry.add("spring.flyway.table", () -> "flyway_schema_history");
+        registry.add("spring.flyway.baseline-on-migrate", () -> "false");
         registry.add("app.evidence.storage-root", () ->
                 Path.of(System.getProperty("java.io.tmpdir"), "hsf302-lock-race-test-evidence").toString());
     }

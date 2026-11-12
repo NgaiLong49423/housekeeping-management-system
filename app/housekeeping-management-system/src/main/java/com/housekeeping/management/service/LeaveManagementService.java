@@ -1,8 +1,8 @@
 package com.housekeeping.management.service;
 
-import com.housekeeping.management.domain.LeaveStatus;
-import com.housekeeping.management.domain.UserRole;
-import com.housekeeping.management.domain.UserStatus;
+import com.housekeeping.management.enums.LeaveStatus;
+import com.housekeeping.management.enums.UserRole;
+import com.housekeeping.management.enums.UserStatus;
 import com.housekeeping.management.dto.request.PortalForms.LeaveRequestForm;
 import com.housekeeping.management.dto.response.PortalViews.LeaveCard;
 import com.housekeeping.management.entity.Staff;

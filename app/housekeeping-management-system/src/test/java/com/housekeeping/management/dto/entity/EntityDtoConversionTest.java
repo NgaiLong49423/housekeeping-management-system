@@ -1,16 +1,17 @@
 package com.housekeeping.management.dto.entity;
 
+import com.housekeeping.management.enums.ServiceStatus;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.housekeeping.management.domain.BookingStatus;
-import com.housekeeping.management.domain.FeedbackStatus;
-import com.housekeeping.management.domain.HouseAddressType;
-import com.housekeeping.management.domain.LeaveStatus;
-import com.housekeeping.management.domain.PaymentMethod;
-import com.housekeeping.management.domain.PaymentStatus;
-import com.housekeeping.management.domain.StaffType;
-import com.housekeeping.management.domain.UserRole;
-import com.housekeeping.management.domain.UserStatus;
+import com.housekeeping.management.enums.BookingStatus;
+import com.housekeeping.management.enums.FeedbackStatus;
+import com.housekeeping.management.enums.HouseAddressType;
+import com.housekeeping.management.enums.LeaveStatus;
+import com.housekeeping.management.enums.PaymentMethod;
+import com.housekeeping.management.enums.PaymentStatus;
+import com.housekeeping.management.enums.StaffType;
+import com.housekeeping.management.enums.UserRole;
+import com.housekeeping.management.enums.UserStatus;
 import com.housekeeping.management.entity.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -81,7 +82,7 @@ class EntityDtoConversionTest {
 
     @Test
     void servicesConvertsBothWaysAndCanUpdateManagedEntity() {
-        ServicesDTO dto = new ServicesDTO(1L, "Cleaning", "description", "image", 60, bd("100000"), Services.Status.ACTIVE);
+        ServicesDTO dto = new ServicesDTO(1L, "Cleaning", "description", "image", 60, bd("100000"), ServiceStatus.ACTIVE);
         Services entity = dto.convertDTOToEntity();
         assertThat(ServicesDTO.convertEntityToDTO(entity)).isEqualTo(dto);
         Services existing = new Services();

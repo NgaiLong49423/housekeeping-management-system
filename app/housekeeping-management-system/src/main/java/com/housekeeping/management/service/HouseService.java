@@ -2,7 +2,7 @@ package com.housekeeping.management.service;
 
 import com.housekeeping.management.dto.request.PortalForms.HouseForm;
 import com.housekeeping.management.dto.response.LocationSuggestion;
-import com.housekeeping.management.domain.HouseAddressType;
+import com.housekeeping.management.enums.HouseAddressType;
 import com.housekeeping.management.entity.House;
 import java.math.BigDecimal;
 import java.util.List;

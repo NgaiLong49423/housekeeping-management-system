@@ -3,7 +3,7 @@ package com.housekeeping.management.service.impl;
 import com.housekeeping.management.service.BookingIncidentService;
 import com.housekeeping.management.service.BookingDelayCompensationSettingsService;
 
-import com.housekeeping.management.domain.BookingDelayCompensation;
+import com.housekeeping.management.dto.BookingDelayCompensation;
 import com.housekeeping.management.repository.BookingPersistenceRepository;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;

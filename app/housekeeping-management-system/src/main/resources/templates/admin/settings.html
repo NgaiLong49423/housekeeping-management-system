@@ -4,30 +4,57 @@
   <body>
     <header th:replace="~{fragments/layout :: header('settings')}"></header>
     <main id="main" class="container py-4 py-md-5">
-      <div class="page-heading settings-page-heading">
-        <a class="settings-back" th:href="@{/admin/bookings}" aria-label="Quay lại trang quản trị">←</a>
-        <span class="settings-heading-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V5l7-3 7 3v16M9 9h2m-2 4h2m4-4h2m-2 4h2M10 21v-4h4v4"/></svg></span>
-        <div><span class="eyebrow">Vận hành</span><h1>Cấu hình công ty</h1>
-          <p class="lead">Thiết lập thông tin công ty và giờ hoạt động.</p></div>
+      <div class="page-heading">
+        <span class="eyebrow">
+          <svg th:replace="~{fragments/icons :: settings}"></svg>
+          <span>Vận hành</span>
+        </span>
+        <h1>Cấu hình công ty</h1>
+        <p class="lead">Thiết lập thông tin địa điểm và giờ hoạt động của công ty.</p>
       </div>
       <div th:replace="~{fragments/layout :: alerts}"></div>
       <div class="alert alert-warning" th:if="${configurationConflicts != null}">
-        <strong>Booking cần xử lý trước khi lưu:</strong>
-        <span th:each="bookingId, stat : ${configurationConflicts}"><a th:href="@{/admin/bookings/{id}(id=${bookingId})}" th:text="${'#' + bookingId}">#1</a><span th:if="${!stat.last}">, </span></span>
+        <strong>Lịch hẹn cần xử lý trước khi lưu:</strong>
+        <span th:each="bookingId, stat : ${configurationConflicts}"><a class="text-link" th:href="@{/admin/bookings/{id}(id=${bookingId})}" th:text="${'#' + bookingId}">#1</a><span th:if="${!stat.last}">, </span></span>
       </div>
       <form method="post" th:action="@{/admin/settings/location}" th:object="${settingsForm}" class="company-settings-form">
-        <section class="company-settings-panel mb-4">
-          <div class="company-settings-panel-heading"><span class="settings-section-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V5l7-3 7 3v16M9 9h2m-2 4h2m4-4h2m-2 4h2M10 21v-4h4v4"/></svg></span><h2>Thông tin địa điểm công ty</h2></div>
-          <div class="row g-3 p-3 p-md-4">
-            <div class="col-12 position-relative"><label class="form-label" for="companyAddressSearch">Địa chỉ công ty · tâm vùng phục vụ <span class="text-danger">*</span></label><input id="companyAddressSearch" class="form-control" autocomplete="off" maxlength="500" placeholder="Nhập ít nhất 3 ký tự, rồi chọn địa chỉ VietMap" th:value="${currentCompanyAddress}" required><input type="hidden" th:field="*{vietmapRefId}" id="companyVietmapRefId"><div id="companyAddressSuggestions" class="list-group position-absolute w-100" style="z-index:10"></div><p class="small text-secondary mt-2" id="selectedCompanyAddress" th:text="${currentCompanyAddress == null or currentCompanyAddress.isBlank() ? 'Chưa chọn kết quả VietMap.' : 'Địa chỉ tâm hiện tại: ' + currentCompanyAddress + '. Hãy chọn lại từ gợi ý VietMap trước khi lưu.'}">Chưa chọn kết quả VietMap.</p></div>
-            <div class="col-md-4"><label class="form-label" for="serviceRadiusKm">Bán kính phục vụ (km) <span class="text-danger">*</span></label><div class="settings-input-with-icon"><span aria-hidden="true"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg></span><input id="serviceRadiusKm" class="form-control" type="number" min="0.1" max="9999" step="0.1" th:field="*{serviceRadiusKm}" required></div></div>
+        <section class="company-settings-panel mb-4 surface p-4">
+          <div class="company-settings-panel-heading d-flex align-items-center gap-2 mb-3 pb-3 border-bottom">
+            <span class="settings-section-icon" aria-hidden="true">
+              <svg th:replace="~{fragments/icons :: map-pin}"></svg>
+            </span>
+            <h2 class="h5 mb-0">Thông tin địa điểm công ty</h2>
+          </div>
+          <div class="row g-3">
+            <div class="col-12 position-relative">
+              <label class="form-label" for="companyAddressSearch">Địa chỉ công ty · tâm vùng phục vụ <span class="text-danger">*</span></label>
+              <input id="companyAddressSearch" class="form-control" autocomplete="off" maxlength="500" placeholder="Nhập ít nhất 3 ký tự, rồi chọn địa chỉ VietMap" th:value="${currentCompanyAddress}" required>
+              <input type="hidden" th:field="*{vietmapRefId}" id="companyVietmapRefId">
+              <div id="companyAddressSuggestions" class="list-group position-absolute w-100" style="z-index:10"></div>
+              <p class="small text-secondary mt-2" id="selectedCompanyAddress" th:text="${currentCompanyAddress == null or currentCompanyAddress.isBlank() ? 'Chưa chọn kết quả VietMap.' : 'Địa chỉ tâm hiện tại: ' + currentCompanyAddress + '. Hãy chọn lại từ gợi ý VietMap trước khi lưu.'}">Chưa chọn kết quả VietMap.</p>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="serviceRadiusKm">Bán kính phục vụ (km) <span class="text-danger">*</span></label>
+              <input id="serviceRadiusKm" class="form-control" type="number" min="0.1" max="9999" step="0.1" th:field="*{serviceRadiusKm}" required>
+            </div>
+          </div>
+          <div class="mt-4">
+            <button class="btn btn-primary company-save-button" type="submit">
+              <svg th:replace="~{fragments/icons :: check}"></svg>
+              <span>Lưu vị trí và bán kính</span>
+            </button>
           </div>
         </section>
-        <button class="btn btn-primary company-save-button mb-4" type="submit">▣ <span>Lưu vị trí và bán kính</span></button>
       </form>
-      <section id="delay-compensation" class="company-settings-panel mb-4">
-        <div class="company-settings-panel-heading"><span class="settings-section-icon" aria-hidden="true">%</span><div><h2>Mức giảm khi nhân viên đến trễ</h2><p>Áp dụng cho booking chưa ghi nhận nhân viên đến. Booking đã tính giảm giữ nguyên phần trăm và số tiền đã lưu.</p></div></div>
-        <form method="post" th:action="@{/admin/settings/delay-compensation}" th:object="${delaySettingsForm}" class="p-3 p-md-4">
+      <section id="delay-compensation" class="company-settings-panel mb-4 surface p-4">
+        <div class="company-settings-panel-heading d-flex align-items-center gap-2 mb-3 pb-3 border-bottom">
+          <span class="settings-section-icon" aria-hidden="true">%</span>
+          <div>
+            <h2 class="h5 mb-0">Mức giảm khi nhân viên đến trễ</h2>
+            <p class="small text-secondary mb-0">Áp dụng cho booking chưa ghi nhận nhân viên đến. Booking đã tính giảm giữ nguyên phần trăm và số tiền đã lưu.</p>
+          </div>
+        </div>
+        <form method="post" th:action="@{/admin/settings/delay-compensation}" th:object="${delaySettingsForm}">
           <div class="alert alert-danger mb-3" role="alert" th:if="${delaySettingsError != null}" th:text="${delaySettingsError}"></div>
           <div class="alert alert-success mb-3" role="status" th:if="${delaySettingsSuccess != null}" th:text="${delaySettingsSuccess}"></div>
           <div class="table-responsive">
@@ -55,22 +82,36 @@
           </div>
         </form>
       </section>
-      <section class="company-settings-panel mb-4">
-        <div class="company-settings-panel-heading"><span class="settings-section-icon" aria-hidden="true">▦</span><div><h2>Phiên bản lịch tuần</h2><p>Lưu riêng từng ngày; các ngày còn lại giữ nguyên. Lịch cũ tự áp dụng đến trước ngày hiệu lực kế tiếp.</p></div></div>
-        <div class="p-3 d-flex flex-wrap gap-2 align-items-center">
+
+      <section class="company-settings-panel mb-4 surface p-4">
+        <div class="company-settings-panel-heading d-flex align-items-center gap-2 mb-3 pb-3 border-bottom">
+          <span class="settings-section-icon" aria-hidden="true">
+            <svg th:replace="~{fragments/icons :: calendar}"></svg>
+          </span>
+          <div>
+            <h2 class="h5 mb-0">Phiên bản lịch tuần</h2>
+            <p class="small text-secondary mb-0">Lưu riêng từng ngày; các ngày còn lại giữ nguyên. Lịch cũ tự áp dụng đến trước ngày hiệu lực kế tiếp.</p>
+          </div>
+        </div>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
           <a th:each="version : ${scheduleVersions}" class="btn btn-sm btn-outline-primary" th:href="@{/admin/settings(effectiveFrom=${version})}" th:text="${'Tuần từ ' + #temporals.format(version, 'dd/MM/yyyy')}" th:attr="data-scheduled-week=${version}">Tuần từ 09/11/2026</a>
         </div>
       </section>
-      <nav class="week-navigation mb-3" aria-label="Điều hướng tuần">
+
+      <nav class="week-navigation mb-3 d-flex flex-wrap align-items-center justify-content-between gap-2" aria-label="Điều hướng tuần">
         <a class="btn btn-outline-primary" th:href="@{/admin/settings(effectiveFrom=${previousWeek})}" aria-label="Tuần trước">← Tuần trước</a>
-        <strong th:text="${#temporals.format(scheduleForm.effectiveFrom, 'dd/MM/yyyy') + ' – ' + #temporals.format(weekEnd, 'dd/MM/yyyy')}">Tuần</strong>
+        <strong class="h6 mb-0" th:text="${#temporals.format(scheduleForm.effectiveFrom, 'dd/MM/yyyy') + ' – ' + #temporals.format(weekEnd, 'dd/MM/yyyy')}">Tuần</strong>
         <a class="btn btn-outline-primary" th:if="${canNavigateNext}" th:href="@{/admin/settings(effectiveFrom=${nextWeek})}" aria-label="Tuần sau">Tuần sau →</a>
         <span class="btn btn-outline-secondary disabled" th:unless="${canNavigateNext}" aria-disabled="true">Tuần sau →</span>
       </nav>
-      <form th:if="${selectedVersionFuture}" method="post" th:action="@{/admin/settings/schedule/cancel(effectiveFrom=${scheduleForm.effectiveFrom})}" class="mb-3" data-confirm="Hủy phiên bản lịch này? Staff cần đăng ký lại các khoảng phù hợp nếu lịch mới không còn áp dụng."><button class="btn btn-outline-danger" type="submit">Hủy phiên bản tương lai</button></form>
+
+      <form th:if="${selectedVersionFuture}" method="post" th:action="@{/admin/settings/schedule/cancel(effectiveFrom=${scheduleForm.effectiveFrom})}" class="mb-3" data-confirm="Hủy phiên bản lịch này? Staff cần đăng ký lại các khoảng phù hợp nếu lịch mới không còn áp dụng.">
+        <button class="btn btn-outline-danger" type="submit">Hủy phiên bản tương lai</button>
+      </form>
+
       <form method="post" th:action="@{/admin/settings/schedule/day}" th:object="${scheduleForm}" class="company-settings-form" data-schedule-form>
         <input type="hidden" name="editingExisting" th:value="${selectedVersionExists}">
-        <section class="company-settings-panel mb-4 p-3">
+        <section class="company-settings-panel mb-4 surface p-4">
           <strong th:text="${'Tuần ' + #temporals.format(scheduleForm.effectiveFrom, 'dd/MM/yyyy') + ' – ' + #temporals.format(weekEnd, 'dd/MM/yyyy')}">Tuần làm việc</strong>
           <input type="hidden" th:field="*{effectiveFrom}">
           <div class="form-text" th:if="${selectedVersionExists}">Ngày của phiên bản đã lưu được giữ cố định. Muốn đổi ngày, hãy hủy phiên bản tương lai rồi tạo lại.</div>
@@ -78,16 +119,32 @@
           <div class="form-text" th:if="${scheduleReadOnly}">Tuần trước — chỉ xem, không thể chỉnh sửa.</div>
         </section>
         <fieldset th:disabled="${scheduleReadOnly}">
-        <section class="company-settings-panel">
-          <div class="company-settings-panel-heading company-hours-heading"><span class="settings-section-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg></span><div><h2>Giờ hoạt động</h2><p>Khung giờ dịch vụ tại nhà khách; mốc bắt đầu là lúc nhân viên có mặt và sẵn sàng phục vụ. Với booking đầu ngày, hệ thống tính giờ xuất phát lùi theo ETA VietMap và 15 phút dự phòng.</p></div></div>
+        <section class="company-settings-panel surface p-4">
+          <div class="company-settings-panel-heading d-flex align-items-center gap-2 mb-3 pb-3 border-bottom">
+            <span class="settings-section-icon" aria-hidden="true">
+              <svg th:replace="~{fragments/icons :: clock}"></svg>
+            </span>
+            <div>
+              <h2 class="h5 mb-0">Giờ hoạt động</h2>
+              <p class="small text-secondary mb-0">Khung giờ dịch vụ tại nhà khách; mốc bắt đầu là lúc nhân viên có mặt và sẵn sàng phục vụ. Với booking đầu ngày, hệ thống tính giờ xuất phát lùi theo ETA VietMap và 15 phút dự phòng.</p>
+            </div>
+          </div>
           <div id="schedule-save-feedback" class="company-schedule-save-feedback mt-3 mb-2" tabindex="-1" th:if="${scheduleSuccess != null or scheduleError != null}">
             <div class="alert alert-success mb-0" role="status" th:if="${scheduleSuccess != null}" th:text="${scheduleSuccess}"></div>
             <div class="alert alert-danger mb-0" role="alert" th:if="${scheduleError != null}" th:text="${scheduleError}"></div>
           </div>
-          <div class="company-days p-3 p-md-4">
-            <div th:each="day, dayStat : ${dayNames}" class="company-day-row" data-day-group th:attr="data-locked=${scheduleReadOnly or (selectedCurrentWeek and dayStat.index + 1 < currentDayOfWeek)}">
-              <div class="company-day-name"><span class="company-day-calendar" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg></span><strong><span th:text="${day}">Thứ Hai</span><small class="d-block text-secondary" th:text="${#temporals.format(weekDates[dayStat.index], 'dd/MM/yyyy')}">09/11/2026</small></strong></div>
-              <label class="form-check form-switch company-day-switch"><input class="form-check-input" type="checkbox" data-active th:checked="${!closedDays.contains(dayStat.index + 1)}"><span class="form-check-label">Hoạt động</span></label>
+          <div class="company-days">
+            <div th:each="day, dayStat : ${dayNames}" class="company-day-row p-3 border-bottom" data-day-group th:attr="data-locked=${scheduleReadOnly or (selectedCurrentWeek and dayStat.index + 1 < currentDayOfWeek)}">
+              <div class="company-day-name">
+                <span class="company-day-calendar" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
+                </span>
+                <strong><span th:text="${day}">Thứ Hai</span><small class="d-block text-secondary" th:text="${#temporals.format(weekDates[dayStat.index], 'dd/MM/yyyy')}">09/11/2026</small></strong>
+              </div>
+              <label class="form-check form-switch company-day-switch">
+                <input class="form-check-input" type="checkbox" data-active th:checked="${!closedDays.contains(dayStat.index + 1)}">
+                <span class="form-check-label">Hoạt động</span>
+              </label>
               <div class="company-day-schedule">
                 <div class="company-periods" data-periods>
                   <div th:each="hour, stat : *{operatingHours}" th:if="${hour.dayOfWeek == dayStat.index + 1 and !hour.closed}" class="company-time-row" data-period>
@@ -112,6 +169,7 @@
         </fieldset>
       </form>
     </main>
+
     <script>
       (() => {
         const rows = document.querySelector('#delay-tier-rows');

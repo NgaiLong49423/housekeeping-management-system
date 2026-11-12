@@ -1,7 +1,7 @@
 package com.housekeeping.management.service.impl;
 
-import com.housekeeping.management.domain.AccountLockRules;
-import com.housekeeping.management.domain.UserStatus;
+import com.housekeeping.management.dto.AccountLockRules;
+import com.housekeeping.management.enums.UserStatus;
 import com.housekeeping.management.dto.response.PortalViews.CustomerAccountCard;
 import com.housekeeping.management.entity.User;
 import com.housekeeping.management.repository.CustomerAccountRepository;

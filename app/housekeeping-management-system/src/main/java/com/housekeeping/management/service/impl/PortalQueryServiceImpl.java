@@ -1,11 +1,12 @@
 package com.housekeeping.management.service.impl;
 
+import com.housekeeping.management.enums.ServiceStatus;
 import static com.housekeeping.management.dto.response.PortalViews.*;
 
-import com.housekeeping.management.domain.BookingStatus;
-import com.housekeeping.management.domain.FeedbackTopic;
-import com.housekeeping.management.domain.PaymentStatus;
-import com.housekeeping.management.domain.UserStatus;
+import com.housekeeping.management.enums.BookingStatus;
+import com.housekeeping.management.enums.FeedbackTopic;
+import com.housekeeping.management.enums.PaymentStatus;
+import com.housekeeping.management.enums.UserStatus;
 import com.housekeeping.management.entity.*;
 import com.housekeeping.management.repository.*;
 import com.housekeeping.management.service.FeedbackService;
@@ -56,9 +57,9 @@ public class PortalQueryServiceImpl implements PortalQueryService {
     public List<ServiceCard> services(PortalUser user) {
         boolean includeInactive = user != null && user.isAdmin();
         return (includeInactive ? services.findAllByOrderByServiceNameAsc()
-                : services.findAllByStatusOrderByServiceNameAsc(Services.Status.ACTIVE)).stream()
+                : services.findAllByStatusOrderByServiceNameAsc(ServiceStatus.ACTIVE)).stream()
                 .map(s -> new ServiceCard(s.getServiceId(), s.getServiceName(), s.getDescription(),
-                        s.getDurationMinutes(), s.getPrice(), s.getImageUrl(), s.getStatus() == Services.Status.ACTIVE)).toList();
+                        s.getDurationMinutes(), s.getPrice(), s.getImageUrl(), s.getStatus() == ServiceStatus.ACTIVE)).toList();
     }
 
     public List<StaffCard> staff(PortalUser user) {

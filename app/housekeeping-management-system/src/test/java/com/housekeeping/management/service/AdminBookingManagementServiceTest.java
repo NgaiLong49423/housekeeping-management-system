@@ -1,14 +1,15 @@
 package com.housekeeping.management.service;
 
+import com.housekeeping.management.enums.TravelStatus;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.housekeeping.management.domain.StaffType;
-import com.housekeeping.management.domain.UserRole;
-import com.housekeeping.management.domain.UserStatus;
+import com.housekeeping.management.enums.StaffType;
+import com.housekeeping.management.enums.UserRole;
+import com.housekeeping.management.enums.UserStatus;
 import com.housekeeping.management.entity.Staff;
 import com.housekeeping.management.entity.User;
 import com.housekeeping.management.entity.House;
@@ -70,7 +71,7 @@ class AdminBookingManagementServiceTest {
                 start.plusMinutes(10), null, null, null, null, null);
         when(bookings.lockBookingWorkflow(51L)).thenReturn(Optional.of(workflow));
         when(compensationSettings.get()).thenReturn(java.util.List.of(
-                new com.housekeeping.management.domain.BookingDelayCompensation.Tier(1, 15, 5)));
+                new com.housekeeping.management.dto.BookingDelayCompensation.Tier(1, 15, 5)));
         when(bookings.verifyDisputedArrival(org.mockito.ArgumentMatchers.eq(51L), org.mockito.ArgumentMatchers.eq(99L),
                 org.mockito.ArgumentMatchers.eq(actualArrival), org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.eq("Đã đối chiếu"), org.mockito.ArgumentMatchers.anyInt(),
@@ -98,7 +99,7 @@ class AdminBookingManagementServiceTest {
         when(reservations.assessTravel(org.mockito.ArgumentMatchers.eq(13L),org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.eq(51L))).thenReturn(new BookingReservationService.TravelAssessment(
-                        BookingReservationService.TravelStatus.OVERLAP,"Nhân viên thay thế đã có booking trùng giờ.",
+                        TravelStatus.OVERLAP,"Nhân viên thay thế đã có booking trùng giờ.",
                         null,null,0,0,0,52L));
 
         assertThatThrownBy(() -> service.reassignConfirmedBooking(51L, 99L, 13L))
@@ -128,7 +129,7 @@ class AdminBookingManagementServiceTest {
         when(reservations.assessTravel(org.mockito.ArgumentMatchers.eq(13L),org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.eq(51L))).thenReturn(new BookingReservationService.TravelAssessment(
-                        BookingReservationService.TravelStatus.FEASIBLE,"",null,null,0,0,0,null));
+                        TravelStatus.FEASIBLE,"",null,null,0,0,0,null));
         when(bookings.assignStaff(51L, 12L, 13L)).thenReturn(1);
 
         service.reassignConfirmedBooking(51L, 99L, 13L);
