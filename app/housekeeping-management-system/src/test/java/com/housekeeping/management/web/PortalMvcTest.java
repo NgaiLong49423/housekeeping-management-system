@@ -407,6 +407,22 @@ class PortalMvcTest {
     }
 
     @Test
+    void staffGetsLoggedFailureMessageInsteadOfSuccessWhenAvailabilityPersistenceFails() throws Exception {
+        LocalDate workDate = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).plusDays(9);
+        LocalDate weekStart = workDate.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY));
+        when(availability.saveForDate(22L, workDate, List.of(java.time.LocalTime.of(8, 0)),
+                List.of(java.time.LocalTime.of(12, 0))))
+                .thenThrow(new org.springframework.dao.InvalidDataAccessResourceUsageException("database failure"));
+
+        mvc.perform(post("/staff/schedules/day").with(user(staff)).with(csrf())
+                        .param("workDate", workDate.toString()).param("weekStart", weekStart.toString())
+                        .param("startTimes", "08:00").param("endTimes", "12:00"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/staff/schedules?weekStart=" + weekStart))
+                .andExpect(flash().attribute("error", org.hamcrest.Matchers.containsString("lỗi hệ thống")));
+    }
+
+    @Test
     void availabilityLookupRejectsStaffAndAdminRoles() throws Exception {
         var workDate = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).plusDays(2);
         mvc.perform(get("/customer/bookings/availability-options").with(user(staff))

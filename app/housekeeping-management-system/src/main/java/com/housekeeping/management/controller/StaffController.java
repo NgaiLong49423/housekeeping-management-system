@@ -30,6 +30,9 @@ import java.time.DayOfWeek;
 import java.time.temporal.TemporalAdjusters;
 import java.util.Comparator;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
@@ -54,6 +57,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 @Controller
 public class StaffController {
+    private static final Logger log = LoggerFactory.getLogger(StaffController.class);
     private final PortalQueryService query;
     private final StaffAvailabilityService availability;
     private final CompanySettingsService companySettings;
@@ -190,6 +194,9 @@ public class StaffController {
             flash.addFlashAttribute("success", "Đã đăng ký " + added + " khoảng giờ trong ngày.");
         } catch (java.time.DateTimeException | IllegalArgumentException | IllegalStateException failure) {
             flash.addFlashAttribute("error", PortalMessages.business(failure));
+        } catch (DataAccessException failure) {
+            log.error("Could not save staff availability for user {} on {}", user.getUserId(), workDate, failure);
+            flash.addFlashAttribute("error", "Không thể lưu lịch do lỗi hệ thống. Lỗi đã được ghi nhận, vui lòng thử lại.");
         }
         LocalDate returnWeek = parsedWeekStart != null ? parsedWeekStart
                 : parsedWorkDate == null ? null : parsedWorkDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));

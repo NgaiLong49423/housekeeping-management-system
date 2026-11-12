@@ -373,7 +373,7 @@ if (companyWindowSource) {
     form.addEventListener("submit", event => { if (!validate()) event.preventDefault(); });
     if (form.hasAttribute("data-staff-multi-form")) {
       const rows = form.querySelector("[data-staff-interval-list]");
-      form.querySelector("[data-add-staff-interval]")?.addEventListener("click", () => {
+      form.querySelector("[data-add-interval]")?.addEventListener("click", () => {
         if (rows.querySelectorAll("[data-staff-interval-row]").length >= 8) {
           if (message) { message.textContent = "Mỗi ngày đăng ký tối đa 8 khoảng giờ."; message.hidden = false; }
           return;
@@ -391,7 +391,7 @@ if (companyWindowSource) {
         validate();
       });
       form.addEventListener("click", event => {
-        const remove = event.target.closest("[data-remove-staff-interval]");
+        const remove = event.target.closest("[data-remove-interval]");
         if (!remove) return;
         if (rows.querySelectorAll("[data-staff-interval-row]").length === 1) {
           if (message) { message.textContent = "Cần giữ lại ít nhất một khoảng giờ."; message.hidden = false; }
@@ -672,9 +672,14 @@ if (bookingForm) {
     const chosen=selectedServices();
     const request=++calendarSequence;
     calendarError=""; calendarNotice=""; availableDates=[];
-    if(!chosen.length||(preference==="staff"&&!preferredStaff.value)) { calendarPending=false; renderAvailableDates(); refresh(); return; }
+    if(!chosen.length||(preference==="staff"&&!preferredStaff.value)||!house.value) {
+      calendarPending=false;
+      calendarNotice=chosen.length&&!house.value?"Chọn địa chỉ nhà để xem ngày có nhân viên phù hợp.":"";
+      renderAvailableDates(); refresh(); return;
+    }
     calendarPending=true; renderAvailableDates(); refresh();
     const query=new URLSearchParams(); chosen.forEach(input=>query.append("serviceIds",input.value));
+    query.set("houseId",house.value);
     if(preference==="staff"&&preferredStaff.value)query.set("staffId",preferredStaff.value);
     try {
       const response=await fetch(`/customer/bookings/availability-dates?${query}`,{headers:{Accept:"application/json"}});
@@ -706,6 +711,7 @@ if (bookingForm) {
   }
   async function loadDay(day) {
     const chosen = selectedServices();
+    if (!house.value) { day.options = null; day.loading = false; day.error = "Chọn địa chỉ nhà để tra lịch phù hợp."; render(); return; }
     if (!chosen.length) { day.options = null; day.loading = false; day.error = "Chọn ít nhất một dịch vụ để tra lịch."; render(); return; }
     const request = ++sequence; day.request = request; day.loading = true; day.error = ""; pending++; render();
     const query = new URLSearchParams({ workDate: day.date });
@@ -1186,7 +1192,7 @@ if (bookingForm) {
   house.addEventListener("change",()=>{
     checkHouseServiceArea();
     days.forEach(day=>{day.time="";day.staffId=preference==="staff"?preferredStaff.value:"";day.stale=false;day.restored=false;day.notice="";});
-    render();days.forEach(loadDay);
+    render();loadAvailableDates();days.forEach(loadDay);
     scheduleDraftSave();
   });
   function refresh() {

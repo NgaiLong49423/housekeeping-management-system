@@ -284,10 +284,13 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
         Long availabilityId = jdbc.queryForObject("SELECT availability_id FROM dbo.Staff_Availability WHERE staff_id=?",
                 Long.class, savedStaff.getStaffId());
 
-        assertThat(availability.overlapsAnotherInterval(savedStaff.getStaffId(), workDate,
-                LocalTime.of(8, 30), LocalTime.of(9, 30), null)).isTrue();
-        assertThat(availability.overlapsAnotherInterval(savedStaff.getStaffId(), workDate,
-                LocalTime.of(9, 0), LocalTime.of(10, 0), null)).isFalse();
+        var registered = availability.findAllByStaffIdAndWorkDateAndActiveTrue(savedStaff.getStaffId(), workDate);
+        assertThat(registered).singleElement().satisfies(interval -> {
+            assertThat(LocalTime.of(8, 30).isBefore(interval.getEndTime())
+                    && LocalTime.of(9, 30).isAfter(interval.getStartTime())).isTrue();
+            assertThat(LocalTime.of(9, 0).isBefore(interval.getEndTime())
+                    && LocalTime.of(10, 0).isAfter(interval.getStartTime())).isFalse();
+        });
         assertThat(availability.unchanged(availabilityId, savedStaff.getStaffId(), workDate,
                 LocalTime.of(8, 0), LocalTime.of(9, 0))).isTrue();
 
