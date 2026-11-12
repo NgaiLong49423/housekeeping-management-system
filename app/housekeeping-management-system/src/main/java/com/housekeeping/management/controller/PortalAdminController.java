@@ -31,6 +31,9 @@ public class PortalAdminController {
 
     @GetMapping("/schedules")
     String schedules(@AuthenticationPrincipal PortalUser user, Model model) {
+        if (user == null) {
+            return "redirect:/";
+        }
         model.addAttribute("schedules", query.schedules(user)); return "admin/schedules";
     }
 

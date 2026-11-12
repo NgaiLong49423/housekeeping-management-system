@@ -45,6 +45,14 @@ Trong file `.env` ở thư mục dự án hoặc module, đặt thông tin kết
 - `DB_PASSWORD`: mật khẩu SQL Server
 - `PAYOUT_ENCRYPTION_KEY`: chuỗi Base64 32 byte (AES-256) dùng để mã hóa thông tin tài khoản chuyển khoản bồi thường.
 
+## Dữ liệu mẫu (Sample Data) & UTF-8
+
+Khi chạy script dữ liệu mẫu `database/sample-data.sql`, để tránh lỗi hiển thị font tiếng Việt (Mojibake), hãy sử dụng cờ `-f 65001` khi dùng `sqlcmd`:
+```powershell
+sqlcmd -S localhost -d Housekeeping_Database -U hsf302_housekeeping_local -P "692E9A74A018766638F530029A13B142350FE42298FD55D9aA1!" -f 65001 -i database\sample-data.sql
+```
+Hoặc mở và thực thi trực tiếp bằng SSMS (SQL Server Management Studio) / DBeaver / Azure Data Studio.
+
 ## Kiểm chứng
 
 ```powershell

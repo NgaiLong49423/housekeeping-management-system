@@ -97,6 +97,9 @@ public class StaffController {
 
     @GetMapping({"/customer/schedules", "/staff/schedules"})
     String schedules(@AuthenticationPrincipal PortalUser user, @RequestParam(required = false) LocalDate weekStart, Model model) {
+        if (user == null) {
+            return "redirect:/";
+        }
         List<ScheduleCard> ownSchedules = query.schedules(user);
         model.addAttribute("schedules", ownSchedules);
         if ("STAFF".equals(user.getRole())) {

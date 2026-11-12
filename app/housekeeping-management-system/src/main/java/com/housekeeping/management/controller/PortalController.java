@@ -25,8 +25,11 @@ public class PortalController {
     @GetMapping("/services")
     String services(Model model) { model.addAttribute("services", query.services()); return "services"; }
 
-    @GetMapping("/portal")
+    @GetMapping({"/portal", "/bookings", "/schedules"})
     String portal(@AuthenticationPrincipal PortalUser user) {
+        if (user == null) {
+            return "redirect:/";
+        }
         return "redirect:" + switch (user.getRole()) { case "ADMIN", "MANAGER" -> "/admin/bookings"; case "STAFF" -> "/staff/bookings"; default -> "/customer/bookings"; };
     }
 
