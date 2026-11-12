@@ -34,14 +34,11 @@ public class HouseController {
         model.addAttribute("addressTypes", HouseAddressType.values());
         if (!model.containsAttribute("houseForm")) {
             if (editId == null) {
-                model.addAttribute("houseForm", new HouseForm(PortalAdvice.cleanLabel(user.getDisplayName()), "", "", "", "", "",
+                model.addAttribute("houseForm", new HouseForm(PortalAdvice.cleanLabel(user.getDisplayName()), "", "",
                         HouseAddressType.HOME, false, ""));
             } else {
                 var house = houses.findCustomerHouse(user.getUserId(), editId);
                 model.addAttribute("houseForm", new HouseForm(PortalAdvice.cleanLabel(house.getRecipientName()), house.getRecipientPhone(), "",
-                        house.getProvinceCity() == null ? "" : house.getProvinceCity(),
-                        house.getWardCommune() == null ? "" : house.getWardCommune(),
-                        house.getAddressDetail() == null ? house.getAddress() : house.getAddressDetail(),
                         house.getAddressType(), house.isDefaultAddress(), house.getAddressNote()));
                 model.addAttribute("editHouseId", editId);
             }
@@ -53,7 +50,7 @@ public class HouseController {
 
     @GetMapping("/autocomplete")
     @ResponseBody
-    java.util.List<com.housekeeping.management.service.VietmapClient.Suggestion> autocomplete(@RequestParam String q) {
+    java.util.List<com.housekeeping.management.dto.response.LocationSuggestion> autocomplete(@RequestParam String q) {
         return houses.autocomplete(q);
     }
 

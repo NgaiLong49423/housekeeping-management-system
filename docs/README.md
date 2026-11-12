@@ -1,8 +1,8 @@
 > **Document:** Documentation Guide\
 > **File:** `docs/README.md`\
-> **Version:** v2.0.0\
+> **Version:** v2.2.0\
 > **Created:** 2026-06-14\
-> **Last Updated:** 2026-10-24\
+> **Last Updated:** 2026-11-10\
 > **Status:** Active\
 
 # Tài Liệu Dự Án
@@ -13,8 +13,8 @@ Lưu tài liệu dự án được duy trì tại đây và liên kết tới ng
 
 - [PRD](requirements/PRD.md): phạm vi sản phẩm, vai trò và 12 module.
 - [SRS](requirements/SRS.md): quy tắc và acceptance criteria có thể kiểm thử.
-- [Từ điển dữ liệu SQL Server](requirements/SQL_SERVER_DATA_DICTIONARY.md): 15 bảng nghiệp vụ và quy tắc mapping.
-- [Cấu trúc package Java](architecture/java-package-structure.md): MVC/N-Layer và trách nhiệm package.
+- [Từ điển dữ liệu SQL Server](requirements/SQL_SERVER_DATA_DICTIONARY.md): 20 bảng nghiệp vụ và quy tắc mapping.
+- [Cấu trúc package Java](architecture/java-package-structure.md): quy tắc AI và thành viên áp dụng cho service interface/implementation, repository, DTO converter, quan hệ entity và test.
 - [Hướng dẫn kết nối giao diện và backend](frontend-integration.md): các route/form MVC sau khi đồng bộ với SRS.
 
 - `requirements/`: yêu cầu sản phẩm, SRS và data dictionary.

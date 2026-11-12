@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Khoản điều chỉnh')}"><title>Khoản điều chỉnh · Gọn Nhà</title></head>
+<body>
+<header th:replace="~{fragments/layout :: header('finance')}"></header>
+<main id="main" class="container py-4 py-md-5">
+  <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4"><div class="page-heading"><span class="eyebrow">Đối soát tài chính</span><h1>Khoản điều chỉnh</h1><p class="lead">Chỉ mở từng khoản để xem lý do, chứng từ, lịch sử và thao tác xử lý.</p></div><div class="d-flex gap-2"><a class="btn btn-outline-secondary" th:href="@{/admin/finance}">← Tổng quan</a><a th:unless="${currentUser.manager}" class="btn btn-primary" th:href="@{/admin/finance/new}">Lập khoản mới</a></div></div>
+  <div th:replace="~{fragments/layout :: alerts}"></div>
+  <section class="surface p-3 p-md-4">
+    <p th:if="${#lists.isEmpty(entries)}" class="text-secondary mb-0">Chưa có khoản điều chỉnh nào.</p>
+    <div class="table-responsive" th:unless="${#lists.isEmpty(entries)}"><table class="table align-middle mb-0"><thead><tr><th>Booking</th><th>Loại khoản</th><th>Số tiền</th><th>Trạng thái</th><th>Ngày lập</th><th></th></tr></thead><tbody>
+      <tr th:each="entry : ${entries}"><td><a th:href="@{/admin/bookings/{id}(id=${entry.bookingId})}" th:text="|#${entry.bookingId}|">#1</a></td><td th:text="${entry.typeLabel}">Bồi thường</td><td th:text="|${#numbers.formatDecimal(entry.amount,0,'POINT',0,'COMMA')} ₫|">0 ₫</td><td><span class="badge text-bg-secondary" th:text="${entry.statusLabel}">Chờ duyệt</span></td><td class="small" th:text="${entry.createdAt == null ? '—' : #temporals.format(entry.createdAt,'dd/MM/yyyy HH:mm')}">—</td><td class="text-end"><a class="btn btn-sm btn-outline-primary" th:href="@{/admin/finance/entries/{id}(id=${entry.id})}">Xem chi tiết</a></td></tr>
+    </tbody></table></div>
+  </section>
+</main>
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

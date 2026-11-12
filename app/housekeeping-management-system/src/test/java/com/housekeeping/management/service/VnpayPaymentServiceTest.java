@@ -7,7 +7,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
 
-import com.housekeeping.management.repository.PaymentPersistenceRepository.PaymentState;
+import com.housekeeping.management.service.PaymentService.OnlinePayment;
+import com.housekeeping.management.integration.vnpay.VnpayGatewayClient;
 import com.housekeeping.management.web.PortalMessages;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -23,13 +24,13 @@ class VnpayPaymentServiceTest {
 
     private PaymentService payments;
     private VnpayGatewayClient gateway;
-    private VnpayPaymentService service;
+    private OnlinePaymentService service;
 
     @BeforeEach
     void setUp() {
         payments = mock(PaymentService.class);
         gateway = mock(VnpayGatewayClient.class);
-        service = new VnpayPaymentService(payments, gateway);
+        service = new com.housekeeping.management.service.impl.VnpayPaymentServiceImpl(payments, gateway);
         when(gateway.isConfigured()).thenReturn(true);
     }
 
@@ -50,9 +51,9 @@ class VnpayPaymentServiceTest {
                 .thenReturn(new PaymentService.OnlineCheckout(1001L, 150000L, CREATED_AT, false));
         when(gateway.paymentUrl(1001L, 150000L, CREATED_AT, "127.0.0.1")).thenReturn(CHECKOUT_URL);
 
-        VnpayPaymentService.Checkout checkout = service.checkout(42L, 7L, "127.0.0.1");
+        OnlinePaymentService.Checkout checkout = service.checkout(42L, 7L, "127.0.0.1");
 
-        assertThat(checkout).isEqualTo(new VnpayPaymentService.Checkout(CHECKOUT_URL, false));
+        assertThat(checkout).isEqualTo(new OnlinePaymentService.Checkout(CHECKOUT_URL, false));
         verify(gateway, never()).query(anyLong(), any());
     }
 
@@ -62,7 +63,7 @@ class VnpayPaymentServiceTest {
                 .thenReturn(new PaymentService.OnlineCheckout(1001L, 150000L, CREATED_AT, true));
         when(gateway.query(1001L, CREATED_AT)).thenReturn(paid("150000"));
 
-        VnpayPaymentService.Checkout checkout = service.checkout(42L, 7L, "127.0.0.1");
+        OnlinePaymentService.Checkout checkout = service.checkout(42L, 7L, "127.0.0.1");
 
         assertThat(checkout.alreadyPaid()).isTrue();
         verify(payments).confirmOnlinePayment(1001L, new BigDecimal("150000"));
@@ -78,9 +79,9 @@ class VnpayPaymentServiceTest {
         when(gateway.query(1001L, CREATED_AT)).thenReturn(new VnpayGatewayClient.QueryResult("91", "", null));
         when(gateway.paymentUrl(1002L, 150000L, retriedAt, "127.0.0.1")).thenReturn(CHECKOUT_URL + "2");
 
-        VnpayPaymentService.Checkout checkout = service.checkout(42L, 7L, "127.0.0.1");
+        OnlinePaymentService.Checkout checkout = service.checkout(42L, 7L, "127.0.0.1");
 
-        assertThat(checkout).isEqualTo(new VnpayPaymentService.Checkout(CHECKOUT_URL + "2", false));
+        assertThat(checkout).isEqualTo(new OnlinePaymentService.Checkout(CHECKOUT_URL + "2", false));
         verify(payments).failOnlinePayment(1001L, new BigDecimal("150000"));
         verify(payments, never()).confirmOnlinePayment(anyLong(), any());
     }
@@ -152,7 +153,7 @@ class VnpayPaymentServiceTest {
         when(gateway.query(1001L, CREATED_AT)).thenReturn(paid("150000"));
 
         assertThat(service.handleReturn(returned))
-                .isEqualTo(new VnpayPaymentService.ReturnOutcome(42L, VnpayPaymentService.ReturnStatus.PAID));
+                .isEqualTo(new OnlinePaymentService.ReturnOutcome(42L, OnlinePaymentService.ReturnStatus.PAID));
         verify(payments).confirmOnlinePayment(1001L, new BigDecimal("150000"));
     }
 
@@ -163,7 +164,7 @@ class VnpayPaymentServiceTest {
         when(payments.findOnlinePayment(1001L)).thenReturn(Optional.of(attempt("PENDING")));
         when(gateway.query(1001L, CREATED_AT)).thenReturn(new VnpayGatewayClient.QueryResult("00", "02", new BigDecimal("150000")));
 
-        assertThat(service.handleReturn(returned).status()).isEqualTo(VnpayPaymentService.ReturnStatus.FAILED);
+        assertThat(service.handleReturn(returned).status()).isEqualTo(OnlinePaymentService.ReturnStatus.FAILED);
         verify(payments).failOnlinePayment(1001L, new BigDecimal("150000.00"));
         verify(payments, never()).confirmOnlinePayment(anyLong(), any());
     }
@@ -175,7 +176,7 @@ class VnpayPaymentServiceTest {
         when(payments.findOnlinePayment(1001L)).thenReturn(Optional.of(attempt("PENDING")));
         when(gateway.query(1001L, CREATED_AT)).thenReturn(new VnpayGatewayClient.QueryResult("00", "01", new BigDecimal("150000")));
 
-        assertThat(service.handleReturn(returned).status()).isEqualTo(VnpayPaymentService.ReturnStatus.PENDING);
+        assertThat(service.handleReturn(returned).status()).isEqualTo(OnlinePaymentService.ReturnStatus.PENDING);
         verify(payments, never()).confirmOnlinePayment(anyLong(), any());
         verify(payments, never()).failOnlinePayment(anyLong(), any());
     }
@@ -188,7 +189,7 @@ class VnpayPaymentServiceTest {
         when(payments.findOnlinePayment(1001L)).thenReturn(Optional.of(attempt("PENDING")));
         when(gateway.query(1001L, CREATED_AT)).thenReturn(new VnpayGatewayClient.QueryResult("99", "", null));
 
-        assertThat(service.handleReturn(returned).status()).isEqualTo(VnpayPaymentService.ReturnStatus.PAID);
+        assertThat(service.handleReturn(returned).status()).isEqualTo(OnlinePaymentService.ReturnStatus.PAID);
         verify(payments).confirmOnlinePayment(1001L, new BigDecimal("150000.00"));
     }
 
@@ -199,7 +200,7 @@ class VnpayPaymentServiceTest {
         when(payments.findOnlinePayment(1001L)).thenReturn(Optional.of(attempt("PENDING")));
         when(gateway.query(1001L, CREATED_AT)).thenThrow(new org.springframework.web.client.ResourceAccessException("timeout"));
 
-        assertThat(service.handleReturn(returned).status()).isEqualTo(VnpayPaymentService.ReturnStatus.PAID);
+        assertThat(service.handleReturn(returned).status()).isEqualTo(OnlinePaymentService.ReturnStatus.PAID);
         verify(payments).confirmOnlinePayment(1001L, new BigDecimal("150000.00"));
     }
 
@@ -210,7 +211,7 @@ class VnpayPaymentServiceTest {
         when(payments.findOnlinePayment(1001L)).thenReturn(Optional.of(attempt("PENDING")));
         when(gateway.query(1001L, CREATED_AT)).thenReturn(new VnpayGatewayClient.QueryResult("99", "", null));
 
-        assertThat(service.handleReturn(returned).status()).isEqualTo(VnpayPaymentService.ReturnStatus.PENDING);
+        assertThat(service.handleReturn(returned).status()).isEqualTo(OnlinePaymentService.ReturnStatus.PENDING);
         verify(payments, never()).confirmOnlinePayment(anyLong(), any());
     }
 
@@ -220,7 +221,7 @@ class VnpayPaymentServiceTest {
         when(gateway.hasValidSignature(returned)).thenReturn(true);
         when(payments.findOnlinePayment(1001L)).thenReturn(Optional.of(attempt("SUCCESS")));
 
-        assertThat(service.handleReturn(returned).status()).isEqualTo(VnpayPaymentService.ReturnStatus.PAID);
+        assertThat(service.handleReturn(returned).status()).isEqualTo(OnlinePaymentService.ReturnStatus.PAID);
         verify(gateway, never()).query(anyLong(), any());
     }
 
@@ -268,7 +269,7 @@ class VnpayPaymentServiceTest {
         when(gateway.hasValidSignature(ipn)).thenReturn(true);
         when(payments.findOnlinePayment(1001L)).thenReturn(Optional.of(attempt("PENDING")));
 
-        assertThat(service.handleIpn(ipn)).isEqualTo(new VnpayPaymentService.IpnResponse("00", "Confirm Success"));
+        assertThat(service.handleIpn(ipn)).isEqualTo(new OnlinePaymentService.IpnResponse("00", "Confirm Success"));
         verify(payments).confirmOnlinePayment(1001L, new BigDecimal("150000.00"));
     }
 
@@ -308,8 +309,8 @@ class VnpayPaymentServiceTest {
         return new VnpayGatewayClient.QueryResult("00", "00", new BigDecimal(amount));
     }
 
-    private static PaymentState attempt(String status) {
-        return new PaymentState(19L, 42L, new BigDecimal("150000.00"), "ONLINE", status, "1001", CREATED_AT);
+    private static OnlinePayment attempt(String status) {
+        return new OnlinePayment(19L, 42L, new BigDecimal("150000.00"), "ONLINE", status, "1001", CREATED_AT);
     }
 
     private static Map<String, String> returned(String responseCode) {

@@ -1,13 +1,13 @@
 > **Document:** Database Guide\
 > **File:** `database/README.md`\
-> **Version:** v2.7.0\
+> **Version:** v3.5.0\
 > **Created:** 2026-06-14\
-> **Last Updated:** 2026-11-11\
+> **Last Updated:** 2026-11-12\
 > **Status:** Active\
 
 # Hướng dẫn database
 
-Microsoft SQL Server là database chính thức (`Housekeeping_Database`). Hệ thống sử dụng thống nhất đúng 1 database này. Schema đích gồm đúng 15 bảng nghiệp vụ theo [Từ điển dữ liệu SQL Server](../docs/requirements/SQL_SERVER_DATA_DICTIONARY.md). Hibernate dùng `ddl-auto=validate`; chỉ Flyway quản lý DDL.
+Microsoft SQL Server là database chính thức (`Housekeeping_Database`). Hệ thống sử dụng Flyway để quản lý DDL với `ddl-auto=validate`. Schema hiện tại có 25 bảng nghiệp vụ theo [Từ điển dữ liệu SQL Server](../docs/requirements/SQL_SERVER_DATA_DICTIONARY.md). V18 thêm thông tin món đồ Customer khai báo; V19 từng thêm phương án/phiếu việc; V25 giữ lịch sử migration nhưng loại bỏ bốn bảng phương án/phiếu việc và rút gọn luồng sự cố; V26 thêm mốc Staff hoàn tất để thực thi hạn phản ánh 24 giờ; V27 tách trạng thái đã quyết toán để cho phép xóa ciphertext tài khoản ngân hàng; V28 bổ sung quy trình Staff giải trình/kháng nghị và theo dõi thu hồi theo từng lần thực nhận; V29 đồng bộ nội dung và ảnh minh họa cho các phản ánh demo.
 
 ## Opt-in automatic local reset
 
@@ -18,18 +18,32 @@ Chỉ `Housekeeping_Database` trên `localhost`, `127.0.0.1` hoặc `[::1]` mớ
 ## Flyway và lịch sử schema
 
 - `app/housekeeping-management-system/src/main/resources/db/primary/` là baseline của database chính thức `Housekeeping_Database`; Flyway ghi nhận lịch sử trong `flyway_primary_schema_history`. Flyway tạo baseline version `0` rồi áp dụng V1; migration V1 chỉ cho phép database chính/acceptance rỗng (ngoại trừ bảng lịch sử Flyway).
-- `app/housekeeping-management-system/src/main/resources/db/shared/` chứa migration version dùng chung sau baseline; ứng dụng nạp migration V2, V5, V6 và V8 từ đây.
-- Migration V6 thêm thời điểm Staff xác nhận đến và báo sự cố trên `Bookings`; schema vẫn duy trì đúng 15 bảng nghiệp vụ.
-- Migration V8 thêm ETA, phản hồi của Customer, giờ Staff bắt đầu việc và thông tin giảm trừ do đến trễ trên `Bookings`.
-- Cửa sổ xác nhận đến mặc định là 0 phút (từ giờ bắt đầu), môi trường local có thể cấu hình lên 5 phút thông qua `application-local.properties`.
-- Nếu chủ sở hữu muốn xóa dữ liệu cũ và khởi tạo lại database sạch sẽ, có thể chạy [`recreate-primary-schema.sql`](recreate-primary-schema.sql) một lần trong đúng `Housekeeping_Database`.
+- `app/housekeeping-management-system/src/main/resources/db/shared/` chứa migration version dùng chung sau baseline; ứng dụng nạp migration dùng chung liên tục từ V2 đến V29.
+- Migration V6 thêm thời điểm Staff xác nhận đến và báo sự cố trên `Bookings`.
+- Migration V8 thêm ETA, phản hồi đồng thuận của Customer, giờ Staff bắt đầu việc và thông tin giảm trừ do đến trễ trên `Bookings`.
+- Migration V14 thêm bảng `Booking_Delay_Compensation_Tiers` cấu hình giảm giá khi trễ.
+- Migration V15 chuyển Admin quản lý hiện tại thành vai trò `MANAGER`.
+- Migration V16 thêm bảng `Feedback_Case_Messages` và liên kết bằng chứng hiện có qua `message_id`.
+- Migration V17 thêm `Financial_Payout_Responses`.
+- Migration V25 rút gọn luồng sự cố còn 23 bảng nghiệp vụ; V26 thêm mốc hoàn tất Booking; V27 ghi trạng thái `SETTLED`; V28 thêm bằng chứng giải trình Staff và các lần Staff thực trả, đưa schema lên 25 bảng nghiệp vụ. V29 gắn ảnh minh họa cho dữ liệu phản ánh demo.
+- Cửa sổ xác nhận đến mặc định là 0 phút (từ giờ bắt đầu), môi trường local có thể cấu hình thông qua `application.properties`.
+- Nếu muốn xóa dữ liệu cũ và khởi tạo lại database sạch sẽ, có thể chạy [`recreate-primary-schema.sql`](recreate-primary-schema.sql) một lần trong đúng `Housekeeping_Database`.
+
+### Khởi tạo Manager hệ thống
+Database demo seed tài khoản Manager riêng ở V11 và chuyển vai trò từ cờ cũ trong V15. Với database chính, nếu V15 không tìm thấy Admin đang có cờ quản lý để chuyển đổi, DBA cần gán vai trò cho đúng một tài khoản Admin đã xác minh (thay placeholder trước khi chạy):
+```sql
+UPDATE dbo.Users SET role='MANAGER'
+WHERE email=N'<manager-admin-email>' AND role='ADMIN' AND status='ACTIVE';
+```
+Filtered unique index từ V15 ngăn tạo Manager thứ hai. Manager có thể tạo/khoá Admin tại `/admin/accounts`; Admin không được tự cấp quyền hoặc mở trang này.
 
 ## Cấu hình kết nối
 
-Trong file `.env` (hoặc cấu hình local `.runtime/application-local.properties`), đặt thông tin kết nối tới duy nhất `Housekeeping_Database`:
+Trong file `.env` ở thư mục dự án hoặc module, đặt thông tin kết nối tới `Housekeeping_Database`:
 - `DB_URL`: `jdbc:sqlserver://localhost:1433;databaseName=Housekeeping_Database;encrypt=true;trustServerCertificate=true`
 - `DB_USERNAME`: tài khoản SQL Server của bạn (ví dụ `hsf302_housekeeping_local` hoặc `sa`)
 - `DB_PASSWORD`: mật khẩu SQL Server
+- `PAYOUT_ENCRYPTION_KEY`: chuỗi Base64 32 byte (AES-256) dùng để mã hóa thông tin tài khoản chuyển khoản bồi thường.
 
 ## Kiểm chứng
 
@@ -40,3 +54,5 @@ mvn "-DexcludedGroups=sqlserver" verify
 # Flyway, Hibernate mapping và concurrency trên SQL Server Testcontainers (yêu cầu Docker)
 mvn verify
 ```
+
+Không kết luận migration hoặc concurrency đã được SQL Server xác minh nếu Testcontainers/SQL Server tests không chạy. Xem [README](../README.md) để chạy ứng dụng.

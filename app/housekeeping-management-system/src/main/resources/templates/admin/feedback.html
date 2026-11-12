@@ -10,38 +10,43 @@
           <span>Quản lý vận hành · Gọn Nhà</span>
         </span>
         <h1>Phản hồi khách hàng</h1>
-        <p class="lead">Đọc góp ý theo từng lịch hẹn, gửi phản hồi và đánh dấu nội dung đã giải quyết.</p>
+        <p class="lead">Theo dõi đánh giá và sự cố theo booking, trả lời khách và xử lý các mục đang chờ.</p>
       </div>
       <div th:replace="~{fragments/layout :: alerts}"></div>
+      <nav class="nav nav-pills gap-2 mb-3" aria-label="Lọc phản hồi theo trạng thái">
+        <a class="nav-link" th:classappend="${selectedStatus == 'all'} ? ' active'"
+           th:href="@{/admin/feedback(status='all',bookingId=${selectedBookingId})}">Tất cả <span class="badge text-bg-light" th:text="${feedbackCount}">0</span></a>
+        <a class="nav-link" th:classappend="${selectedStatus == 'intake'} ? ' active'" th:href="@{/admin/feedback(status='intake',bookingId=${selectedBookingId})}">Chờ tiếp nhận <span class="badge text-bg-light" th:text="${intakeCount}">0</span></a>
+        <a class="nav-link" th:classappend="${selectedStatus == 'processing'} ? ' active'"
+           th:href="@{/admin/feedback(status='processing',bookingId=${selectedBookingId})}">Đang xử lý <span class="badge text-bg-light" th:text="${processingCount}">0</span></a>
+        <a class="nav-link" th:classappend="${selectedStatus == 'customer'} ? ' active'" th:href="@{/admin/feedback(status='customer',bookingId=${selectedBookingId})}">Chờ khách <span class="badge text-bg-light" th:text="${customerCount}">0</span></a>
+        <a class="nav-link" th:classappend="${selectedStatus == 'manager'} ? ' active'" th:href="@{/admin/feedback(status='manager',bookingId=${selectedBookingId})}">Chờ Manager <span class="badge text-bg-light" th:text="${managerCount}">0</span></a>
+        <a class="nav-link" th:classappend="${selectedStatus == 'payout'} ? ' active'" th:href="@{/admin/feedback(status='payout',bookingId=${selectedBookingId})}">Chờ chi trả/xác nhận <span class="badge text-bg-light" th:text="${payoutCount}">0</span></a>
+        <a class="nav-link" th:classappend="${selectedStatus == 'resolved'} ? ' active'"
+           th:href="@{/admin/feedback(status='resolved',bookingId=${selectedBookingId})}">Đã xử lý <span class="badge text-bg-light" th:text="${resolvedCount}">0</span></a>
+      </nav>
       <section class="surface p-4">
         <div th:if="${#lists.isEmpty(feedback)}" class="empty-state py-5">
           <div class="empty-illustration">
             <svg th:replace="~{fragments/icons :: illustration-feedback}"></svg>
           </div>
           <h3>Chưa có phản hồi nào</h3>
-          <p class="mb-0">Hộp thư góp ý hiện đang trống. Sau mỗi lịch hẹn hoàn tất, nhận xét của khách hàng sẽ chuyển về đây để bạn phản hồi và đánh dấu hoàn thành xử lý.</p>
+          <p class="text-secondary mb-0">Không có phản hồi trong trạng thái này.</p>
         </div>
-        <article th:each="item : ${feedback}" class="border-bottom py-4">
+        <article th:each="item : ${feedback}" class="border-bottom py-4" th:id="|feedback-booking-${item.bookingId}|">
           <div class="d-flex flex-wrap justify-content-between gap-2">
-            <h2 class="h6 mb-0" th:text="|${ui.label(item.customerName)} · Lịch #${item.bookingId}|">Khách hàng · Lịch</h2>
-            <span class="status-pill" th:classappend="${item.status == 'RESOLVED'} ? 'confirmed' : 'unpaid'"
-                  th:text="${item.status == 'RESOLVED'} ? 'Đã giải quyết' : 'Đang mở'">Đang mở</span>
+            <h2 class="h6 mb-0"><a class="text-decoration-none" th:href="@{/admin/feedback/{id}(id=${item.id})}"
+                  th:text="|${item.customerName} · Lịch #${item.bookingId}|">Khách hàng · Lịch</a></h2>
+            <span class="badge" th:classappend="${queueStatusByFeedback[item.id] == 'resolved'} ? 'text-bg-success' : (${queueStatusByFeedback[item.id] == 'intake'} ? 'text-bg-secondary' : (${queueStatusByFeedback[item.id] == 'manager'} ? 'text-bg-warning' : 'text-bg-primary'))"
+                  th:text="${queueStatusByFeedback[item.id] == 'intake'} ? 'Chờ tiếp nhận' : (${queueStatusByFeedback[item.id] == 'customer'} ? 'Chờ khách' : (${queueStatusByFeedback[item.id] == 'manager'} ? 'Chờ Manager' : (${queueStatusByFeedback[item.id] == 'payout'} ? 'Chờ chi trả/xác nhận' : (${queueStatusByFeedback[item.id] == 'resolved'} ? 'Hoàn tất' : 'Đang xử lý'))))">Đang xử lý</span>
           </div>
-          <p class="mt-3 mb-2" style="white-space: pre-wrap" th:text="${item.content}">Nội dung phản hồi</p>
-          <p th:if="${item.adminReply != null}" class="small text-secondary" style="white-space: pre-wrap">
-            <strong>Phản hồi hiện tại:</strong> <span th:text="${item.adminReply}"></span>
-          </p>
-          <form method="post" class="vstack gap-2" th:action="@{/admin/feedback/{id}/reply(id=${item.id})}">
-            <label class="form-label mb-0" for="reply" th:for="|reply-${item.id}|">Trả lời khách hàng</label>
-            <textarea id="reply" class="form-control" rows="3" name="reply" th:id="|reply-${item.id}|" required></textarea>
-            <button class="btn btn-outline-primary align-self-start" type="submit">Lưu trả lời</button>
-          </form>
-          <form th:if="${item.status == 'OPEN'}" method="post" class="mt-2" th:action="@{/admin/feedback/{id}/resolve(id=${item.id})}">
-            <button class="btn btn-reactivate" type="submit">
-              <svg th:replace="~{fragments/icons :: check}"></svg>
-              <span>Đánh dấu đã giải quyết</span>
-            </button>
-          </form>
+          <p class="small text-secondary mt-2 mb-0" th:text="|Booking ${item.bookingStatus} · ${item.bookingStartLabel} · Staff: ${item.staffName} · ${#numbers.formatDecimal(item.bookingAmount,0,'POINT',0,'COMMA')} ₫|">Thông tin booking</p>
+          <p class="mt-3 mb-0" th:if="${item.rating != null}"><strong>Đánh giá:</strong> <span th:text="|${item.rating}/5 sao|">5/5 sao</span></p>
+          <div th:if="${incidentByFeedback[item.id] != null}" class="mt-3">
+            <span class="badge text-bg-light border">Có hồ sơ sự cố</span>
+            <span class="small text-secondary ms-2" th:text="${#strings.listJoin(incidentByFeedback[item.id].typeLabels, ', ')}">Loại sự cố</span>
+          </div>
+          <a class="btn btn-sm btn-outline-primary mt-3" th:href="@{/admin/feedback/{id}(id=${item.id})}">Xem chi tiết</a>
         </article>
       </section>
     </main>

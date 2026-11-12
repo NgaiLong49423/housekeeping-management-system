@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Sổ giao dịch')}"><title>Sổ giao dịch · Gọn Nhà</title></head>
+<body>
+<header th:replace="~{fragments/layout :: header('finance')}"></header>
+<main id="main" class="container py-4 py-md-5">
+  <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4"><div class="page-heading"><span class="eyebrow">Đối soát tài chính</span><h1>Sổ giao dịch</h1><p class="lead">Danh sách gọn; mở chi tiết booking hoặc khoản điều chỉnh khi cần.</p></div><a class="btn btn-outline-secondary" th:href="@{/admin/finance}">← Tổng quan</a></div>
+  <div th:replace="~{fragments/layout :: alerts}"></div>
+  <section class="surface p-3 p-md-4">
+    <p th:if="${#lists.isEmpty(ledger)}" class="text-secondary mb-0">Chưa có thanh toán thành công hoặc khoản điều chỉnh.</p>
+    <div class="table-responsive" th:unless="${#lists.isEmpty(ledger)}"><table class="table align-middle mb-0"><thead><tr><th>Booking</th><th>Giao dịch</th><th>Trạng thái</th><th class="text-end">Số tiền</th><th>Thời điểm</th><th></th></tr></thead><tbody>
+      <tr th:each="transaction : ${ledger}"><td><a th:href="@{/admin/bookings/{id}(id=${transaction.bookingId})}" th:text="|#${transaction.bookingId}|">#1</a></td>
+        <td><strong th:text="${transaction.title}">Thanh toán</strong><div class="small text-secondary" th:text="${transaction.sourceType == 'PAYMENT' ? 'Thanh toán dịch vụ' : (transaction.incoming ? 'Khoản thu' : 'Khoản chi')} + (transaction.method == null ? '' : ' · ' + transaction.method)">Nguồn</div></td>
+        <td><span class="badge text-bg-secondary" th:text="${transaction.status == 'SUCCESS' ? 'Đã thu' : (transaction.status == 'PAID' ? 'Đã chi/hoàn' : (transaction.status == 'SIMULATED' ? 'Mô phỏng' : transaction.status))}">Trạng thái</span><span class="d-block small text-warning-emphasis" th:if="${transaction.status == 'APPROVED' or transaction.status == 'PENDING_APPROVAL' or transaction.status == 'PROPOSED'}">Chưa phải tiền đã chi</span></td>
+        <td class="text-end fw-semibold" th:classappend="${transaction.incoming ? 'text-success' : 'text-danger'}" th:text="|${transaction.incoming ? '+' : '−'}${#numbers.formatDecimal(transaction.amount,0,'POINT',0,'COMMA')} ₫|">0 ₫</td>
+        <td class="small" th:text="${transaction.occurredAt == null ? '—' : #temporals.format(transaction.occurredAt,'dd/MM/yyyy HH:mm')}">—</td>
+        <td class="text-end"><a th:if="${transaction.adjustment != null}" class="btn btn-sm btn-outline-primary" th:href="@{/admin/finance/entries/{id}(id=${transaction.adjustment.id})}">Chi tiết khoản</a><a th:if="${transaction.adjustment == null}" class="btn btn-sm btn-outline-secondary" th:href="@{/admin/bookings/{id}(id=${transaction.bookingId})}">Mở booking</a></td></tr>
+    </tbody></table></div>
+  </section>
+</main>
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

@@ -23,7 +23,7 @@ public class PortalController {
 
     @GetMapping("/portal")
     String portal(@AuthenticationPrincipal PortalUser user) {
-        return "redirect:" + switch (user.getRole()) { case "ADMIN" -> "/admin/bookings"; case "STAFF" -> "/staff/bookings"; default -> "/customer/bookings"; };
+        return "redirect:" + switch (user.getRole()) { case "ADMIN", "MANAGER" -> "/admin/bookings"; case "STAFF" -> "/staff/bookings"; default -> "/customer/bookings"; };
     }
 
 }

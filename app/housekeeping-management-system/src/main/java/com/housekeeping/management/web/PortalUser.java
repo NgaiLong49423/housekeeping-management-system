@@ -16,7 +16,7 @@ public final class PortalUser extends User {
     }
 
     public PortalUser(Long accountId, Long userId, String email, String hash, String displayName, String role) {
-        super(email, hash, List.of(new SimpleGrantedAuthority("ROLE_" + role)));
+        super(email, hash, authorities(role));
         this.accountId = accountId;
         this.userId = userId;
         this.displayName = displayName;
@@ -27,4 +27,13 @@ public final class PortalUser extends User {
     public Long getUserId() { return userId; }
     public String getDisplayName() { return displayName; }
     public String getRole() { return role; }
+    public boolean isAdmin() { return "ADMIN".equals(role) || "MANAGER".equals(role); }
+    public boolean isManager() { return "MANAGER".equals(role); }
+
+    private static List<SimpleGrantedAuthority> authorities(String role) {
+        if ("MANAGER".equals(role)) {
+            return List.of(new SimpleGrantedAuthority("ROLE_MANAGER"), new SimpleGrantedAuthority("ROLE_ADMIN"));
+        }
+        return List.of(new SimpleGrantedAuthority("ROLE_" + role));
+    }
 }

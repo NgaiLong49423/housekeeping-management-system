@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Giải trình nội bộ')}"><title>Giải trình nội bộ · Gọn Nhà</title></head>
+<body>
+<header th:replace="~{fragments/layout :: header('incident-actions')}"></header>
+<main id="main" class="container py-4 py-md-5">
+  <div class="page-heading"><span class="eyebrow">Nhân viên · Thông tin riêng</span><h1>Giải trình nội bộ</h1>
+    <p class="lead">Nội dung tại đây chỉ Staff liên quan, Admin và Manager được xem. Xác nhận đã nhận thông báo hoặc quá hạn phản hồi không đồng nghĩa với thừa nhận lỗi.</p></div>
+  <div th:replace="~{fragments/layout :: alerts}"></div>
+  <section class="surface p-4">
+    <p th:if="${#lists.isEmpty(actions)}" class="text-secondary mb-0">Chưa có hồ sơ nội bộ cần bạn xem.</p>
+    <article th:each="action : ${actions}" class="border rounded p-3 p-md-4 mb-3">
+      <div class="d-flex flex-wrap justify-content-between gap-2"><h2 class="h5 mb-0" th:text="${action.typeLabel}">Xử lý nội bộ</h2><span class="badge text-bg-info" th:text="${action.statusLabel}">Trạng thái</span></div>
+      <p class="small text-secondary mt-2 mb-1" th:text="|Đề xuất ngày ${action.createdAt} · Hạn phản hồi ${action.responseDeadline}|">Thời hạn</p>
+      <p th:if="${action.staffResponseExpiredAt != null and action.staffResponse == null}" class="alert alert-warning py-2">Đã hết hạn gửi giải trình. Việc không phản hồi không đồng nghĩa với thừa nhận lỗi.</p>
+      <p th:if="${action.notice != null}" th:text="${action.notice}"></p>
+      <p th:if="${action.reason != null}" class="border rounded p-3"><strong>Nội dung cần bạn giải trình:</strong><br><span th:text="${action.reason}"></span></p>
+      <ul class="small" th:if="${!#lists.isEmpty(action.evidenceIds)}"><li th:each="evidenceId : ${action.evidenceIds}"><a th:href="@{/staff-incident-action-evidence/{id}(id=${evidenceId})}" target="_blank">Mở bằng chứng nội bộ #<span th:text="${evidenceId}"></span></a></li></ul>
+      <form th:if="${action.status == 'AWAITING_STAFF'}" method="post" enctype="multipart/form-data" class="vstack gap-2" th:action="@{/staff/incident-actions/{id}/response(id=${action.id})}">
+        <label class="form-label">Ý kiến giải trình<textarea class="form-control" name="response" rows="3" maxlength="4000" required placeholder="Nêu sự việc theo góc nhìn của bạn."></textarea></label>
+        <label class="form-label">Ảnh/tài liệu giải trình (không bắt buộc)<input class="form-control" type="file" name="files" multiple accept="image/jpeg,image/png,application/pdf,video/mp4,video/webm"></label>
+        <button class="btn btn-primary align-self-start">Gửi giải trình cho Manager</button>
+      </form>
+      <div th:if="${action.staffResponse != null}" class="alert alert-light border mb-2"><strong>Giải trình đã gửi:</strong><p class="mb-0" style="white-space:pre-wrap" th:text="${action.staffResponse}"></p></div>
+      <div th:if="${action.decisionReason != null}" class="alert alert-warning"><strong>Kết luận của Manager:</strong><p class="mb-1" style="white-space:pre-wrap" th:text="${action.decisionReason}"></p><p class="mb-0" th:if="${action.liabilityAmount != null and action.liabilityAmount.signum() > 0}" th:text="|Số tiền trách nhiệm: ${#numbers.formatDecimal(action.liabilityAmount,0,'POINT',0,'COMMA')} ₫. Đây là quyết định nội bộ riêng, không tự động khấu trừ lương.|"></p></div>
+      <form th:if="${action.status == 'WAITING_STAFF_APPEAL'}" method="post" enctype="multipart/form-data" class="vstack gap-2" th:action="@{/staff/incident-actions/{id}/response(id=${action.id})}">
+        <input type="hidden" name="appeal" value="true">
+        <label class="form-label">Phản đối kết luận (được gửi một lần trong 48 giờ)<textarea class="form-control" name="response" rows="3" maxlength="4000" required></textarea></label>
+        <label class="form-label">Bằng chứng bổ sung (không bắt buộc)<input class="form-control" type="file" name="files" multiple accept="image/jpeg,image/png,application/pdf,video/mp4,video/webm"></label>
+        <button class="btn btn-outline-primary align-self-start">Gửi phản đối cho Manager</button>
+      </form>
+      <div th:if="${action.appealText != null}" class="alert alert-light border"><strong>Phản đối đã gửi:</strong><p class="mb-0" style="white-space:pre-wrap" th:text="${action.appealText}"></p></div>
+      <p th:if="${action.status == 'WAITING_MANAGER' or action.status == 'WAITING_MANAGER_APPEAL'}" class="small text-secondary mb-0">Đã nhận ý kiến của bạn. Manager đang xem xét; việc này không ảnh hưởng đến lịch làm hay thu nhập tự động.</p>
+      <p th:if="${action.status == 'NO_LIABILITY'}" class="text-success mb-0">Manager kết luận không quy trách nhiệm tài chính cho bạn.</p>
+      <p th:if="${action.status == 'INTERNAL_ACTION'}" class="mb-0">Manager đã chốt biện pháp nội bộ, không có khoản thu hồi tiền.</p>
+      <p th:if="${action.status == 'RECOVERY_DUE'}" class="mb-0">Quyết định đã chốt. Công ty sẽ ghi nhận riêng từng khoản bạn thực trả; không tự trừ lương.</p>
+      <p th:if="${action.status == 'RECOVERY_SETTLED'}" class="text-success mb-0">Khoản hoàn trả theo quyết định đã được ghi nhận đủ.</p>
+      <form th:if="${action.status == 'APPROVED' and action.acknowledgedAt == null}" method="post" th:action="@{/staff/incident-actions/{id}/acknowledge(id=${action.id})}"><button class="btn btn-outline-primary" type="submit">Xác nhận đã nhận thông báo</button></form>
+    </article>
+  </section>
+</main>
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

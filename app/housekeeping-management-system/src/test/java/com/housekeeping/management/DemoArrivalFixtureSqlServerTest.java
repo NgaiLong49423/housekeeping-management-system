@@ -7,6 +7,7 @@ import java.sql.Statement;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import org.flywaydb.core.Flyway;
+import org.flywaydb.core.api.MigrationVersion;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
@@ -15,6 +16,7 @@ class DemoArrivalFixtureSqlServerTest extends SqlServerIntegrationTest {
     private static final String DEMO_DATABASE = "home_cleaning_demo";
     private static Flyway demoFlyway;
     private static DriverManagerDataSource demoDataSource;
+    private static java.util.Map<String, Object> bookingCompensationBeforeMigration;
 
     @BeforeAll
     static void migrateDemoDatabase() throws Exception {
@@ -26,11 +28,17 @@ class DemoArrivalFixtureSqlServerTest extends SqlServerIntegrationTest {
         demoDataSource = new DriverManagerDataSource(
                 SQL_SERVER.getJdbcUrl() + ";databaseName=" + DEMO_DATABASE,
                 SQL_SERVER.getUsername(), SQL_SERVER.getPassword());
-        demoFlyway = Flyway.configure()
-                .dataSource(demoDataSource)
+        demoFlyway = Flyway.configure().dataSource(demoDataSource)
                 .locations("classpath:db/refactor", "classpath:db/shared")
-                .table("flyway_schema_history")
-                .load();
+                .table("flyway_schema_history").target(MigrationVersion.fromVersion("29")).load();
+        demoFlyway.migrate();
+        var jdbc = new org.springframework.jdbc.core.JdbcTemplate(demoDataSource);
+        jdbc.update("UPDATE dbo.Booking_Delay_Compensation_Tiers SET discount_percent=100 WHERE min_delay_minutes=31");
+        bookingCompensationBeforeMigration=jdbc.queryForMap(
+                "SELECT delay_discount_percent, delay_discount_amount FROM dbo.Bookings");
+        demoFlyway = Flyway.configure().dataSource(demoDataSource)
+                .locations("classpath:db/refactor", "classpath:db/shared")
+                .table("flyway_schema_history").load();
         demoFlyway.migrate();
     }
 
@@ -43,6 +51,10 @@ class DemoArrivalFixtureSqlServerTest extends SqlServerIntegrationTest {
 
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Bookings", Integer.class)).isEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Booking_Details", Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT discount_percent FROM dbo.Booking_Delay_Compensation_Tiers WHERE min_delay_minutes=31", Integer.class))
+                .isEqualTo(30);
+        assertThat(jdbc.queryForMap("SELECT delay_discount_percent, delay_discount_amount FROM dbo.Bookings"))
+                .isEqualTo(bookingCompensationBeforeMigration);
         assertThat(jdbc.queryForObject("""
                 SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
                 WHERE TABLE_SCHEMA='dbo' AND TABLE_TYPE='BASE TABLE'
@@ -52,6 +64,6 @@ class DemoArrivalFixtureSqlServerTest extends SqlServerIntegrationTest {
                     'Bookings', 'Booking_Details', 'Booking_Images', 'Payments', 'Feedbacks', 'Staff_Follows'
                   )
                 """, Integer.class)).isEqualTo(15);
-        assertThat(demoFlyway.info().current().getVersion().getVersion()).isEqualTo("8");
+        assertThat(demoFlyway.info().current().getVersion().getVersion()).isEqualTo("30");
     }
 }

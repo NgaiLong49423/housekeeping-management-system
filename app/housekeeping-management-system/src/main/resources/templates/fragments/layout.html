@@ -84,6 +84,14 @@
                 <span class="sidebar-icon"><svg th:replace="~{fragments/icons :: message-square}"></svg></span>
                 <span>Phản hồi khách hàng</span>
               </a>
+              <a class="sidebar-nav-item" th:classappend="${active == 'finance'} ? 'active'" th:href="@{/admin/finance}">
+                <span class="sidebar-icon"><svg th:replace="~{fragments/icons :: credit-card}"></svg></span>
+                <span>Đối soát tài chính</span>
+              </a>
+              <a th:if="${currentUser.manager}" class="sidebar-nav-item" th:classappend="${active == 'accounts'} ? 'active'" th:href="@{/admin/accounts}">
+                <span class="sidebar-icon"><svg th:replace="~{fragments/icons :: shield-check}"></svg></span>
+                <span>Tài khoản Admin</span>
+              </a>
             </nav>
 
             <!-- User Footer & Logout -->
@@ -190,6 +198,9 @@
                 <li class="ios-segmented-item" th:classappend="${active == 'profile'} ? 'active'" th:attr="data-active=${active == 'profile' ? 'true' : null}">
                   <a class="ios-segmented-link nav-link" th:href="@{/staff/profile}">Hồ sơ của tôi</a>
                 </li>
+                <li class="ios-segmented-item" th:classappend="${active == 'incident-actions'} ? 'active'" th:attr="data-active=${active == 'incident-actions' ? 'true' : null}">
+                  <a class="ios-segmented-link nav-link" th:href="@{/staff/incident-actions}">Thông báo nội bộ</a>
+                </li>
               </ul>
             </nav>
 
@@ -216,6 +227,7 @@
                 </summary>
                 <div class="account-popover">
                   <span class="eyebrow w-100 justify-content-center" th:text="${currentUser.role == 'ADMIN' ? 'Quản trị viên' : (currentUser.role == 'STAFF' ? 'Nhân viên' : 'Khách hàng')}"></span>
+                  <a th:if="${currentUser.manager}" class="btn btn-light w-100 mb-2" th:href="@{/admin/accounts}">Tài khoản Admin</a>
                   <form method="post" th:action="@{/logout}">
                     <button class="btn btn-light w-100" type="submit">
                       <svg th:replace="~{fragments/icons :: log-out}"></svg>
@@ -244,6 +256,11 @@
                 <li th:if="${currentUser != null and currentUser.role == 'CUSTOMER'}"><a class="ios-sheet-link" th:href="@{/customer/staff}">Nhân viên</a></li>
                 <li th:if="${currentUser != null and currentUser.role == 'CUSTOMER'}"><a class="ios-sheet-link" th:href="@{/customer/bookings}">Lịch của tôi</a></li>
                 <li th:if="${currentUser != null and currentUser.role == 'CUSTOMER'}"><a class="ios-sheet-link" th:href="@{/customer/houses}">Nhà của tôi</a></li>
+                <li th:if="${currentUser != null and currentUser.role == 'STAFF'}"><a class="ios-sheet-link" th:href="@{/staff/bookings}">Công việc của tôi</a></li>
+                <li th:if="${currentUser != null and currentUser.role == 'STAFF'}"><a class="ios-sheet-link" th:href="@{/staff/schedules}">Lịch sẵn sàng</a></li>
+                <li th:if="${currentUser != null and currentUser.role == 'STAFF'}"><a class="ios-sheet-link" th:href="@{/staff/leaves}">Đơn nghỉ</a></li>
+                <li th:if="${currentUser != null and currentUser.role == 'STAFF'}"><a class="ios-sheet-link" th:href="@{/staff/profile}">Hồ sơ của tôi</a></li>
+                <li th:if="${currentUser != null and currentUser.role == 'STAFF'}"><a class="ios-sheet-link" th:href="@{/staff/incident-actions}">Thông báo nội bộ</a></li>
               </ul>
               <div class="d-flex flex-column gap-2" th:if="${currentUser == null}">
                 <a class="btn btn-cta-prominent w-100" th:href="@{/customer/bookings/new}">

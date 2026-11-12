@@ -1,43 +1,45 @@
 package com.housekeeping.management.repository;
 
+import com.housekeeping.management.domain.FeedbackStatus;
+import com.housekeeping.management.entity.Feedback;
 import java.util.List;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.stereotype.Repository;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
-@Repository
-public class FeedbackRepository {
-    private final JdbcTemplate jdbc;
+public interface FeedbackRepository extends JpaRepository<Feedback, Long> {
+    List<Feedback> findAllByBookingIdIn(List<Long> bookingIds);
+    boolean existsByBookingId(Long bookingId);
 
-    public FeedbackRepository(JdbcTemplate jdbc) {
-        this.jdbc = jdbc;
-    }
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update Feedback feedback set feedback.rating=:rating, feedback.topics=:topics, feedback.content=:content "
+            + "where feedback.bookingId=:bookingId and feedback.customerId=:customerId "
+            + "and feedback.status=com.housekeeping.management.domain.FeedbackStatus.OPEN and feedback.adminReply is null")
+    int updateCustomerFeedback(@Param("bookingId") Long bookingId, @Param("customerId") Long customerId,
+            @Param("rating") Integer rating, @Param("topics") String topics, @Param("content") String content);
 
-    public boolean existsForBooking(Long bookingId) {
-        Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Feedbacks WHERE booking_id=?", Integer.class, bookingId);
-        return count != null && count > 0;
-    }
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update Feedback feedback set feedback.adminReply=:reply, "
+            + "feedback.status=com.housekeeping.management.domain.FeedbackStatus.RESPONDED "
+            + "where feedback.feedbackId=:feedbackId and feedback.status in "
+            + "(com.housekeeping.management.domain.FeedbackStatus.OPEN, com.housekeeping.management.domain.FeedbackStatus.RESPONDED)")
+    int reply(@Param("feedbackId") Long feedbackId, @Param("reply") String reply);
 
-    public void create(Long bookingId, Long customerId, String content) {
-        jdbc.update("INSERT INTO dbo.Feedbacks (booking_id, customer_id, content) VALUES (?, ?, ?)",
-                bookingId, customerId, content);
-    }
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update Feedback feedback set feedback.status=com.housekeeping.management.domain.FeedbackStatus.RESOLVED "
+            + "where feedback.feedbackId=:feedbackId and feedback.status=com.housekeeping.management.domain.FeedbackStatus.RESPONDED "
+            + "and not exists (select incident.caseId from FeedbackCase incident where incident.feedbackId=feedback.feedbackId "
+            + "and incident.caseStatus<>'RESOLVED')")
+    int resolve(@Param("feedbackId") Long feedbackId);
 
-    public int reply(Long feedbackId, String reply) {
-        return jdbc.update("UPDATE dbo.Feedbacks SET admin_reply=? WHERE feedback_id=?", reply, feedbackId);
-    }
-
-    public int resolve(Long feedbackId) {
-        return jdbc.update("UPDATE dbo.Feedbacks SET status='RESOLVED' WHERE feedback_id=? AND status='OPEN'", feedbackId);
-    }
-
-    public List<com.housekeeping.management.dto.response.PortalViews.FeedbackCard> findAll() {
-        return jdbc.query("""
-                SELECT f.feedback_id, f.booking_id, u.full_name, f.content, f.admin_reply, f.status
-                FROM dbo.Feedbacks f
-                JOIN dbo.Users u ON u.user_id=f.customer_id
-                ORDER BY CASE WHEN f.status='OPEN' THEN 0 ELSE 1 END, f.feedback_id DESC
-                """, (rs, row) -> new com.housekeeping.management.dto.response.PortalViews.FeedbackCard(
-                rs.getLong("feedback_id"), rs.getLong("booking_id"), rs.getString("full_name"),
-                rs.getString("content"), rs.getString("admin_reply"), rs.getString("status")));
-    }
+    @Query("select feedback.feedbackId, feedback.bookingId, customer.fullName, feedback.rating, feedback.topics, "
+            + "feedback.content, feedback.adminReply, feedback.status, booking.status, booking.startTime, "
+            + "booking.totalAmount, staffUser.fullName from Feedback feedback "
+            + "join User customer on customer.userId=feedback.customerId "
+            + "join Booking booking on booking.bookingId=feedback.bookingId "
+            + "join Staff staff on staff.staffId=booking.staffId join staff.user staffUser "
+            + "order by case feedback.status when com.housekeeping.management.domain.FeedbackStatus.OPEN then 0 "
+            + "when com.housekeeping.management.domain.FeedbackStatus.RESPONDED then 1 else 2 end, feedback.feedbackId desc")
+    List<Object[]> findAllForPortal();
 }

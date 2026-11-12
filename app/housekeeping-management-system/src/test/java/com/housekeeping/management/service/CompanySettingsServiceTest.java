@@ -7,12 +7,15 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.doThrow;
 
 import com.housekeeping.management.dto.request.PortalForms.CompanySettingsForm;
 import com.housekeeping.management.dto.request.PortalForms.CompanyScheduleVersionForm;
 import com.housekeeping.management.dto.request.PortalForms.CompanyLocationForm;
 import com.housekeeping.management.dto.request.PortalForms.OperatingHoursForm;
 import com.housekeeping.management.repository.CompanySettingsRepository;
+import com.housekeeping.management.entity.CompanySettings;
+import com.housekeeping.management.integration.vietmap.VietmapClient;
 import java.math.BigDecimal;
 import java.time.LocalTime;
 import java.time.LocalDate;
@@ -22,12 +25,32 @@ import org.junit.jupiter.api.Test;
 
 class CompanySettingsServiceTest {
     private final CompanySettingsRepository repository = mock(CompanySettingsRepository.class);
+    private final CompanyOperatingHoursService hours = mock(CompanyOperatingHoursService.class);
+    private final BookingQueryService bookings = mock(BookingQueryService.class);
+    private final StaffAvailabilityService availability = mock(StaffAvailabilityService.class);
     private final VietmapClient vietmap = mock(VietmapClient.class);
-    private final CompanySettingsService service = new CompanySettingsService(repository, vietmap);
+    private final AccountAuthorizationService authorization = mock(AccountAuthorizationService.class);
+    private final CompanySettingsService service = new com.housekeeping.management.service.impl.CompanySettingsServiceImpl(
+            repository, hours, bookings, availability, vietmap, authorization);
+
+    @Test
+    void companyLocationAndScheduleMutationsRequireActiveAdminBeforeReadingOrWriting() {
+        doThrow(new org.springframework.security.access.AccessDeniedException("Admin inactive"))
+                .when(authorization).requireActiveAdmin(99L);
+
+        assertThatThrownBy(() -> service.saveLocation(99L, null)).isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+        assertThatThrownBy(() -> service.saveSchedule(99L, null)).isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+        assertThatThrownBy(() -> service.saveSchedule(99L, null, true)).isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+        assertThatThrownBy(() -> service.cancelSchedule(99L, null)).isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+
+        verify(authorization, org.mockito.Mockito.times(4)).requireActiveAdmin(99L);
+        verifyNoInteractions(repository, hours, bookings, availability, vietmap);
+    }
 
     @Test
     void firstSetupDoesNotInventCompanyLocationOrOpeningHours() {
-        when(repository.findSettings()).thenReturn(Optional.empty());
+        when(repository.findAllByOrderByCompanyIdAsc()).thenReturn(List.of());
+        when(hours.forDate(org.mockito.ArgumentMatchers.any())).thenReturn(List.of());
 
         CompanySettingsForm form = service.get();
 
@@ -86,11 +109,12 @@ class CompanySettingsServiceTest {
         CompanyLocationForm form = new CompanyLocationForm("place-1", BigDecimal.ONE);
         when(vietmap.place("place-1")).thenReturn(new VietmapClient.Place("Verified address", null, null, null, null,
                 BigDecimal.TEN, BigDecimal.valueOf(106)));
-        when(repository.conflictingFutureConfirmedBookings(BigDecimal.TEN, BigDecimal.valueOf(106), BigDecimal.ONE)).thenReturn(List.of(15L,19L));
-        assertThatThrownBy(() -> service.saveLocation(form)).isInstanceOf(IllegalStateException.class).hasMessageContaining("15, 19");
-        verify(repository).lockCompanySettings();
-        verify(repository, never()).saveLocation(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        when(repository.findAllForUpdate()).thenReturn(List.of(company()));
+        when(bookings.futureActiveBookingsWithLocation()).thenReturn(List.of(
+                new BookingQueryService.BookingLocation(15L, BigDecimal.ZERO, BigDecimal.ZERO),
+                new BookingQueryService.BookingLocation(19L, BigDecimal.ONE, BigDecimal.ONE)));
+        assertThatThrownBy(() -> service.saveLocation(1L, form)).isInstanceOf(IllegalStateException.class).hasMessageContaining("15, 19");
+        verify(repository, never()).saveAndFlush(org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -99,11 +123,14 @@ class CompanySettingsServiceTest {
         VietmapClient.Place place = new VietmapClient.Place("Verified address", null, null, null, null,
                 BigDecimal.TEN, BigDecimal.valueOf(106));
         when(vietmap.place("place-1")).thenReturn(place);
-        when(repository.conflictingFutureConfirmedBookings(place.latitude(), place.longitude(), BigDecimal.ONE)).thenReturn(List.of());
+        CompanySettings existing = company();
+        when(repository.findAllForUpdate()).thenReturn(List.of(existing));
+        when(bookings.futureActiveBookingsWithLocation()).thenReturn(List.of());
 
-        service.saveLocation(form);
+        service.saveLocation(1L, form);
 
-        verify(repository).saveLocation("Verified address", place.latitude(), place.longitude(), BigDecimal.ONE);
+        verify(repository).saveAndFlush(existing);
+        assertThat(existing.getCompanyAddress()).isEqualTo("Verified address");
     }
 
     @Test
@@ -111,7 +138,7 @@ class CompanySettingsServiceTest {
         CompanyLocationForm form = new CompanyLocationForm("place-1", BigDecimal.ONE);
         when(vietmap.place("place-1")).thenThrow(new IllegalStateException("VietMap unavailable"));
 
-        assertThatThrownBy(() -> service.saveLocation(form)).isInstanceOf(IllegalStateException.class)
+        assertThatThrownBy(() -> service.saveLocation(1L, form)).isInstanceOf(IllegalStateException.class)
                 .hasMessage("VietMap unavailable");
         verifyNoInteractions(repository);
     }
@@ -120,74 +147,116 @@ class CompanySettingsServiceTest {
     void createsFutureScheduleVersionAfterCheckingItsEffectiveInterval() {
         LocalDate effective=service.firstSelectableWeekStart().plusWeeks(1);
         CompanyScheduleVersionForm form=new CompanyScheduleVersionForm(effective,validForm().operatingHours());
-        when(repository.lockCompanySettings()).thenReturn(List.of(1L));
-        when(repository.hasAnySchedule()).thenReturn(true);
-        when(repository.findOperatingHoursForDate(effective)).thenReturn(validForm().operatingHours());
-        when(repository.nextVersionDate(effective)).thenReturn(null);
-        when(repository.bookingsInVersionInterval(effective,null)).thenReturn(List.of());
-        service.saveSchedule(form);
-        verify(repository).saveSchedule(effective,form.operatingHours());
+        when(repository.findAllForUpdate()).thenReturn(List.of(company()));
+        when(hours.hasAnySchedule()).thenReturn(true);
+        when(hours.forDate(effective)).thenReturn(validForm().operatingHours());
+        when(hours.nextVersionDate(effective)).thenReturn(null);
+        when(bookings.activeBookingWindowsInInterval(effective,null)).thenReturn(List.of());
+        service.saveSchedule(1L, form);
+        verify(hours).saveVersion(1L, effective, form.operatingHours());
     }
 
     @Test
-    void blocksScheduleMutationForAnyActiveBookingInItsEffectiveInterval() {
+    void allowsChangingOtherDaysWhenActiveBookingsRemainInsideProposedHours() {
         LocalDate effective=service.firstSelectableWeekStart().plusWeeks(1);
-        CompanyScheduleVersionForm form=new CompanyScheduleVersionForm(effective,validForm().operatingHours());
-        when(repository.lockCompanySettings()).thenReturn(List.of(1L));
-        when(repository.hasAnySchedule()).thenReturn(true);
-        when(repository.findOperatingHoursForDate(effective)).thenReturn(validForm().operatingHours());
-        when(repository.bookingsInVersionInterval(effective,null)).thenReturn(List.of(42L));
-        assertThatThrownBy(()->service.saveSchedule(form)).isInstanceOf(IllegalStateException.class).hasMessageContaining("42");
-        verify(repository,never()).saveSchedule(effective,form.operatingHours());
+        List<OperatingHoursForm> changedHours=new java.util.ArrayList<>(validForm().operatingHours());
+        changedHours.set(0,new OperatingHoursForm(1,false,LocalTime.of(7,0),LocalTime.of(18,0)));
+        CompanyScheduleVersionForm form=new CompanyScheduleVersionForm(effective,changedHours);
+        when(repository.findAllForUpdate()).thenReturn(List.of(company()));
+        when(hours.hasAnySchedule()).thenReturn(true);
+        when(hours.forDate(effective)).thenReturn(validForm().operatingHours());
+        when(hours.nextVersionDate(effective)).thenReturn(null);
+        when(bookings.activeBookingWindowsInInterval(effective,null)).thenReturn(List.of(
+                new BookingQueryService.ActiveBookingWindow(42L,effective.plusDays(3).atTime(9,0),effective.plusDays(3).atTime(10,0))));
+
+        service.saveSchedule(1L, form);
+
+        verify(hours).saveVersion(1L, effective, form.operatingHours());
+    }
+
+    @Test
+    void allowsExtendingOpeningHoursOnADayWithABookingThatRemainsCovered() {
+        LocalDate effective=service.firstSelectableWeekStart().plusWeeks(1);
+        List<OperatingHoursForm> changedHours=new java.util.ArrayList<>(validForm().operatingHours());
+        changedHours.set(3,new OperatingHoursForm(4,false,LocalTime.of(7,0),LocalTime.of(19,0)));
+        CompanyScheduleVersionForm form=new CompanyScheduleVersionForm(effective,changedHours);
+        when(repository.findAllForUpdate()).thenReturn(List.of(company()));
+        when(hours.hasAnySchedule()).thenReturn(true);
+        when(hours.forDate(effective)).thenReturn(validForm().operatingHours());
+        when(hours.nextVersionDate(effective)).thenReturn(null);
+        when(bookings.activeBookingWindowsInInterval(effective,null)).thenReturn(List.of(
+                new BookingQueryService.ActiveBookingWindow(43L,effective.plusDays(3).atTime(9,0),effective.plusDays(3).atTime(10,0))));
+
+        service.saveSchedule(1L, form);
+
+        verify(hours).saveVersion(1L, effective, form.operatingHours());
+    }
+
+    @Test
+    void blocksScheduleChangeOnlyWhenAnActiveBookingWouldFallOutsideOpeningHours() {
+        LocalDate effective=service.firstSelectableWeekStart().plusWeeks(1);
+        List<OperatingHoursForm> changedHours=new java.util.ArrayList<>(validForm().operatingHours());
+        changedHours.set(3,new OperatingHoursForm(4,false,LocalTime.of(11,0),LocalTime.of(17,0)));
+        CompanyScheduleVersionForm form=new CompanyScheduleVersionForm(effective,changedHours);
+        when(repository.findAllForUpdate()).thenReturn(List.of(company()));
+        when(hours.hasAnySchedule()).thenReturn(true);
+        when(hours.forDate(effective)).thenReturn(validForm().operatingHours());
+        when(hours.nextVersionDate(effective)).thenReturn(null);
+        when(bookings.activeBookingWindowsInInterval(effective,null)).thenReturn(List.of(
+                new BookingQueryService.ActiveBookingWindow(42L,effective.plusDays(3).atTime(9,0),effective.plusDays(3).atTime(10,0))));
+
+        assertThatThrownBy(()->service.saveSchedule(1L, form)).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("42");
+        verify(hours,never()).saveVersion(1L, effective, form.operatingHours());
     }
 
     @Test
     void rejectsPastScheduleVersions() {
         CompanyScheduleVersionForm form=new CompanyScheduleVersionForm(service.today().minusWeeks(1).with(java.time.DayOfWeek.MONDAY),validForm().operatingHours());
-        assertThatThrownBy(()->service.saveSchedule(form)).isInstanceOf(IllegalArgumentException.class).hasMessageContaining("hôm nay");
-        verify(repository,never()).saveSchedule(form.effectiveFrom(),form.operatingHours());
+        assertThatThrownBy(()->service.saveSchedule(1L, form)).isInstanceOf(IllegalArgumentException.class).hasMessageContaining("hôm nay");
+        verify(hours,never()).saveVersion(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(form.effectiveFrom()), org.mockito.ArgumentMatchers.any());
     }
 
     @Test
     void allowsEditingTheVersionCurrentlyAppliedToThisWeek() {
         LocalDate effective=service.today().with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY));
         CompanyScheduleVersionForm form=new CompanyScheduleVersionForm(effective,validForm().operatingHours());
-        when(repository.lockCompanySettings()).thenReturn(List.of(1L));
-        when(repository.exactVersionDate(effective)).thenReturn(Optional.of(effective));
-        when(repository.scheduleVersionDates()).thenReturn(List.of(effective,LocalDate.of(1900,1,1)));
-        when(repository.hasAnySchedule()).thenReturn(true);
-        when(repository.findOperatingHoursForDate(org.mockito.ArgumentMatchers.any(LocalDate.class))).thenReturn(validForm().operatingHours());
-        when(repository.nextVersionDate(effective)).thenReturn(null);
-        when(repository.bookingsInVersionInterval(effective,null)).thenReturn(List.of());
+        when(repository.findAllForUpdate()).thenReturn(List.of(company()));
+        when(hours.exactVersionDate(effective)).thenReturn(Optional.of(effective));
+        when(hours.versionDates()).thenReturn(List.of(effective,LocalDate.of(1900,1,1)));
+        when(hours.hasAnySchedule()).thenReturn(true);
+        when(hours.forDate(org.mockito.ArgumentMatchers.any(LocalDate.class))).thenReturn(validForm().operatingHours());
+        when(hours.nextVersionDate(effective)).thenReturn(null);
+        when(bookings.activeBookingWindowsInInterval(effective,null)).thenReturn(List.of());
 
-        service.saveSchedule(form,true);
+        service.saveSchedule(1L, form,true);
 
-        verify(repository).saveSchedule(effective,form.operatingHours());
+        verify(hours).saveVersion(1L, effective, form.operatingHours());
     }
 
     @Test
     void allowsCreatingCurrentWeekScheduleWhenNoVersionStartsThisWeek() {
         LocalDate effective=service.today().with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY));
         CompanyScheduleVersionForm form=new CompanyScheduleVersionForm(effective,validForm().operatingHours());
-        when(repository.lockCompanySettings()).thenReturn(List.of(1L));
-        when(repository.exactVersionDate(effective)).thenReturn(Optional.empty());
-        when(repository.scheduleVersionDates()).thenReturn(List.of(LocalDate.of(1900,1,1)));
-        when(repository.hasAnySchedule()).thenReturn(true);
-        when(repository.findOperatingHoursForDate(org.mockito.ArgumentMatchers.any(LocalDate.class))).thenReturn(validForm().operatingHours());
-        when(repository.nextVersionDate(effective)).thenReturn(null);
-        when(repository.bookingsInVersionInterval(effective,null)).thenReturn(List.of());
+        when(repository.findAllForUpdate()).thenReturn(List.of(company()));
+        when(hours.exactVersionDate(effective)).thenReturn(Optional.empty());
+        when(hours.versionDates()).thenReturn(List.of(LocalDate.of(1900,1,1)));
+        when(hours.hasAnySchedule()).thenReturn(true);
+        when(hours.forDate(org.mockito.ArgumentMatchers.any(LocalDate.class))).thenReturn(validForm().operatingHours());
+        when(hours.nextVersionDate(effective)).thenReturn(null);
+        when(bookings.activeBookingWindowsInInterval(effective,null)).thenReturn(List.of());
 
-        service.saveSchedule(form,false);
+        service.saveSchedule(1L, form,false);
 
-        verify(repository).saveSchedule(effective,form.operatingHours());
+        verify(hours).saveVersion(1L, effective, form.operatingHours());
     }
 
     @Test
     void rejectsScheduleVersionsThatDoNotStartOnMonday() {
         LocalDate effective=service.firstSelectableWeekStart().plusDays(1);
         CompanyScheduleVersionForm form=new CompanyScheduleVersionForm(effective,validForm().operatingHours());
-        assertThatThrownBy(()->service.saveSchedule(form)).isInstanceOf(IllegalArgumentException.class).hasMessageContaining("Thứ Hai");
-        verify(repository,never()).saveSchedule(form.effectiveFrom(),form.operatingHours());
+        assertThatThrownBy(()->service.saveSchedule(1L, form)).isInstanceOf(IllegalArgumentException.class).hasMessageContaining("Thứ Hai");
+        verify(hours,never()).saveVersion(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(form.effectiveFrom()), org.mockito.ArgumentMatchers.any());
     }
 
     private static CompanySettingsForm validForm() {
@@ -197,5 +266,15 @@ class CompanySettingsServiceTest {
                         : new OperatingHoursForm(day, false, LocalTime.of(8, 0), LocalTime.of(17, 0)))
                 .toList();
         return new CompanySettingsForm("Address", BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ONE, week);
+    }
+
+    private static CompanySettings company() {
+        CompanySettings settings = new CompanySettings();
+        settings.setCompanyId(1L);
+        settings.setCompanyAddress("Office");
+        settings.setLatitude(BigDecimal.ZERO);
+        settings.setLongitude(BigDecimal.ZERO);
+        settings.setServiceRadiusKm(BigDecimal.TEN);
+        return settings;
     }
 }

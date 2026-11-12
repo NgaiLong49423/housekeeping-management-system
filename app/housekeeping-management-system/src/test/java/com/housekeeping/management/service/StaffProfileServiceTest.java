@@ -11,8 +11,8 @@ import com.housekeeping.management.domain.UserStatus;
 import com.housekeeping.management.domain.UserRole;
 import com.housekeeping.management.dto.request.PortalForms.StaffProfileForm;
 import com.housekeeping.management.entity.Staff;
+import com.housekeeping.management.entity.StaffProfile;
 import com.housekeeping.management.entity.User;
-import com.housekeeping.management.repository.StaffAccountRepository;
 import com.housekeeping.management.repository.StaffProfileRepository;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -20,12 +20,12 @@ import org.springframework.security.access.AccessDeniedException;
 
 class StaffProfileServiceTest {
     private final StaffProfileRepository repository = mock(StaffProfileRepository.class);
-    private final StaffAccountRepository staffAccounts = mock(StaffAccountRepository.class);
-    private final StaffProfileService service = new StaffProfileService(repository, staffAccounts);
+    private final StaffManagementService staffManagement = mock(StaffManagementService.class);
+    private final StaffProfileService service = new com.housekeeping.management.service.impl.StaffProfileServiceImpl(repository, staffManagement);
 
     @Test
     void returnsAnEmptyProfileWhenStaffHasNotCreatedOne() {
-        when(staffAccounts.findByUser_UserId(7L)).thenReturn(Optional.of(staff(12L)));
+        when(staffManagement.findActiveByUserId(7L)).thenReturn(staff(12L));
         when(repository.findByStaffId(12L)).thenReturn(Optional.empty());
 
         assertThat(service.findOwnProfile(7L)).isEqualTo(new StaffProfileForm(null, ""));
@@ -33,29 +33,33 @@ class StaffProfileServiceTest {
 
     @Test
     void trimsProfileAndSavesHttpsAvatarForAuthenticatedStaffId() {
-        when(staffAccounts.findActiveByUserIdForUpdate(7L)).thenReturn(Optional.of(staff(12L)));
+        when(staffManagement.findActiveByUserIdForUpdate(7L)).thenReturn(staff(12L));
 
         service.updateOwnProfile(7L, new StaffProfileForm(" https://example.test/avatar.png ", "  Giới thiệu  "));
 
-        verify(repository).save(12L, "https://example.test/avatar.png", "Giới thiệu");
+        var captured = org.mockito.ArgumentCaptor.forClass(StaffProfile.class);
+        verify(repository).save(captured.capture());
+        assertThat(captured.getValue().getStaffId()).isEqualTo(12L);
+        assertThat(captured.getValue().getAvatarUrl()).isEqualTo("https://example.test/avatar.png");
+        assertThat(captured.getValue().getBio()).isEqualTo("Giới thiệu");
     }
 
     @Test
     void rejectsNonHttpsAvatar() {
-        when(staffAccounts.findActiveByUserIdForUpdate(7L)).thenReturn(Optional.of(staff(12L)));
+        when(staffManagement.findActiveByUserIdForUpdate(7L)).thenReturn(staff(12L));
 
         assertThatThrownBy(() -> service.updateOwnProfile(7L, new StaffProfileForm("javascript:alert(1)", "bio")))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("HTTPS");
-        verify(repository, never()).save(12L, "javascript:alert(1)", "bio");
+        verify(repository, never()).save(org.mockito.ArgumentMatchers.any(StaffProfile.class));
     }
 
     @Test
     void rejectsUnknownStaffWithoutSavingProfile() {
-        when(staffAccounts.findActiveByUserIdForUpdate(7L)).thenReturn(Optional.empty());
+        when(staffManagement.findActiveByUserIdForUpdate(7L)).thenThrow(new AccessDeniedException("inactive"));
 
         assertThatThrownBy(() -> service.updateOwnProfile(7L, new StaffProfileForm(null, "bio")))
                 .isInstanceOf(AccessDeniedException.class);
-        verify(repository, never()).save(12L, null, "bio");
+        verify(repository, never()).save(org.mockito.ArgumentMatchers.any(StaffProfile.class));
     }
 
     private Staff staff(Long staffId) {
