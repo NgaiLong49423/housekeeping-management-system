@@ -327,20 +327,20 @@ class BookingReservationServiceTest {
         var previous=new BookingPersistenceRepository.AppointmentPoint(44L,previousEnd.minusHours(1),previousEnd,
                 new BigDecimal("10.0"),new BigDecimal("106.0"));
         when(bookings.adjacentAppointments(7L,start,end,null)).thenReturn(List.of(previous));
-        when(houseService.serviceCenter()).thenReturn(new HouseService.ServiceCenter(new BigDecimal("10.0"),new BigDecimal("106.0"),new BigDecimal("25.00")));
+        when(houseService.serviceCenter()).thenReturn(new HouseService.ServiceCenter(new BigDecimal("10.0"),new BigDecimal("106.0"),new BigDecimal("20.00")));
         when(vietmap.motorcycleRoute(previous.latitude(),previous.longitude(),new BigDecimal("10.1"),
-                new BigDecimal("106.1"),previousEnd)).thenReturn(new VietmapClient.MotorcycleRoute(new BigDecimal("25000"),20));
+                new BigDecimal("106.1"),previousEnd)).thenReturn(new VietmapClient.MotorcycleRoute(new BigDecimal("20000"),20));
 
         var atLimit=service.assessTravel(7L,start,end,new BigDecimal("10.1"),new BigDecimal("106.1"),null);
 
         assertThat(atLimit.status()).isEqualTo(TravelStatus.FEASIBLE);
         when(vietmap.motorcycleRoute(previous.latitude(),previous.longitude(),new BigDecimal("10.1"),
-                new BigDecimal("106.1"),previousEnd)).thenReturn(new VietmapClient.MotorcycleRoute(new BigDecimal("25001"),20));
+                new BigDecimal("106.1"),previousEnd)).thenReturn(new VietmapClient.MotorcycleRoute(new BigDecimal("20001"),20));
 
         var overLimit=service.assessTravel(7L,start,end,new BigDecimal("10.1"),new BigDecimal("106.1"),null);
 
         assertThat(overLimit.status()).isEqualTo(TravelStatus.DISTANCE_LIMIT_EXCEEDED);
-        assertThat(overLimit.message()).contains("booking trước", "25.01 km", "25.00 km").doesNotContain("#");
+        assertThat(overLimit.message()).contains("booking trước", "20.01 km", "20.00 km").doesNotContain("#");
     }
 
     @Test
@@ -352,16 +352,16 @@ class BookingReservationServiceTest {
         var next=new BookingPersistenceRepository.AppointmentPoint(45L,end.plusHours(1),end.plusHours(2),
                 new BigDecimal("10.2"),new BigDecimal("106.2"));
         when(bookings.adjacentAppointments(7L,start,end,null)).thenReturn(List.of(previous,next));
-        when(houseService.serviceCenter()).thenReturn(new HouseService.ServiceCenter(new BigDecimal("10.0"),new BigDecimal("106.0"),new BigDecimal("25.00")));
+        when(houseService.serviceCenter()).thenReturn(new HouseService.ServiceCenter(new BigDecimal("10.0"),new BigDecimal("106.0"),new BigDecimal("20.00")));
         when(vietmap.motorcycleRoute(previous.latitude(),previous.longitude(),new BigDecimal("10.1"),
                 new BigDecimal("106.1"),previous.end())).thenReturn(new VietmapClient.MotorcycleRoute(new BigDecimal("1000"),10));
         when(vietmap.motorcycleRoute(new BigDecimal("10.1"),new BigDecimal("106.1"),next.latitude(),next.longitude(),end))
-                .thenReturn(new VietmapClient.MotorcycleRoute(new BigDecimal("26000"),20));
+                .thenReturn(new VietmapClient.MotorcycleRoute(new BigDecimal("21000"),20));
 
         var result=service.assessTravel(7L,start,end,new BigDecimal("10.1"),new BigDecimal("106.1"),null);
 
         assertThat(result.status()).isEqualTo(TravelStatus.DISTANCE_LIMIT_EXCEEDED);
-        assertThat(result.message()).contains("booking kế tiếp", "26.00 km", "25.00 km").doesNotContain("#");
+        assertThat(result.message()).contains("booking kế tiếp", "21.00 km", "20.00 km").doesNotContain("#");
     }
 
     @Test

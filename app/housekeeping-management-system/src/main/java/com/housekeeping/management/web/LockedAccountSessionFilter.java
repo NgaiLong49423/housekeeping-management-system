@@ -1,6 +1,7 @@
 package com.housekeeping.management.web;
 
 import com.housekeeping.management.service.AccountAuthorizationService;
+import com.housekeeping.management.service.PasswordChangeService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,16 +19,18 @@ import org.springframework.web.filter.OncePerRequestFilter;
  */
 public class LockedAccountSessionFilter extends OncePerRequestFilter {
     private final AccountAuthorizationService authorization;
+    private final PasswordChangeService passwordChanges;
 
-    public LockedAccountSessionFilter(AccountAuthorizationService authorization) {
+    public LockedAccountSessionFilter(AccountAuthorizationService authorization, PasswordChangeService passwordChanges) {
         this.authorization = authorization;
+        this.passwordChanges = passwordChanges;
     }
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI().substring(request.getContextPath().length());
         return path.startsWith("/css/") || path.startsWith("/js/") || path.startsWith("/images/")
-                || path.startsWith("/vendor/") || path.equals("/login") || path.equals("/error");
+                || path.startsWith("/vendor/") || path.equals("/favicon.ico") || path.equals("/error");
     }
 
     @Override
@@ -42,6 +45,13 @@ public class LockedAccountSessionFilter extends OncePerRequestFilter {
                 if (session != null) session.invalidate();
                 request.getSession(true).setAttribute(LockedAccountLoginFailureHandler.LOCK_REASON_ATTRIBUTE, lockReason.get());
                 response.sendRedirect(request.getContextPath() + "/login?locked");
+                return;
+            }
+            String path = request.getRequestURI().substring(request.getContextPath().length());
+            if (user.isMustChangePassword() && passwordChanges.isPasswordChangeRequired(user.getUserId())
+                    && !path.equals("/account/change-password")
+                    && !path.equals("/logout")) {
+                response.sendRedirect(request.getContextPath() + "/account/change-password");
                 return;
             }
         }

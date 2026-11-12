@@ -162,7 +162,11 @@ public class StaffAvailabilityServiceImpl implements StaffAvailabilityService {
                         && !hour.closed() && hour.openingTime() != null && hour.closingTime() != null
                         && !form.startTime().isBefore(hour.openingTime()) && !form.endTime().isAfter(hour.closingTime()));
         if (!inCompanyWindow) throw new IllegalArgumentException("Khoảng Staff phải nằm trọn trong một khung giờ hoạt động của công ty.");
-        if (availability.overlapsAnotherInterval(staffId, form.workDate(), form.startTime(), form.endTime(), exceptId)) {
+        boolean overlaps = availability.findAllByStaffIdAndWorkDateAndActiveTrue(staffId, form.workDate()).stream()
+                .filter(existing -> exceptId == null || !exceptId.equals(existing.getAvailabilityId()))
+                .anyMatch(existing -> form.startTime().isBefore(existing.getEndTime())
+                        && form.endTime().isAfter(existing.getStartTime()));
+        if (overlaps) {
             throw new IllegalArgumentException("Khoảng sẵn sàng bị chồng lên một khoảng khác trong cùng ngày.");
         }
     }

@@ -172,6 +172,10 @@
                     <span>Xem chi tiết</span>
                     <svg th:replace="~{fragments/icons :: arrow-right}"></svg>
                   </a>
+                  <form th:if="${currentUser.role == 'CUSTOMER' and booking.status == 'CONFIRMED' and booking.customerDelayReportedAt == null and !booking.start.isAfter(now)}"
+                        method="post" th:action="@{/customer/bookings/{id}/report-staff-delay(id=${booking.id})}" class="mt-1">
+                    <button class="btn btn-outline-warning btn-sm" type="submit">Báo Staff chưa đến / giờ đến không đúng</button>
+                  </form>
                 </td>
               </tr>
             </tbody>

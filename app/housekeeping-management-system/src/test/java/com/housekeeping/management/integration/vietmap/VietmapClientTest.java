@@ -11,6 +11,7 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 import org.springframework.http.HttpMethod;
 
@@ -85,6 +86,45 @@ class VietmapClientTest {
 
         assertThat(client.motorcycleMinutesBeforeArrival(BigDecimal.TEN,BigDecimal.TEN,BigDecimal.ONE,BigDecimal.ONE,
                 java.time.LocalDateTime.of(2026,11,10,10,0))).isEqualTo(20);
+        server.verify();
+    }
+
+    @Test
+    void autocompleteFailsClosedWhenVietmapIsUnavailable() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("https://maps.vietmap.vn");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        VietmapClient client = new VietmapClient(new VietmapProperties("server-test-key", "https://maps.vietmap.vn"), builder.build());
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("/api/autocomplete/v4")))
+                .andExpect(method(HttpMethod.GET)).andRespond(withServerError());
+
+        assertThatThrownBy(() -> client.autocomplete("Nguyễn Trãi"))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("VietMap tạm thời");
+        server.verify();
+    }
+
+    @Test
+    void placeFailsClosedForDemoReferenceWhenVietmapIsUnavailable() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("https://maps.vietmap.vn");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        VietmapClient client = new VietmapClient(new VietmapProperties("server-test-key", "https://maps.vietmap.vn"), builder.build());
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("/api/place/v4")))
+                .andExpect(method(HttpMethod.GET)).andRespond(withServerError());
+
+        assertThatThrownBy(() -> client.place("ref-demo-custom-hcm-123"))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("Không thể xác minh địa chỉ");
+        server.verify();
+    }
+
+    @Test
+    void routeFailsClosedWhenVietmapIsUnavailable() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("https://maps.vietmap.vn");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        VietmapClient client = new VietmapClient(new VietmapProperties("server-test-key", "https://maps.vietmap.vn"), builder.build());
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("/api/route/v4")))
+                .andExpect(method(HttpMethod.GET)).andRespond(withServerError());
+
+        assertThatThrownBy(() -> client.motorcycleRoute(BigDecimal.TEN, BigDecimal.TEN, BigDecimal.ONE, BigDecimal.ONE, null))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("Không thể xác minh tuyến đường");
         server.verify();
     }
 }

@@ -105,7 +105,7 @@ class CompanySettingsServiceTest {
     }
 
     @Test
-    void blocksLocationChangeWhenActiveBookingsWouldFallOutsideTheRadius() {
+    void locationChangeDoesNotRejectExistingBookingsOutsideTheFormerServiceRadius() {
         CompanyLocationForm form = new CompanyLocationForm("place-1", BigDecimal.ONE);
         when(vietmap.place("place-1")).thenReturn(new VietmapClient.Place("Verified address", null, null, null, null,
                 BigDecimal.TEN, BigDecimal.valueOf(106)));
@@ -113,8 +113,8 @@ class CompanySettingsServiceTest {
         when(bookings.futureActiveBookingsWithLocation()).thenReturn(List.of(
                 new BookingQueryService.BookingLocation(15L, BigDecimal.ZERO, BigDecimal.ZERO),
                 new BookingQueryService.BookingLocation(19L, BigDecimal.ONE, BigDecimal.ONE)));
-        assertThatThrownBy(() -> service.saveLocation(1L, form)).isInstanceOf(IllegalStateException.class).hasMessageContaining("15, 19");
-        verify(repository, never()).saveAndFlush(org.mockito.ArgumentMatchers.any());
+        service.saveLocation(1L, form);
+        verify(repository).saveAndFlush(org.mockito.ArgumentMatchers.any());
     }
 
     @Test

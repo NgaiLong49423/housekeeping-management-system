@@ -176,8 +176,11 @@ class FeedbackCaseServiceTest {
     }
 
     @Test void staffActionStartsWithFortyEightHourExplanationWindow() {
-        FeedbackCase incident=caseEntity(); incident.setReviewedAt(LocalDateTime.now(ZoneOffset.ofHours(7)));
+        FeedbackCase incident=caseEntity(); incident.setCaseStatus("VERIFIED"); incident.setReviewedAt(LocalDateTime.now(ZoneOffset.ofHours(7)));
         when(cases.findByIdForUpdate(11L)).thenReturn(Optional.of(incident));
+        var verification = new com.housekeeping.management.entity.FeedbackCaseVerification();
+        verification.setCaseStatus("VERIFIED"); verification.setReviewedEvidenceIds("15");
+        when(verifications.findAllByCaseIdOrderByCreatedAtDescVerificationIdDesc(11L)).thenReturn(java.util.List.of(verification));
         when(cases.staffIdForCase(11L)).thenReturn(Optional.of(42L));
         when(actions.save(any())).thenAnswer(call->call.getArgument(0));
         service.proposeStaffAction(11L,3L,new com.housekeeping.management.dto.request.PortalForms.StaffIncidentActionForm("PROPOSE_RECOVERY","Vui lòng giải trình về món đồ hư hại."));
@@ -186,6 +189,17 @@ class FeedbackCaseServiceTest {
         assertThat(saved.getValue().getStatus()).isEqualTo("AWAITING_STAFF");
         assertThat(saved.getValue().getResponseDeadline()).isAfter(saved.getValue().getCreatedAt().plusHours(47));
         assertThat(incident.getStaffActionStatus()).isEqualTo("AWAITING_STAFF");
+    }
+
+    @Test void staffActionRequiresVerifiedCaseAndReviewedEvidence() {
+        FeedbackCase incident=caseEntity(); incident.setReviewedAt(LocalDateTime.now(ZoneOffset.ofHours(7)));
+        incident.setCaseStatus("NOT_SUBSTANTIATED");
+        when(cases.findByIdForUpdate(11L)).thenReturn(Optional.of(incident));
+
+        assertThatThrownBy(() -> service.proposeStaffAction(11L,3L,
+                new com.housekeeping.management.dto.request.PortalForms.StaffIncidentActionForm("PROPOSE_RECOVERY","Vui lòng giải trình.")))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("đã xác minh");
+        verify(actions,never()).save(any());
     }
 
     @Test void staffCanSubmitExplanationAndMovesCaseToManager() {

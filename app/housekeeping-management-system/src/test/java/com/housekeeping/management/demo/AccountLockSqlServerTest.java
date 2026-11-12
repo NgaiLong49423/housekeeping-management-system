@@ -28,7 +28,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
-/** V35 trên SQL Server thật: khóa tài khoản có lý do, chặn khóa khi còn Booking, và báo lý do lúc đăng nhập. */
+/** V37 trên SQL Server thật: khóa tài khoản có lý do, chặn khóa khi còn Booking, và báo lý do lúc đăng nhập. */
 @Tag("sqlserver")
 @ActiveProfiles("demo")
 @SpringBootTest

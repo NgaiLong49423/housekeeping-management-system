@@ -52,6 +52,9 @@ public class User {
     @Column(name = "status", length = 20, nullable = false, columnDefinition = "varchar(20)")
     private UserStatus status = UserStatus.ACTIVE;
 
+    @Column(name = "must_change_password", nullable = false)
+    private boolean mustChangePassword;
+
     @Column(name = "unpaid_penalty_debt", precision = 12, scale = 2, nullable = false)
     private java.math.BigDecimal unpaidPenaltyDebt = java.math.BigDecimal.ZERO;
 

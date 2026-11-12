@@ -27,14 +27,6 @@ public interface StaffAvailabilityRepository extends JpaRepository<StaffAvailabi
     boolean existsByStaffIdAndWorkDateAndActiveTrueAndStartTimeLessThanEqualAndEndTimeGreaterThan(
             Long staffId, LocalDate workDate, LocalTime startTime, LocalTime endTime);
 
-    @Query("select case when count(availability)>0 then true else false end from StaffAvailability availability "
-            + "where availability.staffId=:staffId and availability.workDate=:workDate and availability.active=true "
-            + "and (:exceptId is null or availability.availabilityId<>:exceptId) "
-            + "and availability.startTime<:endTime and availability.endTime>:startTime")
-    boolean overlapsAnotherInterval(@Param("staffId") Long staffId, @Param("workDate") LocalDate workDate,
-            @Param("startTime") LocalTime startTime, @Param("endTime") LocalTime endTime,
-            @Param("exceptId") Long exceptId);
-
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update StaffAvailability availability set availability.active=false where "
             + "availability.availabilityId=:id and availability.staffId=:staffId and availability.active=true")

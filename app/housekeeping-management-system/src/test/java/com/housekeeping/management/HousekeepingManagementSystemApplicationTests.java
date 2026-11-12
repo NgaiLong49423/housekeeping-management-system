@@ -18,7 +18,7 @@ class HousekeepingManagementSystemApplicationTests extends SqlServerIntegrationT
 
     @Test
     void freshSqlServerSchemaContainsExactlyTheApprovedBusinessTables() {
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("17");
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("32");
         Integer tableCount = jdbc.queryForObject("""
                 SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
                 WHERE TABLE_SCHEMA='dbo' AND TABLE_TYPE='BASE TABLE'
@@ -29,6 +29,12 @@ class HousekeepingManagementSystemApplicationTests extends SqlServerIntegrationT
                   )
                 """, Integer.class);
         assertThat(tableCount).isEqualTo(15);
+        Integer currentBusinessTables = jdbc.queryForObject("""
+                SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
+                WHERE TABLE_SCHEMA='dbo' AND TABLE_TYPE='BASE TABLE' AND TABLE_NAME<>'flyway_primary_schema_history'
+                """, Integer.class);
+        assertThat(currentBusinessTables).isEqualTo(26);
+        assertThat(jdbc.queryForObject("SELECT COL_LENGTH('dbo.Booking_Delay_Proposals', 'expected_arrival_at')", Integer.class)).isNotNull();
 
         assertThat(jdbc.queryForObject("SELECT COL_LENGTH('dbo.Bookings', 'customer_arrived_at')", Integer.class)).isNotNull();
         assertThat(jdbc.queryForObject("SELECT COL_LENGTH('dbo.Bookings', 'staff_arrived_at')", Integer.class)).isNotNull();
@@ -44,7 +50,7 @@ class HousekeepingManagementSystemApplicationTests extends SqlServerIntegrationT
         assertThat(jdbc.queryForObject("SELECT COL_LENGTH('dbo.Feedbacks', 'rating')", Integer.class)).isNotNull();
         assertThat(jdbc.queryForObject("SELECT COL_LENGTH('dbo.Feedbacks', 'topics')", Integer.class)).isNotNull();
         String workStartConstraint = jdbc.queryForObject("SELECT definition FROM sys.check_constraints WHERE name='CK_Bookings_Work_Start'", String.class);
-        assertThat(workStartConstraint).contains("staff_arrived_at IS NOT NULL").doesNotContain("start_time");
+        assertThat(workStartConstraint).contains("staff_arrived_at IS NOT NULL", "arrival_verified_at IS NOT NULL").doesNotContain("start_time");
 
         Integer obsoleteTables = jdbc.queryForObject("""
                 SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
@@ -62,8 +68,8 @@ class HousekeepingManagementSystemApplicationTests extends SqlServerIntegrationT
                         "CompanyOperatingHour", "House", "StaffAvailability", "StaffLeave", "Booking",
                         "BookingDetail", "BookingImage", "Payment", "Feedback", "StaffFollow",
                         "BookingFinancialEntry", "BookingDelayCompensationTier", "FeedbackCase",
-                        "FeedbackCaseEvidence", "FeedbackCaseMessage", "StaffIncidentAction",
-                        "FinancialPayoutResponse");
+                        "FeedbackCaseEvidence", "FeedbackCaseMessage", "FeedbackCaseVerification", "StaffIncidentAction",
+                        "StaffIncidentActionEvidence", "StaffRecoveryInstallment", "FinancialPayoutResponse", "BookingDelayProposal");
     }
 
     @Test

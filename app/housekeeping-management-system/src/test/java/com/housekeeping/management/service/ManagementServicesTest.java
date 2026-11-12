@@ -65,6 +65,7 @@ class ManagementServicesTest {
         assertThat(captured.getValue().getPasswordHash()).isEqualTo("bcrypt-hash");
         assertThat(captured.getValue().getRole()).isEqualTo(UserRole.CUSTOMER);
         assertThat(captured.getValue().getStatus()).isEqualTo(UserStatus.ACTIVE);
+        assertThat(captured.getValue().isMustChangePassword()).isFalse();
     }
 
     @Test
@@ -83,6 +84,7 @@ class ManagementServicesTest {
         verify(entities).persist(users.capture());
         verify(entities).persist(staff.capture());
         assertThat(users.getValue().getRole()).isEqualTo(UserRole.STAFF);
+        assertThat(users.getValue().isMustChangePassword()).isTrue();
         assertThat(staff.getValue().getUser()).isSameAs(users.getValue());
         assertThat(staff.getValue().getStaffType()).isEqualTo(StaffType.PART_TIME);
     }
@@ -166,8 +168,10 @@ class ManagementServicesTest {
         Staff staff = new Staff(); staff.setStaffType(StaffType.PART_TIME);
         staff.setStaffId(8L);
         when(staffAccounts.findActiveByUserIdForUpdate(800L)).thenReturn(Optional.of(staff));
-        when(availability.overlapsAnotherInterval(8L, workDate,
-                LocalTime.of(9, 0), LocalTime.of(12, 0), null)).thenReturn(true);
+        var existing = new com.housekeeping.management.entity.StaffAvailability();
+        existing.setAvailabilityId(25L); existing.setStartTime(LocalTime.of(10, 0));
+        existing.setEndTime(LocalTime.of(13, 0)); existing.setActive(true);
+        when(availability.findAllByStaffIdAndWorkDateAndActiveTrue(8L, workDate)).thenReturn(List.of(existing));
         var settings = mock(CompanyOperatingHoursService.class);
         when(settings.forDate(workDate)).thenReturn(java.util.stream.IntStream.rangeClosed(1,7).mapToObj(day -> new PortalForms.OperatingHoursForm(day, false, LocalTime.of(6,0), LocalTime.of(21,0))).toList());
         StaffAvailabilityService service = availabilityService(staffAccounts, availability, settings);

@@ -88,6 +88,18 @@ public class Booking {
     @Column(name = "customer_delay_reported_at")
     private LocalDateTime customerDelayReportedAt;
 
+    @Column(name = "admin_no_show_verified_at")
+    private LocalDateTime adminNoShowVerifiedAt;
+
+    @Column(name = "admin_no_show_verified_by")
+    private Long adminNoShowVerifiedBy;
+
+    @Nationalized @Column(name = "admin_no_show_note", length = 500)
+    private String adminNoShowNote;
+
+    @Column(name = "customer_waited_at")
+    private LocalDateTime customerWaitedAt;
+
     @Column(name = "arrival_verified_at")
     private LocalDateTime arrivalVerifiedAt;
 

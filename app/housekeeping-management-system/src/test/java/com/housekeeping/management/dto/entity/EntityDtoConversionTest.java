@@ -27,7 +27,7 @@ class EntityDtoConversionTest {
         BookingDTO dto = new BookingDTO(1L, 2L, 3L, 4L, 5L, "address", bd("10.1"), bd("106.2"), "note",
                 DATE_TIME, DATE_TIME.plusHours(2), 120, bd("150000"), "area", BookingStatus.CONFIRMED,
                 null, null, null, DATE_TIME, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
-                bd("0"), bd("0"), DATE_TIME);
+                bd("0"), bd("0"), DATE_TIME, null, null, null, null);
         assertThat(BookingDTO.convertEntityToDTO(dto.convertDTOToEntity())).isEqualTo(dto);
     }
 
@@ -162,11 +162,13 @@ class EntityDtoConversionTest {
 
     @Test
     void userConversionRequiresHashSeparatelyAndNeverReturnsIt() {
-        UserDTO dto = new UserDTO(1L, "Customer", "customer@example.test", "0900", UserRole.CUSTOMER, UserStatus.ACTIVE);
+        UserDTO dto = new UserDTO(1L, "Customer", "customer@example.test", "0900",
+                UserRole.CUSTOMER, UserStatus.ACTIVE, true);
         User entity = dto.convertDTOToEntity("encoded-hash");
 
         assertThat(UserDTO.convertEntityToDTO(entity)).isEqualTo(dto);
         assertThat(entity.getPasswordHash()).isEqualTo("encoded-hash");
+        assertThat(entity.isMustChangePassword()).isTrue();
         assertThat(java.util.Arrays.stream(UserDTO.class.getRecordComponents())
                 .map(java.lang.reflect.RecordComponent::getName).toList()).doesNotContain("passwordHash");
     }
