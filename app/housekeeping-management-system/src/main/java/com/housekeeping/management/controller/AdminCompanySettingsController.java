@@ -140,7 +140,7 @@ public class AdminCompanySettingsController {
         }
         try {
             delaySettings.save(form.tiers().stream()
-                    .map(tier -> new com.housekeeping.management.domain.BookingDelayCompensation.Tier(
+                    .map(tier -> new com.housekeeping.management.dto.BookingDelayCompensation.Tier(
                             tier.minDelayMinutes(), tier.maxDelayMinutes(), tier.discountPercent()))
                     .toList());
             flash.addFlashAttribute("delaySettingsSuccess", "Đã lưu các mức giảm do nhân viên đến trễ.");

@@ -1,5 +1,7 @@
 package com.housekeeping.management.service;
 
+import com.housekeeping.management.enums.ServiceStatus;
+import com.housekeeping.management.enums.TravelStatus;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
@@ -51,7 +53,7 @@ class BookingAvailabilityServiceTest {
         org.mockito.Mockito.lenient().when(reservations.assessTravel(org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.isNull())).thenReturn(new BookingReservationService.TravelAssessment(
-                        BookingReservationService.TravelStatus.FEASIBLE,"",null,null,0,0,0,null));
+                        TravelStatus.FEASIBLE,"",null,null,0,0,0,null));
     }
 
     @Test
@@ -112,7 +114,7 @@ class BookingAvailabilityServiceTest {
         when(availability.activeAvailability(date)).thenReturn(List.of(new Interval(11L,LocalTime.of(9,0),LocalTime.of(12,0))));
         when(reservations.assessTravel(11L,date.atTime(selected),date.atTime(selected).plusMinutes(60),
                 new BigDecimal("10.0"),new BigDecimal("106.0"),null)).thenReturn(new BookingReservationService.TravelAssessment(
-                        BookingReservationService.TravelStatus.TOO_EARLY,
+                        TravelStatus.TOO_EARLY,
                         "Booking trước #44 kết thúc lúc 10:00. Tuyến mất 20 phút, cần 35 phút. Đủ từ 10:35; mốc đặt đầu là 10:45.",
                         earliest,null,20,0,35,44L));
 
@@ -126,7 +128,7 @@ class BookingAvailabilityServiceTest {
     void selectedOverlapIsRemovedWithTheConflictingBookingIdentified() {
         when(reservations.assessTravel(11L,date.atTime(10,0),date.atTime(11,0),
                 new BigDecimal("10.0"),new BigDecimal("106.0"),null)).thenReturn(new BookingReservationService.TravelAssessment(
-                        BookingReservationService.TravelStatus.OVERLAP,"Giờ đã chọn bị trùng booking #55 (10:30–11:30).",
+                        TravelStatus.OVERLAP,"Giờ đã chọn bị trùng booking #55 (10:30–11:30).",
                         null,null,0,0,0,55L));
 
         var result=service.options(date,List.of(1L),11L,LocalTime.of(10,0),99L,100L);
@@ -149,7 +151,7 @@ class BookingAvailabilityServiceTest {
         item.setServiceName("Cleaning");
         item.setDurationMinutes(duration);
         item.setPrice(new BigDecimal("100000"));
-        item.setStatus(Services.Status.ACTIVE);
+        item.setStatus(ServiceStatus.ACTIVE);
         return item;
     }
 }

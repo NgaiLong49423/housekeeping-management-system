@@ -1,7 +1,7 @@
 package com.housekeeping.management.dto.entity;
 
-import com.housekeeping.management.domain.UserRole;
-import com.housekeeping.management.domain.UserStatus;
+import com.housekeeping.management.enums.UserRole;
+import com.housekeeping.management.enums.UserStatus;
 import com.housekeeping.management.entity.User;
 
 /** User data safe for transfer; password hashes are supplied only to the entity converter. */

@@ -1,42 +1,55 @@
 <!DOCTYPE html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
   <body>
-    <div th:fragment="cards" class="row g-4">
-      <div th:if="${#lists.isEmpty(services)}" class="col-12">
+    <!-- Lưới thẻ dịch vụ phong cách Apple/iOS tự co giãn 4 cột (>=1200px), 2 cột (768-1199px), carousel snap (<768px) -->
+    <div th:fragment="cards" class="services-ios-grid">
+      <div th:if="${#lists.isEmpty(services)}" class="services-empty-col">
         <div class="surface empty-state p-5">
-          <span class="empty-icon" aria-hidden="true">⌂</span>
+          <span class="empty-icon">
+            <svg th:replace="~{fragments/icons :: sparkles}"></svg>
+          </span>
           <h3>Dịch vụ đang được cập nhật</h3>
           <p>
             Hiện chưa có dịch vụ nào khả dụng. Hãy quay lại sau khi công ty công bố danh mục dịch vụ.
           </p>
         </div>
       </div>
-      <div th:each="service, loop : ${services}" class="col-md-6 col-lg-4">
-        <article class="service-card h-100">
-          <div class="service-cover-wrap">
-            <img th:if="${service.imageUrl != null and !#strings.isEmpty(service.imageUrl)}" class="service-cover" th:src="${service.imageUrl}" th:alt="|Hình ảnh ${service.name}|" loading="lazy" width="512" height="286">
-            <img th:unless="${service.imageUrl != null and !#strings.isEmpty(service.imageUrl)}" class="service-cover" th:src="@{/images/{file}(file=${#strings.arraySplit('b501c.png,a4ca0.png,19db6.png,2b96d.png,858ff.png,a7642.png', ',')[loop.index % 6]})}" alt="Minh họa dịch vụ vệ sinh" loading="lazy" width="512" height="286">
+      <!-- Thẻ dịch vụ đồng bộ chiều cao, bo góc kiểu iOS, animation zoom-in stagger -->
+      <article th:each="service, loop : ${services}"
+               class="service-card service-card--ios"
+               data-reveal="zoom-in"
+               th:attr="data-delay=${(loop.index % 4) * 120}">
+        <!-- Khung ảnh aspect-ratio: 4/3, overflow: hidden chỉ ở ảnh -->
+        <div class="service-cover-wrap">
+          <img th:if="${service.imageUrl != null and !#strings.isEmpty(service.imageUrl)}" class="service-cover" th:src="${service.imageUrl}" th:alt="|Hình ảnh ${service.name}|" loading="lazy" width="512" height="384">
+          <img th:unless="${service.imageUrl != null and !#strings.isEmpty(service.imageUrl)}" class="service-cover" th:src="@{/images/{file}(file=${#strings.arraySplit('b501c.png,a4ca0.png,19db6.png,2b96d.png,858ff.png,a7642.png', ',')[loop.index % 6]})}" alt="Minh họa dịch vụ vệ sinh" loading="lazy" width="512" height="384">
+          <!-- Badge thời lượng kính mờ ở góc ảnh -->
+          <span class="service-duration-badge service-duration-badge--glass">
+            <svg th:replace="~{fragments/icons :: clock}"></svg>
+            <span th:text="${service.duration} + ' phút'"></span>
+          </span>
+        </div>
+        <!-- Thân thẻ: flex column, nội dung dính đáy -->
+        <div class="service-card-body p-4 d-flex flex-column flex-grow-1">
+          <span class="eyebrow align-self-start mb-2">
+            Dịch vụ tại nhà
+          </span>
+          <h3 th:text="${service.name}">Dịch vụ</h3>
+          <p class="service-desc flex-grow-1" th:text="${service.description}">Mô tả</p>
+          <!-- Giá tiền dạng pill xanh nhạt, tabular-nums + hiệu ứng đếm số JS -->
+          <div class="service-pricing-row d-flex justify-content-between align-items-center pt-3 mt-auto">
+            <span class="small text-secondary fw-medium">Giá niêm yết</span>
+            <strong class="price price--ios"
+                    th:attr="data-price-val=${service.price}"
+                    th:text="${#numbers.formatDecimal(service.price, 0, 'POINT', 0, 'COMMA')} + ' ₫'">0 ₫</strong>
           </div>
-          <div class="p-4 d-flex flex-column flex-grow-1">
-            <span class="eyebrow mb-2">
-              Dịch vụ tại nhà
-            </span>
-            <h3 th:text="${service.name}">Dịch vụ</h3>
-            <p class="flex-grow-1" th:text="${service.description}">Mô tả</p>
-            <div class="d-flex justify-content-between align-items-center border-top pt-3 mt-auto">
-              <span class="small text-secondary d-flex align-items-center gap-1">
-                <span aria-hidden="true">⏱</span>
-                <span th:text="${service.duration} + ' phút'"></span>
-              </span>
-              <strong class="price" th:text="${#numbers.formatDecimal(service.price, 0, 'POINT', 0, 'COMMA')} + ' ₫'">0 ₫</strong>
-            </div>
-            <a class="btn btn-outline-primary mt-3 w-100" th:href="@{/customer/bookings/new(serviceId=${service.id})}">
-              Chọn dịch vụ
-              <span aria-hidden="true">→</span>
-            </a>
-          </div>
-        </article>
-      </div>
+          <!-- Nút chọn dịch vụ kiểu iOS: full-width, nền xanh nhạt, mũi tên trượt 3px khi hover -->
+          <a class="btn btn-service-cta mt-3 w-100" th:href="@{/customer/bookings/new(serviceId=${service.id})}">
+            <span>Chọn dịch vụ</span>
+            <svg class="service-cta-arrow" th:replace="~{fragments/icons :: arrow-right}"></svg>
+          </a>
+        </div>
+      </article>
     </div>
   </body>
 </html>

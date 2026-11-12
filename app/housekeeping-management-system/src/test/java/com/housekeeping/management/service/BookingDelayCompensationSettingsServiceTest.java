@@ -5,7 +5,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
-import com.housekeeping.management.domain.BookingDelayCompensation.Tier;
+import com.housekeeping.management.dto.BookingDelayCompensation.Tier;
 import com.housekeeping.management.repository.BookingDelayCompensationRepository;
 import java.util.List;
 import org.junit.jupiter.api.Test;

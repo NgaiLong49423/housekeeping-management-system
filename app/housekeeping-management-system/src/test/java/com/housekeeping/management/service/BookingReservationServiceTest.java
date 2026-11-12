@@ -1,5 +1,7 @@
 package com.housekeeping.management.service;
 
+import com.housekeeping.management.enums.ServiceStatus;
+import com.housekeeping.management.enums.TravelStatus;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -8,9 +10,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.housekeeping.management.domain.StaffType;
-import com.housekeeping.management.domain.UserRole;
-import com.housekeeping.management.domain.UserStatus;
+import com.housekeeping.management.enums.StaffType;
+import com.housekeeping.management.enums.UserRole;
+import com.housekeeping.management.enums.UserStatus;
 import com.housekeeping.management.entity.House;
 import com.housekeeping.management.entity.Services;
 import com.housekeeping.management.entity.Staff;
@@ -150,7 +152,7 @@ class BookingReservationServiceTest {
         when(houseService.isWithinServiceRadius(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
         when(staffManagement.isOnApprovedLeave(7L, start.toLocalDate())).thenReturn(false);
         Services inactive = service(5L, "Dọn phòng", "100.00", 60);
-        inactive.setStatus(Services.Status.INACTIVE);
+        inactive.setStatus(ServiceStatus.INACTIVE);
         when(serviceManagement.findByIds(java.util.List.of(5L))).thenReturn(java.util.List.of(inactive));
 
         assertThatThrownBy(() -> service.createBooking(12L, 7L, 31L, start, java.util.List.of(5L), null))
@@ -293,7 +295,7 @@ class BookingReservationServiceTest {
         var tooEarly=service.assessTravel(7L,exactEndStart,exactEndStart.plusHours(2),
                 new BigDecimal("10.000"),new BigDecimal("106.0"),null);
 
-        assertThat(tooEarly.status()).isEqualTo(BookingReservationService.TravelStatus.TOO_EARLY);
+        assertThat(tooEarly.status()).isEqualTo(TravelStatus.TOO_EARLY);
         assertThat(tooEarly.earliestStart()).isEqualTo(previousEnd.plusMinutes(15));
         assertThat(tooEarly.routeMinutes()).isZero();
         assertThat(tooEarly.requiredGapMinutes()).isEqualTo(15);
@@ -305,7 +307,7 @@ class BookingReservationServiceTest {
         var feasible=service.assessTravel(7L,restCompleteStart,restCompleteStart.plusHours(2),
                 new BigDecimal("10.000"),new BigDecimal("106.0"),null);
 
-        assertThat(feasible.status()).isEqualTo(BookingReservationService.TravelStatus.FEASIBLE);
+        assertThat(feasible.status()).isEqualTo(TravelStatus.FEASIBLE);
         org.mockito.Mockito.verifyNoInteractions(vietmap);
     }
 
@@ -323,13 +325,13 @@ class BookingReservationServiceTest {
 
         var atLimit=service.assessTravel(7L,start,end,new BigDecimal("10.1"),new BigDecimal("106.1"),null);
 
-        assertThat(atLimit.status()).isEqualTo(BookingReservationService.TravelStatus.FEASIBLE);
+        assertThat(atLimit.status()).isEqualTo(TravelStatus.FEASIBLE);
         when(vietmap.motorcycleRoute(previous.latitude(),previous.longitude(),new BigDecimal("10.1"),
                 new BigDecimal("106.1"),previousEnd)).thenReturn(new VietmapClient.MotorcycleRoute(new BigDecimal("25001"),20));
 
         var overLimit=service.assessTravel(7L,start,end,new BigDecimal("10.1"),new BigDecimal("106.1"),null);
 
-        assertThat(overLimit.status()).isEqualTo(BookingReservationService.TravelStatus.DISTANCE_LIMIT_EXCEEDED);
+        assertThat(overLimit.status()).isEqualTo(TravelStatus.DISTANCE_LIMIT_EXCEEDED);
         assertThat(overLimit.message()).contains("booking trước", "25.01 km", "25.00 km").doesNotContain("#");
     }
 
@@ -350,7 +352,7 @@ class BookingReservationServiceTest {
 
         var result=service.assessTravel(7L,start,end,new BigDecimal("10.1"),new BigDecimal("106.1"),null);
 
-        assertThat(result.status()).isEqualTo(BookingReservationService.TravelStatus.DISTANCE_LIMIT_EXCEEDED);
+        assertThat(result.status()).isEqualTo(TravelStatus.DISTANCE_LIMIT_EXCEEDED);
         assertThat(result.message()).contains("booking kế tiếp", "26.00 km", "25.00 km").doesNotContain("#");
     }
 
@@ -369,7 +371,7 @@ class BookingReservationServiceTest {
 
         var result=service.assessTravel(7L,start,end,new BigDecimal("10.1"),new BigDecimal("106.1"),null);
 
-        assertThat(result.status()).isEqualTo(BookingReservationService.TravelStatus.TOO_LATE);
+        assertThat(result.status()).isEqualTo(TravelStatus.TOO_LATE);
         assertThat(result.latestStart()).isEqualTo(LocalDateTime.of(2026,11,10,12,25));
         assertThat(result.message()).contains("Booking kế tiếp","20 phút","15 phút","30 phút","12:25","12:15")
                 .doesNotContain("#");
@@ -388,7 +390,7 @@ class BookingReservationServiceTest {
 
         var result=service.assessTravel(7L,start,end,new BigDecimal("10.1"),new BigDecimal("106.1"),null);
 
-        assertThat(result.status()).isEqualTo(BookingReservationService.TravelStatus.ROUTE_UNAVAILABLE);
+        assertThat(result.status()).isEqualTo(TravelStatus.ROUTE_UNAVAILABLE);
         assertThat(result.message()).contains("Chưa xác minh được tuyến","booking kế tiếp").doesNotContain("#");
     }
 
@@ -398,7 +400,7 @@ class BookingReservationServiceTest {
         service.setServiceName(name);
         service.setPrice(new BigDecimal(price));
         service.setDurationMinutes(durationMinutes);
-        service.setStatus(Services.Status.ACTIVE);
+        service.setStatus(ServiceStatus.ACTIVE);
         return service;
     }
 }

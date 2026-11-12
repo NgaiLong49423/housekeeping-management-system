@@ -9,7 +9,7 @@ import com.housekeeping.management.dto.response.PortalViews.BookingCard;
 import com.housekeeping.management.dto.response.PortalViews.DetailCard;
 import com.housekeeping.management.dto.response.BookingAvailabilityOptions;
 import com.housekeeping.management.dto.response.BookingAvailabilityDates;
-import com.housekeeping.management.domain.FeedbackTopic;
+import com.housekeeping.management.enums.FeedbackTopic;
 import com.housekeeping.management.entity.House;
 import com.housekeeping.management.service.BookingReservationService;
 import com.housekeeping.management.service.CustomerFeedbackSubmissionService;
@@ -100,6 +100,9 @@ public class BookingController {
 
     @GetMapping({"/customer/bookings", "/staff/bookings", "/admin/bookings", "/manager/bookings"})
     String bookings(@AuthenticationPrincipal PortalUser user, Model model) {
+        if (user == null) {
+            return "redirect:/";
+        }
         List<BookingCard> items = query.bookings(user);
         model.addAttribute("bookings", items);
         if ("CUSTOMER".equals(user.getRole())) {
@@ -116,6 +119,9 @@ public class BookingController {
 
     @GetMapping("/customer/bookings/new")
     String newBooking(@AuthenticationPrincipal PortalUser user, @RequestParam(required = false) Long houseId, Model model) {
+        if (user == null) {
+            return "redirect:/login";
+        }
         model.addAttribute("services", query.services());
         model.addAttribute("staff", query.staff(user));
         java.time.LocalDate businessToday = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));

@@ -2,76 +2,67 @@
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
   <head th:replace="~{fragments/layout :: head('Đăng nhập')}">
   </head>
-  <body>
+  <body class="auth-body">
     <header th:replace="~{fragments/layout :: header('login')}">
     </header>
-    <main id="main" class="container d-flex align-items-center justify-content-center py-5">
-      <div class="login-grid surface overflow-hidden mx-auto w-100">
-        <div class="login-photo">
-          <img th:src="@{/images/d856e.png}" alt="Không gian nhà bếp sạch sẽ" width="512" height="279">
-          <div class="p-4 p-lg-5">
-            <span class="eyebrow">
-              Gọn Nhà
-            </span>
-            <h2>
-              Nhà sạch hơn.
-              <br>
-              Ngày nhẹ hơn.
-            </h2>
-            <p class="mb-0">
-              Chăm sóc ngôi nhà bắt đầu từ sự an tâm và minh bạch.
-            </p>
-          </div>
+
+    <main id="main" class="auth-page-wrap">
+      <!-- Ambient Glow Behind Card -->
+      <div class="auth-ambient-glow" aria-hidden="true"></div>
+
+      <div class="auth-card" data-reveal="fade-up">
+        <!-- Title matching image -->
+        <h1 class="auth-card__title">Đăng nhập</h1>
+
+        <!-- Status & Error Alerts -->
+        <div th:if="${param.error}" class="auth-alert auth-alert--danger" role="alert">
+          <svg th:replace="~{fragments/icons :: alert-circle}"></svg>
+          <span>Email hoặc mật khẩu không đúng.</span>
         </div>
-        <div class="p-4 p-lg-5 d-flex flex-column justify-content-center">
-          <div>
-            <span class="eyebrow">
-              Chào mừng bạn trở lại
-            </span>
-            <h1 class="h2 mb-2">
-              Đăng nhập
-            </h1>
-            <p class="text-secondary small mb-4">
-              Truy cập lịch hẹn và không gian làm việc của bạn.
-            </p>
-            <div th:if="${param.error}" class="alert alert-danger d-flex align-items-center gap-2 mb-3 border-0" role="alert" style="background-color: var(--status-cancelled-bg); color: var(--status-cancelled-text); border-left: 4px solid #ef4444 !important;">
-              <span aria-hidden="true">⚠</span>
-              <span>Email hoặc mật khẩu không đúng.</span>
-            </div>
-            <div th:if="${param.logout}" class="alert alert-success d-flex align-items-center gap-2 mb-3 border-0" role="status" style="background-color: var(--status-confirmed-bg); color: var(--status-confirmed-text); border-left: 4px solid var(--brand) !important;">
-              <span aria-hidden="true">✓</span>
-              <span>Bạn đã đăng xuất an toàn khỏi hệ thống.</span>
-            </div>
-            <div th:if="${param.registered}" class="alert alert-success d-flex align-items-center gap-2 mb-3 border-0" role="status" style="background-color: var(--status-confirmed-bg); color: var(--status-confirmed-text); border-left: 4px solid var(--brand) !important;">
-              <span aria-hidden="true">✓</span>
-              <span>Tạo tài khoản thành công. Đăng nhập để tiếp tục.</span>
-            </div>
-            <form th:action="@{/login}" method="post" class="vstack gap-3">
-              <div>
-                <label class="form-label" for="email">
-                  Email tài khoản
-                </label>
-                <input id="email" name="email" type="email" class="form-control" autocomplete="username" maxlength="254" required autofocus placeholder="name@example.com">
-              </div>
-              <div>
-                <label class="form-label" for="password">
-                  Mật khẩu
-                </label>
-                <input id="password" name="password" type="password" class="form-control" autocomplete="current-password" required placeholder="••••••••">
-              </div>
-              <button type="submit" class="btn btn-primary w-100 mt-2">
-                Đăng nhập hệ thống
-                <span aria-hidden="true">→</span>
-              </button>
-            </form>
-            <div class="mt-4 text-center">
-              <span class="small text-secondary">Bạn chưa có tài khoản Customer?</span>
-              <a class="btn btn-outline-primary w-100 mt-2" th:href="@{/register}">Đăng ký tài khoản</a>
-            </div>
+        <div th:if="${param.logout}" class="auth-alert auth-alert--success" role="status">
+          <svg th:replace="~{fragments/icons :: check-circle}"></svg>
+          <span>Bạn đã đăng xuất an toàn.</span>
+        </div>
+        <div th:if="${param.registered}" class="auth-alert auth-alert--success" role="status">
+          <svg th:replace="~{fragments/icons :: check-circle}"></svg>
+          <span>Đăng ký thành công! Đăng nhập để tiếp tục.</span>
+        </div>
+
+        <!-- Login Form with Signature Pill Inputs -->
+        <form th:action="@{/login}" method="post" class="auth-form">
+          <div class="auth-field-wrap">
+            <input id="email" name="email" type="email" class="auth-input" autocomplete="username" maxlength="254" required autofocus placeholder="E-mail">
           </div>
+          <div class="auth-field-wrap">
+            <input id="password" name="password" type="password" class="auth-input" autocomplete="current-password" required placeholder="Password">
+          </div>
+
+          <div class="auth-sub-links">
+            <a href="javascript:void(0)" class="auth-link-forgot" onclick="showAuthNotice('Vui lòng liên hệ hotline 1900-6868 hoặc quản trị viên để khôi phục mật khẩu.')">
+              Quên mật khẩu ?
+            </a>
+          </div>
+
+          <button type="submit" class="auth-btn-primary">
+            <span>Đăng nhập</span>
+          </button>
+        </form>
+
+        <!-- Footer terms & Switch link -->
+        <div class="auth-card__footer">
+          <a th:href="@{/register}" class="auth-footer-link auth-footer-link--action">
+            Bạn chưa có tài khoản? <strong>Đăng ký ngay</strong>
+          </a>
+          <a href="javascript:void(0)" class="auth-footer-link auth-footer-link--agreement" onclick="showAuthNotice('Điều khoản dịch vụ bảo vệ quyền lợi và bảo mật thông tin khách hàng tại Gọn Nhà.')">
+            Điều khoản &amp; Thỏa thuận người dùng
+          </a>
         </div>
       </div>
     </main>
+
+    <!-- Quick Soft Toast for Social / Forgot Password Click -->
+    <div id="authNoticeToast" class="auth-toast" role="status" aria-live="polite"></div>
+
     <footer th:replace="~{fragments/layout :: footer}">
     </footer>
   </body>

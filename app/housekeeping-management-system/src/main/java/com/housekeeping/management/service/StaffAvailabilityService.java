@@ -1,6 +1,6 @@
 package com.housekeeping.management.service;
 
-import com.housekeeping.management.domain.StaffType;
+import com.housekeeping.management.enums.StaffType;
 import com.housekeeping.management.dto.request.PortalForms.AvailabilityForm;
 import com.housekeeping.management.dto.request.PortalForms.AvailabilityBatchForm;
 import com.housekeeping.management.dto.request.PortalForms.OperatingHoursForm;

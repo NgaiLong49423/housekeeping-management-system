@@ -3,8 +3,8 @@ package com.housekeeping.management.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.housekeeping.management.SqlServerIntegrationTest;
-import com.housekeeping.management.domain.StaffType;
-import com.housekeeping.management.domain.UserRole;
+import com.housekeeping.management.enums.StaffType;
+import com.housekeeping.management.enums.UserRole;
 import com.housekeeping.management.dto.request.PortalForms.StaffProfileForm;
 import com.housekeeping.management.entity.Staff;
 import com.housekeeping.management.entity.User;
@@ -32,7 +32,7 @@ class StaffProfileSqlServerTest extends SqlServerIntegrationTest {
         user.setPasswordHash("{bcrypt}unused-test-hash");
         user.setPhone("0900000000");
         user.setRole(UserRole.STAFF);
-        user.setStatus(com.housekeeping.management.domain.UserStatus.ACTIVE);
+        user.setStatus(com.housekeeping.management.enums.UserStatus.ACTIVE);
         User savedUser = users.saveAndFlush(user);
         Staff staff = new Staff();
         staff.setUser(savedUser);

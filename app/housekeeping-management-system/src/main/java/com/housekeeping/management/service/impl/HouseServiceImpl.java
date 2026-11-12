@@ -8,7 +8,7 @@ import com.housekeeping.management.dto.response.LocationSuggestion;
 
 import com.housekeeping.management.dto.request.PortalForms.HouseForm;
 import com.housekeeping.management.dto.entity.HouseDTO;
-import com.housekeeping.management.domain.HouseAddressType;
+import com.housekeeping.management.enums.HouseAddressType;
 import com.housekeeping.management.entity.House;
 import com.housekeeping.management.repository.HouseRepository;
 import java.math.BigDecimal;

@@ -10,17 +10,19 @@
       <div class="section-heading">
         <div>
           <span class="eyebrow">
-            Những người chăm chút tổ ấm
+            <svg th:replace="~{fragments/icons :: users}"></svg>
+            <span>Những người chăm chút tổ ấm</span>
           </span>
           <h1>
             Chọn người bạn tin tưởng
           </h1>
           <p class="lead">
-            Đội ngũ nhân viên part-time của công ty. Bạn có thể yêu thích nhân viên ngay cả khi chưa từng đặt lịch để dễ dàng tìm kiếm sau này.
+            Đội ngũ nhân viên tận tâm của công ty. Bạn có thể yêu thích nhân viên ngay cả khi chưa từng đặt lịch để dễ dàng tìm kiếm sau này.
           </p>
         </div>
         <a class="btn btn-outline-primary" th:href="@{/customer/schedules}">
-          Xem khoảng sẵn sàng →
+          <span>Xem khoảng sẵn sàng</span>
+          <svg th:replace="~{fragments/icons :: arrow-right}"></svg>
         </a>
       </div>
 
@@ -28,48 +30,64 @@
       </div>
 
       <!-- Favorites Filter Control -->
-      <div class="d-flex align-items-center gap-2 mb-4 p-2 px-3 surface d-inline-flex border">
+      <div class="d-inline-flex align-items-center gap-2 mb-4 py-2 px-3 surface border">
         <input type="checkbox" id="favFilter" class="form-check-input mt-0" data-favorites-only>
-        <label for="favFilter" class="mb-0 small fw-semibold cursor-pointer" style="cursor: pointer;">
-          Chỉ xem nhân viên yêu thích (♥)
+        <label for="favFilter" class="mb-0 small fw-semibold d-inline-flex align-items-center gap-2" style="cursor: pointer;">
+          <span>Chỉ xem nhân viên yêu thích</span>
+          <span class="fav-filter-icon">
+            <svg th:replace="~{fragments/icons :: heart}"></svg>
+          </span>
         </label>
       </div>
 
       <!-- Staff Grid -->
-      <div class="row g-4">
-        <div th:each="person : ${staff}" class="col-sm-6 col-lg-4" th:data-favorite="${person.favorite}" data-staff-card>
+      <div class="staff-directory-grid">
+        <div th:each="person : ${staff}" th:data-favorite="${person.favorite}" data-staff-card>
           <article class="surface p-4 h-100 d-flex flex-column justify-content-between">
             <div>
-              <div class="d-flex justify-content-between align-items-start">
-                <img th:if="${person.avatarUrl != null and #strings.startsWith(#strings.toLowerCase(person.avatarUrl), 'https://')}" class="avatar" th:src="${person.avatarUrl}" alt="Ảnh đại diện nhân viên" width="48" height="48" referrerpolicy="no-referrer">
-                <span th:unless="${person.avatarUrl != null and #strings.startsWith(#strings.toLowerCase(person.avatarUrl), 'https://')}" class="avatar" th:text="${#strings.substring(person.name,0,1)}">A</span>
+              <div class="d-flex justify-content-between align-items-start gap-2">
+                <img th:if="${person.avatarUrl != null and #strings.startsWith(#strings.toLowerCase(person.avatarUrl), 'https://')}" class="avatar" th:src="${person.avatarUrl}" alt="Ảnh đại diện nhân viên" width="52" height="52" referrerpolicy="no-referrer">
+                <span th:unless="${person.avatarUrl != null and #strings.startsWith(#strings.toLowerCase(person.avatarUrl), 'https://')}" class="avatar" th:text="${ui.initial(person.name)}">A</span>
                 <form method="post" th:action="@{/customer/staff/{id}/favorite(id=${person.id})}">
                   <input type="hidden" name="favorite" th:value="${!person.favorite}">
-                  <button class="favorite-button" type="submit" th:aria-label="${person.favorite ? 'Bỏ yêu thích ' : 'Yêu thích '} + ${person.name}" th:aria-pressed="${person.favorite}" th:text="${person.favorite ? '♥' : '♡'}">
-                    ♡
+                  <button class="favorite-button" type="submit" th:aria-label="${person.favorite ? 'Bỏ yêu thích ' : 'Yêu thích '} + ${ui.label(person.name)}" th:aria-pressed="${person.favorite}">
+                    <svg th:replace="~{fragments/icons :: heart-solid}"></svg>
+                    <svg th:replace="~{fragments/icons :: heart}"></svg>
                   </button>
                 </form>
               </div>
-              <h2 class="h5 mt-3 mb-1 text-dark" th:text="${person.name}">
+              <h2 class="h5 mt-3 mb-2 text-dark" th:text="${ui.label(person.name)}">
                 Tên nhân viên
               </h2>
-              <p class="small text-secondary mb-1" th:text="${person.staffType == 'FULL_TIME' ? 'Nhân viên toàn thời gian' : 'Nhân viên bán thời gian'}">Nhân viên</p>
-              <p th:if="${person.bio != null and !person.bio.isBlank()}" class="small text-secondary mb-3" th:text="${person.bio}">Giới thiệu nhân viên</p>
-              <div class="d-flex align-items-center gap-2 mb-3">
-                <span class="badge rounded-pill bg-light text-secondary border small">✓ Hồ sơ đã duyệt</span>
-                <span class="badge rounded-pill bg-light text-secondary border small">⭐ Tận tâm</span>
+              <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                <span class="staff-type-chip" th:classappend="${person.staffType != 'FULL_TIME' ? 'part-time' : ''}">
+                  <svg th:replace="~{fragments/icons :: clock}"></svg>
+                  <span th:text="${person.staffType == 'FULL_TIME' ? 'Toàn thời gian' : 'Bán thời gian'}">Loại hình</span>
+                </span>
+                <span class="meta-chip">
+                  <svg th:replace="~{fragments/icons :: check-circle}"></svg>
+                  <span>Hồ sơ đã duyệt</span>
+                </span>
+                <span class="meta-chip">
+                  <svg th:replace="~{fragments/icons :: shield-check}"></svg>
+                  <span>Tận tâm</span>
+                </span>
               </div>
+              <p th:if="${person.bio != null and !person.bio.isBlank() and !#strings.equalsIgnoreCase(#strings.trim(person.bio), #strings.trim(ui.label(person.name))) and !#strings.equalsIgnoreCase(#strings.trim(person.bio), #strings.trim(person.name))}" class="small text-secondary mb-3" th:text="${person.bio}">Giới thiệu nhân viên</p>
             </div>
             <a class="btn btn-outline-primary w-100 mt-2" th:href="@{/customer/bookings/new(staffId=${person.id})}">
-              Đặt lịch với nhân viên →
+              <span>Đặt lịch với nhân viên</span>
+              <svg th:replace="~{fragments/icons :: arrow-right}"></svg>
             </a>
           </article>
         </div>
 
         <!-- Empty State -->
-        <div th:if="${#lists.isEmpty(staff)}" class="col-12">
+        <div th:if="${#lists.isEmpty(staff)}" style="grid-column: 1 / -1;">
           <div class="surface empty-state p-5">
-            <span class="empty-icon" aria-hidden="true">👥</span>
+            <span class="empty-icon">
+              <svg th:replace="~{fragments/icons :: users}"></svg>
+            </span>
             <h3>Chưa có nhân viên</h3>
             <p>
               Danh sách nhân viên sẽ được cập nhật khi công ty bổ sung nhân sự mới.
@@ -79,7 +97,9 @@
       </div>
 
       <div data-favorites-empty class="surface empty-state p-5 mt-4" hidden>
-        <span class="empty-icon" aria-hidden="true">♥</span>
+        <span class="empty-icon fav-empty-icon">
+          <svg th:replace="~{fragments/icons :: heart}"></svg>
+        </span>
         <h3>Chưa có nhân viên yêu thích</h3>
         <p>
           Bạn chưa đánh dấu yêu thích nhân viên nào. Hãy nhấp vào biểu tượng trái tim để lưu nhân viên tin cậy vào danh sách này.

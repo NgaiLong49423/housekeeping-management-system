@@ -1,6 +1,6 @@
 package com.housekeeping.management.dto.entity;
 
-import com.housekeeping.management.domain.StaffType;
+import com.housekeeping.management.enums.StaffType;
 import com.housekeeping.management.entity.Staff;
 
 public record StaffDTO(Long staffId, UserDTO user, StaffType staffType) {

@@ -1,5 +1,6 @@
 package com.housekeeping.management.service;
 
+import com.housekeeping.management.enums.ReturnStatus;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -153,7 +154,7 @@ class VnpayPaymentServiceTest {
         when(gateway.query(1001L, CREATED_AT)).thenReturn(paid("150000"));
 
         assertThat(service.handleReturn(returned))
-                .isEqualTo(new OnlinePaymentService.ReturnOutcome(42L, OnlinePaymentService.ReturnStatus.PAID));
+                .isEqualTo(new OnlinePaymentService.ReturnOutcome(42L, ReturnStatus.PAID));
         verify(payments).confirmOnlinePayment(1001L, new BigDecimal("150000"));
     }
 
@@ -164,7 +165,7 @@ class VnpayPaymentServiceTest {
         when(payments.findOnlinePayment(1001L)).thenReturn(Optional.of(attempt("PENDING")));
         when(gateway.query(1001L, CREATED_AT)).thenReturn(new VnpayGatewayClient.QueryResult("00", "02", new BigDecimal("150000")));
 
-        assertThat(service.handleReturn(returned).status()).isEqualTo(OnlinePaymentService.ReturnStatus.FAILED);
+        assertThat(service.handleReturn(returned).status()).isEqualTo(ReturnStatus.FAILED);
         verify(payments).failOnlinePayment(1001L, new BigDecimal("150000.00"));
         verify(payments, never()).confirmOnlinePayment(anyLong(), any());
     }
@@ -176,7 +177,7 @@ class VnpayPaymentServiceTest {
         when(payments.findOnlinePayment(1001L)).thenReturn(Optional.of(attempt("PENDING")));
         when(gateway.query(1001L, CREATED_AT)).thenReturn(new VnpayGatewayClient.QueryResult("00", "01", new BigDecimal("150000")));
 
-        assertThat(service.handleReturn(returned).status()).isEqualTo(OnlinePaymentService.ReturnStatus.PENDING);
+        assertThat(service.handleReturn(returned).status()).isEqualTo(ReturnStatus.PENDING);
         verify(payments, never()).confirmOnlinePayment(anyLong(), any());
         verify(payments, never()).failOnlinePayment(anyLong(), any());
     }
@@ -189,7 +190,7 @@ class VnpayPaymentServiceTest {
         when(payments.findOnlinePayment(1001L)).thenReturn(Optional.of(attempt("PENDING")));
         when(gateway.query(1001L, CREATED_AT)).thenReturn(new VnpayGatewayClient.QueryResult("99", "", null));
 
-        assertThat(service.handleReturn(returned).status()).isEqualTo(OnlinePaymentService.ReturnStatus.PAID);
+        assertThat(service.handleReturn(returned).status()).isEqualTo(ReturnStatus.PAID);
         verify(payments).confirmOnlinePayment(1001L, new BigDecimal("150000.00"));
     }
 
@@ -200,7 +201,7 @@ class VnpayPaymentServiceTest {
         when(payments.findOnlinePayment(1001L)).thenReturn(Optional.of(attempt("PENDING")));
         when(gateway.query(1001L, CREATED_AT)).thenThrow(new org.springframework.web.client.ResourceAccessException("timeout"));
 
-        assertThat(service.handleReturn(returned).status()).isEqualTo(OnlinePaymentService.ReturnStatus.PAID);
+        assertThat(service.handleReturn(returned).status()).isEqualTo(ReturnStatus.PAID);
         verify(payments).confirmOnlinePayment(1001L, new BigDecimal("150000.00"));
     }
 
@@ -211,7 +212,7 @@ class VnpayPaymentServiceTest {
         when(payments.findOnlinePayment(1001L)).thenReturn(Optional.of(attempt("PENDING")));
         when(gateway.query(1001L, CREATED_AT)).thenReturn(new VnpayGatewayClient.QueryResult("99", "", null));
 
-        assertThat(service.handleReturn(returned).status()).isEqualTo(OnlinePaymentService.ReturnStatus.PENDING);
+        assertThat(service.handleReturn(returned).status()).isEqualTo(ReturnStatus.PENDING);
         verify(payments, never()).confirmOnlinePayment(anyLong(), any());
     }
 
@@ -221,7 +222,7 @@ class VnpayPaymentServiceTest {
         when(gateway.hasValidSignature(returned)).thenReturn(true);
         when(payments.findOnlinePayment(1001L)).thenReturn(Optional.of(attempt("SUCCESS")));
 
-        assertThat(service.handleReturn(returned).status()).isEqualTo(OnlinePaymentService.ReturnStatus.PAID);
+        assertThat(service.handleReturn(returned).status()).isEqualTo(ReturnStatus.PAID);
         verify(gateway, never()).query(anyLong(), any());
     }
 

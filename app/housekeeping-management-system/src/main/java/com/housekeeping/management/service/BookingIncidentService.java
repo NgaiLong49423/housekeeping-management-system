@@ -1,6 +1,6 @@
 package com.housekeeping.management.service;
 
-import com.housekeeping.management.domain.BookingDelayCompensation;
+import com.housekeeping.management.dto.BookingDelayCompensation;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 

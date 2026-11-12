@@ -212,7 +212,7 @@ class CompanySettingsServiceTest {
 
     @Test
     void rejectsPastScheduleVersions() {
-        CompanyScheduleVersionForm form=new CompanyScheduleVersionForm(service.today().minusDays(1),validForm().operatingHours());
+        CompanyScheduleVersionForm form=new CompanyScheduleVersionForm(service.today().minusWeeks(1).with(java.time.DayOfWeek.MONDAY),validForm().operatingHours());
         assertThatThrownBy(()->service.saveSchedule(1L, form)).isInstanceOf(IllegalArgumentException.class).hasMessageContaining("hôm nay");
         verify(hours,never()).saveVersion(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(form.effectiveFrom()), org.mockito.ArgumentMatchers.any());
     }

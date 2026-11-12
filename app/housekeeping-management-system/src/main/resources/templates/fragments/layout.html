@@ -7,82 +7,282 @@
     <link rel="icon" th:href="@{/images/5e7a8.png}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;1,9..144,600&amp;family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&amp;display=swap" rel="stylesheet">
+    <script>document.documentElement.classList.add('js');</script>
     <link rel="stylesheet" th:href="@{/vendor/bootstrap/bootstrap.min.css}">
-    <link rel="stylesheet" th:href="@{/css/portal.css}">
+    <link rel="stylesheet" th:href="@{/css/portal.css(v=2.7)}">
+    <link rel="stylesheet" th:href="@{/css/gooey-nav.css(v=2.7)}">
+    <script defer th:src="@{/js/gooey-nav.js(v=2.7)}"></script>
     <script defer th:src="@{/vendor/bootstrap/bootstrap.bundle.min.js}"></script>
-    <script defer th:src="@{/js/portal.js}"></script>
+    <script defer th:src="@{/js/portal.js(v=2.7)}"></script>
   </head>
   <body>
-    <header class="site-header" th:fragment="header(active)">
-      <a class="skip-link" href="#main">Đến nội dung chính</a>
-      <nav class="navbar navbar-expand-lg container py-3" th:classappend="${currentUser != null and currentUser.admin} ? ' admin-navbar-shell'" aria-label="Điều hướng chính">
-        <a class="brand" th:href="@{/}">
-          <img th:src="@{/images/5e7a8.png}" alt="Logo Gọn Nhà" width="40" height="40">
-          <span>
-            Gọn Nhà
-            <small>Chăm nhà, thêm an tâm</small>
-          </span>
-        </a>
-        <button class="navbar-toggler border-0 shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#navigation" aria-controls="navigation" aria-expanded="false" aria-label="Mở menu">
-          <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navigation" th:classappend="${currentUser != null and currentUser.admin} ? ' admin-navigation'">
-          <div class="navbar-nav mx-auto gap-lg-1" th:if="${currentUser == null or currentUser.role == 'CUSTOMER'}">
-            <a class="nav-link" th:classappend="${active == 'home'} ? 'active'" th:href="@{/}">Trang chủ</a>
-            <a class="nav-link" th:classappend="${active == 'services'} ? 'active'" th:href="@{/services}">Dịch vụ</a>
-            <a class="nav-link" th:if="${currentUser != null}" th:classappend="${active == 'staff'} ? 'active'" th:href="@{/customer/staff}">Nhân viên</a>
-            <a class="nav-link" th:if="${currentUser != null}" th:classappend="${active == 'bookings'} ? 'active'" th:href="@{/customer/bookings}">Lịch của tôi</a>
-            <a class="nav-link" th:if="${currentUser != null}" th:classappend="${active == 'houses'} ? 'active'" th:href="@{/customer/houses}">Nhà của tôi</a>
-          </div>
-          <div class="navbar-nav mx-auto gap-lg-1" th:if="${currentUser != null and currentUser.role == 'STAFF'}">
-            <a class="nav-link" th:classappend="${active == 'bookings'} ? 'active'" th:href="@{/staff/bookings}">Công việc của tôi</a>
-            <a class="nav-link" th:classappend="${active == 'schedules'} ? 'active'" th:href="@{/staff/schedules}">Lịch sẵn sàng</a>
-            <a class="nav-link" th:classappend="${active == 'leaves'} ? 'active'" th:href="@{/staff/leaves}">Đơn nghỉ</a>
-            <a class="nav-link" th:classappend="${active == 'profile'} ? 'active'" th:href="@{/staff/profile}">Hồ sơ của tôi</a>
-            <a class="nav-link" th:href="@{/staff/incident-actions}">Thông báo nội bộ</a>
-          </div>
-          <div class="navbar-nav mx-auto gap-lg-1 admin-nav-links" th:if="${currentUser != null and currentUser.admin}">
-            <a class="nav-link" th:classappend="${active == 'bookings'} ? 'active'" th:href="@{/admin/bookings}">Tổng quan</a>
-            <a class="nav-link" th:classappend="${active == 'staff'} ? 'active'" th:href="@{/admin/staff}">Nhân viên</a>
-            <a class="nav-link" th:classappend="${active == 'services'} ? 'active'" th:href="@{/admin/services}">Dịch vụ</a>
-            <a class="nav-link" th:classappend="${active == 'schedules'} ? 'active'" th:href="@{/admin/schedules}">Lịch sẵn sàng</a>
-            <a class="nav-link" th:classappend="${active == 'leaves'} ? 'active'" th:href="@{/admin/leaves}">Duyệt nghỉ</a>
-            <a class="nav-link" th:classappend="${active == 'settings'} ? 'active'" th:href="@{/admin/settings}">Cấu hình công ty</a>
-            <a class="nav-link" th:classappend="${active == 'feedback'} ? 'active'" th:href="@{/admin/feedback}">Phản hồi</a>
-            <a class="nav-link" th:classappend="${active == 'finance'} ? 'active'" th:href="@{/admin/finance}">Đối soát tài chính</a>
-          </div>
-          <div class="header-actions">
-            <a th:if="${currentUser == null}" class="btn btn-outline-primary" th:href="@{/login}">
-              Đăng nhập
-            </a>
-            <a th:if="${currentUser == null}" class="btn btn-outline-primary" th:href="@{/register}">
-              Đăng ký
-            </a>
-            <a th:if="${currentUser == null or currentUser.role == 'CUSTOMER'}" class="btn btn-primary" th:href="@{/customer/bookings/new}">
-              Đặt lịch ngay
-              <span aria-hidden="true">↗</span>
-            </a>
-            <details class="account-menu" th:if="${currentUser != null}">
-              <summary th:text="${currentUser.displayName}">Tài khoản</summary>
-              <div class="account-popover">
-                <span class="eyebrow w-100 justify-content-center" th:text="${currentUser.role}"></span>
-                <a th:if="${currentUser.manager}" class="btn btn-light w-100 mb-2" th:href="@{/admin/accounts}">Tài khoản Admin</a>
-                <form method="post" th:action="@{/logout}">
-                  <button class="btn btn-light w-100" type="submit">
-                    Đăng xuất
-                  </button>
-                </form>
+    <!-- Header Fragment: Render Left Sidebar for ADMIN, or Centered Top Header for CUSTOMER/STAFF/GUEST -->
+    <th:block th:fragment="header(active)">
+      <!-- ===== 1. ADMIN & MANAGER ROLE: LEFT SIDEBAR DASHBOARD ===== -->
+      <th:block th:if="${currentUser != null and currentUser.admin}">
+        <a class="skip-link" href="#main">Đến nội dung chính</a>
+
+        <!-- Mobile Topbar for Admin/Manager (< 992px) -->
+        <header class="admin-mobile-header d-lg-none d-flex align-items-center justify-content-between">
+          <a class="brand d-flex align-items-center gap-2" th:href="@{/admin/bookings}">
+            <img th:src="@{/images/5e7a8.png}" alt="Logo Gọn Nhà" width="32" height="32">
+            <span>
+              Gọn Nhà
+              <small style="color: var(--chrome-accent);" th:text="${currentUser.manager ? 'Hệ thống Quản lý' : 'Quản trị hệ thống'}">Quản trị hệ thống</small>
+            </span>
+          </a>
+          <button class="navbar-toggler border-0 shadow-none text-white p-1" type="button" data-bs-toggle="collapse" data-bs-target="#adminSidebar" aria-controls="adminSidebar" aria-expanded="false" aria-label="Mở menu quản trị">
+            <svg th:replace="~{fragments/icons :: menu}"></svg>
+          </button>
+        </header>
+
+        <!-- Admin Vertical Left Sidebar -->
+        <aside class="admin-sidebar collapse d-lg-block" id="adminSidebar">
+          <div class="admin-sidebar-inner d-flex flex-column">
+            <!-- Logo & Brand Header -->
+            <div class="admin-sidebar-brand p-3 border-bottom border-secondary border-opacity-25">
+              <a class="brand d-flex align-items-center gap-2 text-decoration-none" th:href="@{/admin/bookings}">
+                <img th:src="@{/images/5e7a8.png}" alt="Logo Gọn Nhà" width="38" height="38">
+                <span>
+                  Gọn Nhà
+                  <small style="color: var(--chrome-accent);" th:text="${currentUser.manager ? 'Hệ thống Quản lý' : 'Hệ thống Quản trị'}">Hệ thống Quản trị</small>
+                </span>
+              </a>
+            </div>
+
+            <!-- Vertical Navigation Links -->
+            <nav class="admin-sidebar-nav flex-grow-1 p-3 overflow-y-auto" aria-label="Menu quản trị viên">
+              <div class="sidebar-group-title">Vận hành &amp; Lịch hẹn</div>
+              <a class="sidebar-nav-item" th:classappend="${active == 'bookings'} ? 'active'" th:href="@{/admin/bookings}">
+                <span class="sidebar-icon"><svg th:replace="~{fragments/icons :: calendar}"></svg></span>
+                <span>Tổng quan lịch hẹn</span>
+              </a>
+              <a class="sidebar-nav-item" th:classappend="${active == 'schedules'} ? 'active'" th:href="@{/admin/schedules}">
+                <span class="sidebar-icon"><svg th:replace="~{fragments/icons :: clock}"></svg></span>
+                <span>Lịch sẵn sàng</span>
+              </a>
+              <a class="sidebar-nav-item" th:classappend="${active == 'leaves'} ? 'active'" th:href="@{/admin/leaves}">
+                <span class="sidebar-icon"><svg th:replace="~{fragments/icons :: file-text}"></svg></span>
+                <span>Duyệt đơn nghỉ</span>
+              </a>
+
+              <div class="sidebar-group-title mt-4">Quản trị &amp; Cấu hình</div>
+              <a class="sidebar-nav-item" th:classappend="${active == 'staff'} ? 'active'" th:href="@{/admin/staff}">
+                <span class="sidebar-icon"><svg th:replace="~{fragments/icons :: users}"></svg></span>
+                <span>Quản lý nhân viên</span>
+              </a>
+              <a class="sidebar-nav-item" th:classappend="${active == 'services'} ? 'active'" th:href="@{/admin/services}">
+                <span class="sidebar-icon"><svg th:replace="~{fragments/icons :: sparkles}"></svg></span>
+                <span>Danh mục dịch vụ</span>
+              </a>
+              <a class="sidebar-nav-item" th:classappend="${active == 'settings'} ? 'active'" th:href="@{/admin/settings}">
+                <span class="sidebar-icon"><svg th:replace="~{fragments/icons :: settings}"></svg></span>
+                <span>Cấu hình công ty</span>
+              </a>
+              <a class="sidebar-nav-item" th:classappend="${active == 'feedback'} ? 'active'" th:href="@{/admin/feedback}">
+                <span class="sidebar-icon"><svg th:replace="~{fragments/icons :: message-square}"></svg></span>
+                <span>Phản hồi khách hàng</span>
+              </a>
+              <a class="sidebar-nav-item" th:classappend="${active == 'finance'} ? 'active'" th:href="@{/admin/finance}">
+                <span class="sidebar-icon"><svg th:replace="~{fragments/icons :: credit-card}"></svg></span>
+                <span>Đối soát tài chính</span>
+              </a>
+              <a th:if="${currentUser.manager}" class="sidebar-nav-item" th:classappend="${active == 'accounts'} ? 'active'" th:href="@{/admin/accounts}">
+                <span class="sidebar-icon"><svg th:replace="~{fragments/icons :: shield-check}"></svg></span>
+                <span>Tài khoản Admin</span>
+              </a>
+            </nav>
+
+            <!-- User Footer & Logout -->
+            <div class="admin-sidebar-user p-3 border-top border-secondary border-opacity-25 mt-auto">
+              <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="avatar" style="width: 34px; height: 34px; font-size: 0.85rem; background: rgba(159, 227, 207, 0.16); color: var(--chrome-accent); border: 1px solid rgba(159, 227, 207, 0.36);"
+                      th:text="${currentUser.manager ? 'MN' : 'AD'}">AD</span>
+                <div class="text-truncate">
+                  <strong class="d-block text-white small text-truncate" th:text="${ui.label(currentUser.displayName)}">Quản trị viên</strong>
+                  <span class="badge" style="background-color: rgba(159, 227, 207, 0.14); color: var(--chrome-accent); font-size: 0.65rem;"
+                        th:text="${currentUser.manager ? 'QUẢN LÝ CẤP CAO' : 'QUẢN TRỊ VIÊN'}">QUẢN TRỊ VIÊN</span>
+                </div>
               </div>
-            </details>
+              <form method="post" th:action="@{/logout}">
+                <button class="btn btn-outline-danger btn-sm w-100 d-flex align-items-center justify-content-center gap-2 mt-2" type="submit" style="font-size: 0.8rem; border-color: rgba(239, 68, 68, 0.4); color: #fca5a5;">
+                  <svg th:replace="~{fragments/icons :: log-out}"></svg>
+                  <span>Đăng xuất</span>
+                </button>
+              </form>
+            </div>
+          </div>
+        </aside>
+
+        <script>
+          if (document.body) { document.body.classList.add('has-admin-sidebar'); }
+          else { document.addEventListener('DOMContentLoaded', () => document.body.classList.add('has-admin-sidebar')); }
+        </script>
+      </th:block>
+
+      <!-- ===== 2. KHÁCH HÀNG, NHÂN VIÊN & KHÁCH VÃNG LAI: CENTERED TOP NAVBAR (APPLE/IOS FROSTED GLASS & SEGMENTED CONTROL) ===== -->
+      <header class="site-header site-header--ios" id="siteHeader" th:unless="${currentUser != null and currentUser.admin}">
+        <a class="skip-link" href="#main">Đến nội dung chính</a>
+
+        <nav class="navbar navbar-expand-lg container py-2" aria-label="Điều hướng chính">
+          <a class="brand" th:href="@{/}">
+            <img th:src="@{/images/5e7a8.png}" alt="Logo Gọn Nhà" width="40" height="40">
+            <span>
+              Gọn Nhà
+              <small>Chăm nhà, thêm an tâm</small>
+            </span>
+          </a>
+
+          <!-- Nút mở menu mobile (Bottom Sheet trigger) -->
+          <button class="navbar-toggler border-0 shadow-none ios-menu-btn" type="button" id="iosMenuToggleBtn" aria-controls="iosMobileSheet" aria-expanded="false" aria-label="Mở menu">
+            <svg th:replace="~{fragments/icons :: menu}"></svg>
+          </button>
+
+          <div class="collapse navbar-collapse d-none d-lg-flex" id="navigation">
+            <!-- 1. Khách vãng lai: iOS Segmented Control 2 tab (Trang chủ | Dịch vụ) -->
+            <nav class="ios-segmented-control navbar-nav mx-auto"
+                 id="iosSegmentedControl"
+                 aria-label="Menu điều hướng chính"
+                 th:if="${currentUser == null}">
+              <div class="ios-segmented-indicator" aria-hidden="true"></div>
+              <ul class="ios-segmented-list">
+                <li class="ios-segmented-item" th:classappend="${active == 'home'} ? 'active'" th:attr="data-active=${active == 'home' ? 'true' : null}">
+                  <a class="ios-segmented-link nav-link" th:href="@{/}">Trang chủ</a>
+                </li>
+                <li class="ios-segmented-item" th:classappend="${active == 'services'} ? 'active'" th:attr="data-active=${active == 'services' ? 'true' : null}">
+                  <a class="ios-segmented-link nav-link" th:href="@{/services}">Dịch vụ</a>
+                </li>
+              </ul>
+            </nav>
+
+            <!-- 2. Customer: iOS Segmented Control (5 tab) -->
+            <nav class="ios-segmented-control navbar-nav mx-auto"
+                 id="iosCustomerSegmentedControl"
+                 aria-label="Menu khách hàng"
+                 th:if="${currentUser != null and currentUser.role == 'CUSTOMER'}">
+              <div class="ios-segmented-indicator" aria-hidden="true"></div>
+              <ul class="ios-segmented-list">
+                <li class="ios-segmented-item" th:classappend="${active == 'home'} ? 'active'" th:attr="data-active=${active == 'home' ? 'true' : null}">
+                  <a class="ios-segmented-link nav-link" th:href="@{/}">Trang chủ</a>
+                </li>
+                <li class="ios-segmented-item" th:classappend="${active == 'services'} ? 'active'" th:attr="data-active=${active == 'services' ? 'true' : null}">
+                  <a class="ios-segmented-link nav-link" th:href="@{/services}">Dịch vụ</a>
+                </li>
+                <li class="ios-segmented-item" th:classappend="${active == 'staff'} ? 'active'" th:attr="data-active=${active == 'staff' ? 'true' : null}">
+                  <a class="ios-segmented-link nav-link" th:href="@{/customer/staff}">Nhân viên</a>
+                </li>
+                <li class="ios-segmented-item" th:classappend="${active == 'bookings'} ? 'active'" th:attr="data-active=${active == 'bookings' ? 'true' : null}">
+                  <a class="ios-segmented-link nav-link" th:href="@{/customer/bookings}">Lịch của tôi</a>
+                </li>
+                <li class="ios-segmented-item" th:classappend="${active == 'houses'} ? 'active'" th:attr="data-active=${active == 'houses' ? 'true' : null}">
+                  <a class="ios-segmented-link nav-link" th:href="@{/customer/houses}">Nhà của tôi</a>
+                </li>
+              </ul>
+            </nav>
+
+            <!-- 3. Staff: iOS Segmented Control (4 tab) -->
+            <nav class="ios-segmented-control navbar-nav mx-auto"
+                 id="iosStaffSegmentedControl"
+                 aria-label="Menu nhân viên"
+                 th:if="${currentUser != null and currentUser.role == 'STAFF'}">
+              <div class="ios-segmented-indicator" aria-hidden="true"></div>
+              <ul class="ios-segmented-list">
+                <li class="ios-segmented-item" th:classappend="${active == 'bookings'} ? 'active'" th:attr="data-active=${active == 'bookings' ? 'true' : null}">
+                  <a class="ios-segmented-link nav-link" th:href="@{/staff/bookings}">Công việc của tôi</a>
+                </li>
+                <li class="ios-segmented-item" th:classappend="${active == 'schedules'} ? 'active'" th:attr="data-active=${active == 'schedules' ? 'true' : null}">
+                  <a class="ios-segmented-link nav-link" th:href="@{/staff/schedules}">Lịch sẵn sàng</a>
+                </li>
+                <li class="ios-segmented-item" th:classappend="${active == 'leaves'} ? 'active'" th:attr="data-active=${active == 'leaves' ? 'true' : null}">
+                  <a class="ios-segmented-link nav-link" th:href="@{/staff/leaves}">Đơn nghỉ</a>
+                </li>
+                <li class="ios-segmented-item" th:classappend="${active == 'profile'} ? 'active'" th:attr="data-active=${active == 'profile' ? 'true' : null}">
+                  <a class="ios-segmented-link nav-link" th:href="@{/staff/profile}">Hồ sơ của tôi</a>
+                </li>
+                <li class="ios-segmented-item" th:classappend="${active == 'incident-actions'} ? 'active'" th:attr="data-active=${active == 'incident-actions' ? 'true' : null}">
+                  <a class="ios-segmented-link nav-link" th:href="@{/staff/incident-actions}">Thông báo nội bộ</a>
+                </li>
+              </ul>
+            </nav>
+
+            <!-- Nút hành động kiểu iOS pill: kính mờ và kem nổi bật -->
+            <div class="header-actions">
+              <a th:if="${currentUser == null}" class="btn btn-glass-pill" th:href="@{/login}">
+                Đăng nhập
+              </a>
+              <a th:if="${currentUser == null}" class="btn btn-glass-pill" th:href="@{/register}">
+                Đăng ký
+              </a>
+              <a th:if="${currentUser == null or currentUser.role == 'CUSTOMER'}" class="btn btn-cta-prominent" th:href="@{/customer/bookings/new}">
+                <span>Đặt lịch ngay</span>
+                <svg th:replace="~{fragments/icons :: arrow-up-right}"></svg>
+              </a>
+              <details class="account-menu" th:if="${currentUser != null}">
+                <summary>
+                  <svg class="ui-icon account-avatar-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                  </svg>
+                  <span class="account-name" th:text="${ui.label(currentUser.displayName)}">Tài khoản</span>
+                  <svg th:replace="~{fragments/icons :: chevron-down}"></svg>
+                </summary>
+                <div class="account-popover">
+                  <span class="eyebrow w-100 justify-content-center" th:text="${currentUser.role == 'ADMIN' ? 'Quản trị viên' : (currentUser.role == 'MANAGER' ? 'Quản lý cấp cao' : (currentUser.role == 'STAFF' ? 'Nhân viên' : 'Khách hàng'))}"></span>
+                  <a th:if="${currentUser.manager}" class="btn btn-light w-100 mb-2" th:href="@{/admin/accounts}">Tài khoản Admin</a>
+                  <form method="post" th:action="@{/logout}">
+                    <button class="btn btn-light w-100" type="submit">
+                      <svg th:replace="~{fragments/icons :: log-out}"></svg>
+                      <span>Đăng xuất</span>
+                    </button>
+                  </form>
+                </div>
+              </details>
+            </div>
+          </div>
+        </nav>
+
+        <!-- Mobile iOS Bottom Sheet (< 768px) -->
+        <div class="ios-bottom-sheet" id="iosMobileSheet" aria-hidden="true">
+          <div class="ios-sheet-backdrop" id="iosSheetBackdrop"></div>
+          <div class="ios-sheet-panel">
+            <div class="ios-sheet-grabber"></div>
+            <div class="ios-sheet-header d-flex align-items-center justify-content-between px-4 pt-2 pb-3">
+              <span class="ios-sheet-title">Menu Gọn Nhà</span>
+              <button class="btn-close btn-close-white" id="iosSheetCloseBtn" type="button" aria-label="Đóng"></button>
+            </div>
+            <div class="ios-sheet-body px-4 pb-4">
+              <ul class="ios-sheet-nav-list mb-4">
+                <li><a class="ios-sheet-link" th:href="@{/}">Trang chủ</a></li>
+                <li><a class="ios-sheet-link" th:href="@{/services}">Dịch vụ</a></li>
+                <li th:if="${currentUser != null and currentUser.role == 'CUSTOMER'}"><a class="ios-sheet-link" th:href="@{/customer/staff}">Nhân viên</a></li>
+                <li th:if="${currentUser != null and currentUser.role == 'CUSTOMER'}"><a class="ios-sheet-link" th:href="@{/customer/bookings}">Lịch của tôi</a></li>
+                <li th:if="${currentUser != null and currentUser.role == 'CUSTOMER'}"><a class="ios-sheet-link" th:href="@{/customer/houses}">Nhà của tôi</a></li>
+                <li th:if="${currentUser != null and currentUser.role == 'STAFF'}"><a class="ios-sheet-link" th:href="@{/staff/bookings}">Công việc của tôi</a></li>
+                <li th:if="${currentUser != null and currentUser.role == 'STAFF'}"><a class="ios-sheet-link" th:href="@{/staff/schedules}">Lịch sẵn sàng</a></li>
+                <li th:if="${currentUser != null and currentUser.role == 'STAFF'}"><a class="ios-sheet-link" th:href="@{/staff/leaves}">Đơn nghỉ</a></li>
+                <li th:if="${currentUser != null and currentUser.role == 'STAFF'}"><a class="ios-sheet-link" th:href="@{/staff/profile}">Hồ sơ của tôi</a></li>
+                <li th:if="${currentUser != null and currentUser.role == 'STAFF'}"><a class="ios-sheet-link" th:href="@{/staff/incident-actions}">Thông báo nội bộ</a></li>
+              </ul>
+              <div class="d-flex flex-column gap-2" th:if="${currentUser == null}">
+                <a class="btn btn-cta-prominent w-100" th:href="@{/customer/bookings/new}">
+                  <span>Đặt lịch ngay</span>
+                  <svg th:replace="~{fragments/icons :: arrow-up-right}"></svg>
+                </a>
+                <div class="d-flex gap-2">
+                  <a class="btn btn-glass-pill flex-grow-1 text-center" th:href="@{/login}">Đăng nhập</a>
+                  <a class="btn btn-glass-pill flex-grow-1 text-center" th:href="@{/register}">Đăng ký</a>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </nav>
-    </header>
+      </header>
+    </th:block>
 
     <th:block th:fragment="alerts">
       <div th:if="${success != null}" class="alert alert-success d-flex align-items-center gap-2 mb-4 border-0 shadow-sm" role="status" style="background-color: var(--status-confirmed-bg); color: var(--status-confirmed-text); border-left: 4px solid var(--brand) !important;">
-        <span aria-hidden="true">✓</span>
+        <svg th:replace="~{fragments/icons :: check-circle}"></svg>
         <span th:text="${success}"></span>
       </div>
       <div th:if="${warning != null}" class="alert alert-warning d-flex align-items-center gap-2 mb-4 border-0 shadow-sm" role="status">
@@ -90,59 +290,93 @@
         <span th:text="${warning}"></span>
       </div>
       <div th:if="${error != null}" class="alert alert-danger d-flex align-items-center gap-2 mb-4 border-0 shadow-sm" role="alert" style="background-color: var(--status-cancelled-bg); color: var(--status-cancelled-text); border-left: 4px solid #ef4444 !important;">
-        <span aria-hidden="true">⚠</span>
+        <svg th:replace="~{fragments/icons :: alert-circle}"></svg>
         <span th:text="${error}"></span>
       </div>
     </th:block>
 
-    <footer class="site-footer" th:fragment="footer">
-      <div class="container">
-        <div class="row g-4 justify-content-between align-items-start pb-4">
-          <div class="col-lg-4 footer-brand">
-            <a class="brand" th:href="@{/}">
-              <img th:src="@{/images/5e7a8.png}" alt="Logo Gọn Nhà" width="36" height="36">
-              <span>
-                Gọn Nhà
-                <small>Dịch vụ giúp việc của một công ty</small>
-              </span>
-            </a>
-            <p>
-              Hệ thống đặt lịch dịch vụ dọn dẹp theo giờ, giúp việc gia đình uy tín và minh bạch. Nhân viên tận tâm, lý lịch rõ ràng.
+    <th:block th:fragment="footer">
+      <!-- Compact Single-Line Footer for Admin Role -->
+      <footer class="admin-footer" th:if="${currentUser != null and currentUser.admin}">
+        <div class="container d-flex flex-wrap align-items-center justify-content-between gap-2">
+          <span>© Gọn Nhà · Hệ thống quản trị</span>
+          <span class="admin-footer-meta">Không gian điều hành nội bộ</span>
+        </div>
+      </footer>
+
+      <!-- Public & Customer/Staff Footer (Apple Sheet UI: Bo góc 32px, iOS Inset Grouped, Scroll Reveal) -->
+      <footer class="site-footer site-footer--ios" th:unless="${currentUser != null and currentUser.admin}">
+        <div class="container">
+          <div class="row g-4 justify-content-between align-items-start pb-5">
+            <!-- Cột 1: Thương hiệu -->
+            <div class="col-lg-4 footer-brand" data-reveal="rise-glass" data-delay="0">
+              <a class="brand" th:href="@{/}">
+                <img th:src="@{/images/5e7a8.png}" alt="Logo Gọn Nhà" width="36" height="36">
+                <span>
+                  Gọn Nhà
+                  <small>Dịch vụ giúp việc của một công ty</small>
+                </span>
+              </a>
+              <p>
+                Hệ thống đặt lịch dịch vụ dọn dẹp theo giờ, giúp việc gia đình uy tín và minh bạch. Nhân viên tận tâm, lý lịch rõ ràng.
+              </p>
+            </div>
+
+            <!-- Cột 2: Liên kết nhanh -->
+            <div class="col-sm-6 col-lg-3" data-reveal="rise-glass" data-delay="150">
+              <div class="footer-heading">Liên kết nhanh</div>
+              <ul class="footer-links footer-links--ios">
+                <li><a th:href="@{/}"><span>Trang chủ</span></a></li>
+                <li><a th:href="@{/services}"><span>Danh mục dịch vụ</span></a></li>
+                <li><a th:href="@{/customer/bookings/new}"><span>Đặt lịch dịch vụ</span></a></li>
+                <li><a th:href="@{/login}"><span>Đăng nhập cổng thông tin</span></a></li>
+              </ul>
+            </div>
+
+            <!-- Cột 3: Cam kết chất lượng (iOS Inset Grouped, hàng 48px, vạch ngăn 0.08) -->
+            <div class="col-sm-6 col-lg-4" data-reveal="rise-glass" data-delay="300">
+              <div class="footer-heading">Cam kết chất lượng</div>
+              <div class="ios-inset-group">
+                <div class="ios-inset-row d-flex align-items-center gap-3">
+                  <div class="ios-inset-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                  </div>
+                  <span>100% minh bạch về giá và thời lượng</span>
+                </div>
+                <div class="ios-inset-row d-flex align-items-center gap-3">
+                  <div class="ios-inset-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                  </div>
+                  <span>Thanh toán an tâm sau khi hoàn thành</span>
+                </div>
+                <div class="ios-inset-row d-flex align-items-center gap-3">
+                  <div class="ios-inset-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                  </div>
+                  <span>Chăm sóc khách hàng: 8:00 – 20:00 hàng ngày</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dòng chân trang với đường kẻ mờ -->
+          <div class="footer-bottom d-flex flex-wrap align-items-center justify-content-between gap-3 pt-4 border-top border-secondary border-opacity-15">
+            <p class="mb-0 small">
+              Chọn người bạn tin. Dành thời gian cho điều bạn yêu.
             </p>
-          </div>
-          <div class="col-sm-6 col-lg-3">
-            <div class="footer-heading">Liên kết nhanh</div>
-            <ul class="footer-links">
-              <li><a th:href="@{/}">Trang chủ</a></li>
-              <li><a th:href="@{/services}">Danh mục dịch vụ</a></li>
-              <li><a th:href="@{/customer/bookings/new}">Đặt lịch dịch vụ</a></li>
-              <li><a th:href="@{/login}">Đăng nhập cổng thông tin</a></li>
-            </ul>
-          </div>
-          <div class="col-sm-6 col-lg-4">
-            <div class="footer-heading">Cam kết chất lượng</div>
-            <ul class="footer-links">
-              <li class="d-flex align-items-center gap-2">
-                <span style="color: #5eead4;">✓</span> 100% minh bạch về giá và thời lượng
-              </li>
-              <li class="d-flex align-items-center gap-2">
-                <span style="color: #5eead4;">✓</span> Thanh toán an tâm sau khi hoàn thành
-              </li>
-              <li class="d-flex align-items-center gap-2">
-                <span style="color: #5eead4;">✓</span> Chăm sóc khách hàng: 8:00 – 20:00 hàng ngày
-              </li>
-            </ul>
+            <a class="text-link text-link--ios" th:href="@{/services}">
+              <span>Khám phá dịch vụ</span>
+              <svg class="text-link-arrow" th:replace="~{fragments/icons :: arrow-right}"></svg>
+            </a>
           </div>
         </div>
-        <div class="footer-bottom d-flex flex-wrap align-items-center justify-content-between gap-3">
-          <p class="mb-0 small">
-            Chọn người bạn tin. Dành thời gian cho điều bạn yêu.
-          </p>
-          <a class="text-link" th:href="@{/services}">
-            Khám phá dịch vụ →
-          </a>
-        </div>
-      </div>
-    </footer>
+      </footer>
+    </th:block>
   </body>
 </html>

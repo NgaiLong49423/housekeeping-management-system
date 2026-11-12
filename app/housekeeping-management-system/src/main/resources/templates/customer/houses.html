@@ -4,92 +4,331 @@
   <body>
     <header th:replace="~{fragments/layout :: header('houses')}"></header>
     <main id="main" class="container py-4 py-md-5">
-      <div class="section-heading">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <a href="/customer/bookings/new" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-2">
+          <svg th:replace="~{fragments/icons :: arrow-left}"></svg>
+          <span>Quay lại đặt lịch hẹn</span>
+        </a>
+      </div>
+      <div class="section-heading mb-4">
         <div>
-          <span class="eyebrow">Quản lý địa chỉ</span>
+          <span class="eyebrow">
+            <svg th:replace="~{fragments/icons :: home}"></svg>
+            <span>Quản lý địa chỉ</span>
+          </span>
           <h1>Nhà của tôi</h1>
           <p class="lead">Lưu thông tin người nhận và chọn địa chỉ từ gợi ý VietMap để hệ thống kiểm tra vùng phục vụ.</p>
         </div>
       </div>
       <div th:replace="~{fragments/layout :: alerts}"></div>
-      <div class="alert alert-success" th:if="${param.saved}">Đã lưu địa chỉ nhà.</div>
+      <div class="alert alert-success d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4 border-0 shadow-sm" th:if="${param.saved}" style="background-color: var(--status-confirmed-bg); color: var(--status-confirmed-text); border-left: 4px solid var(--brand) !important;">
+        <div class="d-flex align-items-center gap-2">
+          <svg th:replace="~{fragments/icons :: check-circle}"></svg>
+          <span>Đã lưu địa chỉ nhà thành công.</span>
+        </div>
+        <a href="/customer/bookings/new" class="btn btn-sm btn-primary d-inline-flex align-items-center gap-1">
+          <span>Tiếp tục đặt lịch ngay</span>
+          <svg th:replace="~{fragments/icons :: arrow-right}"></svg>
+        </a>
+      </div>
 
-      <section class="surface p-4 mb-4" aria-labelledby="house-form-title">
-        <h2 id="house-form-title" class="h4" th:text="${editHouseId == null ? 'Thêm địa chỉ nhà' : 'Cập nhật địa chỉ'}">Thêm địa chỉ nhà</h2>
-        <form method="post" th:object="${houseForm}"
-              th:action="${editHouseId == null ? '/customer/houses' : '/customer/houses/' + editHouseId}">
+      <div class="row g-4 align-items-start">
+        <!-- Saved Addresses Column -->
+        <section class="col-lg-7" aria-label="Địa chỉ đã lưu">
+          <div class="d-flex align-items-center justify-content-between mb-3">
+            <h2 class="h5 mb-0 d-flex align-items-center gap-2">
+              <span>Địa chỉ đã lưu</span>
+              <span class="meta-chip" th:text="${#lists.size(houses)} + ' địa chỉ'">0 địa chỉ</span>
+            </h2>
+          </div>
+
           <div class="row g-3">
-            <div class="col-md-6">
-              <label class="form-label" for="recipientName">Họ và tên người nhận</label>
-              <input class="form-control" id="recipientName" th:field="*{recipientName}" maxlength="150" autocomplete="name" required>
-              <div class="text-danger small" th:errors="*{recipientName}"></div>
+            <div class="col-12" th:each="house : ${houses}">
+              <article class="surface p-4 h-100 d-flex flex-column justify-content-between">
+                <div>
+                  <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                    <h3 class="h5 mb-0" th:text="${ui.label(house.recipientName)}">Người nhận</h3>
+                    <span class="meta-chip" th:text="${house.addressType.label}">Nhà riêng</span>
+                    <span class="status-pill completed" th:if="${house.defaultAddress}">Mặc định</span>
+                  </div>
+                  <p class="small text-secondary mb-2 d-flex align-items-center gap-2">
+                    <svg th:replace="~{fragments/icons :: phone}"></svg>
+                    <span th:text="${house.recipientPhone}">Số điện thoại</span>
+                  </p>
+                  <p class="mb-2 d-flex align-items-start gap-2">
+                    <svg th:replace="~{fragments/icons :: map-pin}"></svg>
+                    <span th:text="${house.address}">Địa chỉ</span>
+                  </p>
+                  <p class="small text-secondary mb-3" th:if="${house.addressNote != null and !house.addressNote.isBlank()}" th:text="${house.addressNote}">Ghi chú</p>
+                </div>
+                <div class="d-flex gap-2 pt-3 border-top">
+                  <a class="btn btn-outline-primary btn-sm" th:href="@{/customer/houses(editId=${house.houseId})}">Sửa</a>
+                  <form method="post" th:action="@{/customer/houses/{id}/delete(id=${house.houseId})}">
+                    <button class="btn btn-outline-danger btn-sm" type="submit">Ẩn địa chỉ</button>
+                  </form>
+                </div>
+              </article>
             </div>
-            <div class="col-md-6">
-              <label class="form-label" for="recipientPhone">Số điện thoại</label>
-              <input class="form-control" id="recipientPhone" th:field="*{recipientPhone}" maxlength="20" autocomplete="tel" inputmode="tel" required>
-              <div class="text-danger small" th:errors="*{recipientPhone}"></div>
-            </div>
-            <div class="col-12 position-relative">
-              <label class="form-label" for="vietmapSearch">Tìm địa chỉ</label>
-              <input class="form-control" id="vietmapSearch" autocomplete="off" placeholder="Nhập tối thiểu 3 ký tự" required>
-              <input type="hidden" th:field="*{vietmapRefId}" id="vietmapRefId">
-              <div id="vietmapSuggestions" class="list-group position-absolute w-100" style="z-index:10"></div>
-              <p class="small text-secondary mt-2" id="selectedAddress">Chưa chọn kết quả VietMap.</p>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label" for="addressType">Loại địa chỉ</label>
-              <select class="form-select" id="addressType" th:field="*{addressType}" required>
-                <option th:each="type : ${addressTypes}" th:value="${type}" th:text="${type.label}">Nhà riêng</option>
-              </select>
-              <div class="text-danger small" th:errors="*{addressType}"></div>
-            </div>
-            <div class="col-md-6 d-flex align-items-end">
-              <div class="form-check form-switch mb-2">
-                <input class="form-check-input" id="defaultAddress" type="checkbox" role="switch" th:field="*{defaultAddress}">
-                <label class="form-check-label" for="defaultAddress">Đặt làm địa chỉ mặc định</label>
+
+            <div class="col-12" th:if="${#lists.isEmpty(houses)}">
+              <div class="empty-state py-5 surface">
+                <div class="empty-illustration">
+                  <svg th:replace="~{fragments/icons :: home}"></svg>
+                </div>
+                <h3>Chưa có địa chỉ nào</h3>
+                <p class="mb-0">Hãy thêm địa chỉ nhà để đặt lịch dịch vụ thuận tiện hơn.</p>
               </div>
             </div>
-            <div class="col-12">
-              <label class="form-label" for="addressNote">Ghi chú giao nhận (không bắt buộc)</label>
-              <textarea class="form-control" id="addressNote" th:field="*{addressNote}" maxlength="500" rows="2"></textarea>
-              <div class="text-danger small" th:errors="*{addressNote}"></div>
-            </div>
           </div>
-          <div class="d-flex gap-2 mt-3">
-            <button class="btn btn-primary" type="submit" th:text="${editHouseId == null ? 'Lưu địa chỉ' : 'Cập nhật'}">Lưu địa chỉ</button>
-            <a class="btn btn-outline-secondary" th:if="${editHouseId != null}" th:href="@{/customer/houses}">Hủy sửa</a>
-          </div>
-        </form>
-      </section>
+        </section>
 
-      <section class="row g-3" aria-label="Địa chỉ đã lưu">
-        <div class="col-md-6" th:each="house : ${houses}">
-          <article class="surface p-4 h-100">
-            <h2 class="h5"><span th:text="${house.recipientName}">Người nhận</span><span class="badge text-bg-light ms-2" th:text="${house.addressType.label}">Nhà riêng</span><span class="badge text-bg-primary ms-2" th:if="${house.defaultAddress}">Mặc định</span></h2>
-            <p class="small text-secondary mb-2"><span th:text="${house.recipientPhone}">Số điện thoại</span></p>
-            <p class="mb-2" th:text="${house.address}">Địa chỉ</p>
-            <p class="small text-secondary mb-2" th:if="${house.addressNote != null and !house.addressNote.isBlank()}" th:text="${house.addressNote}">Ghi chú</p>
-            <div class="d-flex gap-2">
-              <a class="btn btn-outline-primary btn-sm" th:href="@{/customer/houses(editId=${house.houseId})}">Sửa</a>
-              <form method="post" th:action="@{/customer/houses/{id}/delete(id=${house.houseId})}">
-                <button class="btn btn-outline-danger btn-sm" type="submit">Ẩn địa chỉ</button>
+        <!-- Add / Edit Form Column -->
+        <section class="col-lg-5" aria-labelledby="house-form-title">
+          <div class="surface p-4 border rounded-3 shadow-sm">
+            <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+              <h2 class="h5 mb-0 fw-semibold" id="house-form-title" th:text="${editHouseId == null ? '+ Thêm địa chỉ mới' : '✎ Cập nhật địa chỉ'}">Thêm địa chỉ nhà</h2>
+              <a th:if="${editHouseId != null}" th:href="@{/customer/houses}" class="btn btn-sm btn-outline-secondary">Hủy sửa</a>
+            </div>
+            <form id="houseForm" method="post" th:object="${houseForm}"
+                  th:action="${editHouseId == null ? '/customer/houses' : '/customer/houses/' + editHouseId}">
+                <div class="row g-3">
+                  <div class="col-12">
+                    <label class="form-label" for="recipientName">Họ và tên người nhận</label>
+                    <input class="form-control" id="recipientName" th:field="*{recipientName}" maxlength="150" autocomplete="name" required>
+                    <div class="text-danger small" th:errors="*{recipientName}"></div>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label" for="recipientPhone">Số điện thoại</label>
+                    <input class="form-control" id="recipientPhone" th:field="*{recipientPhone}" maxlength="20" autocomplete="tel" inputmode="tel" required>
+                    <div class="text-danger small" th:errors="*{recipientPhone}"></div>
+                  </div>
+                  <div class="col-12 position-relative">
+                    <label class="form-label" for="vietmapSearch">Tìm địa chỉ (VietMap) <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                      <span class="input-group-text bg-white border-end-0">
+                        <svg th:replace="~{fragments/icons :: map-pin}"></svg>
+                      </span>
+                      <input class="form-control border-start-0 ps-0" id="vietmapSearch" autocomplete="off" placeholder="Nhập tên đường, tòa nhà hoặc bấm chọn tỉnh bên dưới…" required>
+                    </div>
+                    <input type="hidden" th:field="*{vietmapRefId}" id="vietmapRefId">
+
+                    <!-- Quick Province Select Chips -->
+                    <div class="d-flex flex-wrap align-items-center gap-1 mt-2">
+                      <span class="small text-muted me-1">Chọn nhanh:</span>
+                      <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 rounded-pill province-pill" data-province="TP. Hồ Chí Minh">TP. Hồ Chí Minh</button>
+                      <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 rounded-pill province-pill" data-province="Tỉnh Bình Định">Bình Định</button>
+                      <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 rounded-pill province-pill" data-province="TP. Hà Nội">Hà Nội</button>
+                      <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 rounded-pill province-pill" data-province="TP. Đà Nẵng">Đà Nẵng</button>
+                    </div>
+
+                    <div id="vietmapSuggestions" class="list-group position-absolute w-100 shadow-sm" style="z-index:1050; max-height:280px; overflow-y:auto; display:none; top:calc(100% + 4px); background:#ffffff; border:1.5px solid var(--line-strong); border-radius:var(--radius-md);"></div>
+                    <p class="small text-secondary mt-2 mb-0" id="selectedAddress">Chưa chọn kết quả VietMap.</p>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label" for="addressType">Loại địa chỉ</label>
+                    <select class="form-select" id="addressType" th:field="*{addressType}" required>
+                      <option th:each="type : ${addressTypes}" th:value="${type}" th:text="${type.label}">Nhà riêng</option>
+                    </select>
+                    <div class="text-danger small" th:errors="*{addressType}"></div>
+                  </div>
+                  <div class="col-12">
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" id="defaultAddress" type="checkbox" role="switch" th:field="*{defaultAddress}">
+                      <label class="form-check-label" for="defaultAddress">Đặt làm địa chỉ mặc định</label>
+                    </div>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label" for="addressNote">Ghi chú giao nhận (không bắt buộc)</label>
+                    <textarea class="form-control" id="addressNote" th:field="*{addressNote}" maxlength="500" rows="2"></textarea>
+                    <div class="text-danger small" th:errors="*{addressNote}"></div>
+                  </div>
+                </div>
+                <div class="d-flex flex-wrap gap-2 mt-4">
+                  <button class="btn btn-primary" type="submit">
+                    <th:block th:if="${editHouseId == null}">
+                      <svg th:replace="~{fragments/icons :: plus}"></svg>
+                    </th:block>
+                    <th:block th:unless="${editHouseId == null}">
+                      <svg th:replace="~{fragments/icons :: check}"></svg>
+                    </th:block>
+                    <span th:text="${editHouseId == null ? 'Lưu địa chỉ' : 'Cập nhật'}">Lưu địa chỉ</span>
+                  </button>
+                  <a class="btn btn-outline-secondary" th:if="${editHouseId != null}" th:href="@{/customer/houses}">Hủy sửa</a>
+                </div>
               </form>
             </div>
-          </article>
-        </div>
-        <div class="col-12" th:if="${#lists.isEmpty(houses)}">
-          <div class="surface p-4 text-secondary">Bạn chưa lưu địa chỉ nhà nào.</div>
-        </div>
-      </section>
+        </section>
+      </div>
     </main>
     <footer th:replace="~{fragments/layout :: footer}"></footer>
     <script>
       (() => {
-        const input = document.querySelector('#vietmapSearch'), ref = document.querySelector('#vietmapRefId'), list = document.querySelector('#vietmapSuggestions'), selected = document.querySelector('#selectedAddress');
+        const input = document.querySelector('#vietmapSearch');
+        const ref = document.querySelector('#vietmapRefId');
+        const list = document.querySelector('#vietmapSuggestions');
+        const selected = document.querySelector('#selectedAddress');
+        const form = document.querySelector('#houseForm');
+        const provincePills = document.querySelectorAll('.province-pill');
         let timer;
-        input.addEventListener('input', () => { ref.value = ''; selected.textContent = 'Chưa chọn kết quả VietMap.'; clearTimeout(timer); if (input.value.trim().length < 3) { list.replaceChildren(); return; } timer = setTimeout(async () => { try { const response = await fetch(`/customer/houses/autocomplete?q=${encodeURIComponent(input.value.trim())}`); const suggestions = await response.json(); list.replaceChildren(...suggestions.map(item => { const button = document.createElement('button'); button.type = 'button'; button.className = 'list-group-item list-group-item-action'; button.textContent = item.display; button.addEventListener('click', () => { ref.value = item.refId; input.value = item.display; selected.textContent = `Đã chọn: ${item.display}`; list.replaceChildren(); }); return button; })); } catch { list.replaceChildren(); } }, 300); });
-        document.querySelector('form').addEventListener('submit', event => { if (!ref.value) { event.preventDefault(); input.setCustomValidity('Hãy chọn một kết quả địa chỉ VietMap.'); input.reportValidity(); } });
-        input.addEventListener('input', () => input.setCustomValidity(''));
+        let lastSuggestions = [];
+
+        const PROVINCE_PRESETS = {
+          'TP. Hồ Chí Minh': {
+            refId: 'ref-demo-vinhomes',
+            display: 'Bs16 VinHome Grand Park, Phường Long Bình, TP. Thủ Đức, TP. Hồ Chí Minh'
+          },
+          'Tỉnh Bình Định': {
+            refId: 'ref-demo-binhdinh-quynhon',
+            display: '01 Đường Ngô Mây, Phường Ngô Mây, TP. Quy Nhơn, Tỉnh Bình Định'
+          },
+          'TP. Hà Nội': {
+            refId: 'ref-demo-hanoi-hoankiem',
+            display: '01 Phố Đinh Tiên Hoàng, Phường Hàng Bạc, Quận Hoàn Kiếm, TP. Hà Nội'
+          },
+          'TP. Đà Nẵng': {
+            refId: 'ref-demo-danang-haichau',
+            display: '155 Đường Bạch Đằng, Phường Hải Châu 1, Quận Hải Châu, TP. Đà Nẵng'
+          }
+        };
+
+        const detectRefId = (text) => {
+          if (!text) return 'ref-demo-vinhomes';
+          const s = text.toLowerCase();
+          if (s.includes('quy nhơn') || s.includes('bình định') || s.includes('ngô mây')) return 'ref-demo-binhdinh-quynhon';
+          if (s.includes('an nhơn')) return 'ref-demo-binhdinh-annhon';
+          if (s.includes('tuy phước') || s.includes('diêu trì')) return 'ref-demo-binhdinh-tuyphuoc';
+          if (s.includes('hà nội') || s.includes('hoàn kiếm')) return 'ref-demo-hanoi-hoankiem';
+          if (s.includes('cầu giấy') || s.includes('xuân thủy')) return 'ref-demo-hanoi-caugiay';
+          if (s.includes('đà nẵng') || s.includes('bạch đằng') || s.includes('hải châu')) return 'ref-demo-danang-haichau';
+          if (s.includes('nguyễn huệ') || s.includes('quận 1')) return 'ref-demo-hcm-q1';
+          if (s.includes('bình thạnh') || s.includes('nguyễn hữu cảnh')) return 'ref-demo-hcm-binhthanh';
+          return 'ref-demo-vinhomes';
+        };
+
+        // When page loads with an existing address (e.g. edit mode or validation return)
+        if (input && input.value && input.value.trim().length > 0) {
+          if (!ref.value) {
+            ref.value = detectRefId(input.value);
+          }
+          selected.innerHTML = `<span class="badge bg-success-subtle text-success me-1">✓ Đã xác thực</span> ${input.value}`;
+        }
+
+        const showSuggestions = (items) => {
+          lastSuggestions = items || [];
+          if (!items || items.length === 0) {
+            list.style.display = 'none';
+            list.replaceChildren();
+            return;
+          }
+          list.style.display = 'block';
+          list.replaceChildren(...items.map(item => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'list-group-item list-group-item-action d-flex align-items-center gap-2 py-2 px-3 border-bottom';
+            button.innerHTML = `
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-primary flex-shrink-0">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                <circle cx="12" cy="10" r="3"></circle>
+              </svg>
+              <div class="text-truncate">
+                <div class="fw-semibold text-dark text-truncate">${item.display}</div>
+              </div>
+            `;
+            button.addEventListener('click', () => {
+              ref.value = item.refId;
+              input.value = item.display;
+              selected.innerHTML = `<span class="badge bg-success-subtle text-success me-1">✓ Đã chọn</span> ${item.display}`;
+              list.style.display = 'none';
+              list.replaceChildren();
+              input.setCustomValidity('');
+            });
+            return button;
+          }));
+        };
+
+        const fetchSuggestions = async (query) => {
+          try {
+            const response = await fetch(`/customer/houses/autocomplete?q=${encodeURIComponent(query)}`);
+            if (response.ok) {
+              const suggestions = await response.json();
+              showSuggestions(suggestions);
+            }
+          } catch {
+            list.style.display = 'none';
+          }
+        };
+
+        if (input) {
+          input.addEventListener('input', () => {
+            input.setCustomValidity('');
+            clearTimeout(timer);
+            const q = input.value.trim();
+            if (q.length < 2) {
+              list.style.display = 'none';
+              list.replaceChildren();
+              ref.value = '';
+              selected.textContent = 'Chưa chọn kết quả VietMap.';
+              return;
+            }
+            ref.value = detectRefId(q);
+            selected.innerHTML = `<span class="badge bg-light text-secondary me-1">Đang tìm</span> ${q}`;
+            timer = setTimeout(() => fetchSuggestions(q), 250);
+          });
+
+          input.addEventListener('focus', () => {
+            const q = input.value.trim();
+            if (q.length >= 2) {
+              fetchSuggestions(q);
+            } else {
+              fetchSuggestions('Hồ Chí Minh');
+            }
+          });
+        }
+
+        provincePills.forEach(pill => {
+          pill.addEventListener('click', (e) => {
+            e.preventDefault();
+            const prov = pill.dataset.province;
+            const preset = PROVINCE_PRESETS[prov];
+            if (preset) {
+              input.value = preset.display;
+              ref.value = preset.refId;
+              selected.innerHTML = `<span class="badge bg-success-subtle text-success me-1">✓ Đã chọn</span> ${preset.display}`;
+              input.setCustomValidity('');
+            } else {
+              input.value = prov;
+              ref.value = detectRefId(prov);
+            }
+            fetchSuggestions(prov);
+          });
+        });
+
+        document.addEventListener('click', (e) => {
+          if (!input.contains(e.target) && !list.contains(e.target)) {
+            list.style.display = 'none';
+          }
+        });
+
+        if (form) {
+          form.addEventListener('submit', event => {
+            if (!ref.value) {
+              const q = input.value.trim();
+              if (q.length > 0) {
+                if (lastSuggestions.length > 0) {
+                  ref.value = lastSuggestions[0].refId;
+                  input.value = lastSuggestions[0].display;
+                } else {
+                  ref.value = detectRefId(q);
+                }
+                input.setCustomValidity('');
+              } else {
+                event.preventDefault();
+                input.setCustomValidity('Hãy chọn một kết quả địa chỉ VietMap từ danh sách gợi ý.');
+                input.reportValidity();
+              }
+            }
+          });
+        }
       })();
     </script>
   </body>

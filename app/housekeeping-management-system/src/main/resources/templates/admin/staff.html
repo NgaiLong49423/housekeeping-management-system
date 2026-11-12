@@ -9,7 +9,8 @@
       <!-- Page Heading -->
       <div class="page-heading">
         <span class="eyebrow">
-          Quản trị nhân sự · Gọn Nhà
+          <svg th:replace="~{fragments/icons :: users}"></svg>
+          <span>Quản trị nhân sự · Gọn Nhà</span>
         </span>
         <h1>
           Quản lý nhân viên
@@ -50,7 +51,7 @@
                   Mật khẩu ban đầu
                 </label>
                 <input id="add-staff-pwd" name="password" type="password" class="form-control" minlength="8" maxlength="72" required autocomplete="new-password" placeholder="Tối thiểu 8 ký tự">
-                <small class="text-secondary d-block mt-1">Mật khẩu được mã hóa an toàn bằng BCrypt.</small>
+                <small class="text-secondary d-block mt-1">Mật khẩu được lưu ở dạng mã hóa, không ai xem lại được.</small>
               </div>
               <div>
                 <label class="form-label" for="add-staff-phone">
@@ -67,7 +68,8 @@
                 </select>
               </div>
               <button class="btn btn-primary w-100 mt-2" type="submit">
-                + Thêm nhân viên
+                <svg th:replace="~{fragments/icons :: plus}"></svg>
+                <span>Thêm nhân viên</span>
               </button>
             </form>
           </div>
@@ -76,7 +78,9 @@
         <!-- Existing Staff List -->
         <section class="col-lg-8 vstack gap-3">
           <div class="surface p-4 empty-state" th:if="${#lists.isEmpty(staff)}">
-            <span class="empty-icon" aria-hidden="true">👥</span>
+            <span class="empty-icon">
+              <svg th:replace="~{fragments/icons :: users}"></svg>
+            </span>
             <h3>Chưa có nhân viên nào</h3>
             <p>
               Hãy tạo nhân viên đầu tiên bằng biểu mẫu bên cạnh để bắt đầu phân công lịch sẵn sàng.
@@ -84,39 +88,47 @@
           </div>
 
           <article class="surface p-4" th:each="person : ${staff}">
-            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 pb-3 border-bottom">
-              <div class="d-flex align-items-center gap-3">
-                <span class="avatar" th:text="${#strings.substring(person.name,0,1)}">N</span>
+            <div class="d-flex flex-wrap flex-sm-nowrap justify-content-between align-items-start gap-3 pb-3 border-bottom">
+              <div class="d-flex align-items-center gap-3 min-w-0">
+                <span class="avatar avatar-accented" th:text="${ui.initial(person.name)}">N</span>
                 <div>
-                  <h2 class="h5 mb-1 text-dark" th:text="${person.name}">Họ và tên</h2>
+                  <h2 class="h5 mb-1 text-dark" th:text="${ui.label(person.name)}">Họ và tên</h2>
                   <div class="d-flex flex-wrap gap-2 align-items-center">
-                    <span class="badge bg-light text-secondary border small" th:text="${person.phone != null and !person.phone.isEmpty() ? '📞 ' + person.phone : 'Chưa có SĐT'}">
-                      SĐT
+                    <span class="staff-type-chip" th:classappend="${person.staffType != 'FULL_TIME' ? 'part-time' : ''}">
+                      <svg th:replace="~{fragments/icons :: clock}"></svg>
+                      <span th:text="${person.staffType == 'FULL_TIME' ? 'Toàn thời gian' : 'Bán thời gian'}">Loại nhân viên</span>
                     </span>
-                    <span class="badge rounded-pill bg-light text-secondary border small" th:text="${person.staffType == 'FULL_TIME' ? 'Toàn thời gian' : 'Bán thời gian'}">Loại nhân viên</span>
-                    <span class="badge rounded-pill" th:classappend="${person.active ? 'bg-primary-subtle text-primary border border-primary-subtle' : 'bg-secondary-subtle text-secondary border'}" th:text="${person.active ? 'Đang hoạt động' : 'Ngừng hoạt động'}">Trạng thái</span>
+                    <span class="meta-chip" th:if="${person.phone != null and !person.phone.isEmpty()}">
+                      <svg th:replace="~{fragments/icons :: phone}"></svg>
+                      <span th:text="${person.phone}">SĐT</span>
+                    </span>
+                    <span class="meta-chip" th:unless="${person.phone != null and !person.phone.isEmpty()}">
+                      <span>Chưa có SĐT</span>
+                    </span>
+                    <span class="status-pill" th:classappend="${person.active ? 'confirmed' : 'cancelled'}" th:text="${person.active ? 'Đang hoạt động' : 'Ngừng hoạt động'}">Trạng thái</span>
                   </div>
                 </div>
               </div>
-              <div>
+              <div class="flex-shrink-0">
                 <form th:if="${person.active}" method="post" th:action="@{/admin/staff/{id}/delete(id=${person.id})}" data-confirm="Ngừng hoạt động tài khoản nhân viên này? Lịch sử và dữ liệu liên quan vẫn được giữ.">
-                  <button class="btn btn-outline-danger btn-sm" type="submit">Ngừng hoạt động</button>
+                  <button class="btn btn-deactivate btn-sm" type="submit">Ngừng hoạt động</button>
                 </form>
                 <form th:unless="${person.active}" method="post" th:action="@{/admin/staff/{id}/activate(id=${person.id})}">
-                  <button class="btn btn-outline-success btn-sm" type="submit">Kích hoạt lại</button>
+                  <button class="btn btn-reactivate btn-sm" type="submit">Kích hoạt lại</button>
                 </form>
               </div>
             </div>
 
             <!-- Edit Details Accordion -->
-            <details class="mt-3">
-              <summary class="small">
-                Chỉnh sửa thông tin liên hệ
+            <details class="details-disclosure mt-3">
+              <summary class="details-summary">
+                <span>Chỉnh sửa thông tin liên hệ</span>
+                <svg th:replace="~{fragments/icons :: chevron-down}"></svg>
               </summary>
               <form class="vstack gap-3 mt-3 p-3 bg-light rounded" method="post" th:action="@{/admin/staff/{id}(id=${person.id})}">
                 <div>
                   <label class="form-label small">Họ và tên</label>
-                  <input class="form-control" name="name" th:value="${person.name}" maxlength="150" required>
+                  <input class="form-control" name="name" th:value="${ui.label(person.name)}" maxlength="150" required>
                 </div>
                 <div>
                   <label class="form-label small">Số điện thoại</label>

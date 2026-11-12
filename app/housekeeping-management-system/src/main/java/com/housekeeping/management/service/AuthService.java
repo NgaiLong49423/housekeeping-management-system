@@ -1,7 +1,7 @@
 package com.housekeeping.management.service;
 
-import com.housekeeping.management.domain.UserRole;
-import com.housekeeping.management.domain.UserStatus;
+import com.housekeeping.management.enums.UserRole;
+import com.housekeeping.management.enums.UserStatus;
 import com.housekeeping.management.entity.User;
 import com.housekeeping.management.web.PortalUser;
 import org.springframework.security.core.userdetails.UserDetails;
