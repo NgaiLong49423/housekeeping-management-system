@@ -139,8 +139,13 @@ public final class PortalForms {
             @Size(min = 7, max = 56) List<@Valid OperatingHoursForm> operatingHours) { }
     public record CompanyScheduleVersionForm(@NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate effectiveFrom,
             @Size(min = 7, max = 56) List<@Valid OperatingHoursForm> operatingHours) { }
-    public record CompanyLocationForm(@NotBlank @Size(max = 500) String vietmapRefId,
-            @NotNull @DecimalMin("0.01") @Digits(integer = 4, fraction = 2) BigDecimal serviceRadiusKm) { }
+    public record CompanyLocationForm(@Size(max = 500) String companyAddress,
+            @Size(max = 500) String vietmapRefId,
+            @NotNull @DecimalMin("0.01") @Digits(integer = 4, fraction = 2) BigDecimal serviceRadiusKm) {
+        public CompanyLocationForm(String vietmapRefId, BigDecimal serviceRadiusKm) {
+            this("", vietmapRefId, serviceRadiusKm);
+        }
+    }
     public record BookingDelayTierForm(@NotNull @Min(1) Integer minDelayMinutes,
             @Min(1) Integer maxDelayMinutes, @NotNull @Min(0) @Max(30) Integer discountPercent) { }
     public record BookingDelaySettingsForm(@NotEmpty List<@Valid BookingDelayTierForm> tiers) { }

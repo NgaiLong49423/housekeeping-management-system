@@ -28,10 +28,10 @@
           <div class="row g-3">
             <div class="col-12 position-relative">
               <label class="form-label" for="companyAddressSearch">Địa chỉ công ty · tâm vùng phục vụ <span class="text-danger">*</span></label>
-              <input id="companyAddressSearch" class="form-control" autocomplete="off" maxlength="500" placeholder="Nhập ít nhất 3 ký tự, rồi chọn địa chỉ VietMap" th:value="${currentCompanyAddress}" required>
+              <input id="companyAddressSearch" class="form-control" autocomplete="off" maxlength="500" placeholder="Nhập ít nhất 3 ký tự, rồi chọn địa chỉ VietMap" th:field="*{companyAddress}" th:attr="data-original-value=${currentCompanyAddress}" required>
               <input type="hidden" th:field="*{vietmapRefId}" id="companyVietmapRefId">
               <div id="companyAddressSuggestions" class="list-group position-absolute w-100" style="z-index:10"></div>
-              <p class="small text-secondary mt-2" id="selectedCompanyAddress" th:text="${currentCompanyAddress == null or currentCompanyAddress.isBlank() ? 'Chưa chọn kết quả VietMap.' : 'Địa chỉ tâm hiện tại: ' + currentCompanyAddress + '. Hãy chọn lại từ gợi ý VietMap trước khi lưu.'}">Chưa chọn kết quả VietMap.</p>
+              <p class="small text-secondary mt-2" id="selectedCompanyAddress" th:text="${currentCompanyAddress == null or currentCompanyAddress.isBlank() ? 'Chưa chọn kết quả VietMap.' : 'Đang giữ địa chỉ tâm hiện tại. Chỉ cần chọn lại VietMap nếu muốn đổi vị trí.'}">Chưa chọn kết quả VietMap.</p>
             </div>
             <div class="col-md-4">
               <label class="form-label" for="serviceRadiusKm">Bán kính tham khảo (km) <span class="text-danger">*</span></label>
@@ -257,6 +257,7 @@
         const list = document.querySelector('#companyAddressSuggestions');
         const selected = document.querySelector('#selectedCompanyAddress');
         const form = input.closest('form');
+        const originalAddress = input.dataset.originalValue || '';
         let timer;
         input.addEventListener('input', () => {
           ref.value = '';
@@ -286,7 +287,7 @@
           }, 300);
         });
         form.addEventListener('submit', event => {
-          if (!ref.value) {
+          if (!ref.value && input.value.trim() !== originalAddress.trim()) {
             event.preventDefault();
             input.setCustomValidity('Hãy chọn một kết quả địa chỉ VietMap.');
             input.reportValidity();

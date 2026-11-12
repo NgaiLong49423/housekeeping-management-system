@@ -43,7 +43,7 @@ public class AdminCompanySettingsController {
         CompanyScheduleVersionForm schedule=settings.scheduleForEditor(selected);
         boolean exactVersion=settings.hasExactVersion(selected);
         CompanySettingsForm location=settings.get();
-        CompanyLocationForm locationForm=new CompanyLocationForm("",location.serviceRadiusKm());
+        CompanyLocationForm locationForm=new CompanyLocationForm(location.companyAddress(), "", location.serviceRadiusKm());
         model.addAttribute("settingsForm",locationForm);
         model.addAttribute("delaySettingsForm", new BookingDelaySettingsForm(delaySettings.get().stream()
                 .map(tier -> new BookingDelayTierForm(tier.minDelayMinutes(), tier.maxDelayMinutes(), tier.discountPercent()))
