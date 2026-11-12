@@ -39,12 +39,11 @@ public class StaffAvailabilityServiceImpl implements StaffAvailabilityService {
 
     @Override
     public AvailabilityFormRules formRules(List<Integer> serviceDurations, java.time.LocalDateTime currentTime) {
-        if (serviceDurations == null || serviceDurations.isEmpty() || currentTime == null) {
-            throw new IllegalArgumentException("Cần thời lượng dịch vụ và giờ hiện tại để dựng biểu mẫu.");
+        if (currentTime == null) {
+            currentTime = java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
         }
-        int minimumDuration = serviceDurations.stream().filter(java.util.Objects::nonNull)
-                .mapToInt(Integer::intValue).min().orElseThrow(() ->
-                        new IllegalArgumentException("Không có thời lượng dịch vụ hợp lệ."));
+        List<Integer> validDurations = serviceDurations != null ? serviceDurations.stream().filter(java.util.Objects::nonNull).toList() : List.of();
+        int minimumDuration = validDurations.isEmpty() ? 60 : validDurations.stream().mapToInt(Integer::intValue).min().orElse(60);
         java.time.LocalDateTime earliestToday = currentTime.plusMinutes(120);
         int minutes = earliestToday.getHour() * 60 + earliestToday.getMinute();
         int firstAvailableMinute = ((minutes + 14) / 15) * 15;

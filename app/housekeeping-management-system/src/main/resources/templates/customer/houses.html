@@ -84,14 +84,13 @@
 
         <!-- Add / Edit Form Column -->
         <section class="col-lg-5" aria-labelledby="house-form-title">
-          <details class="details-disclosure house-form-details" th:attr="open=${editHouseId != null or #lists.isEmpty(houses) or #fields.hasErrors('${houseForm.*}') ? 'open' : null}">
-            <summary class="details-summary surface p-3 mb-2 d-flex align-items-center justify-content-between">
-              <span class="fw-semibold" id="house-form-title" th:text="${editHouseId == null ? '+ Thêm địa chỉ mới' : '✎ Cập nhật địa chỉ'}">Thêm địa chỉ nhà</span>
-              <svg th:replace="~{fragments/icons :: chevron-down}"></svg>
-            </summary>
-            <div class="surface p-4">
-              <form id="houseForm" method="post" th:object="${houseForm}"
-                    th:action="${editHouseId == null ? '/customer/houses' : '/customer/houses/' + editHouseId}">
+          <div class="surface p-4 border rounded-3 shadow-sm">
+            <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+              <h2 class="h5 mb-0 fw-semibold" id="house-form-title" th:text="${editHouseId == null ? '+ Thêm địa chỉ mới' : '✎ Cập nhật địa chỉ'}">Thêm địa chỉ nhà</h2>
+              <a th:if="${editHouseId != null}" th:href="@{/customer/houses}" class="btn btn-sm btn-outline-secondary">Hủy sửa</a>
+            </div>
+            <form id="houseForm" method="post" th:object="${houseForm}"
+                  th:action="${editHouseId == null ? '/customer/houses' : '/customer/houses/' + editHouseId}">
                 <div class="row g-3">
                   <div class="col-12">
                     <label class="form-label" for="recipientName">Họ và tên người nhận</label>
@@ -158,7 +157,6 @@
                 </div>
               </form>
             </div>
-          </details>
         </section>
       </div>
     </main>

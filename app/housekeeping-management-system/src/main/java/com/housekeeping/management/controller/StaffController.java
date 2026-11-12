@@ -259,7 +259,8 @@ public class StaffController {
         model.addAttribute("staffNextWeek",selected.plusWeeks(1));
         model.addAttribute("staffCanNavigateNext",!selected.plusWeeks(1).isAfter(currentWeek.plusWeeks(52)));
         model.addAttribute("staffWeekReadOnly",selected.isBefore(currentWeek));
-        var formRules = availability.formRules(query.services().stream().map(card -> card.duration()).toList(),
+        List<Integer> serviceDurations = query.services().stream().map(card -> card.duration()).toList();
+        var formRules = availability.formRules(serviceDurations.isEmpty() ? List.of(60) : serviceDurations,
                 LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh")));
         model.addAttribute("minimumServiceDuration",formRules.minimumServiceDuration());
         List<StaffAvailabilityWeekDay> days=new java.util.ArrayList<>();

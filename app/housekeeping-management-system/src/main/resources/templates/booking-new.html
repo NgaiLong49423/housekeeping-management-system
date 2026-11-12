@@ -127,8 +127,8 @@
                     <input class="form-check-input" type="radio" id="pref-staff" name="bookingPreference" value="staff">
                     <span class="booking-pref-card-body">
                       <span class="booking-pref-card-title">
-                        <svg th:replace="~{fragments/icons :: heart}"></svg>
-                        <span>Nhân viên yêu thích</span>
+                        <svg th:replace="~{fragments/icons :: user}"></svg>
+                        <span>Chọn nhân viên</span>
                       </span>
                       <span class="booking-pref-card-desc">Ưu tiên người quen phục vụ, xem các ngày người đó còn trống ca.</span>
                     </span>
@@ -144,32 +144,20 @@
                     <span class="small text-secondary">Nhấp thẻ bên dưới hoặc chọn trong danh sách</span>
                   </div>
                   <select class="form-select" id="preferredStaffId" data-preferred-staff-select>
-                    <option value="">Chọn nhân viên yêu thích để xem lịch làm</option>
-                    <option th:each="person : ${staff}" th:if="${person.favorite}" th:value="${person.id}"
-                            th:text="('★ ' + ${ui.label(person.name)} + ' · ' + (${person.staffType == 'FULL_TIME' ? 'Toàn thời gian' : 'Bán thời gian'}))"
+                    <option value="">-- Chọn nhân viên để xem lịch làm --</option>
+                    <option th:each="person : ${staff}" th:value="${person.id}"
+                            th:text="(${person.favorite ? '★ ' : ''} + ${ui.label(person.name)} + ' · ' + (${person.staffType == 'FULL_TIME' ? 'Toàn thời gian' : 'Bán thời gian'}) + (${person.favorite ? ' (Yêu thích)' : ''}))"
                             th:data-staff-type="${person.staffType}"
                             th:data-favorite="${person.favorite}">Nhân viên</option>
                   </select>
 
-                  <!-- Thông báo khi chưa có nhân viên yêu thích nào -->
-                  <div th:if="${staff == null or !#lists.contains(staff.![favorite], true)}" class="alert alert-light border d-flex align-items-center justify-content-between p-3 mt-3 rounded-3">
-                    <div class="d-flex align-items-center gap-2">
-                      <span class="text-danger fs-5">♡</span>
-                      <div>
-                        <div class="fw-semibold text-dark">Bạn chưa lưu nhân viên yêu thích nào.</div>
-                        <div class="small text-secondary">Hãy chọn chế độ <strong>Ngày & Giờ thuận tiện</strong> để hệ thống tự xếp nhân viên, hoặc khám phá hồ sơ nhân viên để thả tim.</div>
-                      </div>
-                    </div>
-                    <a th:href="@{/customer/staff}" class="btn btn-sm btn-outline-primary ms-3 text-nowrap">Khám phá nhân viên</a>
-                  </div>
-
-                  <!-- Visual Staff Picker Cards (Chỉ hiển thị nhân viên yêu thích) -->
-                  <div class="booking-staff-cards-grid mt-3" data-staff-cards-grid th:if="${staff != null and #lists.contains(staff.![favorite], true)}">
-                    <div class="booking-staff-card" th:each="person : ${staff}" th:if="${person.favorite}" th:data-staff-card-id="${person.id}" role="button" tabindex="0">
+                  <!-- Visual Staff Picker Cards (Hiển thị tất cả nhân viên khả dụng) -->
+                  <div class="booking-staff-cards-grid mt-3" data-staff-cards-grid th:if="${staff != null and !#lists.isEmpty(staff)}">
+                    <div class="booking-staff-card" th:each="person : ${staff}" th:data-staff-card-id="${person.id}" role="button" tabindex="0">
                       <div class="booking-staff-avatar-box">
                         <img th:if="${person.avatarUrl != null and !person.avatarUrl.isBlank()}" th:src="${person.avatarUrl}" th:alt="${person.name}" class="booking-staff-avatar-img" />
                         <span th:unless="${person.avatarUrl != null and !person.avatarUrl.isBlank()}" class="booking-staff-avatar-text" th:text="${#strings.substring(person.name, 0, 1)}">NV</span>
-                        <span class="booking-staff-fav-badge" title="Đã thêm vào danh sách yêu thích">
+                        <span th:if="${person.favorite}" class="booking-staff-fav-badge" title="Đã thêm vào danh sách yêu thích">
                           <svg class="ui-icon" width="11" height="11" viewBox="0 0 24 24" fill="#c83a3a" stroke="#c83a3a"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
                         </span>
                       </div>
