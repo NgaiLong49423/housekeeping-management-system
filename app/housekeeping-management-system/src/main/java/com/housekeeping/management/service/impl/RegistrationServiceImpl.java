@@ -3,8 +3,8 @@ package com.housekeeping.management.service.impl;
 import com.housekeeping.management.service.GlobalEmailUniquenessService;
 import com.housekeeping.management.service.RegistrationService;
 
-import com.housekeeping.management.domain.UserRole;
-import com.housekeeping.management.domain.UserStatus;
+import com.housekeeping.management.enums.UserRole;
+import com.housekeeping.management.enums.UserStatus;
 import com.housekeeping.management.dto.request.PortalForms.CustomerRegistrationForm;
 import com.housekeeping.management.dto.entity.UserDTO;
 import com.housekeeping.management.entity.User;

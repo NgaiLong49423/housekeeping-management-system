@@ -1,6 +1,6 @@
 package com.housekeeping.management.dto.entity;
 
-import com.housekeeping.management.domain.LeaveStatus;
+import com.housekeeping.management.enums.LeaveStatus;
 import com.housekeeping.management.entity.StaffLeave;
 import java.time.LocalDate;
 import java.time.LocalDateTime;

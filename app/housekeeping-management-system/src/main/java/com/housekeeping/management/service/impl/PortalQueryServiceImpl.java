@@ -2,10 +2,10 @@ package com.housekeeping.management.service.impl;
 
 import static com.housekeeping.management.dto.response.PortalViews.*;
 
-import com.housekeeping.management.domain.BookingStatus;
-import com.housekeeping.management.domain.FeedbackTopic;
-import com.housekeeping.management.domain.PaymentStatus;
-import com.housekeeping.management.domain.UserStatus;
+import com.housekeeping.management.enums.BookingStatus;
+import com.housekeeping.management.enums.FeedbackTopic;
+import com.housekeeping.management.enums.PaymentStatus;
+import com.housekeeping.management.enums.UserStatus;
 import com.housekeeping.management.entity.*;
 import com.housekeeping.management.repository.*;
 import com.housekeeping.management.service.FeedbackService;

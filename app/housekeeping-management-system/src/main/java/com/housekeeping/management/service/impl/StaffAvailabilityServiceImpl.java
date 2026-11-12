@@ -5,7 +5,7 @@ import com.housekeeping.management.service.StaffManagementService;
 import com.housekeeping.management.service.CompanyOperatingHoursService;
 import com.housekeeping.management.service.BookingQueryService;
 
-import com.housekeeping.management.domain.StaffType;
+import com.housekeeping.management.enums.StaffType;
 import com.housekeeping.management.dto.request.PortalForms.AvailabilityForm;
 import com.housekeeping.management.dto.request.PortalForms.AvailabilityBatchForm;
 import com.housekeeping.management.dto.request.PortalForms.OperatingHoursForm;

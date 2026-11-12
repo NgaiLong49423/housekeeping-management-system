@@ -1,4 +1,4 @@
-package com.housekeeping.management.domain;
+package com.housekeeping.management.dto;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;

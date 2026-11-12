@@ -4,10 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.housekeeping.management.SqlServerIntegrationTest;
-import com.housekeeping.management.domain.StaffType;
-import com.housekeeping.management.domain.UserRole;
-import com.housekeeping.management.domain.UserStatus;
-import com.housekeeping.management.domain.LeaveStatus;
+import com.housekeeping.management.enums.StaffType;
+import com.housekeeping.management.enums.UserRole;
+import com.housekeeping.management.enums.UserStatus;
+import com.housekeeping.management.enums.LeaveStatus;
 import com.housekeeping.management.dto.request.PortalForms.LeaveRequestForm;
 import com.housekeeping.management.entity.Services;
 import com.housekeeping.management.entity.House;

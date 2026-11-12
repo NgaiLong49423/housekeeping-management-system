@@ -1,6 +1,6 @@
 package com.housekeeping.management.dto.entity;
 
-import com.housekeeping.management.domain.HouseAddressType;
+import com.housekeeping.management.enums.HouseAddressType;
 import com.housekeeping.management.entity.House;
 import java.math.BigDecimal;
 

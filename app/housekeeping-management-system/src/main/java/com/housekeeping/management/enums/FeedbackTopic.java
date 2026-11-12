@@ -1,4 +1,4 @@
-package com.housekeeping.management.domain;
+package com.housekeeping.management.enums;
 
 import java.util.Arrays;
 import java.util.List;

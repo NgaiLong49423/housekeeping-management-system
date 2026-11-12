@@ -1,6 +1,6 @@
 package com.housekeeping.management.entity;
 
-import com.housekeeping.management.domain.StaffType;
+import com.housekeeping.management.enums.StaffType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

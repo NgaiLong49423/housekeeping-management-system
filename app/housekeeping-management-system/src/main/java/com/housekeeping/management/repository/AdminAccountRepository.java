@@ -1,6 +1,6 @@
 package com.housekeeping.management.repository;
 
-import com.housekeeping.management.domain.UserRole;
+import com.housekeeping.management.enums.UserRole;
 import com.housekeeping.management.entity.User;
 import java.util.List;
 import java.util.Optional;

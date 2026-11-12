@@ -1,7 +1,7 @@
 package com.housekeeping.management.entity;
 
-import com.housekeeping.management.domain.UserRole;
-import com.housekeeping.management.domain.UserStatus;
+import com.housekeeping.management.enums.UserRole;
+import com.housekeeping.management.enums.UserStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

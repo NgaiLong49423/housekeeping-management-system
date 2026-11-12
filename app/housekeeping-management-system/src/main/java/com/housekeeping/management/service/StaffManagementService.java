@@ -1,7 +1,7 @@
 package com.housekeeping.management.service;
 
-import com.housekeeping.management.domain.UserRole;
-import com.housekeeping.management.domain.UserStatus;
+import com.housekeeping.management.enums.UserRole;
+import com.housekeeping.management.enums.UserStatus;
 import com.housekeeping.management.dto.request.PortalForms.StaffCreateForm;
 import com.housekeeping.management.dto.request.PortalForms.StaffUpdateForm;
 import com.housekeeping.management.entity.Staff;

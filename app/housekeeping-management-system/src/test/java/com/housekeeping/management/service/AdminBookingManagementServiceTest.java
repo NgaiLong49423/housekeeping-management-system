@@ -6,9 +6,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.housekeeping.management.domain.StaffType;
-import com.housekeeping.management.domain.UserRole;
-import com.housekeeping.management.domain.UserStatus;
+import com.housekeeping.management.enums.StaffType;
+import com.housekeeping.management.enums.UserRole;
+import com.housekeeping.management.enums.UserStatus;
 import com.housekeeping.management.entity.Staff;
 import com.housekeeping.management.entity.User;
 import com.housekeeping.management.entity.House;
@@ -70,7 +70,7 @@ class AdminBookingManagementServiceTest {
                 start.plusMinutes(10), null, null, null, null, null);
         when(bookings.lockBookingWorkflow(51L)).thenReturn(Optional.of(workflow));
         when(compensationSettings.get()).thenReturn(java.util.List.of(
-                new com.housekeeping.management.domain.BookingDelayCompensation.Tier(1, 15, 5)));
+                new com.housekeeping.management.dto.BookingDelayCompensation.Tier(1, 15, 5)));
         when(bookings.verifyDisputedArrival(org.mockito.ArgumentMatchers.eq(51L), org.mockito.ArgumentMatchers.eq(99L),
                 org.mockito.ArgumentMatchers.eq(actualArrival), org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.eq("Đã đối chiếu"), org.mockito.ArgumentMatchers.anyInt(),

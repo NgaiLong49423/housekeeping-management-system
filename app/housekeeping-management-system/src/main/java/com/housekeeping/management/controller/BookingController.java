@@ -9,7 +9,7 @@ import com.housekeeping.management.dto.response.PortalViews.BookingCard;
 import com.housekeeping.management.dto.response.PortalViews.DetailCard;
 import com.housekeeping.management.dto.response.BookingAvailabilityOptions;
 import com.housekeeping.management.dto.response.BookingAvailabilityDates;
-import com.housekeeping.management.domain.FeedbackTopic;
+import com.housekeeping.management.enums.FeedbackTopic;
 import com.housekeeping.management.entity.House;
 import com.housekeeping.management.service.BookingReservationService;
 import com.housekeeping.management.service.CustomerFeedbackSubmissionService;

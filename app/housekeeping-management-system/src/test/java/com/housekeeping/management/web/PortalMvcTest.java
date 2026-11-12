@@ -115,9 +115,9 @@ class PortalMvcTest {
         when(accountAuthorization.isActiveAdmin(5L)).thenReturn(true);
         when(adminAccounts.findAll(5L)).thenReturn(List.of());
         when(delayCompensationSettings.get()).thenReturn(List.of(
-                new com.housekeeping.management.domain.BookingDelayCompensation.Tier(1, 15, 5),
-                new com.housekeeping.management.domain.BookingDelayCompensation.Tier(16, 30, 10),
-                new com.housekeeping.management.domain.BookingDelayCompensation.Tier(31, null, 20)));
+                new com.housekeeping.management.dto.BookingDelayCompensation.Tier(1, 15, 5),
+                new com.housekeeping.management.dto.BookingDelayCompensation.Tier(16, 30, 10),
+                new com.housekeeping.management.dto.BookingDelayCompensation.Tier(31, null, 20)));
         when(query.services()).thenReturn(List.of(
             new ServiceCard(10L, "Dọn dẹp nhà theo giờ", "Làm sạch không gian sống, chăm chút từng góc nhỏ.", 120, new BigDecimal("140000"), true),
             new ServiceCard(11L, "Tổng vệ sinh nhà cửa", "Làm sạch kỹ lưỡng để tổ ấm thêm trong lành.", 180, new BigDecimal("350000"), true),
@@ -1038,7 +1038,7 @@ class PortalMvcTest {
         mvc.perform(post("/admin/leaves/21/approve").with(user(admin)).with(csrf()))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/admin/leaves"));
-        verify(leaveManagement).reviewLeaveRequest(21L, admin.getUserId(), com.housekeeping.management.domain.LeaveStatus.APPROVED);
+        verify(leaveManagement).reviewLeaveRequest(21L, admin.getUserId(), com.housekeeping.management.enums.LeaveStatus.APPROVED);
 
         mvc.perform(post("/admin/leaves/21/reject").with(user(staff)).with(csrf()))
                 .andExpect(status().isForbidden());

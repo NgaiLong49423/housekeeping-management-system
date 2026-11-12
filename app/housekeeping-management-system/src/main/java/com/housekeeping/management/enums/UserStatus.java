@@ -1,4 +1,4 @@
-package com.housekeeping.management.domain;
+package com.housekeeping.management.enums;
 
 public enum UserStatus {
     ACTIVE,

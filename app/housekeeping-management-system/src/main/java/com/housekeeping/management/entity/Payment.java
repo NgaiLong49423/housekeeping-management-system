@@ -1,7 +1,7 @@
 package com.housekeeping.management.entity;
 
-import com.housekeeping.management.domain.PaymentMethod;
-import com.housekeeping.management.domain.PaymentStatus;
+import com.housekeeping.management.enums.PaymentMethod;
+import com.housekeeping.management.enums.PaymentStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

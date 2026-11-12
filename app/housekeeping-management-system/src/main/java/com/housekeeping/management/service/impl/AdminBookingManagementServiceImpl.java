@@ -7,9 +7,9 @@ import com.housekeeping.management.service.HouseService;
 import com.housekeeping.management.service.StaffManagementService;
 import com.housekeeping.management.service.CompanySettingsService;
 import com.housekeeping.management.service.BookingDelayCompensationSettingsService;
-import com.housekeeping.management.domain.BookingDelayCompensation;
+import com.housekeeping.management.dto.BookingDelayCompensation;
 
-import com.housekeeping.management.domain.StaffType;
+import com.housekeeping.management.enums.StaffType;
 import com.housekeeping.management.entity.Staff;
 import com.housekeeping.management.repository.BookingPersistenceRepository;
 import java.time.LocalDateTime;

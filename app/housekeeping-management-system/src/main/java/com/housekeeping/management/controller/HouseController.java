@@ -1,7 +1,7 @@
 package com.housekeeping.management.controller;
 
 import com.housekeeping.management.dto.request.PortalForms.HouseForm;
-import com.housekeeping.management.domain.HouseAddressType;
+import com.housekeeping.management.enums.HouseAddressType;
 import com.housekeeping.management.service.HouseService;
 import com.housekeeping.management.web.PortalAdvice;
 import com.housekeeping.management.web.PortalUser;

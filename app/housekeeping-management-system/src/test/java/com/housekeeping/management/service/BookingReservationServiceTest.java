@@ -8,9 +8,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.housekeeping.management.domain.StaffType;
-import com.housekeeping.management.domain.UserRole;
-import com.housekeeping.management.domain.UserStatus;
+import com.housekeeping.management.enums.StaffType;
+import com.housekeeping.management.enums.UserRole;
+import com.housekeeping.management.enums.UserStatus;
 import com.housekeeping.management.entity.House;
 import com.housekeeping.management.entity.Services;
 import com.housekeeping.management.entity.Staff;

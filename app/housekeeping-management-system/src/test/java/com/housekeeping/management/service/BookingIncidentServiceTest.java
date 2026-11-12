@@ -140,9 +140,9 @@ class BookingIncidentServiceTest {
     private static BookingIncidentService incidentService(BookingPersistenceRepository bookings) {
         var settings = mock(BookingDelayCompensationSettingsService.class);
         when(settings.get()).thenReturn(java.util.List.of(
-                new com.housekeeping.management.domain.BookingDelayCompensation.Tier(1, 15, 5),
-                new com.housekeeping.management.domain.BookingDelayCompensation.Tier(16, 30, 10),
-                new com.housekeeping.management.domain.BookingDelayCompensation.Tier(31, null, 20)));
+                new com.housekeeping.management.dto.BookingDelayCompensation.Tier(1, 15, 5),
+                new com.housekeeping.management.dto.BookingDelayCompensation.Tier(16, 30, 10),
+                new com.housekeeping.management.dto.BookingDelayCompensation.Tier(31, null, 20)));
         return new com.housekeeping.management.service.impl.BookingIncidentServiceImpl(bookings, settings);
     }
 }

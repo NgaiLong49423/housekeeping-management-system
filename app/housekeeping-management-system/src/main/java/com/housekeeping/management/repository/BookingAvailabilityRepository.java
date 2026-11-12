@@ -1,7 +1,7 @@
 package com.housekeeping.management.repository;
 
-import com.housekeeping.management.domain.BookingStatus;
-import com.housekeeping.management.domain.LeaveStatus;
+import com.housekeeping.management.enums.BookingStatus;
+import com.housekeeping.management.enums.LeaveStatus;
 import com.housekeeping.management.entity.Booking;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -12,7 +12,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface BookingAvailabilityRepository extends JpaRepository<Booking, Long> {
-    interface StaffRow { Long getStaffId(); String getFullName(); com.housekeeping.management.domain.StaffType getStaffType(); }
+    interface StaffRow { Long getStaffId(); String getFullName(); com.housekeeping.management.enums.StaffType getStaffType(); }
     interface IntervalRow { Long getStaffId(); LocalTime getStartTime(); LocalTime getEndTime(); }
     interface DatedIntervalRow { LocalDate getWorkDate(); Long getStaffId(); LocalTime getStartTime(); LocalTime getEndTime(); }
     interface BookingIntervalRow { Long getStaffId(); LocalDateTime getStartTime(); LocalDateTime getEndTime(); }
@@ -20,7 +20,7 @@ public interface BookingAvailabilityRepository extends JpaRepository<Booking, Lo
     interface LeaveRangeRow { Long getStaffId(); LocalDate getStartDate(); LocalDate getEndDate(); }
 
     @Query("select staff.staffId as staffId, user.fullName as fullName, staff.staffType as staffType "
-            + "from Staff staff join staff.user user where user.status=com.housekeeping.management.domain.UserStatus.ACTIVE "
+            + "from Staff staff join staff.user user where user.status=com.housekeeping.management.enums.UserStatus.ACTIVE "
             + "order by user.fullName, staff.staffId")
     List<StaffRow> findActiveStaffRows();
 

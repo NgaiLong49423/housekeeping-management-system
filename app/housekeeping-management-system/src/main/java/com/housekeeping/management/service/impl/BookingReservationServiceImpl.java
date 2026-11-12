@@ -8,7 +8,7 @@ import com.housekeeping.management.service.ServiceManagementService;
 import com.housekeeping.management.service.StaffManagementService;
 import com.housekeeping.management.service.CompanySettingsService;
 
-import com.housekeeping.management.domain.StaffType;
+import com.housekeeping.management.enums.StaffType;
 import com.housekeeping.management.entity.Services;
 import com.housekeeping.management.entity.House;
 import com.housekeeping.management.entity.Staff;

@@ -1,6 +1,6 @@
 package com.housekeeping.management.entity;
 
-import com.housekeeping.management.domain.BookingStatus;
+import com.housekeeping.management.enums.BookingStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

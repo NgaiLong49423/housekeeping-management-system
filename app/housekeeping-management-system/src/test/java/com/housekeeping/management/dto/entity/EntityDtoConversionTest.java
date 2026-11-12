@@ -2,15 +2,15 @@ package com.housekeeping.management.dto.entity;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.housekeeping.management.domain.BookingStatus;
-import com.housekeeping.management.domain.FeedbackStatus;
-import com.housekeeping.management.domain.HouseAddressType;
-import com.housekeeping.management.domain.LeaveStatus;
-import com.housekeeping.management.domain.PaymentMethod;
-import com.housekeeping.management.domain.PaymentStatus;
-import com.housekeeping.management.domain.StaffType;
-import com.housekeeping.management.domain.UserRole;
-import com.housekeeping.management.domain.UserStatus;
+import com.housekeeping.management.enums.BookingStatus;
+import com.housekeeping.management.enums.FeedbackStatus;
+import com.housekeeping.management.enums.HouseAddressType;
+import com.housekeeping.management.enums.LeaveStatus;
+import com.housekeeping.management.enums.PaymentMethod;
+import com.housekeeping.management.enums.PaymentStatus;
+import com.housekeeping.management.enums.StaffType;
+import com.housekeeping.management.enums.UserRole;
+import com.housekeeping.management.enums.UserStatus;
 import com.housekeeping.management.entity.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
