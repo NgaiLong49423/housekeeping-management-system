@@ -45,13 +45,22 @@ Trong file `.env` ở thư mục dự án hoặc module, đặt thông tin kết
 - `DB_PASSWORD`: mật khẩu SQL Server
 - `PAYOUT_ENCRYPTION_KEY`: chuỗi Base64 32 byte (AES-256) dùng để mã hóa thông tin tài khoản chuyển khoản bồi thường.
 
-## Dữ liệu mẫu (Sample Data) & UTF-8
+## Dữ liệu mẫu (Sample Data) & Khôi phục nhanh
 
-Khi chạy script dữ liệu mẫu `database/sample-data.sql`, để tránh lỗi hiển thị font tiếng Việt (Mojibake), hãy sử dụng cờ `-f 65001` khi dùng `sqlcmd`:
+Có 2 cách nạp dữ liệu mẫu sạch và đồng bộ:
+
+### Cách 1: Chạy file script SQL (Khuyên dùng)
+Để tránh lỗi hiển thị font tiếng Việt (Mojibake), hãy sử dụng cờ `-f 65001` khi dùng `sqlcmd`:
 ```powershell
 sqlcmd -S localhost -d Housekeeping_Database -U hsf302_housekeeping_local -P "692E9A74A018766638F530029A13B142350FE42298FD55D9aA1!" -f 65001 -i database\sample-data.sql
 ```
 Hoặc mở và thực thi trực tiếp bằng SSMS (SQL Server Management Studio) / DBeaver / Azure Data Studio.
+
+### Cách 2: Khôi phục trực tiếp từ file Backup (`.bak`)
+File backup nguyên bản chuẩn `database/Housekeeping_Database.bak` (6 MB) đã được đóng gói sẵn. Có thể restore 1-click qua SSMS hoặc lệnh:
+```powershell
+sqlcmd -S localhost -d master -E -Q "RESTORE DATABASE Housekeeping_Database FROM DISK = '$(Get-Location)\database\Housekeeping_Database.bak' WITH REPLACE;"
+```
 
 ## Kiểm chứng
 

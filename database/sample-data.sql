@@ -4,6 +4,8 @@
 -- All accounts use Password: Password123!
 -- Safe, idempotent execution (IF NOT EXISTS)
 -- ====================================================================================
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
 SET XACT_ABORT ON;
 BEGIN TRANSACTION;
 
@@ -155,8 +157,18 @@ IF @CustId IS NOT NULL AND NOT EXISTS (SELECT 1 FROM dbo.Houses WHERE customer_i
 BEGIN
     INSERT INTO dbo.Houses (customer_id, house_name, address, latitude, longitude, address_note, is_deleted, recipient_name, recipient_phone, province_city, ward_commune, address_detail, address_type, is_default)
     VALUES
-    (@CustId, N'Nhà riêng VinHomes', N'Bs16 VinHome Grand Park, Phường Long Bình, TP. Thủ Đức, TP. Hồ Chí Minh', 10.8456, 106.8422, N'Căn hộ tầng 12, bấm chuông 1205', 0, N'Cao Kỳ Nguyễn Hà', N'0787523002', N'TP. Hồ Chí Minh', N'Phường Long Bình', N'Bs16 VinHome Grand Park', N'APARTMENT', 1),
-    (@CustId, N'Nhà riêng Quy Nhơn', N'01 Đường Ngô Mây, Phường Ngô Mây, TP. Quy Nhơn, Tỉnh Bình Định', 13.7654, 109.2234, N'Cổng màu xanh', 0, N'Cao Kỳ Nguyễn Hà', N'0787523002', N'Tỉnh Bình Định', N'Phường Ngô Mây', N'01 Đường Ngô Mây', N'HOUSE', 0);
+    (@CustId, N'Nhà riêng VinHomes', N'Bs16 VinHome Grand Park, Phường Long Bình, TP. Thủ Đức, TP. Hồ Chí Minh', 10.8456, 106.8422, N'Căn hộ tầng 12, bấm chuông 1205', 0, N'Cao Kỳ Nguyễn Hà', N'0787523002', N'TP. Hồ Chí Minh', N'Phường Long Bình', N'Bs16 VinHome Grand Park', N'HOME', 1),
+    (@CustId, N'Nhà riêng Quy Nhơn', N'01 Đường Ngô Mây, Phường Ngô Mây, TP. Quy Nhơn, Tỉnh Bình Định', 13.7654, 109.2234, N'Cổng màu xanh', 0, N'Cao Kỳ Nguyễn Hà', N'0787523002', N'Tỉnh Bình Định', N'Phường Ngô Mây', N'01 Đường Ngô Mây', N'HOME', 0);
+END;
+
+DECLARE @CustPersonalId BIGINT;
+SELECT @CustPersonalId = user_id FROM dbo.Users WHERE email = N'nguyenhacaoky@gmail.com';
+IF @CustPersonalId IS NOT NULL AND NOT EXISTS (SELECT 1 FROM dbo.Houses WHERE customer_id = @CustPersonalId)
+BEGIN
+    INSERT INTO dbo.Houses (customer_id, house_name, address, latitude, longitude, address_note, is_deleted, recipient_name, recipient_phone, province_city, ward_commune, address_detail, address_type, is_default)
+    VALUES
+    (@CustPersonalId, N'Nhà riêng VinHomes', N'Bs16 VinHome Grand Park, Phường Long Bình, TP. Thủ Đức, TP. Hồ Chí Minh', 10.8456, 106.8422, N'Căn hộ tầng 12, bấm chuông 1205', 0, N'Cao Kỳ Nguyễn Hà', N'0787523002', N'TP. Hồ Chí Minh', N'Phường Long Bình', N'Bs16 VinHome Grand Park', N'HOME', 1),
+    (@CustPersonalId, N'Nhà riêng Quy Nhơn', N'01 Đường Ngô Mây, Phường Ngô Mây, TP. Quy Nhơn, Tỉnh Bình Định', 13.7654, 109.2234, N'Cổng màu xanh', 0, N'Cao Kỳ Nguyễn Hà', N'0787523002', N'Tỉnh Bình Định', N'Phường Ngô Mây', N'01 Đường Ngô Mây', N'HOME', 0);
 END;
 
 -- 7. SEED NHÂN VIÊN YÊU THÍCH CHO CUSTOMER (Staff_Follows)
@@ -171,6 +183,19 @@ BEGIN
 
     IF @NamStaffId IS NOT NULL AND NOT EXISTS (SELECT 1 FROM dbo.Staff_Follows WHERE customer_id = @CustId AND staff_id = @NamStaffId)
         INSERT INTO dbo.Staff_Follows (customer_id, staff_id, created_at) VALUES (@CustId, @NamStaffId, SYSDATETIME());
+END;
+
+IF @CustPersonalId IS NOT NULL
+BEGIN
+    DECLARE @MaiStaffId2 BIGINT, @NamStaffId2 BIGINT;
+    SELECT @MaiStaffId2 = staff_id FROM dbo.Staff WHERE user_id = (SELECT user_id FROM dbo.Users WHERE email = N'mai.nguyen@gonnha.vn');
+    SELECT @NamStaffId2 = staff_id FROM dbo.Staff WHERE user_id = (SELECT user_id FROM dbo.Users WHERE email = N'nam.tran@gonnha.vn');
+
+    IF @MaiStaffId2 IS NOT NULL AND NOT EXISTS (SELECT 1 FROM dbo.Staff_Follows WHERE customer_id = @CustPersonalId AND staff_id = @MaiStaffId2)
+        INSERT INTO dbo.Staff_Follows (customer_id, staff_id, created_at) VALUES (@CustPersonalId, @MaiStaffId2, SYSDATETIME());
+
+    IF @NamStaffId2 IS NOT NULL AND NOT EXISTS (SELECT 1 FROM dbo.Staff_Follows WHERE customer_id = @CustPersonalId AND staff_id = @NamStaffId2)
+        INSERT INTO dbo.Staff_Follows (customer_id, staff_id, created_at) VALUES (@CustPersonalId, @NamStaffId2, SYSDATETIME());
 END;
 
 -- 8. SEED LỊCH SẴN SÀNG CHO TẤT CẢ NHÂN VIÊN (30 ngày tới)
@@ -201,6 +226,41 @@ BEGIN
     SELECT u.user_id, 0.00, SYSUTCDATETIME()
     FROM dbo.Users u
     WHERE NOT EXISTS (SELECT 1 FROM dbo.UserWallets w WHERE w.user_id = u.user_id);
+END;
+
+-- 10. SEED LỊCH ĐẶT MẪU (Bookings & Booking_Details) NẾU CHƯA CÓ
+IF NOT EXISTS (SELECT 1 FROM dbo.Bookings)
+BEGIN
+    DECLARE @SampleCust BIGINT = (SELECT TOP 1 user_id FROM dbo.Users WHERE email IN (N'customer@gonnha.vn', N'nguyenhacaoky@gmail.com'));
+    DECLARE @SampleHouse BIGINT = (SELECT TOP 1 house_id FROM dbo.Houses WHERE customer_id = @SampleCust);
+    DECLARE @SampleStaff1 BIGINT = (SELECT TOP 1 staff_id FROM dbo.Staff s JOIN dbo.Users u ON s.user_id = u.user_id WHERE u.email = N'cuong.le@gonnha.vn');
+    DECLARE @SampleStaff2 BIGINT = (SELECT TOP 1 staff_id FROM dbo.Staff s JOIN dbo.Users u ON s.user_id = u.user_id WHERE u.email = N'mai.nguyen@gonnha.vn');
+    DECLARE @ServiceDonNha BIGINT = (SELECT TOP 1 service_id FROM dbo.Services WHERE service_name = N'Dọn dẹp nhà cơ bản');
+    DECLARE @ServiceBep BIGINT = (SELECT TOP 1 service_id FROM dbo.Services WHERE service_name = N'Vệ sinh nhà bếp & thiết bị');
+    DECLARE @ServiceSuaChua BIGINT = (SELECT TOP 1 service_id FROM dbo.Services WHERE service_name = N'Vệ sinh sau sửa chữa');
+
+    IF @SampleCust IS NOT NULL AND @SampleHouse IS NOT NULL AND @ServiceDonNha IS NOT NULL
+    BEGIN
+        -- Đơn 1: Đang chờ thanh toán (Awaiting payment)
+        INSERT INTO dbo.Bookings (customer_id, staff_id, original_staff_id, house_id, address_snapshot, latitude_snapshot, longitude_snapshot, address_note_snapshot, start_time, end_time, total_duration_minutes, total_amount, area_note, status, created_at, reschedule_count)
+        VALUES (@SampleCust, @SampleStaff1, @SampleStaff1, @SampleHouse, N'Bs16 VinHome Grand Park, Phường Long Bình, TP. Thủ Đức, TP. Hồ Chí Minh', 10.8456, 106.8422, N'Căn hộ tầng 12, bấm chuông 1205', DATEADD(day, 1, CAST(SYSDATETIME() AS DATETIME2)), DATEADD(minute, 120, DATEADD(day, 1, CAST(SYSDATETIME() AS DATETIME2))), 120, 150000.00, N'Dọn dẹp phòng khách', 'AWAITING_PAYMENT', SYSDATETIME(), 0);
+
+        DECLARE @Bk1 BIGINT = SCOPE_IDENTITY();
+        INSERT INTO dbo.Booking_Details (booking_id, service_id, service_name_snapshot, unit_price, duration_minutes)
+        VALUES (@Bk1, @ServiceDonNha, N'Dọn dẹp nhà cơ bản', 150000.00, 120);
+
+        -- Đơn 2: Đã xác nhận (Confirmed)
+        INSERT INTO dbo.Bookings (customer_id, staff_id, original_staff_id, house_id, address_snapshot, latitude_snapshot, longitude_snapshot, address_note_snapshot, start_time, end_time, total_duration_minutes, total_amount, area_note, status, created_at, reschedule_count)
+        VALUES (@SampleCust, @SampleStaff2, @SampleStaff2, @SampleHouse, N'Bs16 VinHome Grand Park, Phường Long Bình, TP. Thủ Đức, TP. Hồ Chí Minh', 10.8456, 106.8422, N'Căn hộ tầng 12, bấm chuông 1205', DATEADD(day, 2, CAST(SYSDATETIME() AS DATETIME2)), DATEADD(minute, 330, DATEADD(day, 2, CAST(SYSDATETIME() AS DATETIME2))), 330, 470000.00, N'Lau dọn kỹ bếp và sàn', 'CONFIRMED', SYSDATETIME(), 0);
+
+        DECLARE @Bk2 BIGINT = SCOPE_IDENTITY();
+        IF @ServiceBep IS NOT NULL
+            INSERT INTO dbo.Booking_Details (booking_id, service_id, service_name_snapshot, unit_price, duration_minutes)
+            VALUES (@Bk2, @ServiceBep, N'Vệ sinh nhà bếp & thiết bị', 120000.00, 90);
+        IF @ServiceSuaChua IS NOT NULL
+            INSERT INTO dbo.Booking_Details (booking_id, service_id, service_name_snapshot, unit_price, duration_minutes)
+            VALUES (@Bk2, @ServiceSuaChua, N'Vệ sinh sau sửa chữa', 350000.00, 240);
+    END;
 END;
 
 COMMIT TRANSACTION;
