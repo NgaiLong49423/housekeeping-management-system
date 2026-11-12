@@ -5,6 +5,9 @@ import com.housekeeping.management.dto.cancellation.CancellationDto.CancelRespon
 import com.housekeeping.management.dto.cancellation.CancellationDto.PreviewResponse;
 
 public interface BookingCancellationPolicyService {
-    PreviewResponse previewCancellation(Long bookingId, Long customerId);
+    PreviewResponse previewCancellation(Long bookingId, Long customerId, String reasonCode);
+    default PreviewResponse previewCancellation(Long bookingId, Long customerId) {
+        return previewCancellation(bookingId, customerId, "OTHER");
+    }
     CancelResponse executeCancellation(Long bookingId, Long customerId, CancelRequest request);
 }

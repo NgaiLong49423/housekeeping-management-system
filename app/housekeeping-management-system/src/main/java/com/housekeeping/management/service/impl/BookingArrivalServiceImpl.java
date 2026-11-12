@@ -30,8 +30,9 @@ public class BookingArrivalServiceImpl implements BookingArrivalService {
         if (!booking.customerId().equals(customerId)) throw new org.springframework.security.access.AccessDeniedException("Lịch hẹn không thuộc tài khoản của bạn.");
         if (!"CONFIRMED".equals(booking.status())) throw new IllegalStateException("Chỉ Booking CONFIRMED mới xác nhận giờ đến.");
         if (booking.customerArrivedAt() != null) return;
+        if (booking.staffArrivedAt() == null) throw new IllegalStateException("Nhân viên chưa tự xác nhận đã đến.");
         if (bookings.confirmCustomerArrival(bookingId, customerId, now) != 1)
-            throw new IllegalStateException("Chỉ Customer của Booking CONFIRMED mới xác nhận giờ Staff khai và mỗi Booking một lần.");
+            throw new IllegalStateException("Không thể xác nhận giờ nhân viên đến. Hãy tải lại trang để kiểm tra trạng thái lịch.");
     }
 
     @Transactional

@@ -18,6 +18,8 @@ import com.housekeeping.management.service.CaseAttachmentStorageService;
 import com.housekeeping.management.service.BookingFinancialService;
 import com.housekeeping.management.service.HouseService;
 import com.housekeeping.management.service.BookingCancellationService;
+import com.housekeeping.management.service.BookingCancellationPolicyService;
+import com.housekeeping.management.dto.cancellation.CancellationDto.CancelRequest;
 import com.housekeeping.management.service.BookingArrivalService;
 import com.housekeeping.management.service.BookingIncidentService;
 import com.housekeeping.management.service.CustomerDelayReportService;
@@ -49,6 +51,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 public class BookingController {
     private final PortalQueryService query;
     private final BookingCancellationService cancellation;
+    private BookingCancellationPolicyService cancellationPolicy;
     private final BookingReservationService reservations;
     private final CustomerFeedbackSubmissionService feedbackSubmission;
     private final FeedbackCaseService feedbackCases;
@@ -78,6 +81,11 @@ public class BookingController {
         this.bookingAvailability = bookingAvailability;
         this.incidents = incidents;
         this.customerDelayReports = customerDelayReports;
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setCancellationPolicy(BookingCancellationPolicyService cancellationPolicy) {
+        this.cancellationPolicy = cancellationPolicy;
     }
 
     @PostMapping("/customer/bookings/{id}/report-staff-delay")
@@ -247,12 +255,25 @@ public class BookingController {
         OffsetDateTime now = OffsetDateTime.now(java.time.ZoneOffset.ofHours(7));
         model.addAttribute("booking", booking);
         model.addAttribute("now", now);
-        model.addAttribute("staffCanStartWork", "CONFIRMED".equals(booking.status())
+        boolean customerVerifiedArrival = booking.customerArrivedAt() != null || booking.arrivalVerifiedAt() != null;
+        boolean customerDelayReportOpen = booking.customerDelayReportedAt() != null && !customerVerifiedArrival;
+        boolean acceptedEta = "ACCEPTED".equals(booking.incidentCustomerResponse())
+                && booking.incidentExpectedArrivalAt() != null
                 && booking.staffArrivedAt() != null
-                && booking.workStartedAt() == null
-                && (booking.incidentReportedAt() == null || ("ACCEPTED".equals(booking.incidentCustomerResponse())
-                    && booking.incidentExpectedArrivalAt() != null
-                    && !booking.staffArrivedAt().isAfter(booking.incidentExpectedArrivalAt()))));
+                && !booking.staffArrivedAt().isAfter(booking.incidentExpectedArrivalAt());
+        boolean lateArrival = booking.staffArrivedAt() != null && booking.staffArrivedAt().isAfter(booking.start());
+        boolean startAllowed = !customerDelayReportOpen && (customerVerifiedArrival || acceptedEta
+                || (booking.incidentReportedAt() == null && !lateArrival));
+        model.addAttribute("staffCanStartWork", "CONFIRMED".equals(booking.status())
+                && booking.staffArrivedAt() != null && booking.workStartedAt() == null && startAllowed);
+        model.addAttribute("staffStartBlockMessage", customerDelayReportOpen
+                ? "Khách đã báo giờ đến chưa đúng. Cần khách xác nhận nhân viên đã có mặt hoặc Admin xác minh trước khi bắt đầu."
+                : booking.incidentReportedAt() != null && !customerVerifiedArrival && !acceptedEta
+                    ? "Cần khách đồng ý giờ đến trễ hoặc xác nhận nhân viên đã có mặt trước khi bắt đầu."
+                    : lateArrival
+                        && booking.incidentReportedAt() == null && !customerVerifiedArrival
+                            ? "Nhân viên đến trễ cần gửi giờ dự kiến và chờ khách đồng ý, hoặc khách xác nhận nhân viên đã có mặt."
+                            : null);
         model.addAttribute("details", details);
         model.addAttribute("bookingImages", query.bookingImages(id, user));
         if (user.isAdmin() || "CUSTOMER".equals(user.getRole())) model.addAttribute("assignableStaff", query.staff(user));
@@ -336,9 +357,22 @@ public class BookingController {
     }
 
     @PostMapping("/customer/bookings/{id}/cancel")
-    String cancel(@PathVariable Long id, @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
-        cancellation.cancelByCustomer(id, user.getAccountId());
-        flash.addFlashAttribute("success", "Đã hủy lịch hẹn và giải phóng thời gian.");
+    String cancel(@PathVariable Long id, @RequestParam(defaultValue = "OTHER") String reasonCode,
+            @RequestParam(required = false) String reasonNote,
+            @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
+        try {
+            if (cancellationPolicy != null) {
+                var result = cancellationPolicy.executeCancellation(id, user.getAccountId(), new CancelRequest(reasonCode, reasonNote));
+                flash.addFlashAttribute("success", result.message());
+            } else {
+                cancellation.cancelByCustomer(id, user.getAccountId());
+                flash.addFlashAttribute("success", "Đã hủy lịch hẹn và giải phóng thời gian.");
+            }
+        } catch (IllegalArgumentException | IllegalStateException failure) {
+            flash.addFlashAttribute("error", failure.getMessage());
+        } catch (org.springframework.security.access.AccessDeniedException failure) {
+            flash.addFlashAttribute("error", "Bạn không có quyền thao tác lịch hẹn này.");
+        }
         return "redirect:/customer/bookings/" + id;
     }
 

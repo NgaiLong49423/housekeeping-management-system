@@ -203,10 +203,14 @@ public interface BookingPersistenceRepository extends JpaRepository<Booking, Lon
             @Param("availabilityEnd") LocalDateTime availabilityEnd);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("update Booking booking set booking.customerArrivedAt=:at "
+    @Query("update Booking booking set booking.customerArrivedAt=:at, "
+            + "booking.arrivalVerifiedAt=booking.staffArrivedAt, booking.arrivalVerificationRecordedAt=:at, "
+            + "booking.arrivalVerifiedBy=:customer, booking.arrivalVerificationSource='CUSTOMER', "
+            + "booking.arrivalVerificationNote='Khách xác nhận nhân viên đã có mặt.' "
             + "where booking.bookingId=:id "
             + "and booking.customerId=:customer and booking.status=com.housekeeping.management.enums.BookingStatus.CONFIRMED "
             + "and booking.customerArrivedAt is null "
+            + "and booking.staffArrivedAt is not null "
             + "and booking.serviceCompletedAt is null")
     int confirmCustomerArrival(@Param("id") Long id, @Param("customer") Long customer,
             @Param("at") LocalDateTime at);
@@ -282,8 +286,12 @@ public interface BookingPersistenceRepository extends JpaRepository<Booking, Lon
     @Query("update Booking booking set booking.workStartedAt=:at where booking.bookingId=:id "
             + "and booking.staffId=:staff and booking.status=com.housekeeping.management.enums.BookingStatus.CONFIRMED "
             + "and booking.workStartedAt is null and booking.staffArrivedAt is not null "
-            + "and (:lateBeyondGrace=false or booking.incidentReportedAt is not null) "
-            + "and (booking.incidentReportedAt is null or (booking.incidentCustomerResponse='ACCEPTED' "
+            + "and (booking.customerDelayReportedAt is null or booking.customerArrivedAt is not null "
+            + "or booking.arrivalVerifiedAt is not null) "
+            + "and (:lateBeyondGrace=false or booking.incidentReportedAt is not null "
+            + "or booking.customerArrivedAt is not null or booking.arrivalVerifiedAt is not null) "
+            + "and (booking.customerArrivedAt is not null or booking.arrivalVerifiedAt is not null "
+            + "or booking.incidentReportedAt is null or (booking.incidentCustomerResponse='ACCEPTED' "
             + "and booking.staffArrivedAt<=booking.incidentExpectedArrivalAt))")
     int startWork(@Param("id") Long id, @Param("staff") Long staff, @Param("at") LocalDateTime at,
             @Param("lateBeyondGrace") boolean lateBeyondGrace);

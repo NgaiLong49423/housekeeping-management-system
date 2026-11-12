@@ -20,6 +20,7 @@ import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -39,12 +40,12 @@ public class BookingCancellationPolicyServiceImpl implements BookingCancellation
 
     @Override
     @Transactional(readOnly = true)
-    public PreviewResponse previewCancellation(Long bookingId, Long customerId) {
+    public PreviewResponse previewCancellation(Long bookingId, Long customerId, String reasonCode) {
         Booking booking = getAndValidateOwnership(bookingId, customerId);
         validateCancellableState(booking);
 
         LocalDateTime now = LocalDateTime.now(BUSINESS_ZONE);
-        FeeCalculation calc = calculateFee(booking, "PREVIEW", now);
+        FeeCalculation calc = calculateFee(booking, normalizeReasonCode(reasonCode), now);
 
         boolean canReschedule = checkCanReschedule(booking, now);
         String rescheduleMsg = canReschedule
@@ -79,9 +80,9 @@ public class BookingCancellationPolicyServiceImpl implements BookingCancellation
         validateCancellableState(booking);
 
         LocalDateTime now = LocalDateTime.now(BUSINESS_ZONE);
-        String reasonCode = request != null && request.reasonCode() != null
-                ? request.reasonCode().trim().toUpperCase() : "OTHER";
-        String reasonNote = request != null ? request.reasonNote() : "";
+        String reasonCode = normalizeReasonCode(request == null ? null : request.reasonCode());
+        String reasonNote = request != null && request.reasonNote() != null ? request.reasonNote().trim() : "";
+        if (reasonNote.length() > 500) throw new IllegalArgumentException("Ghi chú hủy lịch không được quá 500 ký tự.");
 
         FeeCalculation calc = calculateFee(booking, reasonCode, now);
 
@@ -189,17 +190,42 @@ public class BookingCancellationPolicyServiceImpl implements BookingCancellation
 
         // Edge case 1: Đơn chưa có CTV nhận hoặc đang PENDING/AWAITING_PAYMENT -> Miễn phí hủy 100%
         if (booking.getStaffId() == null || booking.getStatus() == BookingStatus.AWAITING_PAYMENT) {
-            return new FeeCalculation(BigDecimal.ZERO, total, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+            return new FeeCalculation(BigDecimal.ZERO, isOnlinePaid ? total : BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
                     deltaMinutes, false, isOnlinePaid, "Đơn chưa có nhân viên nhận ca. Miễn phí hủy 100%.");
+        }
+
+        if (booking.getCustomerDelayReportedAt() != null && booking.getArrivalVerifiedAt() == null
+                && booking.getCustomerArrivedAt() == null && booking.getWorkStartedAt() == null) {
+            return new FeeCalculation(BigDecimal.ZERO, isOnlinePaid ? total : BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+                    deltaMinutes, true, isOnlinePaid,
+                    "Bạn đã báo giờ đến chưa đúng và nhân viên chưa được xác minh có mặt. Hủy miễn phí 100%.");
+        }
+
+        boolean workerArrived = booking.getStaffArrivedAt() != null
+                || booking.getCustomerArrivedAt() != null
+                || booking.getArrivalVerifiedAt() != null;
+        if (("DECLINED".equals(booking.getIncidentCustomerResponse())
+                || "EXPIRED".equals(booking.getIncidentCustomerResponse()))
+                && booking.getWorkStartedAt() == null && !workerArrived) {
+            return new FeeCalculation(BigDecimal.ZERO, isOnlinePaid ? total : BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+                    deltaMinutes, true, isOnlinePaid, "Bạn đã từ chối hoặc nhân viên lỡ giờ đến đã thống nhất. Hủy miễn phí 100%.");
+        }
+
+        if (workerArrived) {
+            BigDecimal fee = total.setScale(0, RoundingMode.HALF_UP);
+            BigDecimal workerCompensation = fee.multiply(BigDecimal.valueOf(0.80))
+                    .setScale(0, RoundingMode.HALF_UP);
+            BigDecimal platformFee = fee.subtract(workerCompensation);
+            BigDecimal refund = isOnlinePaid ? total.subtract(fee).max(BigDecimal.ZERO) : BigDecimal.ZERO;
+            BigDecimal unpaidDebt = isOnlinePaid ? BigDecimal.ZERO : fee;
+            return new FeeCalculation(fee, refund, unpaidDebt, workerCompensation, platformFee,
+                    deltaMinutes, false, isOnlinePaid, "Nhân viên đã có mặt: Phí hủy 100% giá trị lịch.");
         }
 
         // Edge case 2: Lỗi do CTV đến trễ quá 15 phút chưa check-in
         if ("WORKER_LATE".equalsIgnoreCase(reasonCode)) {
-            boolean workerArrived = booking.getStaffArrivedAt() != null
-                    || booking.getCustomerArrivedAt() != null
-                    || booking.getArrivalVerifiedAt() != null;
-            if (now.isAfter(scheduledStart.plusMinutes(15)) && !workerArrived && booking.getWorkStartedAt() == null) {
-                return new FeeCalculation(BigDecimal.ZERO, total, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+            if (now.isAfter(scheduledStart.plusMinutes(15)) && booking.getWorkStartedAt() == null) {
+                return new FeeCalculation(BigDecimal.ZERO, isOnlinePaid ? total : BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
                         deltaMinutes, true, isOnlinePaid, "Hủy miễn phí do nhân viên đến trễ quá 15 phút.");
             }
         }
@@ -290,6 +316,15 @@ public class BookingCancellationPolicyServiceImpl implements BookingCancellation
                 && booking.getWorkStartedAt() == null
                 && booking.getStatus() != BookingStatus.COMPLETED
                 && booking.getStatus() != BookingStatus.CANCELLED;
+    }
+
+    private static String normalizeReasonCode(String reasonCode) {
+        if (reasonCode == null || reasonCode.isBlank()) return "OTHER";
+        String normalized = reasonCode.trim().toUpperCase(Locale.ROOT);
+        return switch (normalized) {
+            case "WORKER_LATE", "CUSTOMER_CHANGED_PLANS", "OTHER" -> normalized;
+            default -> throw new IllegalArgumentException("Lý do hủy lịch không hợp lệ.");
+        };
     }
 
     private Booking getAndValidateOwnership(Long bookingId, Long customerId) {

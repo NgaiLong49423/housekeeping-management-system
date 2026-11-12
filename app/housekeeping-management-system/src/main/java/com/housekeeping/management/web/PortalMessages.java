@@ -33,7 +33,9 @@ public final class PortalMessages {
         if (message != null && (message.startsWith("Chỉ ") || message.startsWith("Lịch ") || message.startsWith("Bạn ")
                 || message.startsWith("Khoảng ") || message.startsWith("Hãy ") || message.startsWith("Giờ ")
                 || message.startsWith("Nhân viên ") || message.startsWith("Dịch vụ ") || message.startsWith("Cần ")
-                || message.startsWith("Địa chỉ ") || message.startsWith("Hồ sơ này đã có khoản bồi thường"))) { return message; }
+                || message.startsWith("Địa chỉ ") || message.startsWith("Khách đã báo ")
+                || message.startsWith("Nhân viên đã lỡ ") || message.startsWith("Không thể xác nhận ")
+                || message.startsWith("Hồ sơ này đã có khoản bồi thường"))) { return message; }
         return MESSAGES.getOrDefault(message == null ? "" : message, "Không thể thực hiện thao tác. Vui lòng kiểm tra dữ liệu hoặc tải lại trang.");
     }
 }

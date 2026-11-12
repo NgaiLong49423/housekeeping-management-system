@@ -184,10 +184,10 @@
 
           <section class="surface p-4" th:if="${booking.customerDelayReportedAt != null and (currentUser.role == 'CUSTOMER' or currentUser.admin)}">
             <h2 class="h6 mb-2">Customer đã báo Staff chưa đến</h2>
-            <p class="small text-secondary mb-0" th:text="'Đã ghi nhận lúc ' + ${booking.customerDelayReportedLabel} + '. Báo cáo chỉ để theo dõi; không tự chặn công việc, hủy lịch hoặc thay đổi tiền.'">Thông tin báo trễ của Customer</p>
-            <p class="small mt-2 mb-0" th:if="${booking.staffArrivedAt != null}" th:text="'Staff tự xác nhận đã đến lúc ' + ${booking.staffArrivalLabel} + '; thời điểm này đang chờ xác minh.'">Staff tự xác nhận đến</p>
+            <p class="small text-secondary mb-0" th:text="'Đã ghi nhận lúc ' + ${booking.customerDelayReportedLabel} + '. Báo cáo chưa tự hủy lịch; khi chưa xác minh giờ đến và công việc chưa bắt đầu, bạn có thể hủy miễn phí. Báo cáo cũng tạm khóa việc bắt đầu cho đến khi khách hoặc Admin xác minh.'">Thông tin báo trễ của Customer</p>
+            <p class="small mt-2 mb-0" th:if="${booking.staffArrivedAt != null and booking.arrivalVerifiedAt == null}" th:text="'Staff tự xác nhận đã đến lúc ' + ${booking.staffArrivalLabel} + '; thời điểm này đang chờ xác minh.'">Staff tự xác nhận đến</p>
             <p class="small mt-2 mb-0" th:if="${booking.arrivalVerifiedAt != null}" th:text="'Giờ đến đã xác minh: ' + ${booking.arrivalVerifiedLabel} + ' · nguồn ' + ${booking.arrivalVerificationSource} + ' · ghi nhận lúc ' + ${booking.arrivalVerificationRecordedLabel}">Giờ đến đã xác minh</p>
-            <p class="small text-secondary mt-2 mb-0" th:if="${booking.arrivalVerificationNote != null}" th:text="'Ghi chú Admin: ' + ${booking.arrivalVerificationNote}">Ghi chú xác minh</p>
+            <p class="small text-secondary mt-2 mb-0" th:if="${booking.arrivalVerificationNote != null}" th:text="'Ghi chú xác minh: ' + ${booking.arrivalVerificationNote}">Ghi chú xác minh</p>
           </section>
 
           <section class="surface p-4" th:if="${currentUser.role == 'CUSTOMER' and booking.status == 'CONFIRMED' and booking.customerDelayReportedAt == null and booking.workStartedAt == null and !booking.start.isAfter(now)}">
@@ -597,23 +597,21 @@
             <h2 class="h6 mb-2">
               Thay đổi kế hoạch?
             </h2>
-            <p class="small text-secondary mb-3" th:if="${booking.workStartedAt == null and booking.incidentReportedAt == null and booking.customerDelayReportedAt == null}">
-              Bạn có thể hủy trước giờ bắt đầu ít nhất 2 giờ hoàn toàn miễn phí.
+            <p class="small text-secondary mb-3" th:if="${booking.workStartedAt == null and booking.customerDelayReportedAt != null and booking.arrivalVerifiedAt == null and booking.customerArrivedAt == null}">
+              Báo cáo nhân viên chưa đến vẫn đang mở. Bạn có thể hủy miễn phí trước khi giờ đến được xác minh hoặc công việc bắt đầu.
             </p>
-            <p class="small text-secondary mb-3" th:if="${booking.workStartedAt == null and (booking.incidentCustomerResponse == 'DECLINED' or booking.incidentCustomerResponse == 'EXPIRED')}">Bạn có thể hủy miễn phí vì đã từ chối ETA hoặc Staff lỡ ETA đã thống nhất.</p>
-            <p class="small text-secondary mb-3" th:if="${booking.workStartedAt != null}">Công việc đã bắt đầu; Customer không thể hủy lịch.</p>
-            <form method="post" th:action="@{/customer/bookings/{id}/cancel(id=${booking.id})}" data-confirm="Bạn muốn hủy lịch hẹn này?">
-              <button class="btn btn-outline-danger w-100" type="submit" th:disabled="${!booking.cancellable and booking.incidentCustomerResponse != 'DECLINED' and booking.incidentCustomerResponse != 'EXPIRED'}">
-                Hủy lịch hẹn miễn phí
-              </button>
-            </form>
-            <form th:if="${booking.status == 'CONFIRMED' and booking.staffArrivedAt != null and booking.customerArrivedAt == null}" method="post" th:action="@{/customer/bookings/{id}/arrived(id=${booking.id})}" class="mt-3">
+            <p class="small text-secondary mb-3" th:if="${booking.workStartedAt == null and !(booking.customerDelayReportedAt != null and booking.arrivalVerifiedAt == null and booking.customerArrivedAt == null)}">
+              Bạn có thể mở xem phí, tiền hoàn hoặc khoản nợ phát sinh trước khi xác nhận hủy. Sau giờ hẹn hoặc khi nhân viên đã có mặt, phí có thể lên đến toàn bộ giá trị lịch.
+            </p>
+            <p class="small text-secondary mb-3" th:if="${booking.workStartedAt != null}">Công việc đã bắt đầu; lịch không thể hủy.</p>
+            <button class="btn btn-outline-danger w-100" type="button" data-bs-toggle="modal" data-bs-target="#cancellationModal"
+                    th:attr="data-booking-id=${booking.id}" th:disabled="${booking.workStartedAt != null}">
+              Xem phí và hủy lịch
+            </button>
+            <form th:if="${booking.status == 'CONFIRMED' and booking.staffArrivedAt != null and booking.customerArrivedAt == null and booking.arrivalVerifiedAt == null}" method="post" th:action="@{/customer/bookings/{id}/arrived(id=${booking.id})}" class="mt-3">
               <button class="btn btn-outline-primary w-100" type="submit">Xác nhận nhân viên đã đến</button>
-              <p class="small text-secondary mt-2 mb-0">Xác nhận này ghi nhận phản hồi của bạn; Staff vẫn phải tự xác nhận đã đến trước khi bắt đầu.</p>
+              <p class="small text-secondary mt-2 mb-0">Xác nhận này lưu giờ nhân viên thực sự có mặt. Nếu bạn đã báo trễ, xác nhận sẽ giải quyết báo cáo và cho phép công việc bắt đầu.</p>
             </form>
-            <p class="small text-danger mt-2 mb-0" th:if="${booking.workStartedAt == null and not booking.cancellable and booking.incidentReportedAt == null and booking.start.isAfter(now)}">
-              Đã qua thời hạn cho phép hủy lịch (trong vòng 2 giờ trước khi bắt đầu).
-            </p>
           </section>
 
           <section th:if="${currentUser.role == 'STAFF' and booking.status == 'CONFIRMED' and booking.staffArrivedAt == null}" class="surface p-4">
@@ -647,7 +645,7 @@
             <h2 class="h6 mb-2">Bắt đầu công việc</h2>
             <p class="small text-secondary mb-3" th:if="${booking.staffArrivedAt == null}">Xác nhận đã đến trước khi bắt đầu.</p>
             <p class="small text-secondary mb-3" th:if="${booking.staffArrivedAt != null}">Bạn có thể bắt đầu ngay hoặc chờ đến giờ hẹn.</p>
-            <p class="small text-warning mb-3" th:if="${booking.incidentReportedAt != null and booking.incidentCustomerResponse != 'ACCEPTED'}">Chỉ bắt đầu sau khi khách đồng ý giờ đến trễ. Hãy nhờ khách phản hồi trên trang lịch hẹn.</p>
+            <p class="small text-warning mb-3" th:if="${staffStartBlockMessage != null}" th:text="${staffStartBlockMessage}">Chưa đủ điều kiện bắt đầu.</p>
             <form method="post" th:action="@{/staff/bookings/{id}/start(id=${booking.id})}">
               <button class="btn btn-primary w-100" type="submit" th:disabled="${!staffCanStartWork}">Bắt đầu công việc</button>
             </form>
@@ -669,6 +667,40 @@
           </section>
         </aside>
       </div>
+      <div class="modal fade" id="cancellationModal" tabindex="-1" aria-labelledby="cancellationModalTitle" aria-hidden="true"
+           th:if="${currentUser.role == 'CUSTOMER' and booking.status == 'CONFIRMED'}">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h2 class="modal-title fs-5" id="cancellationModalTitle">Xem chính sách hủy lịch</h2>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+            <div class="modal-body" data-cancellation-modal th:attr="data-booking-id=${booking.id},data-csrf-header=${_csrf.headerName}">
+              <input type="hidden" id="cancellationCsrfToken" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+              <div class="alert alert-danger py-2" role="alert" data-cancellation-error hidden></div>
+              <label class="form-label" for="cancellationReason">Lý do hủy</label>
+              <select class="form-select mb-3" id="cancellationReason">
+                <option value="OTHER">Lý do khác</option>
+                <option value="CUSTOMER_CHANGED_PLANS">Tôi đổi kế hoạch</option>
+                <option value="WORKER_LATE" th:selected="${booking.customerDelayReportedAt != null and booking.arrivalVerifiedAt == null and booking.customerArrivedAt == null}">Nhân viên đến trễ / chưa đến</option>
+              </select>
+              <label class="form-label" for="cancellationReasonNote">Ghi chú (không bắt buộc)</label>
+              <textarea class="form-control mb-3" id="cancellationReasonNote" rows="2" maxlength="500"></textarea>
+              <div class="rounded border p-3 bg-light" aria-live="polite">
+                <p class="mb-2" data-cancellation-policy>Đang tính chính sách hủy…</p>
+                <div class="d-flex justify-content-between"><span>Phí hủy</span><strong data-cancellation-fee>—</strong></div>
+                <div class="d-flex justify-content-between"><span>Hoàn vào ví (nếu đã thanh toán online)</span><strong data-cancellation-refund>—</strong></div>
+                <div class="d-flex justify-content-between"><span>Nợ phí phát sinh (nếu thanh toán COD)</span><strong data-cancellation-debt>—</strong></div>
+                <p class="small text-secondary mt-2 mb-0" data-cancellation-reschedule hidden></p>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Quay lại</button>
+              <button type="button" class="btn btn-danger" data-cancellation-submit disabled>Xác nhận hủy lịch</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </main>
     <footer th:replace="~{fragments/layout :: footer}">
     </footer>
@@ -685,6 +717,71 @@
         method.addEventListener('change', sync);
         sync();
       });
+    </script>
+    <script>
+      (() => {
+        const modal = document.querySelector('[data-cancellation-modal]');
+        if (!modal) return;
+        const bookingId = modal.dataset.bookingId;
+        const reason = document.querySelector('#cancellationReason');
+        const note = document.querySelector('#cancellationReasonNote');
+        const error = modal.querySelector('[data-cancellation-error]');
+        const submit = document.querySelector('[data-cancellation-submit]');
+        const policy = modal.querySelector('[data-cancellation-policy]');
+        const fee = modal.querySelector('[data-cancellation-fee]');
+        const refund = modal.querySelector('[data-cancellation-refund]');
+        const debt = modal.querySelector('[data-cancellation-debt]');
+        const reschedule = modal.querySelector('[data-cancellation-reschedule]');
+        const csrf = document.querySelector('#cancellationCsrfToken');
+        const csrfHeader = modal.dataset.csrfHeader;
+        const money = value => `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(Number(value || 0))} ₫`;
+        const showError = message => { error.textContent = message; error.hidden = false; };
+        const clearError = () => { error.textContent = ''; error.hidden = true; };
+        const loadPreview = async () => {
+          clearError();
+          submit.disabled = true;
+          policy.textContent = 'Đang tính chính sách hủy…';
+          try {
+            const response = await fetch(`/api/bookings/${bookingId}/cancellation-preview?reasonCode=${encodeURIComponent(reason.value)}`, {
+              headers: { Accept: 'application/json' }
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || 'Không thể tải mức phí. Hãy tải lại trang.');
+            policy.textContent = data.feePolicyNotice;
+            fee.textContent = money(data.cancellationFee);
+            refund.textContent = money(data.refundAmount);
+            debt.textContent = money(data.unpaidDebtAdded);
+            reschedule.textContent = data.rescheduleMessage || '';
+            reschedule.hidden = !data.canReschedule;
+            submit.disabled = false;
+          } catch (failure) {
+            policy.textContent = 'Chưa tính được phí hủy.';
+            showError(failure.message);
+          }
+        };
+        modal.addEventListener('show.bs.modal', loadPreview);
+        reason.addEventListener('change', loadPreview);
+        submit.addEventListener('click', async () => {
+          clearError();
+          submit.disabled = true;
+          try {
+            const headers = { 'Content-Type': 'application/json', Accept: 'application/json' };
+            if (csrfHeader && csrf?.value) headers[csrfHeader] = csrf.value;
+            const response = await fetch(`/api/bookings/${bookingId}/cancel`, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({ reasonCode: reason.value, reasonNote: note.value.trim() })
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || 'Không thể hủy lịch. Hãy tải lại trang.');
+            policy.textContent = data.message;
+            window.setTimeout(() => window.location.reload(), 900);
+          } catch (failure) {
+            showError(failure.message);
+            submit.disabled = false;
+          }
+        });
+      })();
     </script>
   </body>
 </html>
