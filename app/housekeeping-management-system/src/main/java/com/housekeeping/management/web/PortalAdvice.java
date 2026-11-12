@@ -6,7 +6,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
-import com.housekeeping.management.service.DuplicateEmailException;
+import com.housekeeping.management.exception.DuplicateEmailException;
 
 @ControllerAdvice
 public class PortalAdvice {

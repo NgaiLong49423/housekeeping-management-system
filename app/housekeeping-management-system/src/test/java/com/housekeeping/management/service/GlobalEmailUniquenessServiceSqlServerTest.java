@@ -3,6 +3,7 @@ package com.housekeeping.management.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.housekeeping.management.SqlServerIntegrationTest;
+import com.housekeeping.management.exception.DuplicateEmailException;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;

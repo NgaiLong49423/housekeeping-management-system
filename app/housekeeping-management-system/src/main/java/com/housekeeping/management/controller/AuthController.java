@@ -1,7 +1,7 @@
 package com.housekeeping.management.controller;
 
 import com.housekeeping.management.dto.request.PortalForms.CustomerRegistrationForm;
-import com.housekeeping.management.service.DuplicateEmailException;
+import com.housekeeping.management.exception.DuplicateEmailException;
 import com.housekeeping.management.service.RegistrationService;
 import jakarta.validation.Valid;
 import java.nio.charset.StandardCharsets;
