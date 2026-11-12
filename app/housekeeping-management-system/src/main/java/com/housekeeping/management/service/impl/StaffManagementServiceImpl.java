@@ -149,11 +149,12 @@ public class StaffManagementServiceImpl implements StaffManagementService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public boolean acceptsAvailabilityInterval(Long staffId, java.time.LocalDate date,
             java.time.LocalTime start, java.time.LocalTime end) {
-        return availability.existsByStaffIdAndWorkDateAndActiveTrueAndStartTimeLessThanEqualAndEndTimeGreaterThanEqual(
-                staffId, date, start, end);
+        return availability.findAllByStaffIdAndWorkDateAndActiveTrue(staffId, date).stream()
+                .anyMatch(window -> !start.isBefore(window.getStartTime())
+                        && !end.isAfter(window.getEndTime()));
     }
 
     private Staff findStaff(Long staffId) {
