@@ -121,7 +121,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr th:each="booking : ${bookings}" th:data-status="${booking.status}" data-booking-row>
+              <tr th:each="booking : ${bookings}" th:data-status="${booking.status}" data-booking-row
+                  th:classappend="${(currentUser.admin or currentUser.manager) and staffLeaveConflicts != null and staffLeaveConflicts.containsKey(booking.id)} ? 'table-danger border-start border-danger border-4' : ''">
 <td data-label="Mã lịch hẹn">
                   <div>
                     <strong class="d-block text-dark" th:text="'#GN-' + ${booking.id}">#GN-0</strong>
@@ -140,6 +141,13 @@
                 <td data-label="Trạng thái">
                   <span class="status-pill" th:classappend="${booking.statusClass}" th:text="${booking.statusLabel}">Trạng thái</span>
                   <span th:if="${currentUser.role == 'CUSTOMER' and pendingCompensationBookingIds != null and pendingCompensationBookingIds.contains(booking.id)}" class="badge text-bg-warning d-block mt-1">Chờ bạn xác nhận bồi thường</span>
+                  <div th:if="${(currentUser.admin or currentUser.manager) and staffLeaveConflicts != null and staffLeaveConflicts.containsKey(booking.id)}" class="mt-2">
+                    <span class="badge text-bg-danger d-inline-flex align-items-center gap-1 shadow-sm"
+                          th:title="${staffLeaveConflicts.get(booking.id)}">
+                      <span>⚠️ NV xin nghỉ - Cần đổi NV!</span>
+                    </span>
+                    <div class="small text-danger fw-semibold mt-1" th:text="${staffLeaveConflicts.get(booking.id)}"></div>
+                  </div>
                 </td>
                 <td data-label="Thanh toán">
                   <span th:if="${booking.paymentStatus == 'SUCCESS'}" class="payment-badge paid">
@@ -163,6 +171,11 @@
                   </span>
                 </td>
                 <td data-label="Chi tiết" class="text-end">
+                  <a th:if="${(currentUser.admin or currentUser.manager) and staffLeaveConflicts != null and staffLeaveConflicts.containsKey(booking.id)}"
+                     class="btn btn-danger btn-sm me-1 text-nowrap"
+                     th:href="@{/{role}/bookings/{id}#reassignStaffSection(role=${#strings.toLowerCase(currentUser.role)},id=${booking.id})}">
+                    <span>Đổi nhân viên</span>
+                  </a>
                   <a th:if="${currentUser.role == 'CUSTOMER' and booking.status == 'AWAITING_PAYMENT' and booking.paymentStatus != 'SUCCESS'}"
                      class="btn btn-primary btn-sm me-1" th:href="@{/customer/bookings/{id}(id=${booking.id})}">
                     <svg th:replace="~{fragments/icons :: qr-code}"></svg>

@@ -44,6 +44,15 @@
       <div th:replace="~{fragments/layout :: alerts}">
       </div>
 
+      <div th:if="${(currentUser.admin or currentUser.manager) and staffLeaveConflict != null}"
+           class="alert alert-danger shadow-sm border-start border-danger border-4 d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 p-3 mb-4 rounded-3">
+        <div>
+          <strong class="d-block text-danger mb-1">⚠️ CẢNH BÁO: Nhân viên phụ trách đã gửi đơn xin nghỉ trùng ngày làm việc!</strong>
+          <span class="small text-dark" th:text="${staffLeaveConflict} + '. Admin cần đổi nhân viên phụ trách khác trước khi ca làm diễn ra.'"></span>
+        </div>
+        <a href="#reassignStaffSection" class="btn btn-danger btn-sm text-nowrap flex-shrink-0">Đổi nhân viên ngay</a>
+      </div>
+
       <div th:if="${currentUser.role == 'CUSTOMER' and booking.status == 'CONFIRMED' and booking.customerArrivedAt == null}"
            class="alert alert-info border-0 shadow-sm" role="status">
         Khi nhân viên đến, vui lòng xác nhận trên trang này để tiện theo dõi lịch hẹn.
@@ -211,8 +220,13 @@
             </form>
           </section>
 
-          <section class="surface p-4" th:if="${currentUser.admin and booking.status == 'CONFIRMED'}">
-            <h2 class="h5 mb-3">Xử lý lịch đã xác nhận</h2>
+          <section id="reassignStaffSection" class="surface p-4"
+                   th:classappend="${staffLeaveConflict != null} ? 'border border-danger border-2 bg-danger bg-opacity-10' : ''"
+                   th:if="${currentUser.admin and booking.status == 'CONFIRMED'}">
+            <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
+              <h2 class="h5 mb-0">Xử lý lịch đã xác nhận</h2>
+              <span th:if="${staffLeaveConflict != null}" class="badge text-bg-danger">Bắt buộc đổi nhân viên</span>
+            </div>
             <form method="post" class="mb-4" th:action="@{/admin/bookings/{id}/reassign(id=${booking.id})}">
               <label class="form-label" for="replacementStaff">Đổi nhân viên phụ trách</label>
               <div class="input-group">

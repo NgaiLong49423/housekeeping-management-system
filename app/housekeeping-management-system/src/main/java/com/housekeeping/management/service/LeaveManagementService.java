@@ -20,4 +20,6 @@ public interface LeaveManagementService {
     public List<LeaveCard> findForStaff(Long staffId);
     public List<LeaveCard> findAllForAdmin(Long adminUserId);
     public void submitLeaveRequest(Long staffId, LeaveRequestForm form);
-    public void reviewLeaveRequest(Long leaveId, Long adminUserId, LeaveStatus decision);}
+    public void reviewLeaveRequest(Long leaveId, Long adminUserId, LeaveStatus decision);
+    public java.util.Map<Long, String> findStaffLeaveConflicts();
+}
