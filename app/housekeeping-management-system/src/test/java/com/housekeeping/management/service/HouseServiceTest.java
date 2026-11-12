@@ -23,7 +23,7 @@ class HouseServiceTest {
             houses, companySettings, bookings, mock(VietmapClient.class));
 
     @Test
-    void updatingContactDetailsWithoutNewVietmapReferencePreservesAddressAndCoordinates() {
+    void updatingContactDetailsWithoutChangingStreetPreservesAddressAndCoordinates() {
         House existing = new House();
         existing.setHouseId(8L);
         existing.setCustomerId(3L);
@@ -33,10 +33,10 @@ class HouseServiceTest {
         existing.setLongitude(new BigDecimal("106.2"));
         existing.setProvinceCity("TP.HCM");
         existing.setWardCommune("Phường 1");
-        existing.setAddressDetail("Số 1");
+        existing.setAddressDetail("12/3 hẻm 45 Nguyễn Trãi");
         when(houses.findLockedByHouseIdAndCustomerIdAndDeletedFalse(8L, 3L)).thenReturn(Optional.of(existing));
 
-        service.save(3L, 8L, new HouseForm("Người nhận", "0900000000", "12/3 hẻm 45 Nguyễn Trãi", "", HouseAddressType.HOME, false, null));
+        service.save(3L, 8L, new HouseForm("Người nhận mới", "0900000000", "12/3 hẻm 45 Nguyễn Trãi", "", HouseAddressType.HOME, false, null));
 
         assertThat(existing.getAddress()).isEqualTo("Địa chỉ cũ");
         assertThat(existing.getLatitude()).isEqualByComparingTo("10.1");
@@ -45,6 +45,20 @@ class HouseServiceTest {
         assertThat(existing.getWardCommune()).isEqualTo("Phường 1");
         assertThat(existing.getAddressDetail()).isEqualTo("12/3 hẻm 45 Nguyễn Trãi");
         verify(houses).save(existing);
+    }
+
+    @Test
+    void changingStreetAddressRequiresANewVietmapSelection() {
+        House existing = new House();
+        existing.setHouseId(8L);
+        existing.setCustomerId(3L);
+        existing.setAddressDetail("12/3 hẻm 45 Nguyễn Trãi");
+        when(houses.findLockedByHouseIdAndCustomerIdAndDeletedFalse(8L, 3L)).thenReturn(Optional.of(existing));
+
+        assertThatThrownBy(() -> service.save(3L, 8L,
+                new HouseForm("Người nhận", "0900000000", "18 Trần Quang Khải", "", HouseAddressType.HOME, false, null)))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("chọn một kết quả VietMap mới");
+        org.mockito.Mockito.verify(houses, org.mockito.Mockito.never()).save(existing);
     }
 
     @Test

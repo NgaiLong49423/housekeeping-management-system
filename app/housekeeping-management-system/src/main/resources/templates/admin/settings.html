@@ -268,8 +268,9 @@
           timer = setTimeout(async () => {
             try {
               const response = await fetch(`/admin/settings/location/autocomplete?q=${encodeURIComponent(input.value.trim())}`);
-              if (!response.ok) throw new Error('Autocomplete failed');
-              const suggestions = await response.json();
+              const body = await response.json().catch(() => ({}));
+              if (!response.ok) throw new Error(body.detail || 'VietMap tạm thời không khả dụng. Hãy thử lại sau.');
+              const suggestions = body;
               list.replaceChildren(...suggestions.map(item => {
                 const button = document.createElement('button');
                 button.type = 'button';
@@ -283,7 +284,11 @@
                 });
                 return button;
               }));
-            } catch { list.replaceChildren(); }
+              if (!suggestions.length) selected.textContent = 'Không tìm thấy địa chỉ phù hợp. Hãy bổ sung thông tin và thử lại.';
+            } catch (error) {
+              list.replaceChildren();
+              selected.textContent = error.message || 'Không thể kết nối VietMap. Hãy thử lại sau.';
+            }
           }, 300);
         });
         form.addEventListener('submit', event => {

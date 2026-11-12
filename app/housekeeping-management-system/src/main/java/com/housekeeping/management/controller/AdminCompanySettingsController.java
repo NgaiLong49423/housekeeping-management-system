@@ -86,8 +86,14 @@ public class AdminCompanySettingsController {
 
     @org.springframework.web.bind.annotation.GetMapping("/location/autocomplete")
     @org.springframework.web.bind.annotation.ResponseBody
-    java.util.List<com.housekeeping.management.dto.response.LocationSuggestion> locationAutocomplete(@RequestParam String q) {
-        return settings.locationAutocomplete(q);
+    org.springframework.http.ResponseEntity<?> locationAutocomplete(@RequestParam String q) {
+        try {
+            return org.springframework.http.ResponseEntity.ok(settings.locationAutocomplete(q));
+        } catch (IllegalStateException failure) {
+            return org.springframework.http.ResponseEntity.status(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(org.springframework.http.ProblemDetail.forStatusAndDetail(
+                            org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, failure.getMessage()));
+        }
     }
 
     @PostMapping("/schedule") String saveSchedule(@Valid @ModelAttribute("scheduleForm") CompanyScheduleVersionForm form,

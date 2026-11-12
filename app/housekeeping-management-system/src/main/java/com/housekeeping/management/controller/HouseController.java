@@ -51,8 +51,14 @@ public class HouseController {
 
     @GetMapping("/autocomplete")
     @ResponseBody
-    java.util.List<com.housekeeping.management.dto.response.LocationSuggestion> autocomplete(@RequestParam String q) {
-        return houses.autocomplete(q);
+    org.springframework.http.ResponseEntity<?> autocomplete(@RequestParam String q) {
+        try {
+            return org.springframework.http.ResponseEntity.ok(houses.autocomplete(q));
+        } catch (IllegalStateException failure) {
+            return org.springframework.http.ResponseEntity.status(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(org.springframework.http.ProblemDetail.forStatusAndDetail(
+                            org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, failure.getMessage()));
+        }
     }
 
     @PostMapping

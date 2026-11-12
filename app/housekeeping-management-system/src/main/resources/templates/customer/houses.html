@@ -93,7 +93,8 @@
               <a th:if="${editHouseId != null}" th:href="@{/customer/houses}" class="btn btn-sm btn-outline-secondary">Hủy sửa</a>
             </div>
             <form id="houseForm" method="post" th:object="${houseForm}"
-                  th:action="${editHouseId == null ? '/customer/houses' : '/customer/houses/' + editHouseId}">
+                  th:action="${editHouseId == null ? '/customer/houses' : '/customer/houses/' + editHouseId}"
+                  th:attr="data-edit-mode=${editHouseId != null}">
                 <div class="row g-3">
                   <div class="col-12">
                     <label class="form-label" for="recipientName">Họ và tên người nhận</label>
@@ -106,12 +107,12 @@
                     <div class="text-danger small" th:errors="*{recipientPhone}"></div>
                   </div>
                   <div class="col-12 position-relative">
-                    <label class="form-label" for="vietmapSearch">Tìm địa chỉ (VietMap) <span class="text-danger">*</span></label>
+                    <label class="form-label" for="vietmapSearch">Tìm địa chỉ (VietMap) <span class="text-danger" th:if="${editHouseId == null}">*</span></label>
                     <div class="input-group">
                       <span class="input-group-text bg-white border-end-0">
                         <svg th:replace="~{fragments/icons :: map-pin}"></svg>
                       </span>
-                      <input class="form-control border-start-0 ps-0" id="vietmapSearch" autocomplete="off" placeholder="Nhập tên đường, tòa nhà hoặc bấm chọn tỉnh bên dưới…" required>
+                      <input class="form-control border-start-0 ps-0" id="vietmapSearch" autocomplete="off" placeholder="Nhập tên đường, tòa nhà hoặc bấm chọn tỉnh bên dưới…">
                     </div>
                     <input type="hidden" th:field="*{vietmapRefId}" id="vietmapRefId">
 
@@ -125,7 +126,8 @@
                     </div>
 
                     <div id="vietmapSuggestions" class="list-group position-absolute w-100 shadow-sm" style="z-index:1050; max-height:280px; overflow-y:auto; display:none; top:calc(100% + 4px); background:#ffffff; border:1.5px solid var(--line-strong); border-radius:var(--radius-md);"></div>
-                    <p class="small text-secondary mt-2 mb-0" id="selectedAddress">Chưa chọn kết quả VietMap.</p>
+                    <p class="small text-secondary mt-2 mb-0" id="selectedAddress"
+                       th:text="${editHouseId == null ? 'Chưa chọn kết quả VietMap.' : 'Đang dùng vị trí đã lưu; chọn kết quả VietMap nếu muốn đổi địa chỉ.'}">Chưa chọn kết quả VietMap.</p>
                   </div>
                   <div class="col-12">
                     <label class="form-label" for="streetAddress">Số nhà, hẻm/ngõ, tên đường <span class="text-danger">*</span></label>
@@ -181,53 +183,13 @@
         const list = document.querySelector('#vietmapSuggestions');
         const selected = document.querySelector('#selectedAddress');
         const form = document.querySelector('#houseForm');
+        const streetAddress = document.querySelector('#streetAddress');
         const provincePills = document.querySelectorAll('.province-pill');
+        const editMode = form?.dataset.editMode === 'true';
+        const originalStreetAddress = streetAddress?.value.trim() || '';
         let timer;
-        let lastSuggestions = [];
-
-        const PROVINCE_PRESETS = {
-          'TP. Hồ Chí Minh': {
-            refId: 'ref-demo-vinhomes',
-            display: 'Bs16 VinHome Grand Park, Phường Long Bình, TP. Thủ Đức, TP. Hồ Chí Minh'
-          },
-          'Tỉnh Bình Định': {
-            refId: 'ref-demo-binhdinh-quynhon',
-            display: '01 Đường Ngô Mây, Phường Ngô Mây, TP. Quy Nhơn, Tỉnh Bình Định'
-          },
-          'TP. Hà Nội': {
-            refId: 'ref-demo-hanoi-hoankiem',
-            display: '01 Phố Đinh Tiên Hoàng, Phường Hàng Bạc, Quận Hoàn Kiếm, TP. Hà Nội'
-          },
-          'TP. Đà Nẵng': {
-            refId: 'ref-demo-danang-haichau',
-            display: '155 Đường Bạch Đằng, Phường Hải Châu 1, Quận Hải Châu, TP. Đà Nẵng'
-          }
-        };
-
-        const detectRefId = (text) => {
-          if (!text) return 'ref-demo-vinhomes';
-          const s = text.toLowerCase();
-          if (s.includes('quy nhơn') || s.includes('bình định') || s.includes('ngô mây')) return 'ref-demo-binhdinh-quynhon';
-          if (s.includes('an nhơn')) return 'ref-demo-binhdinh-annhon';
-          if (s.includes('tuy phước') || s.includes('diêu trì')) return 'ref-demo-binhdinh-tuyphuoc';
-          if (s.includes('hà nội') || s.includes('hoàn kiếm')) return 'ref-demo-hanoi-hoankiem';
-          if (s.includes('cầu giấy') || s.includes('xuân thủy')) return 'ref-demo-hanoi-caugiay';
-          if (s.includes('đà nẵng') || s.includes('bạch đằng') || s.includes('hải châu')) return 'ref-demo-danang-haichau';
-          if (s.includes('nguyễn huệ') || s.includes('quận 1')) return 'ref-demo-hcm-q1';
-          if (s.includes('bình thạnh') || s.includes('nguyễn hữu cảnh')) return 'ref-demo-hcm-binhthanh';
-          return 'ref-demo-vinhomes';
-        };
-
-        // When page loads with an existing address (e.g. edit mode or validation return)
-        if (input && input.value && input.value.trim().length > 0) {
-          if (!ref.value) {
-            ref.value = detectRefId(input.value);
-          }
-          selected.innerHTML = `<span class="badge bg-success-subtle text-success me-1">✓ Đã xác thực</span> ${input.value}`;
-        }
 
         const showSuggestions = (items) => {
-          lastSuggestions = items || [];
           if (!items || items.length === 0) {
             list.style.display = 'none';
             list.replaceChildren();
@@ -262,12 +224,17 @@
         const fetchSuggestions = async (query) => {
           try {
             const response = await fetch(`/customer/houses/autocomplete?q=${encodeURIComponent(query)}`);
-            if (response.ok) {
-              const suggestions = await response.json();
-              showSuggestions(suggestions);
+            const body = await response.json().catch(() => ({}));
+            if (!response.ok) {
+              showSuggestions([]);
+              selected.textContent = body.detail || 'VietMap tạm thời không khả dụng. Hãy thử lại sau.';
+              return;
             }
+            showSuggestions(body);
+            if (!body.length) selected.textContent = 'Không tìm thấy địa chỉ phù hợp. Hãy bổ sung thông tin và thử lại.';
           } catch {
-            list.style.display = 'none';
+            showSuggestions([]);
+            selected.textContent = 'Không thể kết nối VietMap. Hãy thử lại trước khi lưu địa chỉ mới.';
           }
         };
 
@@ -280,10 +247,12 @@
               list.style.display = 'none';
               list.replaceChildren();
               ref.value = '';
-              selected.textContent = 'Chưa chọn kết quả VietMap.';
+              selected.textContent = editMode
+                ? 'Đang dùng vị trí đã lưu; chọn kết quả VietMap nếu muốn đổi địa chỉ.'
+                : 'Chưa chọn kết quả VietMap.';
               return;
             }
-            ref.value = detectRefId(q);
+            ref.value = '';
             selected.innerHTML = `<span class="badge bg-light text-secondary me-1">Đang tìm</span> ${q}`;
             timer = setTimeout(() => fetchSuggestions(q), 250);
           });
@@ -302,16 +271,10 @@
           pill.addEventListener('click', (e) => {
             e.preventDefault();
             const prov = pill.dataset.province;
-            const preset = PROVINCE_PRESETS[prov];
-            if (preset) {
-              input.value = preset.display;
-              ref.value = preset.refId;
-              selected.innerHTML = `<span class="badge bg-success-subtle text-success me-1">✓ Đã chọn</span> ${preset.display}`;
-              input.setCustomValidity('');
-            } else {
-              input.value = prov;
-              ref.value = detectRefId(prov);
-            }
+            input.value = prov;
+            ref.value = '';
+            selected.textContent = 'Đang tìm địa chỉ VietMap…';
+            input.setCustomValidity('');
             fetchSuggestions(prov);
           });
         });
@@ -324,21 +287,12 @@
 
         if (form) {
           form.addEventListener('submit', event => {
-            if (!ref.value) {
-              const q = input.value.trim();
-              if (q.length > 0) {
-                if (lastSuggestions.length > 0) {
-                  ref.value = lastSuggestions[0].refId;
-                  input.value = lastSuggestions[0].display;
-                } else {
-                  ref.value = detectRefId(q);
-                }
-                input.setCustomValidity('');
-              } else {
-                event.preventDefault();
-                input.setCustomValidity('Hãy chọn một kết quả địa chỉ VietMap từ danh sách gợi ý.');
-                input.reportValidity();
-              }
+            const unselectedSearch = input.value.trim().length > 0 && !ref.value;
+            const changedStreetAddress = streetAddress.value.trim() !== originalStreetAddress;
+            if (!ref.value && (!editMode || unselectedSearch || changedStreetAddress)) {
+              event.preventDefault();
+              input.setCustomValidity('Hãy chọn một kết quả địa chỉ VietMap trước khi lưu vị trí mới.');
+              input.reportValidity();
             }
           });
         }

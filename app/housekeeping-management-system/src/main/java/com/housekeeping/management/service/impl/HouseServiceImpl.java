@@ -74,6 +74,9 @@ public class HouseServiceImpl implements HouseService {
                         .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy nhà thuộc tài khoản của bạn."));
         boolean hasNewVietmapPlace = form.vietmapRefId() != null && !form.vietmapRefId().isBlank();
         if (!hasNewVietmapPlace && house == null) throw new IllegalArgumentException("Hãy chọn một kết quả địa chỉ VietMap hợp lệ.");
+        if (!hasNewVietmapPlace && house != null && !streetAddress.equals(house.getAddressDetail().trim())) {
+            throw new IllegalArgumentException("Hãy chọn một kết quả VietMap mới khi thay đổi địa chỉ đường/số nhà.");
+        }
         VietmapClient.Place place = hasNewVietmapPlace ? vietmap.place(form.vietmapRefId().trim()) : null;
         String address = place == null ? house.getAddress() : place.display();
         BigDecimal latitude = place == null ? house.getLatitude() : place.latitude();
