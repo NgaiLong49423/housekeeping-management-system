@@ -56,10 +56,11 @@ Hệ thống có sẵn các tài khoản demo tương ứng với từng vai tr�
 
 | Vai trò | Email đăng nhập | Mật khẩu mẫu | Chức năng kiểm thử chính |
 |---|---|---|---|
-| **Customer** | `customer@demo.gonnha.local` | `Password123!` | Đặt lịch dọn dẹp, xem chi tiết lịch, thanh toán, gửi đánh giá |
-| **Staff** | `staff@demo.gonnha.local` | `Password123!` | Xác nhận đến, tải ảnh nghiệm thu, xác nhận thu tiền mặt |
-| **Admin** | `admin@demo.gonnha.local` | `Password123!` | Duyệt lịch, xử lý khiếu nại sự cố, quản lý dịch vụ |
-| **Manager (SuperAdmin)** | `manager@demo.gonnha.local` | `Password123!` | Quản lý và khóa/mở khóa tài khoản Admin, tạo nhân viên mới |
+| **Customer** | `customer@demo.gonnha.local` (hoặc `customer@gonnha.vn`) | `Demo@12345` | Đặt lịch dọn dẹp, xem chi tiết lịch, thanh toán, gửi đánh giá |
+| **Staff** | `staff@demo.gonnha.local` (hoặc `mai.nguyen@gonnha.vn`) | `Demo@12345` | Xác nhận đến, tải ảnh nghiệm thu, xác nhận thu tiền mặt |
+| **Staff (Fulltime)** | `staff.fulltime@demo.gonnha.local` (hoặc `nam.tran@gonnha.vn`) | `Demo@12345` | Nhân viên toàn thời gian, hỗ trợ giải quyết sự cố |
+| **Admin** | `admin@demo.gonnha.local` (hoặc `admin@gonnha.vn`) | `Demo@12345` | Duyệt lịch, xử lý khiếu nại sự cố, quản lý dịch vụ |
+| **Manager (SuperAdmin)** | `manager@demo.gonnha.local` | `Demo@12345` | Quản lý và khóa/mở khóa tài khoản Admin, tạo nhân viên mới |
 
 ---
 
