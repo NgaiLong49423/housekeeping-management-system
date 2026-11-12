@@ -31,7 +31,17 @@ public class BookingArrivalServiceImpl implements BookingArrivalService {
         if (!"CONFIRMED".equals(booking.status())) throw new IllegalStateException("Chỉ Booking CONFIRMED mới xác nhận giờ đến.");
         if (booking.customerArrivedAt() != null) return;
         if (booking.staffArrivedAt() == null) throw new IllegalStateException("Nhân viên chưa tự xác nhận đã đến.");
-        if (bookings.confirmCustomerArrival(bookingId, customerId, now) != 1)
+        int updated;
+        if (booking.customerWaitedAt() != null && booking.arrivalVerifiedAt() == null) {
+            BookingDelayCompensation compensation = BookingDelayCompensation.calculate(
+                    booking.startTime(), booking.staffArrivedAt(), booking.totalAmount(), compensationSettings.get());
+            updated = bookings.confirmCustomerArrivalAfterNoShow(bookingId, customerId, now,
+                    compensation.delayedMinutes(), java.math.BigDecimal.valueOf(compensation.discountPercent()),
+                    compensation.discountAmount());
+        } else {
+            updated = bookings.confirmCustomerArrival(bookingId, customerId, now);
+        }
+        if (updated != 1)
             throw new IllegalStateException("Không thể xác nhận giờ nhân viên đến. Hãy tải lại trang để kiểm tra trạng thái lịch.");
     }
 

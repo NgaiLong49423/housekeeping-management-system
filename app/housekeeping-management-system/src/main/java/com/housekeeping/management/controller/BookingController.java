@@ -18,8 +18,6 @@ import com.housekeeping.management.service.CaseAttachmentStorageService;
 import com.housekeeping.management.service.BookingFinancialService;
 import com.housekeeping.management.service.HouseService;
 import com.housekeeping.management.service.BookingCancellationService;
-import com.housekeeping.management.service.BookingCancellationPolicyService;
-import com.housekeeping.management.dto.cancellation.CancellationDto.CancelRequest;
 import com.housekeeping.management.service.BookingArrivalService;
 import com.housekeeping.management.service.BookingIncidentService;
 import com.housekeeping.management.service.CustomerDelayReportService;
@@ -51,7 +49,6 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 public class BookingController {
     private final PortalQueryService query;
     private final BookingCancellationService cancellation;
-    private BookingCancellationPolicyService cancellationPolicy;
     private final BookingReservationService reservations;
     private final CustomerFeedbackSubmissionService feedbackSubmission;
     private final FeedbackCaseService feedbackCases;
@@ -81,11 +78,6 @@ public class BookingController {
         this.bookingAvailability = bookingAvailability;
         this.incidents = incidents;
         this.customerDelayReports = customerDelayReports;
-    }
-
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    void setCancellationPolicy(BookingCancellationPolicyService cancellationPolicy) {
-        this.cancellationPolicy = cancellationPolicy;
     }
 
     @PostMapping("/customer/bookings/{id}/report-staff-delay")
@@ -255,6 +247,7 @@ public class BookingController {
         OffsetDateTime now = OffsetDateTime.now(java.time.ZoneOffset.ofHours(7));
         model.addAttribute("booking", booking);
         model.addAttribute("now", now);
+        if (user.isAdmin()) model.addAttribute("customerCancellationHistory", query.customerCancellationHistory(id, user));
         boolean customerVerifiedArrival = booking.customerArrivedAt() != null || booking.arrivalVerifiedAt() != null;
         boolean customerDelayReportOpen = booking.customerDelayReportedAt() != null && !customerVerifiedArrival;
         boolean acceptedEta = "ACCEPTED".equals(booking.incidentCustomerResponse())
@@ -267,7 +260,9 @@ public class BookingController {
         model.addAttribute("staffCanStartWork", "CONFIRMED".equals(booking.status())
                 && booking.staffArrivedAt() != null && booking.workStartedAt() == null && startAllowed);
         model.addAttribute("staffStartBlockMessage", customerDelayReportOpen
-                ? "Khách đã báo giờ đến chưa đúng. Cần khách xác nhận nhân viên đã có mặt hoặc Admin xác minh trước khi bắt đầu."
+                ? (booking.adminNoShowVerifiedAt() != null && booking.customerWaitedAt() != null
+                    ? "Khách đã chọn đợi sau khi Admin xác minh nhân viên chưa tới. Admin cần xác nhận giờ đến thực tế trước khi bắt đầu."
+                    : "Khách đã báo giờ đến chưa đúng. Cần khách xác nhận nhân viên đã có mặt hoặc Admin xác minh trước khi bắt đầu.")
                 : booking.incidentReportedAt() != null && !customerVerifiedArrival && !acceptedEta
                     ? "Cần khách đồng ý giờ đến trễ hoặc xác nhận nhân viên đã có mặt trước khi bắt đầu."
                     : lateArrival
@@ -349,7 +344,21 @@ public class BookingController {
             incidents.respond(id, user.getAccountId(), response);
             flash.addFlashAttribute("success", "DECLINED".equals(response)
                     ? "Đã hủy miễn phí lịch do Staff đến trễ. Admin có thể xem lại sự cố."
-                    : "Đã ghi nhận bạn đồng ý chờ. Mức giảm sẽ tính theo thời điểm Staff thực tế đến.");
+                    : "Đã ghi nhận phản hồi. Nếu ETA đã lỡ, bạn vẫn có thể hủy miễn phí trước khi bắt đầu; để tiếp tục, hãy xác nhận giờ đến thực tế hoặc báo Admin xác minh.");
+        } catch (IllegalArgumentException | IllegalStateException failure) {
+            flash.addFlashAttribute("error", PortalMessages.business(failure));
+        }
+        return "redirect:/customer/bookings/" + id;
+    }
+
+    @PostMapping("/customer/bookings/{id}/arrival-dispute-response")
+    String respondToArrivalDispute(@PathVariable Long id, @RequestParam String response,
+            @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
+        try {
+            customerDelayReports.respondAfterAdminReview(id, user.getAccountId(), response);
+            flash.addFlashAttribute("success", "WAIT".equals(response)
+                    ? "Đã ghi nhận bạn chọn đợi thêm. Mức giảm do trễ sẽ theo giờ đến Admin xác minh."
+                    : "Đã hủy miễn phí lịch vì nhân viên đến trễ.");
         } catch (IllegalArgumentException | IllegalStateException failure) {
             flash.addFlashAttribute("error", PortalMessages.business(failure));
         }
@@ -357,17 +366,10 @@ public class BookingController {
     }
 
     @PostMapping("/customer/bookings/{id}/cancel")
-    String cancel(@PathVariable Long id, @RequestParam(defaultValue = "OTHER") String reasonCode,
-            @RequestParam(required = false) String reasonNote,
-            @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
+    String cancel(@PathVariable Long id, @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
         try {
-            if (cancellationPolicy != null) {
-                var result = cancellationPolicy.executeCancellation(id, user.getAccountId(), new CancelRequest(reasonCode, reasonNote));
-                flash.addFlashAttribute("success", result.message());
-            } else {
-                cancellation.cancelByCustomer(id, user.getAccountId());
-                flash.addFlashAttribute("success", "Đã hủy lịch hẹn và giải phóng thời gian.");
-            }
+            cancellation.cancelByCustomer(id, user.getAccountId());
+            flash.addFlashAttribute("success", "Đã hủy lịch miễn phí và giải phóng thời gian.");
         } catch (IllegalArgumentException | IllegalStateException failure) {
             flash.addFlashAttribute("error", failure.getMessage());
         } catch (org.springframework.security.access.AccessDeniedException failure) {

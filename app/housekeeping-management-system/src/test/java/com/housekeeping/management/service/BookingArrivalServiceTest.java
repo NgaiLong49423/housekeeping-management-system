@@ -86,9 +86,28 @@ class BookingArrivalServiceTest {
         verify(bookings).confirmCustomerArrival(eq(42L), eq(3L), any());
     }
 
+    @Test
+    void afterNoShowWaitChoiceDiscountUsesStaffActualArrivalRatherThanCustomerAcknowledgementTime() {
+        BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
+        LocalDateTime start = LocalDateTime.now(ZoneOffset.ofHours(7)).minusMinutes(20).withNano(0);
+        LocalDateTime staffArrival = start.plusMinutes(1);
+        var workflow = new BookingPersistenceRepository.BookingWorkflowState(42L, 3L, 7L, start,
+                start.plusHours(1), "CONFIRMED", new BigDecimal("150000.00"), staffArrival, null,
+                null, null, null, null, null, null, BigDecimal.ZERO, BigDecimal.ZERO,
+                start.plusMinutes(2), null, null, null, null, null, null, start.plusMinutes(3));
+        when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow));
+        when(bookings.confirmCustomerArrivalAfterNoShow(eq(42L), eq(3L), any(), eq(1), any(), eq(new BigDecimal("7500.00"))))
+                .thenReturn(1);
+
+        new com.housekeeping.management.service.impl.BookingArrivalServiceImpl(bookings, settings()).confirm(42L, 3L);
+
+        verify(bookings).confirmCustomerArrivalAfterNoShow(eq(42L), eq(3L), any(), eq(1), eq(new BigDecimal("5")),
+                eq(new BigDecimal("7500.00")));
+    }
+
     private BookingPersistenceRepository.BookingWorkflowState workflow(Long staffId, LocalDateTime start) {
         return new BookingPersistenceRepository.BookingWorkflowState(42L, 3L, staffId, start, start.plusHours(1),
-                "CONFIRMED", new BigDecimal("150000.00"), null, null, null, null, null, null, null, null,
+                "CONFIRMED", new BigDecimal("150000.00"), start.plusMinutes(5), null, null, null, null, null, null, null,
                 BigDecimal.ZERO, BigDecimal.ZERO);
     }
 

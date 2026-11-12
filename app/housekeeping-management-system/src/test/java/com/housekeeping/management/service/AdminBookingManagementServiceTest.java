@@ -14,7 +14,10 @@ import com.housekeeping.management.dto.BookingDelayCompensation;
 import com.housekeeping.management.entity.Staff;
 import com.housekeeping.management.entity.User;
 import com.housekeeping.management.entity.House;
+import com.housekeeping.management.entity.Booking;
+import com.housekeeping.management.enums.BookingStatus;
 import com.housekeeping.management.repository.BookingPersistenceRepository;
+import com.housekeeping.management.repository.CancellationLogRepository;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,8 +31,9 @@ class AdminBookingManagementServiceTest {
     private final HouseService houses = mock(HouseService.class);
     private final CompanySettingsService companySettings = mock(CompanySettingsService.class);
     private final BookingDelayCompensationSettingsService compensationSettings = mock(BookingDelayCompensationSettingsService.class);
+    private final CancellationLogRepository cancellationLogs = mock(CancellationLogRepository.class);
     private final AdminBookingManagementService service = new com.housekeeping.management.service.impl.AdminBookingManagementServiceImpl(
-            bookings, staffManagement, authorization, reservations, houses, companySettings, compensationSettings);
+            bookings, staffManagement, authorization, reservations, houses, companySettings, compensationSettings, cancellationLogs);
 
     @BeforeEach
     void setup() {
@@ -37,6 +41,7 @@ class AdminBookingManagementServiceTest {
                 51L, 4L, 12L, 22L, LocalDateTime.of(2026, 11, 1, 10, 0), LocalDateTime.of(2026, 11, 1, 12, 0), "CONFIRMED", java.math.BigDecimal.TEN, java.math.BigDecimal.TEN);
         when(bookings.findBooking(51L)).thenReturn(Optional.of(confirmed));
         when(bookings.lockBooking(51L)).thenReturn(Optional.of(confirmed));
+        when(bookings.lockBookingWorkflow(51L)).thenReturn(Optional.of(workflow("CONFIRMED")));
     }
 
     @Test
@@ -51,13 +56,41 @@ class AdminBookingManagementServiceTest {
 
     @Test
     void adminCannotCancelAwaitingPaymentOrCompletedBooking() {
-        when(bookings.lockBooking(51L)).thenReturn(Optional.of(new BookingPersistenceRepository.BookingState(
-                51L, 4L, 12L, 22L, LocalDateTime.now(), LocalDateTime.now().plusHours(2), "AWAITING_PAYMENT", null, null)));
+        when(bookings.lockBookingWorkflow(51L)).thenReturn(Optional.of(workflow("AWAITING_PAYMENT")));
 
         assertThatThrownBy(() -> service.cancelConfirmedBooking(51L, 99L, "reason"))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("CONFIRMED");
         verify(bookings, never()).cancel(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void adminCanVerifyStaffHasNotArrivedAfterCustomerReport() {
+        LocalDateTime now = LocalDateTime.now(java.time.ZoneOffset.ofHours(7)).withNano(0);
+        Booking booking = new Booking();
+        booking.setBookingId(51L);
+        booking.setCustomerId(4L);
+        booking.setStaffId(12L);
+        booking.setStatus(BookingStatus.CONFIRMED);
+        booking.setStartTime(now.minusMinutes(10));
+        booking.setEndTime(now.plusHours(1));
+        booking.setCustomerDelayReportedAt(now.minusMinutes(5));
+        when(bookings.lockEntity(51L)).thenReturn(Optional.of(booking));
+        when(bookings.verifyStaffNotArrived(org.mockito.ArgumentMatchers.eq(51L), org.mockito.ArgumentMatchers.eq(99L),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("Đã gọi khách"))).thenReturn(1);
+
+        service.verifyStaffNotArrived(51L, 99L, "  Đã gọi khách  ");
+
+        verify(authorization).requireActiveAdmin(99L);
+        verify(bookings).verifyStaffNotArrived(org.mockito.ArgumentMatchers.eq(51L), org.mockito.ArgumentMatchers.eq(99L),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("Đã gọi khách"));
+    }
+
+    private BookingPersistenceRepository.BookingWorkflowState workflow(String status) {
+        return new BookingPersistenceRepository.BookingWorkflowState(51L, 4L, 12L,
+                LocalDateTime.of(2026, 11, 1, 10, 0), LocalDateTime.of(2026, 11, 1, 12, 0), status,
+                new java.math.BigDecimal("150000"), null, null, null, null, null, null, null, null,
+                java.math.BigDecimal.ZERO, java.math.BigDecimal.ZERO);
     }
 
     @Test

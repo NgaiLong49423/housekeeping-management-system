@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 
 import com.housekeeping.management.repository.BookingPersistenceRepository;
 import com.housekeeping.management.repository.BookingDelayProposalRepository;
+import com.housekeeping.management.repository.CancellationLogRepository;
 import com.housekeeping.management.entity.BookingDelayProposal;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -21,18 +22,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 class BookingIncidentServiceTest {
     private static BookingDelayProposalRepository proposalRepository;
     @Test
-    void staffArrivalClaimDoesNotRemoveNeedForConcreteEta() {
+    void staffCannotSubmitEtaAfterScheduledStartEvenIfArrivalWasClaimed() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
         BookingIncidentService service = incidentService(bookings);
         LocalDateTime start = LocalDateTime.now(ZoneOffset.ofHours(7)).minusHours(1).withNano(0);
         LocalDateTime arrival = start.plusMinutes(10);
         LocalDateTime eta = LocalDateTime.now(ZoneOffset.ofHours(7)).plusMinutes(15).withNano(0);
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(booking(7L, "CONFIRMED", start, arrival, null, null)));
-        when(bookings.reportStaffIncident(eq(42L), eq(7L), eq("kẹt xe"), any(), any())).thenReturn(1);
-
-        service.report(42L, 7L, "kẹt xe", eta);
-
-        verify(bookings).reportStaffIncident(eq(42L), eq(7L), eq("kẹt xe"), eq(eta), any());
+        assertThatThrownBy(() -> service.report(42L, 7L, "kẹt xe", eta))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("trước giờ bắt đầu");
+        verify(bookings, org.mockito.Mockito.never()).reportStaffIncident(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -53,19 +52,20 @@ class BookingIncidentServiceTest {
     void doesNotOverwriteAnUnresolvedExistingEta() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
         BookingIncidentService service = incidentService(bookings);
-        LocalDateTime start = LocalDateTime.now(ZoneOffset.ofHours(7)).minusMinutes(20).withNano(0);
+        LocalDateTime start = LocalDateTime.now(ZoneOffset.ofHours(7)).plusMinutes(20).withNano(0);
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(booking(7L, "CONFIRMED", start,
                 start.minusMinutes(1), null, start.plusMinutes(15))));
         BookingDelayProposal proposal = new BookingDelayProposal();
         proposal.setProposalId(88L); proposal.setBookingId(42L); proposal.setStaffId(7L);
-        proposal.setExpectedArrivalAt(LocalDateTime.now(ZoneOffset.ofHours(7)).minusMinutes(20).withNano(0)); proposal.setStatus("ACCEPTED");
+        proposal.setExpectedArrivalAt(LocalDateTime.now(ZoneOffset.ofHours(7)).plusMinutes(10).withNano(0)); proposal.setStatus("ACCEPTED");
         when(proposalRepository.findFirstByBookingIdOrderByProposalIdDesc(42L)).thenReturn(Optional.of(proposal));
         when(proposalRepository.expireAccepted(eq(88L), any())).thenReturn(1);
         when(bookings.reportStaffIncident(eq(42L), eq(7L), eq("kẹt xe"), any(), any())).thenReturn(1);
 
-        service.report(42L, 7L, "kẹt xe", LocalDateTime.now(ZoneOffset.ofHours(7)).plusMinutes(15).withNano(0));
-        org.mockito.Mockito.verify(bookings).reportStaffIncident(eq(42L), eq(7L), eq("kẹt xe"), any(), any());
-        org.mockito.Mockito.verify(proposalRepository).expireAccepted(eq(88L), any());
+        assertThatThrownBy(() -> service.report(42L, 7L, "kẹt xe", start.plusMinutes(15)))
+                .isInstanceOf(IllegalStateException.class);
+        org.mockito.Mockito.verify(bookings, org.mockito.Mockito.never()).reportStaffIncident(any(), any(), any(), any(), any());
+        org.mockito.Mockito.verify(proposalRepository, org.mockito.Mockito.never()).expireAccepted(any(), any());
     }
 
     @Test
@@ -160,6 +160,7 @@ class BookingIncidentServiceTest {
 
     private static BookingIncidentService incidentService(BookingPersistenceRepository bookings) {
         proposalRepository = mock(BookingDelayProposalRepository.class);
-        return new com.housekeeping.management.service.impl.BookingIncidentServiceImpl(bookings, proposalRepository);
+        return new com.housekeeping.management.service.impl.BookingIncidentServiceImpl(
+                bookings, proposalRepository, mock(CancellationLogRepository.class));
     }
 }

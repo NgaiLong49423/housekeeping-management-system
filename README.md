@@ -1,6 +1,6 @@
 > **Document:** Housekeeping Management System README\
 > **File:** `README.md`\
-> **Version:** v2.5.0\
+> **Version:** v2.6.0\
 > **Created:** 2026-06-14\
 > **Last Updated:** 2026-11-13\
 > **Status:** Draft\
@@ -26,7 +26,7 @@ Agent và thành viên nhóm cần theo [hướng dẫn cấu trúc package Java
 
 Authentication; Service Management; Staff Profile; Follow Staff; House Management; Booking Management; Staff Availability; Leave Management; Job Execution; Payment; Feedback; System Configuration.
 
-Có bốn role `CUSTOMER`, `STAFF`, `ADMIN`, `MANAGER`; Manager kế thừa quyền vận hành Admin và quyết định các bước được giao riêng. Schema hiện tại có 26 bảng nghiệp vụ theo Data Dictionary. Booking dùng các trạng thái `CONFIRMED`, `AWAITING_PAYMENT`, `COMPLETED`, `CANCELLED`. Staff được giao phải tự xác nhận đã đến trước khi bắt đầu; giờ Staff khai là mốc tính giảm trễ, trừ khi Admin xác minh/chỉnh theo báo cáo Customer trước khi hoàn tất/thanh toán. Customer report chỉ để theo dõi và không tự chặn/hủy/đổi tiền. Payment `CASH` do Staff được giao xác nhận; Payment `ONLINE` qua VNPay sandbox chỉ được xác nhận khi VNPay báo thành công (tra cứu QueryDR, IPN có chữ ký, hoặc — khi QueryDR không dùng được — dữ liệu trả về có chữ ký HMAC hợp lệ và đúng số tiền); giao dịch sandbox được đánh dấu mô phỏng và loại khỏi dòng tiền thật.
+Có bốn role `CUSTOMER`, `STAFF`, `ADMIN`, `MANAGER`; Manager kế thừa quyền vận hành Admin và quyết định các bước được giao riêng. Schema hiện tại có 29 bảng nghiệp vụ theo Data Dictionary. Booking dùng các trạng thái `CONFIRMED`, `AWAITING_PAYMENT`, `COMPLETED`, `CANCELLED`. Customer hủy trực tiếp lịch thường khi còn ít nhất 120 phút và công việc chưa bắt đầu; không có bước xem trước phí hoặc phí hủy. Staff chỉ gửi ETA trễ trước giờ bắt đầu; Customer có thể đợi hoặc hủy miễn phí. Từ giờ hẹn, Customer có thể báo giờ đến sai; Admin xác minh chưa tới/giờ đến thực tế rồi Customer chọn đợi hoặc hủy miễn phí. Nếu dịch vụ tiếp tục, mức giảm trễ theo cấu hình Admin dựa trên giờ đến thực tế. Báo cáo đơn lẻ không mở quyền hủy và tạm khóa việc bắt đầu cho tới khi Admin xác minh. Hủy mới không tạo phí, nợ COD, hoàn tiền, chuyển ví hoặc chế tài tự động; thanh toán sau dịch vụ không phát sinh phụ phí. Payment `CASH` do Staff được giao xác nhận; Payment `ONLINE` qua VNPay sandbox chỉ được xác nhận khi VNPay báo thành công (tra cứu QueryDR, IPN có chữ ký, hoặc — khi QueryDR không dùng được — dữ liệu trả về có chữ ký HMAC hợp lệ và đúng số tiền); giao dịch sandbox được đánh dấu mô phỏng và loại khỏi dòng tiền thật.
 
 ## Chạy database chính
 

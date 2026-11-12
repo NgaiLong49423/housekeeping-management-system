@@ -63,5 +63,17 @@ public class AdminBookingController {
         return "redirect:/admin/bookings/" + id;
     }
 
+    @PostMapping("/bookings/{id}/arrival-dispute/not-arrived")
+    String verifyNotArrived(@PathVariable Long id, @AuthenticationPrincipal PortalUser user,
+            @RequestParam String note, RedirectAttributes flash) {
+        try {
+            bookingManagement.verifyStaffNotArrived(id, user.getUserId(), note);
+            flash.addFlashAttribute("success", "Đã xác minh nhân viên chưa tới; khách có thể chọn đợi hoặc hủy.");
+        } catch (IllegalArgumentException | IllegalStateException failure) {
+            flash.addFlashAttribute("error", PortalMessages.business(failure));
+        }
+        return "redirect:/admin/bookings/" + id;
+    }
+
 
 }

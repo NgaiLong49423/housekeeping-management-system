@@ -38,7 +38,8 @@ public class BookingCompletionServiceImpl implements BookingCompletionService {
         if (customerDelayReportOpen) {
             throw new IllegalStateException("Khách đã báo giờ đến chưa đúng. Cần khách xác nhận nhân viên đã có mặt hoặc Admin xác minh trước khi bắt đầu.");
         }
-        java.time.LocalDateTime effectiveArrival = booking.staffArrivedAt();
+        java.time.LocalDateTime effectiveArrival = "ADMIN".equals(booking.arrivalVerificationSource())
+                && booking.arrivalVerifiedAt() != null ? booking.arrivalVerifiedAt() : booking.staffArrivedAt();
         boolean lateBeyondGrace = effectiveArrival.isAfter(booking.startTime());
         if (lateBeyondGrace && booking.incidentReportedAt() == null && !customerVerifiedArrival) {
             throw new IllegalStateException("Nhân viên đến trễ cần gửi giờ dự kiến và chờ khách đồng ý, hoặc khách xác nhận nhân viên đã có mặt.");

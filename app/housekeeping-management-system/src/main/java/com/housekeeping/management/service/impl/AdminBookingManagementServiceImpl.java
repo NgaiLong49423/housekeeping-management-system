@@ -9,10 +9,14 @@ import com.housekeeping.management.service.StaffManagementService;
 import com.housekeeping.management.service.CompanySettingsService;
 import com.housekeeping.management.service.BookingDelayCompensationSettingsService;
 import com.housekeeping.management.dto.BookingDelayCompensation;
+import com.housekeeping.management.entity.CancellationLog;
 
 import com.housekeeping.management.enums.StaffType;
 import com.housekeeping.management.entity.Staff;
 import com.housekeeping.management.repository.BookingPersistenceRepository;
+import com.housekeeping.management.repository.CancellationLogRepository;
+import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import org.springframework.stereotype.Service;
@@ -28,11 +32,12 @@ public class AdminBookingManagementServiceImpl implements AdminBookingManagement
     private final HouseService houses;
     private final CompanySettingsService companySettings;
     private final BookingDelayCompensationSettingsService compensationSettings;
+    private final CancellationLogRepository cancellationLogs;
 
     public AdminBookingManagementServiceImpl(BookingPersistenceRepository bookings,
             StaffManagementService staffManagement, AccountAuthorizationService authorization,
             BookingReservationService reservations, HouseService houses, CompanySettingsService companySettings,
-            BookingDelayCompensationSettingsService compensationSettings) {
+            BookingDelayCompensationSettingsService compensationSettings, CancellationLogRepository cancellationLogs) {
         this.bookings = bookings;
         this.staffManagement = staffManagement;
         this.authorization = authorization;
@@ -40,6 +45,7 @@ public class AdminBookingManagementServiceImpl implements AdminBookingManagement
         this.houses = houses;
         this.companySettings = companySettings;
         this.compensationSettings = compensationSettings;
+        this.cancellationLogs = cancellationLogs;
     }
 
     @Transactional
@@ -48,7 +54,8 @@ public class AdminBookingManagementServiceImpl implements AdminBookingManagement
         var booking = bookings.lockBookingWorkflow(bookingId)
                 .orElseThrow(() -> new IllegalArgumentException("Lịch hẹn không tồn tại."));
         if (!"CONFIRMED".equals(booking.status()) || booking.customerDelayReportedAt() == null
-                || booking.arrivalVerifiedAt() != null || booking.serviceCompletedAt() != null) {
+                || (booking.arrivalVerifiedAt() != null && !"CUSTOMER".equals(booking.arrivalVerificationSource()))
+                || booking.workStartedAt() != null || booking.serviceCompletedAt() != null) {
             throw new IllegalStateException("Booking không còn chờ xác minh giờ đến.");
         }
         LocalDateTime now = now();
@@ -69,16 +76,50 @@ public class AdminBookingManagementServiceImpl implements AdminBookingManagement
     }
 
     @Transactional
+    public void verifyStaffNotArrived(Long bookingId, Long adminId, String note) {
+        authorization.requireActiveAdmin(adminId);
+        var booking = bookings.lockEntity(bookingId)
+                .orElseThrow(() -> new IllegalArgumentException("Lịch hẹn không tồn tại."));
+        String normalizedNote = note == null ? "" : note.trim();
+        if (booking.getStatus() != com.housekeeping.management.enums.BookingStatus.CONFIRMED
+                || booking.getCustomerDelayReportedAt() == null
+                || (booking.getArrivalVerifiedAt() != null && !"CUSTOMER".equals(booking.getArrivalVerificationSource()))
+                || booking.getAdminNoShowVerifiedAt() != null || booking.getWorkStartedAt() != null
+                || booking.getServiceCompletedAt() != null) {
+            throw new IllegalStateException("Booking không còn chờ Admin xác minh nhân viên chưa tới.");
+        }
+        if (normalizedNote.isBlank() || normalizedNote.length() > 500) {
+            throw new IllegalArgumentException("Ghi chú xác minh bắt buộc và tối đa 500 ký tự.");
+        }
+        LocalDateTime now = now();
+        if (bookings.verifyStaffNotArrived(bookingId, adminId, now, normalizedNote) != 1) {
+            throw new IllegalStateException("Booking vừa được xử lý. Hãy tải lại trang.");
+        }
+    }
+
+    @Transactional
     public void cancelConfirmedBooking(Long bookingId, Long adminId, String reason) {
         authorization.requireActiveAdmin(adminId);
-        var booking = bookings.lockBooking(bookingId)
+        var booking = bookings.lockBookingWorkflow(bookingId)
                 .orElseThrow(() -> new IllegalArgumentException("Lịch hẹn không tồn tại."));
         if (!"CONFIRMED".equals(booking.status())) {
-            throw new IllegalStateException("Chỉ lịch đang CONFIRMED mới được Admin hủy; trạng thái thanh toán khác chưa có quy tắc hoàn tiền.");
+            throw new IllegalStateException("Chỉ lịch đang CONFIRMED mới được Admin hủy.");
         }
-        if (bookings.cancel(bookingId, adminId, reason.trim(), now()) != 1) {
+        LocalDateTime cancelledAt = now();
+        String normalizedReason = reason == null ? "" : reason.trim();
+        if (normalizedReason.isBlank() || normalizedReason.length() > 500) {
+            throw new IllegalArgumentException("Lý do hủy bắt buộc và tối đa 500 ký tự.");
+        }
+        if (bookings.cancel(bookingId, adminId, normalizedReason, cancelledAt) != 1) {
             throw new IllegalStateException("Trạng thái lịch hẹn vừa thay đổi. Hãy tải lại trang.");
         }
+        cancellationLogs.save(CancellationLog.builder()
+                .bookingId(booking.id()).customerId(booking.customerId()).workerId(booking.staffId())
+                .cancelledByType("ADMIN").reasonCode("ADMIN_CANCELLED").reasonNote(normalizedReason)
+                .bookingTotalAmount(booking.totalAmount()).cancellationFee(BigDecimal.ZERO)
+                .workerCompensation(BigDecimal.ZERO).platformFee(BigDecimal.ZERO).refundAmount(BigDecimal.ZERO)
+                .deltaMinutesToStart(Duration.between(cancelledAt, booking.startTime()).toMinutes())
+                .isWorkerFault(false).createdAt(cancelledAt).build());
     }
 
     @Transactional

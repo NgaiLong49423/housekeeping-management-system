@@ -160,34 +160,51 @@
             <p class="small text-success mt-2 mb-0" th:if="${booking.incidentCustomerResponse == 'ACCEPTED'}"
                th:text="'Customer đã đồng ý chờ lúc ' + ${#temporals.format(booking.incidentCustomerRespondedAt, 'HH:mm · dd/MM/yyyy')}">Đã đồng ý chờ</p>
             <p class="small text-danger mt-2 mb-0" th:if="${booking.incidentCustomerResponse == 'DECLINED'}">Customer đã từ chối chờ; booking được hủy miễn phí.</p>
-            <p class="small text-warning mt-2 mb-0" th:if="${currentUser.admin and booking.incidentCustomerResponse == null}">Đang chờ Customer phản hồi; Staff chưa được bắt đầu công việc.</p>
-            <div class="border-top mt-3 pt-3" th:if="${currentUser.role == 'CUSTOMER' and booking.status == 'CONFIRMED' and booking.incidentCustomerResponse == null and booking.workStartedAt == null and booking.incidentExpectedArrivalAt != null}">
-              <p class="mb-2">Vui lòng chọn sau khi Staff đã gọi cho bạn. Chưa phản hồi không được tính là đồng ý.</p>
-              <p class="small text-warning" th:if="${booking.incidentExpectedArrivalAt.isAfter(booking.start.plusMinutes(30))}">Giờ dự kiến muộn hơn 30 phút. Nếu tiếp tục, mức giảm tối thiểu theo chính sách là 20%; bạn vẫn có thể hủy miễn phí trước khi công việc bắt đầu.</p>
+            <p class="small text-warning mt-2 mb-0" th:if="${currentUser.admin and booking.incidentCustomerResponse == null and booking.customerDelayReportedAt == null}">Đang chờ Customer chọn đợi hoặc hủy; Staff chưa được bắt đầu công việc.</p>
+            <div class="border-top mt-3 pt-3" th:if="${currentUser.role == 'CUSTOMER' and booking.status == 'CONFIRMED' and booking.incidentCustomerResponse == null and booking.customerDelayReportedAt == null and booking.workStartedAt == null and booking.incidentExpectedArrivalAt != null}">
+              <p class="mb-2">Chọn đợi giờ đến dự kiến hoặc hủy ngay. Nếu chọn đợi, bạn vẫn có thể hủy miễn phí trước khi công việc bắt đầu.</p>
+              <p class="small text-secondary">Nếu dịch vụ được thực hiện, chiết khấu đến trễ sẽ theo mức Admin cấu hình và giờ nhân viên thực tế đến.</p>
               <div class="d-flex flex-wrap gap-2">
                 <form method="post" th:action="@{/customer/bookings/{id}/incident-response(id=${booking.id})}">
                   <input type="hidden" name="response" value="ACCEPTED">
-                  <button class="btn btn-primary" type="submit" th:text="${booking.delayMinutes != null and booking.delayMinutes > 30 ? 'Đồng ý tiếp tục (giảm 20%)' : 'Đồng ý chờ'}">Đồng ý chờ</button>
+                  <button class="btn btn-primary" type="submit">Đợi giờ nhân viên đến</button>
                 </form>
                 <form method="post" th:action="@{/customer/bookings/{id}/incident-response(id=${booking.id})}" data-confirm="Từ chối giờ đến dự kiến và hủy lịch miễn phí?">
                   <input type="hidden" name="response" value="DECLINED">
-                  <button class="btn btn-outline-danger" type="submit">Không đồng ý, hủy miễn phí</button>
+                  <button class="btn btn-outline-danger" type="submit">Không đợi, hủy lịch</button>
                 </form>
               </div>
             </div>
             <div class="alert alert-info mt-3 mb-0" th:if="${booking.delayMinutes != null and booking.delayMinutes > 0 and booking.incidentCustomerResponse == 'ACCEPTED'}">
               <span th:text="'Staff trễ ' + ${booking.delayMinutes} + ' phút. Mức giảm ' + ${#numbers.formatDecimal(booking.discountedPercent,0,'POINT',0,'COMMA')} + '%: '">Mức giảm</span>
               <strong th:text="${#numbers.formatDecimal(booking.delayDiscountAmount,0,'POINT',0,'COMMA')} + ' ₫'">0 ₫</strong>
-              <span th:if="${booking.delayMinutes > 30}">. Bạn vẫn có thể hủy miễn phí trước khi công việc bắt đầu.</span>
+              <span>. Bạn vẫn có thể hủy miễn phí trước khi công việc bắt đầu.</span>
             </div>
           </section>
 
           <section class="surface p-4" th:if="${booking.customerDelayReportedAt != null and (currentUser.role == 'CUSTOMER' or currentUser.admin)}">
             <h2 class="h6 mb-2">Customer đã báo Staff chưa đến</h2>
-            <p class="small text-secondary mb-0" th:text="'Đã ghi nhận lúc ' + ${booking.customerDelayReportedLabel} + '. Báo cáo chưa tự hủy lịch; khi chưa xác minh giờ đến và công việc chưa bắt đầu, bạn có thể hủy miễn phí. Báo cáo cũng tạm khóa việc bắt đầu cho đến khi khách hoặc Admin xác minh.'">Thông tin báo trễ của Customer</p>
+            <p class="small text-secondary mb-0" th:text="'Đã ghi nhận lúc ' + ${booking.customerDelayReportedLabel} + '. Admin cần xác minh trước khi khách chọn đợi hoặc hủy; báo cáo tạm khóa việc bắt đầu.'">Thông tin báo trễ của Customer</p>
             <p class="small mt-2 mb-0" th:if="${booking.staffArrivedAt != null and booking.arrivalVerifiedAt == null}" th:text="'Staff tự xác nhận đã đến lúc ' + ${booking.staffArrivalLabel} + '; thời điểm này đang chờ xác minh.'">Staff tự xác nhận đến</p>
             <p class="small mt-2 mb-0" th:if="${booking.arrivalVerifiedAt != null}" th:text="'Giờ đến đã xác minh: ' + ${booking.arrivalVerifiedLabel} + ' · nguồn ' + ${booking.arrivalVerificationSource} + ' · ghi nhận lúc ' + ${booking.arrivalVerificationRecordedLabel}">Giờ đến đã xác minh</p>
             <p class="small text-secondary mt-2 mb-0" th:if="${booking.arrivalVerificationNote != null}" th:text="'Ghi chú xác minh: ' + ${booking.arrivalVerificationNote}">Ghi chú xác minh</p>
+            <p class="small text-warning mt-2 mb-0" th:if="${booking.adminNoShowVerifiedAt != null}" th:text="'Admin đã xác minh nhân viên chưa tới lúc ' + ${#temporals.format(booking.adminNoShowVerifiedAt, 'HH:mm · dd/MM/yyyy')} + '. Ghi chú: ' + ${booking.adminNoShowNote}">Admin xác nhận chưa tới</p>
+            <p class="small text-success mt-2 mb-0" th:if="${booking.customerWaitedAt != null}" th:text="'Khách chọn đợi thêm lúc ' + ${#temporals.format(booking.customerWaitedAt, 'HH:mm · dd/MM/yyyy')}">Khách chọn đợi</p>
+          </section>
+
+          <section class="surface p-4" th:if="${currentUser.role == 'CUSTOMER' and booking.status == 'CONFIRMED' and booking.customerDelayReportedAt != null and booking.workStartedAt == null and booking.customerWaitedAt == null and (booking.adminNoShowVerifiedAt != null or (booking.arrivalVerifiedAt != null and booking.arrivalVerifiedAt.isAfter(booking.start)))}">
+            <h2 class="h6 mb-2">Nhân viên đến trễ</h2>
+            <p class="small text-secondary mb-3">Admin đã xác minh tình trạng đến trễ. Bạn có thể đợi thêm hoặc hủy miễn phí. Nếu đợi và dịch vụ được thực hiện, chiết khấu theo mức Admin cấu hình.</p>
+            <div class="d-flex flex-wrap gap-2">
+              <form method="post" th:action="@{/customer/bookings/{id}/arrival-dispute-response(id=${booking.id})}">
+                <input type="hidden" name="response" value="WAIT">
+                <button class="btn btn-primary" type="submit">Đợi thêm</button>
+              </form>
+              <form method="post" th:action="@{/customer/bookings/{id}/arrival-dispute-response(id=${booking.id})}" data-confirm="Hủy miễn phí lịch hẹn vì nhân viên đến trễ?">
+                <input type="hidden" name="response" value="CANCEL">
+                <button class="btn btn-outline-danger" type="submit">Hủy lịch ngay</button>
+              </form>
+            </div>
           </section>
 
           <section class="surface p-4" th:if="${currentUser.role == 'CUSTOMER' and booking.status == 'CONFIRMED' and booking.customerDelayReportedAt == null and booking.workStartedAt == null and !booking.start.isAfter(now)}">
@@ -198,16 +215,21 @@
             </form>
           </section>
 
-          <section class="surface p-4" th:if="${currentUser.admin and booking.status == 'CONFIRMED' and booking.customerDelayReportedAt != null and booking.arrivalVerifiedAt == null and booking.workStartedAt == null}">
+          <section class="surface p-4" th:if="${currentUser.admin and booking.status == 'CONFIRMED' and booking.customerDelayReportedAt != null and (booking.arrivalVerifiedAt == null or booking.arrivalVerificationSource == 'CUSTOMER') and booking.workStartedAt == null}">
             <h2 class="h5 mb-2">Xác minh giờ đến thực tế</h2>
-            <p class="small text-secondary">Nhập giờ Staff thực sự có mặt. Hệ thống tính giảm theo giờ này và mở khóa bắt đầu công việc.</p>
+            <p class="small text-secondary">Nhập giờ Staff thực sự có mặt. Hệ thống tính chiết khấu theo mức Admin cấu hình; khách có thể chọn đợi hoặc hủy miễn phí nếu nhân viên đến trễ.</p>
             <form method="post" th:action="@{/admin/bookings/{id}/arrival-dispute/verify(id=${booking.id})}">
               <label class="form-label" for="actualArrivalAt">Giờ đến thực tế</label>
               <input id="actualArrivalAt" name="actualArrivalAt" type="datetime-local" class="form-control mb-3" required
-                     th:min="${#temporals.format(booking.start, 'yyyy-MM-dd''T''HH:mm')}" th:max="${#temporals.format(now, 'yyyy-MM-dd''T''HH:mm')}" />
+                     th:max="${#temporals.format(now, 'yyyy-MM-dd''T''HH:mm')}" />
               <label class="form-label" for="arrivalVerificationNote">Ghi chú xác minh</label>
               <textarea id="arrivalVerificationNote" name="note" class="form-control mb-3" maxlength="500" required></textarea>
               <button class="btn btn-primary" type="submit">Xác minh giờ đến</button>
+            </form>
+            <form th:if="${booking.adminNoShowVerifiedAt == null}" method="post" class="border-top mt-3 pt-3" th:action="@{/admin/bookings/{id}/arrival-dispute/not-arrived(id=${booking.id})}">
+              <label class="form-label" for="noShowVerificationNote">Hoặc xác minh nhân viên chưa tới</label>
+              <textarea id="noShowVerificationNote" name="note" class="form-control mb-3" maxlength="500" required></textarea>
+              <button class="btn btn-outline-warning" type="submit">Xác minh chưa tới</button>
             </form>
           </section>
 
@@ -231,6 +253,19 @@
               </div>
               <p class="small text-secondary mt-2 mb-0">Chỉ áp dụng khi lịch hẹn đang ở trạng thái Đã xác nhận. Lịch đã hoàn thành hoặc đang chờ thanh toán không thể hủy tại đây.</p>
             </form>
+          </section>
+
+          <section class="surface p-4" th:if="${currentUser.admin and customerCancellationHistory != null}">
+            <h2 class="h6 mb-2">Lịch sử khách hủy trong 30 ngày</h2>
+            <p class="small text-secondary" th:text="'Số lần khách tự hủy: ' + ${#lists.size(customerCancellationHistory)}">Số lần khách hủy</p>
+            <ul class="small mb-0 ps-3" th:unless="${#lists.isEmpty(customerCancellationHistory)}">
+              <li th:each="entry : ${customerCancellationHistory}">
+                <span th:text="${#temporals.format(entry.cancelledAt, 'HH:mm · dd/MM/yyyy')} + ' · Booking #' + ${entry.bookingId} + ' · ' + ${entry.reasonCode}">Lần hủy</span>
+                <span th:if="${entry.reasonNote != null and !entry.reasonNote.isBlank()}" th:text="' · ' + ${entry.reasonNote}">Lý do</span>
+              </li>
+            </ul>
+            <p class="small text-secondary mb-0" th:if="${#lists.isEmpty(customerCancellationHistory)}">Chưa có lần hủy nào trong khoảng thời gian này.</p>
+            <p class="small text-secondary mt-2 mb-0">Thông tin để Admin tham khảo; hệ thống không tự áp dụng chế tài.</p>
           </section>
 
           <!-- Services and Evidence Card -->
@@ -544,6 +579,7 @@
                   <strong class="d-block text-dark small">Chính sách: Thanh toán sau dịch vụ</strong>
                   <p class="small text-secondary mb-0 mt-1" style="font-size: 0.82rem; line-height: 1.45;">
                     Quý khách <strong>chưa cần thanh toán ngay</strong>. Nhân viên sẽ đến dọn dẹp theo đúng giờ hẹn. Sau khi nhân viên hoàn thành công việc, quý khách có thể chọn thanh toán trực tuyến qua cổng VNPay hoặc gửi tiền mặt trực tiếp cho nhân viên.
+                    Không có phụ phí vì thanh toán sau dịch vụ.
                   </p>
                 </div>
               </div>
@@ -597,17 +633,20 @@
             <h2 class="h6 mb-2">
               Thay đổi kế hoạch?
             </h2>
-            <p class="small text-secondary mb-3" th:if="${booking.workStartedAt == null and booking.customerDelayReportedAt != null and booking.arrivalVerifiedAt == null and booking.customerArrivedAt == null}">
-              Báo cáo nhân viên chưa đến vẫn đang mở. Bạn có thể hủy miễn phí trước khi giờ đến được xác minh hoặc công việc bắt đầu.
+            <p class="small text-secondary mb-3" th:if="${booking.workStartedAt == null and booking.cancellable}">
+              Hủy lịch miễn phí. Lịch thường được hủy khi còn ít nhất 2 giờ; trường hợp nhân viên đến trễ được hủy miễn phí trước khi công việc bắt đầu.
             </p>
-            <p class="small text-secondary mb-3" th:if="${booking.workStartedAt == null and !(booking.customerDelayReportedAt != null and booking.arrivalVerifiedAt == null and booking.customerArrivedAt == null)}">
-              Bạn có thể mở xem phí, tiền hoàn hoặc khoản nợ phát sinh trước khi xác nhận hủy. Sau giờ hẹn hoặc khi nhân viên đã có mặt, phí có thể lên đến toàn bộ giá trị lịch.
+            <p class="small text-secondary mb-3" th:if="${booking.workStartedAt == null and !booking.cancellable and booking.customerDelayReportedAt != null and booking.adminNoShowVerifiedAt == null and (booking.arrivalVerifiedAt == null or !booking.arrivalVerifiedAt.isAfter(booking.start))}">
+              Admin đang xác minh báo cáo nhân viên chưa tới. Sau khi xác minh, bạn có thể chọn đợi hoặc hủy miễn phí.
+            </p>
+            <p class="small text-secondary mb-3" th:if="${booking.workStartedAt == null and !booking.cancellable and (booking.customerDelayReportedAt == null or booking.adminNoShowVerifiedAt != null)}">
+              Lịch thường cần còn ít nhất 2 giờ mới được hủy. Nếu nhân viên đến trễ, hãy báo để Admin xác minh.
             </p>
             <p class="small text-secondary mb-3" th:if="${booking.workStartedAt != null}">Công việc đã bắt đầu; lịch không thể hủy.</p>
-            <button class="btn btn-outline-danger w-100" type="button" data-bs-toggle="modal" data-bs-target="#cancellationModal"
-                    th:attr="data-booking-id=${booking.id}" th:disabled="${booking.workStartedAt != null}">
-              Xem phí và hủy lịch
-            </button>
+            <form method="post" th:action="@{/customer/bookings/{id}/cancel(id=${booking.id})}"
+                  th:if="${booking.workStartedAt == null}" data-confirm="Xác nhận hủy miễn phí lịch hẹn này?">
+              <button class="btn btn-outline-danger w-100" type="submit" th:disabled="${!booking.cancellable}">Hủy lịch</button>
+            </form>
             <form th:if="${booking.status == 'CONFIRMED' and booking.staffArrivedAt != null and booking.customerArrivedAt == null and booking.arrivalVerifiedAt == null}" method="post" th:action="@{/customer/bookings/{id}/arrived(id=${booking.id})}" class="mt-3">
               <button class="btn btn-outline-primary w-100" type="submit">Xác nhận nhân viên đã đến</button>
               <p class="small text-secondary mt-2 mb-0">Xác nhận này lưu giờ nhân viên thực sự có mặt. Nếu bạn đã báo trễ, xác nhận sẽ giải quyết báo cáo và cho phép công việc bắt đầu.</p>
@@ -622,20 +661,20 @@
             </form>
           </section>
 
-          <section th:if="${currentUser.role == 'STAFF' and booking.status == 'CONFIRMED' and booking.workStartedAt == null and (booking.incidentReportedAt == null or booking.incidentExpectedArrivalAt == null)}" class="surface p-4">
+          <section th:if="${currentUser.role == 'STAFF' and booking.status == 'CONFIRMED' and booking.workStartedAt == null and booking.staffArrivedAt == null and booking.start.isAfter(now) and (booking.incidentReportedAt == null or booking.incidentExpectedArrivalAt == null)}" class="surface p-4">
             <button class="btn btn-outline-warning w-100" type="button" data-bs-toggle="collapse"
                     th:attr="data-bs-target=|#delayIncident-${booking.id}|,aria-controls=|delayIncident-${booking.id}|" aria-expanded="false">
               Báo sự cố đến trễ (nếu cần)
             </button>
             <div class="collapse mt-3" th:id="|delayIncident-${booking.id}|">
-              <p class="small text-secondary mb-3">Chỉ gửi nếu bạn dự kiến đến trễ. Khách sẽ thấy báo cáo và cần đồng ý trước khi bạn bắt đầu sau khi đã gửi.</p>
+              <p class="small text-secondary mb-3">Gửi ETA cụ thể trước giờ bắt đầu để khách chọn đợi hoặc hủy. Nếu khách chọn đợi, chiết khấu trễ chỉ tính khi dịch vụ được thực hiện.</p>
               <form method="post" th:action="@{/staff/bookings/{id}/incident(id=${booking.id})}">
               <label class="form-label small fw-bold" for="incident-note" th:for="|incident-note-${booking.id}|">Mô tả sự cố</label>
               <textarea id="incident-note" th:id="|incident-note-${booking.id}|" name="note" class="form-control" rows="3" maxlength="500" required placeholder="Ví dụ: đang kẹt xe, dự kiến tới trễ khoảng 15 phút"></textarea>
               <label class="form-label small fw-bold mt-3" for="incident-eta" th:for="|incident-eta-${booking.id}|">Giờ dự kiến đến</label>
               <input id="incident-eta" type="datetime-local" th:id="|incident-eta-${booking.id}|" name="expectedArrivalAt" class="form-control"
-                       th:required="${booking.staffArrivedAt == null}"
-                       th:attr="min=${#temporals.format(now, 'yyyy-MM-dd''T''HH:mm')}" th:value="${#temporals.format(booking.start.isAfter(now) ? booking.start.plusMinutes(15) : now.plusMinutes(15), 'yyyy-MM-dd''T''HH:mm')}">
+                       required
+                       th:attr="min=${#temporals.format(booking.start.plusMinutes(1), 'yyyy-MM-dd''T''HH:mm')}" th:value="${#temporals.format(booking.start.plusMinutes(15), 'yyyy-MM-dd''T''HH:mm')}">
                 <button class="btn btn-outline-warning w-100 mt-3" type="submit">Gửi báo cáo cho khách</button>
               </form>
             </div>
@@ -667,40 +706,6 @@
           </section>
         </aside>
       </div>
-      <div class="modal fade" id="cancellationModal" tabindex="-1" aria-labelledby="cancellationModalTitle" aria-hidden="true"
-           th:if="${currentUser.role == 'CUSTOMER' and booking.status == 'CONFIRMED'}">
-        <div class="modal-dialog modal-dialog-centered">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h2 class="modal-title fs-5" id="cancellationModalTitle">Xem chính sách hủy lịch</h2>
-              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
-            </div>
-            <div class="modal-body" data-cancellation-modal th:attr="data-booking-id=${booking.id},data-csrf-header=${_csrf.headerName}">
-              <input type="hidden" id="cancellationCsrfToken" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-              <div class="alert alert-danger py-2" role="alert" data-cancellation-error hidden></div>
-              <label class="form-label" for="cancellationReason">Lý do hủy</label>
-              <select class="form-select mb-3" id="cancellationReason">
-                <option value="OTHER">Lý do khác</option>
-                <option value="CUSTOMER_CHANGED_PLANS">Tôi đổi kế hoạch</option>
-                <option value="WORKER_LATE" th:selected="${booking.customerDelayReportedAt != null and booking.arrivalVerifiedAt == null and booking.customerArrivedAt == null}">Nhân viên đến trễ / chưa đến</option>
-              </select>
-              <label class="form-label" for="cancellationReasonNote">Ghi chú (không bắt buộc)</label>
-              <textarea class="form-control mb-3" id="cancellationReasonNote" rows="2" maxlength="500"></textarea>
-              <div class="rounded border p-3 bg-light" aria-live="polite">
-                <p class="mb-2" data-cancellation-policy>Đang tính chính sách hủy…</p>
-                <div class="d-flex justify-content-between"><span>Phí hủy</span><strong data-cancellation-fee>—</strong></div>
-                <div class="d-flex justify-content-between"><span>Hoàn vào ví (nếu đã thanh toán online)</span><strong data-cancellation-refund>—</strong></div>
-                <div class="d-flex justify-content-between"><span>Nợ phí phát sinh (nếu thanh toán COD)</span><strong data-cancellation-debt>—</strong></div>
-                <p class="small text-secondary mt-2 mb-0" data-cancellation-reschedule hidden></p>
-              </div>
-            </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Quay lại</button>
-              <button type="button" class="btn btn-danger" data-cancellation-submit disabled>Xác nhận hủy lịch</button>
-            </div>
-          </div>
-        </div>
-      </div>
     </main>
     <footer th:replace="~{fragments/layout :: footer}">
     </footer>
@@ -717,71 +722,6 @@
         method.addEventListener('change', sync);
         sync();
       });
-    </script>
-    <script>
-      (() => {
-        const modal = document.querySelector('[data-cancellation-modal]');
-        if (!modal) return;
-        const bookingId = modal.dataset.bookingId;
-        const reason = document.querySelector('#cancellationReason');
-        const note = document.querySelector('#cancellationReasonNote');
-        const error = modal.querySelector('[data-cancellation-error]');
-        const submit = document.querySelector('[data-cancellation-submit]');
-        const policy = modal.querySelector('[data-cancellation-policy]');
-        const fee = modal.querySelector('[data-cancellation-fee]');
-        const refund = modal.querySelector('[data-cancellation-refund]');
-        const debt = modal.querySelector('[data-cancellation-debt]');
-        const reschedule = modal.querySelector('[data-cancellation-reschedule]');
-        const csrf = document.querySelector('#cancellationCsrfToken');
-        const csrfHeader = modal.dataset.csrfHeader;
-        const money = value => `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(Number(value || 0))} ₫`;
-        const showError = message => { error.textContent = message; error.hidden = false; };
-        const clearError = () => { error.textContent = ''; error.hidden = true; };
-        const loadPreview = async () => {
-          clearError();
-          submit.disabled = true;
-          policy.textContent = 'Đang tính chính sách hủy…';
-          try {
-            const response = await fetch(`/api/bookings/${bookingId}/cancellation-preview?reasonCode=${encodeURIComponent(reason.value)}`, {
-              headers: { Accept: 'application/json' }
-            });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'Không thể tải mức phí. Hãy tải lại trang.');
-            policy.textContent = data.feePolicyNotice;
-            fee.textContent = money(data.cancellationFee);
-            refund.textContent = money(data.refundAmount);
-            debt.textContent = money(data.unpaidDebtAdded);
-            reschedule.textContent = data.rescheduleMessage || '';
-            reschedule.hidden = !data.canReschedule;
-            submit.disabled = false;
-          } catch (failure) {
-            policy.textContent = 'Chưa tính được phí hủy.';
-            showError(failure.message);
-          }
-        };
-        modal.addEventListener('show.bs.modal', loadPreview);
-        reason.addEventListener('change', loadPreview);
-        submit.addEventListener('click', async () => {
-          clearError();
-          submit.disabled = true;
-          try {
-            const headers = { 'Content-Type': 'application/json', Accept: 'application/json' };
-            if (csrfHeader && csrf?.value) headers[csrfHeader] = csrf.value;
-            const response = await fetch(`/api/bookings/${bookingId}/cancel`, {
-              method: 'POST',
-              headers,
-              body: JSON.stringify({ reasonCode: reason.value, reasonNote: note.value.trim() })
-            });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'Không thể hủy lịch. Hãy tải lại trang.');
-            policy.textContent = data.message;
-            window.setTimeout(() => window.location.reload(), 900);
-          } catch (failure) {
-            showError(failure.message);
-            submit.disabled = false;
-          }
-        });
-      })();
     </script>
   </body>
 </html>

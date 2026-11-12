@@ -4,6 +4,10 @@ import com.housekeeping.management.service.BookingIncidentService;
 import com.housekeeping.management.repository.BookingPersistenceRepository;
 import com.housekeeping.management.repository.BookingDelayProposalRepository;
 import com.housekeeping.management.entity.BookingDelayProposal;
+import com.housekeeping.management.entity.CancellationLog;
+import com.housekeeping.management.repository.CancellationLogRepository;
+import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import org.springframework.stereotype.Service;
@@ -14,10 +18,13 @@ public class BookingIncidentServiceImpl implements BookingIncidentService {
     private static final int MAX_NOTE_LENGTH = 500;
     private final BookingPersistenceRepository bookings;
     private final BookingDelayProposalRepository proposals;
+    private final CancellationLogRepository cancellationLogs;
 
-    public BookingIncidentServiceImpl(BookingPersistenceRepository bookings, BookingDelayProposalRepository proposals) {
+    public BookingIncidentServiceImpl(BookingPersistenceRepository bookings, BookingDelayProposalRepository proposals,
+            CancellationLogRepository cancellationLogs) {
         this.bookings = bookings;
         this.proposals = proposals;
+        this.cancellationLogs = cancellationLogs;
     }
 
     @Transactional
@@ -34,6 +41,9 @@ public class BookingIncidentServiceImpl implements BookingIncidentService {
         LocalDateTime now = LocalDateTime.now(ZoneOffset.ofHours(7)).withNano(0);
         if (!"CONFIRMED".equals(booking.status()) || booking.workStartedAt() != null || booking.serviceCompletedAt() != null) {
             throw new IllegalStateException("Chỉ báo sự cố khi lịch còn CONFIRMED và công việc chưa bắt đầu.");
+        }
+        if (!now.isBefore(booking.startTime())) {
+            throw new IllegalStateException("Đề nghị ETA trễ chỉ được gửi trước giờ bắt đầu.");
         }
         if (expectedArrivalAt == null || !expectedArrivalAt.isAfter(booking.startTime()) || expectedArrivalAt.isBefore(now)) {
             throw new IllegalArgumentException("ETA phải cụ thể, sau giờ hẹn và không trước thời điểm hiện tại.");
@@ -87,6 +97,7 @@ public class BookingIncidentServiceImpl implements BookingIncidentService {
                         || bookings.respondToIncident(bookingId, customerId, "DECLINED", now) != 1) {
                     throw new IllegalStateException("Đề xuất ETA vừa thay đổi. Hãy tải lại trang.");
                 }
+                recordCancellation(booking, customerId, now);
                 return;
             }
             proposals.respond(proposal.getProposalId(), "EXPIRED", now);
@@ -102,5 +113,18 @@ public class BookingIncidentServiceImpl implements BookingIncidentService {
         if (bookings.respondToIncident(bookingId, customerId, response, now) != 1) {
             throw new IllegalStateException("Lịch vừa thay đổi. Hãy tải lại trang trước khi phản hồi.");
         }
+        if ("DECLINED".equals(response)) recordCancellation(booking, customerId, now);
+    }
+
+    private void recordCancellation(BookingPersistenceRepository.BookingWorkflowState booking, Long customerId,
+            LocalDateTime now) {
+        String reason = "Khách hủy vì không chấp nhận giờ đến trễ của nhân viên.";
+        cancellationLogs.save(CancellationLog.builder()
+                .bookingId(booking.id()).customerId(customerId).workerId(booking.staffId())
+                .cancelledByType("CUSTOMER").reasonCode("STAFF_DELAY").reasonNote(reason)
+                .bookingTotalAmount(booking.totalAmount()).cancellationFee(BigDecimal.ZERO)
+                .workerCompensation(BigDecimal.ZERO).platformFee(BigDecimal.ZERO).refundAmount(BigDecimal.ZERO)
+                .deltaMinutesToStart(Duration.between(now, booking.startTime()).toMinutes())
+                .isWorkerFault(true).createdAt(now).build());
     }
 }

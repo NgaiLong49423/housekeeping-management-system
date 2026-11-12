@@ -1,8 +1,8 @@
 > **Document:** Product Requirements Document\
 > **File:** `docs/requirements/PRD.md`\
-> **Version:** v4.1.0\
+> **Version:** v5.0.0\
 > **Created:** 2026-06-14\
-> **Last Updated:** 2026-11-12\
+> **Last Updated:** 2026-11-13\
 > **Status:** Active\
 # PRD — HOME CLEANING BOOKING (CẬP NHẬT THEO BASELINE MỚI)
 
@@ -15,7 +15,7 @@ Hệ thống web cho một công ty dịch vụ dọn dẹp nhà: khách chọn 
 |---|---|---|
 | CUSTOMER | Đặt và theo dõi dịch vụ | Đăng nhập; Houses; chọn Service/Staff; tạo/hủy Booking; trả tiền; Feedback; Follow Staff |
 | STAFF | Thực hiện công việc | Xem booking được giao; cập nhật profile; PART_TIME đăng ký availability; xin nghỉ; upload ảnh; xác nhận xong; xác nhận CASH |
-| ADMIN | Vận hành một công ty dưới quyền Manager | Quản lý Services/Staff và trạng thái; Company Settings/Operating Hours; duyệt leave; xử lý hủy muộn, reassignment, feedback, sự cố và đề xuất tài chính |
+| ADMIN | Vận hành một công ty dưới quyền Manager | Quản lý Services/Staff và trạng thái; Company Settings/Operating Hours; duyệt leave; xác minh giờ đến trễ, reassignment, feedback, sự cố và đề xuất tài chính |
 | MANAGER | Quản trị hệ thống, duy nhất một tài khoản | Có toàn bộ quyền vận hành như Admin; tạo/khóa Admin; duyệt khoản tiền và quyết định nội bộ; không thể tạo Manager thứ hai |
 
 ## C. Tính năng trong phạm vi (14 module)
@@ -24,19 +24,19 @@ Hệ thống web cho một công ty dịch vụ dọn dẹp nhà: khách chọn 
 3. **Staff Profile:** Staff profile avatar_url, bio; Staff self-edit.
 4. **Follow Staff:** Customer follow/unfollow.
 5. **House Management:** House gồm người nhận, điện thoại, loại và địa chỉ mặc định. Khi tạo địa chỉ hoặc đổi vị trí, Customer phải chọn kết quả VietMap để xác minh địa chỉ và tọa độ; sửa thông tin khác giữ vị trí đã lưu. VietMap lỗi thì không có gợi ý giả và không lưu vị trí mới; autocomplete trả 503. Soft-delete có kiểm tra Booking chưa xong.
-6. **Booking Management:** Tạo Booking từ 1+ Service, 1 Staff, 1 House; giờ bắt đầu lưới 30 phút, lead time 2h/30d horizon, lịch nghỉ. Địa chỉ House phải nằm trong bán kính đường chim bay từ tâm công ty. Giữa hai Booking liền kề cùng Staff cần tuyến VietMap không vượt bán kính công ty và ETA + 15 phút; cùng địa điểm đệm 15 phút. Không áp dụng chặng từ công ty đến Booking đầu ngày; không xác minh được tuyến thì slot bị chặn.
+6. **Booking Management:** Tạo Booking từ 1+ Service, 1 Staff, 1 House; giờ bắt đầu lưới 30 phút, lead time 2h/30d horizon, lịch nghỉ. Địa chỉ House phải nằm trong bán kính đường chim bay từ tâm công ty. Giữa hai Booking liền kề cùng Staff cần tuyến VietMap không vượt bán kính công ty và ETA + 15 phút; cùng địa điểm đệm 15 phút. Không áp dụng chặng từ công ty đến Booking đầu ngày; không xác minh được tuyến thì slot bị chặn. Customer hủy trực tiếp khi Booking CONFIRMED, công việc chưa bắt đầu và còn ít nhất 120 phút (đúng 120 phút vẫn được). Không có bước xem trước phí; mọi lần hủy mới miễn phí, ghi người/thời điểm/lý do và không tạo nợ, hoàn tiền, chuyển ví hay chế tài tự động.
 7. **Staff Availability:** FULL_TIME tự động theo công ty; PART_TIME tự đăng ký ngày-khoảng cụ thể, không đè booking.
 8. **Leave Management:** Staff xin nghỉ nguyên ngày; Admin duyệt/từ chối, xử lý booking xung đột.
-9. **Arrival and Incident Tracking:** Staff được phân công phải tự xác nhận đã đến trước khi bắt đầu; Customer xác nhận giờ Staff khai hoặc báo giờ đó không đúng, Admin không thay thế dấu đến của Staff. Customer report là thông tin theo dõi, không tự chặn bắt đầu/hoàn tất, hủy Booking hoặc đổi tiền; report không tự mở quyền hủy miễn phí. Giờ Staff khai là mốc tính giảm trễ từ giờ hẹn, làm tròn phút lẻ lên theo tier hiện hành, không ân hạn 5 phút, tối đa 30%; lưu mức giảm trên Booking. Nếu Customer báo giờ sai, Admin được xác minh/chỉnh mốc và tính lại trước khi dịch vụ hoàn tất/thanh toán; lưu nguyên giờ Staff khai, giờ Admin chỉnh, người/thời điểm/ghi chú. Customer im lặng thì giữ giờ Staff khai. Staff gửi ETA cụ thể; Customer đồng ý đúng ETA hoặc từ chối và hủy miễn phí. Nếu ETA đã đồng ý bị lỡ, Staff cần ETA mới và Customer đồng ý lại; Customer được hủy miễn phí trước khi công việc bắt đầu. Báo trễ đơn thuần không cấp quyền hủy. Không theo dõi GPS.
+9. **Arrival and Incident Tracking:** Staff được phân công phải tự xác nhận đã đến trước khi bắt đầu. Staff chỉ gửi ETA trễ trước giờ bắt đầu; Customer chọn đợi hoặc từ chối và hủy miễn phí trong cùng giao dịch. Nếu đã chọn đợi, khách vẫn hủy miễn phí đến khi công việc bắt đầu, kể cả khi ETA bị lỡ; ETA lỡ hết hiệu lực và cần đề xuất/đồng ý mới để bắt đầu. Từ giờ hẹn, Customer có thể báo nhân viên chưa tới hoặc giờ tự khai không đúng, kể cả khi Staff đã tự báo đến; báo cáo một mình không mở ngoại lệ hủy và tạm khóa bắt đầu. Admin xác minh chưa tới hoặc giờ đến thực tế trễ rồi Customer chọn đợi hoặc hủy miễn phí; lựa chọn đợi được lưu. Nếu dịch vụ tiếp tục, giảm trễ theo mức Admin cấu hình dựa trên giờ đến thực tế. Lưu người/thời điểm/ghi chú xác minh và không theo dõi GPS.
 10. **Job Execution:** Staff xem việc được giao, tải nhiều ảnh theo Booking (tối thiểu một ảnh), xác nhận hoàn thành -> AWAITING_PAYMENT.
-11. **Payment:** CASH/ONLINE sau khi xong việc; Staff xác nhận CASH; cổng ONLINE xác minh server; khoản giảm dùng giờ Staff tự khai hoặc giờ Admin đã điều chỉnh trước khi hoàn tất/thanh toán; attempts và SUCCESS duy nhất; COMPLETED khi đã trả. Bồi thường Customer có đề xuất xử lý Staff chỉ được quyết toán sau khi Manager chốt cuối trách nhiệm, gồm giải trình/kháng nghị; không cần chờ Staff trả đủ.
+11. **Payment:** CASH/ONLINE sau khi xong việc; Staff xác nhận CASH; cổng ONLINE xác minh server; khoản giảm trễ dùng giờ đến thực tế do Staff khai hoặc Admin xác minh trước khi hoàn tất/thanh toán; attempts và SUCCESS duy nhất; COMPLETED khi đã trả. Thanh toán sau dịch vụ không phát sinh phí hoặc khoản nợ vì trả sau. Bồi thường Customer có đề xuất xử lý Staff chỉ được quyết toán sau khi Manager chốt cuối trách nhiệm, gồm giải trình/kháng nghị; không cần chờ Staff trả đủ.
 12. **Feedback và khiếu nại:** Customer gửi đánh giá tổng thể 1–5 sao và có thể kèm báo sự cố trong 24 giờ kể từ khi Staff xác nhận hoàn tất. Hồ sơ cần ít nhất một bằng chứng phù hợp (ưu tiên ảnh; có thể là ảnh có sẵn, hóa đơn, video hoặc link Google Drive do người gửi tự cấp quyền). Form có ô mong muốn xử lý tùy chọn để Admin tham khảo; Customer không tự định giá hoặc chọn bồi thường. Hồ sơ bắt đầu ở “Chờ Admin tiếp nhận”, rồi Admin tiếp nhận, xác minh và trao đổi. Feedback và bằng chứng chỉ Customer sở hữu cùng Admin/Manager xem được.
 13. **Khắc phục, tài chính và trách nhiệm Staff:** Admin gửi kết quả để Customer xác nhận. Chỉ hư hại/mất tài sản mới được đề xuất bồi thường; mất đồ phải ưu tiên tìm và trả trước. Luồng tiền: Admin đề xuất số tiền và căn cứ → Customer đồng ý → Manager duyệt → Customer chọn tiền mặt/chuyển khoản → Admin chi bên ngoài hệ thống và lưu chứng từ → Customer xác nhận đã nhận → đóng hồ sơ. Thông tin chuyển khoản chỉ hỏi sau duyệt, được mã hóa và xóa sau quyết toán. Trách nhiệm Staff là quy trình nội bộ: Staff có 48 giờ giải trình và một lần phản đối 48 giờ; Manager quyết định độc lập theo thiệt hại thực tế. Admin ghi từng khoản Staff thực trả kèm chứng từ; không tự khấu trừ lương. Customer chỉ thấy đang xác minh nội bộ. Không còn phương án nhiều lựa chọn hoặc phiếu/lịch làm lại trong hồ sơ sự cố.
 14. **System Configuration:** Thông tin địa điểm công ty, bán kính phục vụ và 7 ngày giờ hoạt động. Bán kính áp dụng cho vị trí House so với tâm công ty và làm giới hạn khoảng cách tuyến giữa hai Booking liền kề; không tính tuyến từ công ty đến Booking đầu ngày.
 
 ## D. Critical journey
 - Cấu hình công ty và Service/Staff -> Customer lưu House -> chọn dịch vụ/nhân viên/giờ -> Booking CONFIRMED -> Staff khai giờ đến, Customer phản hồi hoặc báo sai giờ (không bắt buộc phản hồi), Admin xác minh tranh chấp trước khi hoàn tất nếu cần -> Staff xác nhận bắt đầu và thực hiện, tải ảnh -> AWAITING_PAYMENT -> CASH được Staff xác nhận hoặc ONLINE sandbox được server xác minh -> COMPLETED -> Customer đánh giá/báo sự cố -> Chờ Admin tiếp nhận -> Admin xác minh/trao đổi -> (nếu hư hại/mất) Admin đề xuất bồi thường -> Customer đồng ý -> Manager duyệt -> Customer chọn cách nhận -> Admin ghi chi và chứng từ -> Customer xác nhận đã nhận -> đóng hồ sơ.
-- Hủy đúng hạn do Customer; hủy muộn do Admin; không xóa lịch sử.
+- Customer tự hủy thông thường khi còn ít nhất 120 phút; trường hợp Staff trễ được hủy miễn phí trước khi bắt đầu theo luồng ETA hoặc xác minh Admin. Ghi lịch sử mọi lần hủy; Admin xem số lần và lý do trong 30 ngày để tham khảo, không tự áp chế tài.
 
 ## E. Quy định sản phẩm quyết định được việc nghiệm thu
 - Chỉ 4 Booking statuses, không ép thêm WORKING/UNPAID/PAID vào Booking.

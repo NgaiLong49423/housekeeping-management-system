@@ -27,6 +27,7 @@ public interface PortalQueryService {
     public List<BusyInterval> busyIntervals();
     public List<BookingCard> bookings(PortalUser user);
     public BookingCard booking(Long id, PortalUser user);
+    public List<CancellationCard> customerCancellationHistory(Long bookingId, PortalUser user);
     public void authorize(BookingCard card, PortalUser user);
     public List<DetailCard> details(Long bookingId, PortalUser user);
     public List<EvidenceCard> bookingImages(Long bookingId, PortalUser user);

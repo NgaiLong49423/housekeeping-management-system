@@ -854,8 +854,8 @@ class PortalMvcTest {
         when(query.booking(eq(42L), any())).thenReturn(arrivedEarly);
         String customerAcknowledgement = mvc.perform(get("/customer/bookings/42").with(user(customer)))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
-        assertThat(customerAcknowledgement).contains("Xác nhận giờ Staff khai là đúng",
-                "Staff vẫn phải tự xác nhận đến trước khi bắt đầu");
+        assertThat(customerAcknowledgement).contains("Xác nhận nhân viên đã đến",
+                "Xác nhận này lưu giờ nhân viên thực sự có mặt", "cho phép công việc bắt đầu");
         String readyToStart = mvc.perform(get("/staff/bookings/42").with(user(staff)))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         assertThat(readyToStart).contains(">Bắt đầu công việc</button>").doesNotContain("Chỉ bắt đầu từ giờ hẹn");
@@ -1312,6 +1312,31 @@ class PortalMvcTest {
                 .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/admin/bookings/42"));
         verify(adminBookingManagement).verifyDisputedArrival(42L, 3L,
                 LocalDateTime.parse("2026-11-12T10:15"), "Đã đối chiếu với khách");
+
+        mvc.perform(post("/admin/bookings/42/arrival-dispute/not-arrived").with(user(admin)).with(csrf())
+                        .param("note", "Đã gọi xác minh"))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/admin/bookings/42"));
+        verify(adminBookingManagement).verifyStaffNotArrived(42L, 3L, "Đã gọi xác minh");
+    }
+
+    @Test
+    void customerCanRespondToVerifiedDelayWithWaitOrCancelChoice() throws Exception {
+        mvc.perform(post("/customer/bookings/42/arrival-dispute-response").with(user(customer)).with(csrf())
+                        .param("response", "WAIT"))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/customer/bookings/42"));
+        verify(customerDelayReports).respondAfterAdminReview(42L, 1L, "WAIT");
+
+        mvc.perform(post("/customer/bookings/42/arrival-dispute-response").with(user(customer)).with(csrf())
+                        .param("response", "CANCEL"))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/customer/bookings/42"));
+        verify(customerDelayReports).respondAfterAdminReview(42L, 1L, "CANCEL");
+    }
+
+    @Test
+    void customerUsesDirectMvcCancellationEndpoint() throws Exception {
+        mvc.perform(post("/customer/bookings/42/cancel").with(user(customer)).with(csrf()))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/customer/bookings/42"));
+        verify(cancellation).cancelByCustomer(42L, 1L);
     }
 
     @Test

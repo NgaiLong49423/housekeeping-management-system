@@ -38,7 +38,7 @@ class BookingCompletionServiceTest {
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, "CONFIRMED", start,
                 start.plusMinutes(1), null, null, null)));
         assertThatThrownBy(() -> service.startBooking(42L, 7L))
-                .isInstanceOf(IllegalStateException.class).hasMessageContaining("ETA");
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("trễ");
         verify(bookings, never()).startWork(any(), any(), any(), org.mockito.ArgumentMatchers.anyBoolean());
     }
 
@@ -50,7 +50,7 @@ class BookingCompletionServiceTest {
                 start.plusMinutes(5).plusSeconds(1), null, null, null)));
 
         assertThatThrownBy(() -> service.startBooking(42L, 7L))
-                .isInstanceOf(IllegalStateException.class).hasMessageContaining("ETA");
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("giờ dự kiến");
         verify(bookings, never()).startWork(any(), any(), any(), org.mockito.ArgumentMatchers.anyBoolean());
     }
 
@@ -77,12 +77,12 @@ class BookingCompletionServiceTest {
                 start, null, start.minusMinutes(5), null)));
 
         assertThatThrownBy(() -> service.startBooking(42L, 7L))
-                .isInstanceOf(IllegalStateException.class).hasMessageContaining("Customer");
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("khách");
         verify(bookings, never()).startWork(any(), any(), any(), org.mockito.ArgumentMatchers.anyBoolean());
     }
 
     @Test
-    void customerReportedArrivalDoesNotBlockWorkWhenStaffSelfClaimedOnTime() {
+    void customerReportedArrivalBlocksWorkUntilAcknowledgedOrAdminVerified() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
         var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, mock(BookingImageRepository.class));
         var disputed = new BookingPersistenceRepository.BookingWorkflowState(42L, 3L, 7L, start,
@@ -91,8 +91,24 @@ class BookingCompletionServiceTest {
                 start.plusMinutes(10), null, null, null, null, null);
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(disputed));
 
+        assertThatThrownBy(() -> service.startBooking(42L, 7L))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("báo giờ đến chưa đúng");
+        verify(bookings, never()).startWork(any(), any(), any(), org.mockito.ArgumentMatchers.anyBoolean());
+    }
+
+    @Test
+    void customerAcknowledgementResolvesArrivalReportAfterStaffSelfClaim() {
+        BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
+        var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, mock(BookingImageRepository.class));
+        var resolved = new BookingPersistenceRepository.BookingWorkflowState(42L, 3L, 7L, start,
+                start.plusHours(1), "CONFIRMED", new BigDecimal("150000"), start, null,
+                null, null, null, null, null, 15, BigDecimal.ZERO, BigDecimal.ZERO,
+                start.plusMinutes(10), null, null, null, null, start.plusMinutes(11), null, null);
+        when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(resolved));
         when(bookings.startWork(eq(42L), eq(7L), any(), eq(false))).thenReturn(1);
+
         service.startBooking(42L, 7L);
+
         verify(bookings).startWork(eq(42L), eq(7L), any(), eq(false));
     }
 
