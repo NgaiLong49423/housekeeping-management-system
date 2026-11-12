@@ -310,6 +310,7 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
         Staff savedStaff = staffAccounts.saveAndFlush(staff);
         House house = houses.saveAndFlush(house(customer.getUserId(), "Before edit " + suffix));
         house.setAddress("Địa chỉ ban đầu");
+        house.setAddressDetail("12 Nguyễn Trãi");
         house.setAddressNote("Ghi chú ban đầu");
         houses.saveAndFlush(house);
         Services service = services.saveAndFlush(service());
@@ -323,6 +324,7 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
                 house.getHouseId(), start, List.of(service.getServiceId()), null);
 
         house.setAddress("Địa chỉ đã sửa");
+        house.setAddressDetail("99 Lê Lợi");
         house.setAddressNote("Ghi chú đã sửa");
         houses.saveAndFlush(house);
         service.setServiceName("Dịch vụ đã sửa");
@@ -338,7 +340,7 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
                 JOIN dbo.Booking_Details d ON d.booking_id=b.booking_id
                 WHERE b.booking_id=?
                 """, bookingId))
-                .containsEntry("address_snapshot", "Địa chỉ ban đầu")
+                .containsEntry("address_snapshot", "12 Nguyễn Trãi, Địa chỉ ban đầu")
                 .containsEntry("address_note_snapshot", "Ghi chú ban đầu")
                 .containsEntry("service_name_snapshot", "Dịch vụ ban đầu")
                 .containsEntry("unit_price", new BigDecimal("125000.00"))
@@ -474,14 +476,14 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
         Long bookingId = reservationService.createBooking(customer.getUserId(), savedStaff.getStaffId(),
                 house.getHouseId(), start, List.of(service.getServiceId()), null);
 
-        assertThatThrownBy(() -> staffManagement.deactivate(admin.getUserId(), savedStaff.getStaffId()))
+        assertThatThrownBy(() -> staffManagement.deactivate(admin.getUserId(), savedStaff.getStaffId(), "Integration lock reason"))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("chưa hoàn tất");
         assertThat(jdbc.queryForObject("SELECT status FROM dbo.Users WHERE user_id=?", String.class,
                 staffUser.getUserId())).isEqualTo("ACTIVE");
 
         assertThat(bookingPersistence.cancel(bookingId, admin.getUserId(), "Integration cancellation",
                 LocalDateTime.now(ZoneOffset.ofHours(7)).withNano(0))).isEqualTo(1);
-        staffManagement.deactivate(admin.getUserId(), savedStaff.getStaffId());
+        staffManagement.deactivate(admin.getUserId(), savedStaff.getStaffId(), "Integration lock reason");
         assertThat(jdbc.queryForObject("SELECT status FROM dbo.Users WHERE user_id=?", String.class,
                 staffUser.getUserId())).isEqualTo("INACTIVE");
     }
@@ -516,7 +518,7 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
         house.setCustomerId(customerId);
         house.setHouseName(name);
         house.setAddress(name + " address");
-        house.setAddressDetail(name + " address");
+        house.setAddressDetail("12 " + name + " Street");
         house.setRecipientName("Test Recipient");
         house.setRecipientPhone("0900000000");
         house.setLatitude(new BigDecimal("10.0000000"));

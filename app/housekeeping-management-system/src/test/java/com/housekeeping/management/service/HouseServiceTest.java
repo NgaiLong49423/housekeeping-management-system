@@ -36,15 +36,39 @@ class HouseServiceTest {
         existing.setAddressDetail("Số 1");
         when(houses.findLockedByHouseIdAndCustomerIdAndDeletedFalse(8L, 3L)).thenReturn(Optional.of(existing));
 
-        service.save(3L, 8L, new HouseForm("Người nhận", "0900000000", "", HouseAddressType.HOME, false, null));
+        service.save(3L, 8L, new HouseForm("Người nhận", "0900000000", "12/3 hẻm 45 Nguyễn Trãi", "", HouseAddressType.HOME, false, null));
 
         assertThat(existing.getAddress()).isEqualTo("Địa chỉ cũ");
         assertThat(existing.getLatitude()).isEqualByComparingTo("10.1");
         assertThat(existing.getLongitude()).isEqualByComparingTo("106.2");
         assertThat(existing.getProvinceCity()).isEqualTo("TP.HCM");
         assertThat(existing.getWardCommune()).isEqualTo("Phường 1");
-        assertThat(existing.getAddressDetail()).isEqualTo("Số 1");
+        assertThat(existing.getAddressDetail()).isEqualTo("12/3 hẻm 45 Nguyễn Trãi");
         verify(houses).save(existing);
+    }
+
+    @Test
+    void genericStreetAddressIsRejectedBeforeAnyLookup() {
+        assertThatThrownBy(() -> service.save(3L, null,
+                new HouseForm("Người nhận", "0900000000", "Phường Bến Thành", "vietmap-ref", HouseAddressType.HOME, false, null)))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("số nhà");
+        org.mockito.Mockito.verifyNoInteractions(houses);
+    }
+
+    @Test
+    void fullAddressJoinsCustomerStreetWithVietmapLocationWithoutRepeatingIt() {
+        House house = new House();
+        house.setAddress("Phường Bến Thành, Thành phố Hồ Chí Minh");
+        house.setAddressDetail("12/3 hẻm 45 Nguyễn Trãi");
+        assertThat(house.getFullAddress()).isEqualTo("12/3 hẻm 45 Nguyễn Trãi, Phường Bến Thành, Thành phố Hồ Chí Minh");
+        assertThat(house.isSpecificAddress()).isTrue();
+
+        house.setAddress("18 Trần Quang Khải, Phường Tân Định, Thành phố Hồ Chí Minh");
+        house.setAddressDetail("18 Trần Quang Khải");
+        assertThat(house.getFullAddress()).isEqualTo("18 Trần Quang Khải, Phường Tân Định, Thành phố Hồ Chí Minh");
+
+        house.setAddressDetail("Địa chỉ mẫu, Quận 1");
+        assertThat(house.isSpecificAddress()).isFalse();
     }
 
     @Test

@@ -35,7 +35,7 @@ class PortalIdentityTest {
     }
 
     @Test
-    void missingOrInactiveUserCannotAuthenticate() {
+    void missingUserCannotAuthenticateAndLockedUserCarriesLockReason() {
         UserRepository users = mock(UserRepository.class);
         StaffManagementService staffManagement = mock(StaffManagementService.class);
         when(users.findByEmail("user@example.test")).thenReturn(Optional.empty());
@@ -43,9 +43,17 @@ class PortalIdentityTest {
         assertThatThrownBy(() -> authentication.loadUserByUsername("user@example.test"))
                 .isInstanceOf(UsernameNotFoundException.class);
 
-        when(users.findByEmail("user@example.test")).thenReturn(Optional.of(user(UserRole.CUSTOMER, UserStatus.INACTIVE)));
-        assertThatThrownBy(() -> authentication.loadUserByUsername("user@example.test"))
-                .isInstanceOf(UsernameNotFoundException.class);
+        User locked = user(UserRole.CUSTOMER, UserStatus.INACTIVE);
+        locked.setStatusReason("Hủy lịch sát giờ nhiều lần");
+        when(users.findByEmail("user@example.test")).thenReturn(Optional.of(locked));
+        PortalUser loaded = (PortalUser) authentication.loadUserByUsername("user@example.test");
+        assertThat(loaded.isAccountNonLocked()).isFalse();
+        assertThat(loaded.getLockReason()).isEqualTo("Hủy lịch sát giờ nhiều lần");
+
+        when(users.findByEmail("user@example.test")).thenReturn(Optional.of(user(UserRole.CUSTOMER, UserStatus.ACTIVE)));
+        PortalUser active = (PortalUser) authentication.loadUserByUsername("user@example.test");
+        assertThat(active.isAccountNonLocked()).isTrue();
+        assertThat(active.getLockReason()).isNull();
     }
 
     @Test

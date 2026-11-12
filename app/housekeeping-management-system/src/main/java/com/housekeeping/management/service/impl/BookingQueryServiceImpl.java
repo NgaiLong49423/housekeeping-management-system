@@ -30,6 +30,21 @@ public class BookingQueryServiceImpl implements BookingQueryService {
     }
 
     @Override
+    public boolean hasUnfinishedBookingForCustomer(Long customerId) {
+        return bookings.hasUnfinishedBookingForCustomer(customerId);
+    }
+
+    @Override
+    public java.util.Map<Long, CustomerBookingCounts> bookingCountsByCustomer() {
+        java.util.Map<Long, CustomerBookingCounts> counts = new java.util.HashMap<>();
+        for (Object[] row : bookings.countBookingsByCustomer(ACTIVE_STATUSES)) {
+            long unfinished = row[2] == null ? 0 : ((Number) row[2]).longValue();
+            counts.put(((Number) row[0]).longValue(), new CustomerBookingCounts(((Number) row[1]).longValue(), unfinished));
+        }
+        return counts;
+    }
+
+    @Override
     public boolean hasFutureConfirmedBookingOverlapping(Long staffId, LocalDate date, LocalTime start, LocalTime end) {
         LocalDateTime from = date.atStartOfDay();
         LocalDateTime until = date.plusDays(1).atStartOfDay();

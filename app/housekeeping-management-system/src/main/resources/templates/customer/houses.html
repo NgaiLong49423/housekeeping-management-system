@@ -36,6 +36,16 @@
               <div id="vietmapSuggestions" class="list-group position-absolute w-100" style="z-index:10"></div>
               <p class="small text-secondary mt-2" id="selectedAddress">Chưa chọn kết quả VietMap.</p>
             </div>
+            <div class="col-12">
+              <label class="form-label" for="streetAddress">Số nhà, hẻm/ngõ, tên đường (bắt buộc)</label>
+              <input class="form-control" id="streetAddress" th:field="*{streetAddress}" minlength="5" maxlength="200"
+                     autocomplete="address-line1" required aria-describedby="streetAddressHelp"
+                     placeholder="VD: 12/3 hẻm 45 Nguyễn Trãi · Căn hộ 12.05, 45 Nguyễn Thị Minh Khai">
+              <div id="streetAddressHelp" class="form-text">
+                Ghi rõ số nhà (hoặc số hẻm, số căn hộ) và tên đường để nhân viên tìm đúng cửa. Không ghi chung chung kiểu "Quận 1" hay "Phường Bến Thành".
+              </div>
+              <div class="text-danger small" th:errors="*{streetAddress}"></div>
+            </div>
             <div class="col-md-6">
               <label class="form-label" for="addressType">Loại địa chỉ</label>
               <select class="form-select" id="addressType" th:field="*{addressType}" required>
@@ -67,7 +77,10 @@
           <article class="surface p-4 h-100">
             <h2 class="h5"><span th:text="${house.recipientName}">Người nhận</span><span class="badge text-bg-light ms-2" th:text="${house.addressType.label}">Nhà riêng</span><span class="badge text-bg-primary ms-2" th:if="${house.defaultAddress}">Mặc định</span></h2>
             <p class="small text-secondary mb-2"><span th:text="${house.recipientPhone}">Số điện thoại</span></p>
-            <p class="mb-2" th:text="${house.address}">Địa chỉ</p>
+            <p class="mb-2" th:text="${house.fullAddress}">Địa chỉ</p>
+            <p class="small text-danger mb-2" th:unless="${house.specificAddress}">
+              Địa chỉ chưa có số nhà và tên đường cụ thể. Hãy bấm Sửa để bổ sung trước khi đặt lịch.
+            </p>
             <p class="small text-secondary mb-2" th:if="${house.addressNote != null and !house.addressNote.isBlank()}" th:text="${house.addressNote}">Ghi chú</p>
             <div class="d-flex gap-2">
               <a class="btn btn-outline-primary btn-sm" th:href="@{/customer/houses(editId=${house.houseId})}">Sửa</a>

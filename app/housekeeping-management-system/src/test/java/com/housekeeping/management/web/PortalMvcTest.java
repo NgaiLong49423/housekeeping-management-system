@@ -60,7 +60,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.mock.web.MockMultipartFile;
 
-@WebMvcTest({PortalController.class, AuthController.class, BookingController.class, PaymentController.class, HouseController.class, StaffController.class, PortalAdminController.class, AdminServiceController.class, AdminStaffController.class, AdminFeedbackController.class, AdminBookingController.class, AdminAccountController.class, StaffLeaveController.class, AdminLeaveController.class, AdminCompanySettingsController.class, StaffProfileController.class, com.housekeeping.management.controller.FeedbackAttachmentController.class})
+@WebMvcTest({PortalController.class, AuthController.class, BookingController.class, PaymentController.class, HouseController.class, StaffController.class, PortalAdminController.class, AdminServiceController.class, AdminStaffController.class, AdminFeedbackController.class, AdminBookingController.class, AdminAccountController.class, com.housekeeping.management.controller.AdminCustomerController.class, StaffLeaveController.class, AdminLeaveController.class, AdminCompanySettingsController.class, StaffProfileController.class, com.housekeeping.management.controller.FeedbackAttachmentController.class})
 @Import(SecurityConfig.class)
 class PortalMvcTest {
     @Autowired MockMvc mvc;
@@ -95,6 +95,7 @@ class PortalMvcTest {
     @MockitoBean StaffIncidentNoticeService incidentNotices;
     @MockitoBean AdminBookingManagementService adminBookingManagement;
     @MockitoBean AdminAccountService adminAccounts;
+    @MockitoBean com.housekeeping.management.service.CustomerManagementService customerManagement;
     @MockitoBean AccountAuthorizationService accountAuthorization;
 
     private final PortalUser customer = account(1L, "CUSTOMER", "Khách hàng kiểm thử");
@@ -448,6 +449,7 @@ class PortalMvcTest {
         mvc.perform(post("/customer/houses").with(user(customer)).with(csrf())
                         .param("recipientName", "Khách Demo")
                         .param("recipientPhone", "0900000000")
+                        .param("streetAddress", "12/3 hẻm 45 Nguyễn Trãi")
                         .param("vietmapRefId", "vietmap-ref-123")
                         .param("addressType", "HOME")
                         .param("defaultAddress", "true")
@@ -458,7 +460,100 @@ class PortalMvcTest {
         org.mockito.ArgumentCaptor<HouseForm> form = org.mockito.ArgumentCaptor.forClass(HouseForm.class);
         verify(houses).save(eq(customer.getUserId()), isNull(), form.capture());
         assertThat(form.getValue().recipientName()).isEqualTo("Khách Demo");
+        assertThat(form.getValue().streetAddress()).isEqualTo("12/3 hẻm 45 Nguyễn Trãi");
         assertThat(form.getValue().vietmapRefId()).isEqualTo("vietmap-ref-123");
+    }
+
+    @Test
+    void customerHouseFormRequiresStreetAddress() throws Exception {
+        mvc.perform(post("/customer/houses").with(user(customer)).with(csrf())
+                        .param("recipientName", "Khách Demo")
+                        .param("recipientPhone", "0900000000")
+                        .param("streetAddress", "")
+                        .param("vietmapRefId", "vietmap-ref-123")
+                        .param("addressType", "HOME")
+                        .param("defaultAddress", "false"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("customer/houses"))
+                .andExpect(model().attributeHasFieldErrors("houseForm", "streetAddress"))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Hãy nhập số nhà và tên đường.")));
+        verify(houses, never()).save(any(), any(), any());
+    }
+
+    @Test
+    void adminAndManagerManageCustomersButOtherRolesCannot() throws Exception {
+        var active = new com.housekeeping.management.dto.response.PortalViews.CustomerAccountCard(31L, "Đỗ Ngọc Hân",
+                "customer2@example.test", "0938502002", true, null, null, 1, 3, 1);
+        var locked = new com.housekeeping.management.dto.response.PortalViews.CustomerAccountCard(32L, "Bùi Quang Huy",
+                "customer3@example.test", "0938502003", false, "Hủy lịch sát giờ nhiều lần",
+                LocalDateTime.of(2026, 11, 12, 9, 30), 1, 0, 0);
+        when(customerManagement.findCustomers(3L, null)).thenReturn(List.of(active, locked));
+        when(customerManagement.findCustomers(5L, null)).thenReturn(List.of(active));
+        render("/admin/customers", admin, "admin-customers");
+        mvc.perform(get("/admin/customers").with(user(admin)))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Hủy lịch sát giờ nhiều lần")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("1 Booking chưa hoàn tất")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("/admin/customers/31/lock")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("/admin/customers/32/unlock")));
+        mvc.perform(get("/admin/customers").with(user(manager))).andExpect(status().isOk());
+        mvc.perform(get("/admin/customers").with(user(customer))).andExpect(status().isForbidden());
+        mvc.perform(get("/admin/customers").with(user(staff))).andExpect(status().isForbidden());
+
+        mvc.perform(post("/admin/customers/31/lock").with(user(admin)).with(csrf())
+                        .param("reason", "Nhiều lần hủy lịch sát giờ").param("q", "Hân"))
+                .andExpect(redirectedUrl("/admin/customers?q=H%C3%A2n"));
+        verify(customerManagement).lock(3L, 31L, "Nhiều lần hủy lịch sát giờ");
+
+        org.mockito.Mockito.doThrow(new IllegalArgumentException("Vui lòng nhập lý do khóa tài khoản (từ 5 đến 500 ký tự)."))
+                .when(customerManagement).lock(3L, 31L, null);
+        mvc.perform(post("/admin/customers/31/lock").with(user(admin)).with(csrf()))
+                .andExpect(redirectedUrl("/admin/customers"))
+                .andExpect(flash().attribute("error", "Vui lòng nhập lý do khóa tài khoản (từ 5 đến 500 ký tự)."));
+
+        mvc.perform(post("/admin/customers/32/unlock").with(user(admin)).with(csrf()))
+                .andExpect(redirectedUrl("/admin/customers"));
+        verify(customerManagement).unlock(3L, 32L);
+        mvc.perform(post("/admin/customers/31/lock").with(user(customer)).with(csrf()).param("reason", "Tự khóa thử"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void staffAndAdminLocksForwardTheRequiredReason() throws Exception {
+        mvc.perform(post("/admin/staff/9/delete").with(user(admin)).with(csrf()).param("reason", "Nghỉ việc từ 15/11"))
+                .andExpect(redirectedUrl("/admin/staff"));
+        verify(staffManagement).deactivate(3L, 9L, "Nghỉ việc từ 15/11");
+
+        mvc.perform(post("/admin/accounts/7/status").with(user(manager)).with(csrf())
+                        .param("status", "INACTIVE").param("reason", "Vi phạm quy trình duyệt hoàn tiền"))
+                .andExpect(redirectedUrl("/admin/accounts"));
+        verify(adminAccounts).updateStatus(5L, 7L, "INACTIVE", "Vi phạm quy trình duyệt hoàn tiền");
+
+        when(adminAccounts.findAll(5L)).thenReturn(List.of(new com.housekeeping.management.dto.response.PortalViews.AdminAccountCard(
+                7L, "Võ Thanh Tùng", "admin@example.test", "0900000004", "INACTIVE",
+                "Vi phạm quy trình duyệt hoàn tiền", LocalDateTime.of(2026, 11, 12, 10, 0))));
+        mvc.perform(get("/admin/accounts").with(user(manager)))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Vi phạm quy trình duyệt hoàn tiền")));
+    }
+
+    @Test
+    void lockedAccountSeesReasonOnlyAfterTheCorrectPassword() throws Exception {
+        when(identity.loadUserByUsername(customer.getUsername())).thenReturn(new PortalUser(1L, 1L, customer.getUsername(),
+                encoder.encode("correct-password"), "Test", "CUSTOMER", true, "Hủy lịch sát giờ nhiều lần"));
+
+        MvcResult wrong = mvc.perform(post("/login").with(csrf()).param("email", customer.getUsername()).param("password", "wrong"))
+                .andExpect(redirectedUrl("/login?error")).andReturn();
+        assertThat(wrong.getRequest().getSession().getAttribute("LOGIN_LOCK_REASON")).isNull();
+
+        MvcResult locked = mvc.perform(post("/login").with(csrf()).param("email", customer.getUsername()).param("password", "correct-password"))
+                .andExpect(redirectedUrl("/login?locked")).andReturn();
+        var session = (org.springframework.mock.web.MockHttpSession) locked.getRequest().getSession(false);
+        assertThat(session.getAttribute("SPRING_SECURITY_CONTEXT")).isNull();
+
+        mvc.perform(get("/login").param("locked", "").session(session))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Tài khoản của bạn đã bị khóa.")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Hủy lịch sát giờ nhiều lần")));
+        assertThat(session.getAttribute("LOGIN_LOCK_REASON")).isNull();
     }
 
     @Test

@@ -8,6 +8,7 @@ import com.housekeeping.management.service.ServiceManagementService;
 import com.housekeeping.management.service.StaffManagementService;
 import com.housekeeping.management.service.CompanySettingsService;
 
+import com.housekeeping.management.domain.SpecificAddressRules;
 import com.housekeeping.management.domain.StaffType;
 import com.housekeeping.management.entity.Services;
 import com.housekeeping.management.entity.House;
@@ -81,6 +82,9 @@ public class BookingReservationServiceImpl implements BookingReservationService 
             throw new IllegalArgumentException("Toàn bộ lịch phải nằm trong một khoảng sẵn sàng đang hiệu lực của nhân viên.");
         }
         if (house.getLatitude() == null || house.getLongitude() == null) throw new IllegalArgumentException("Địa chỉ này chưa có tọa độ VietMap. Hãy cập nhật địa chỉ bằng kết quả gợi ý.");
+        if (!SpecificAddressRules.isSpecific(house.getAddressDetail())) {
+            throw new IllegalArgumentException("Địa chỉ này chưa có số nhà và tên đường cụ thể. Hãy cập nhật địa chỉ trong mục Nhà của tôi trước khi đặt lịch.");
+        }
         if (!houseService.isWithinServiceRadius(house.getLatitude(), house.getLongitude())) throw new IllegalArgumentException("Địa chỉ nằm ngoài bán kính phục vụ hiện tại của công ty.");
         TravelAssessment travel = assessTravel(staffId,start,end,house.getLatitude(),house.getLongitude(),null);
         if (!travel.feasible()) {
@@ -90,7 +94,7 @@ public class BookingReservationServiceImpl implements BookingReservationService 
         validateRequestedStart(start, now());
 
         Long bookingId = bookings.insertBooking(customer.getUserId(), staff.getStaffId(), house.getHouseId(),
-                house.getAddress(), house.getLatitude(), house.getLongitude(), house.getAddressNote(),
+                house.getFullAddress(), house.getLatitude(), house.getLongitude(), house.getAddressNote(),
                 start, end, totalDurationMinutes, totalAmount, normalizedAreaNote, now());
         bookingDetails.saveAll(selectedServices.stream().map(snapshot -> {
             BookingDetail detail = new BookingDetail();

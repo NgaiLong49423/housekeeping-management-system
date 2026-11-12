@@ -45,6 +45,7 @@
           <div class="navbar-nav mx-auto gap-lg-1 admin-nav-links" th:if="${currentUser != null and currentUser.admin}">
             <a class="nav-link" th:classappend="${active == 'bookings'} ? 'active'" th:href="@{/admin/bookings}">Tổng quan</a>
             <a class="nav-link" th:classappend="${active == 'staff'} ? 'active'" th:href="@{/admin/staff}">Nhân viên</a>
+            <a class="nav-link" th:classappend="${active == 'customers'} ? 'active'" th:href="@{/admin/customers}">Khách hàng</a>
             <a class="nav-link" th:classappend="${active == 'services'} ? 'active'" th:href="@{/admin/services}">Dịch vụ</a>
             <a class="nav-link" th:classappend="${active == 'schedules'} ? 'active'" th:href="@{/admin/schedules}">Lịch sẵn sàng</a>
             <a class="nav-link" th:classappend="${active == 'leaves'} ? 'active'" th:href="@{/admin/leaves}">Duyệt nghỉ</a>

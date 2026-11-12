@@ -10,6 +10,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -50,4 +51,29 @@ public class User {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20, nullable = false, columnDefinition = "varchar(20)")
     private UserStatus status = UserStatus.ACTIVE;
+
+    @Nationalized
+    @Column(name = "status_reason", length = 500)
+    private String statusReason;
+
+    @Column(name = "status_changed_at")
+    private LocalDateTime statusChangedAt;
+
+    @Column(name = "status_changed_by")
+    private Long statusChangedBy;
+
+    /** Khóa tài khoản; lý do đã được chuẩn hóa bởi {@link com.housekeeping.management.domain.AccountLockRules}. */
+    public void lock(String reason, Long changedBy, LocalDateTime changedAt) {
+        status = UserStatus.INACTIVE;
+        statusReason = reason;
+        statusChangedBy = changedBy;
+        statusChangedAt = changedAt;
+    }
+
+    public void unlock(Long changedBy, LocalDateTime changedAt) {
+        status = UserStatus.ACTIVE;
+        statusReason = null;
+        statusChangedBy = changedBy;
+        statusChangedAt = changedAt;
+    }
 }

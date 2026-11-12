@@ -74,7 +74,9 @@ public class PortalQueryServiceImpl implements PortalQueryService {
                 .map(s -> { StaffProfile p = profileByStaff.get(s.getStaffId());
                     return new StaffCard(s.getStaffId(), s.getUser().getFullName(), s.getUser().getPhone(),
                             favoriteIds.contains(s.getStaffId()), s.getStaffType().name(),
-                            s.getUser().getStatus() == UserStatus.ACTIVE, p == null ? null : p.getAvatarUrl(), p == null ? null : p.getBio());
+                            s.getUser().getStatus() == UserStatus.ACTIVE, p == null ? null : p.getAvatarUrl(), p == null ? null : p.getBio(),
+                            includeInactive ? s.getUser().getStatusReason() : null,
+                            includeInactive ? s.getUser().getStatusChangedAt() : null);
                 }).toList();
     }
 

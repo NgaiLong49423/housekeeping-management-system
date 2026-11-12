@@ -99,14 +99,30 @@
                 </div>
               </div>
               <div>
-                <form th:if="${person.active}" method="post" th:action="@{/admin/staff/{id}/delete(id=${person.id})}" data-confirm="Ngừng hoạt động tài khoản nhân viên này? Lịch sử và dữ liệu liên quan vẫn được giữ.">
-                  <button class="btn btn-outline-danger btn-sm" type="submit">Ngừng hoạt động</button>
-                </form>
                 <form th:unless="${person.active}" method="post" th:action="@{/admin/staff/{id}/activate(id=${person.id})}">
                   <button class="btn btn-outline-success btn-sm" type="submit">Kích hoạt lại</button>
                 </form>
               </div>
             </div>
+
+            <div th:unless="${person.active}" class="small text-secondary mt-3">
+              <strong>Lý do khóa:</strong>
+              <span th:text="${person.statusReason != null ? person.statusReason : 'Không ghi lý do (khóa trước khi có chức năng ghi lý do).'}">Lý do</span>
+              <span th:if="${person.statusChangedAt != null}" th:text="'· ' + ${#temporals.format(person.statusChangedAt, 'dd/MM/yyyy HH:mm')}"></span>
+            </div>
+
+            <details th:if="${person.active}" class="mt-3">
+              <summary class="small text-danger">Ngừng hoạt động tài khoản</summary>
+              <form class="vstack gap-2 mt-3 p-3 bg-light rounded" method="post" th:action="@{/admin/staff/{id}/delete(id=${person.id})}"
+                    data-confirm="Ngừng hoạt động tài khoản nhân viên này? Lịch sử và dữ liệu liên quan vẫn được giữ.">
+                <label class="form-label small mb-0" th:for="'staff-lock-reason-' + ${person.id}">Lý do khóa (bắt buộc)</label>
+                <textarea class="form-control" th:id="'staff-lock-reason-' + ${person.id}" name="reason" rows="2"
+                          minlength="5" maxlength="500" required placeholder="VD: Nghỉ việc từ 15/11/2026"></textarea>
+                <div class="d-flex justify-content-end">
+                  <button class="btn btn-outline-danger btn-sm" type="submit">Ngừng hoạt động</button>
+                </div>
+              </form>
+            </details>
 
             <!-- Edit Details Accordion -->
             <details class="mt-3">

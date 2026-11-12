@@ -6,6 +6,7 @@ import com.housekeeping.management.service.GlobalEmailUniquenessService;
 
 import com.housekeeping.management.dto.request.PortalForms.AdminAccountForm;
 import com.housekeeping.management.dto.response.PortalViews.AdminAccountCard;
+import com.housekeeping.management.domain.AccountLockRules;
 import com.housekeeping.management.domain.UserRole;
 import com.housekeeping.management.domain.UserStatus;
 import com.housekeeping.management.entity.User;
@@ -34,7 +35,7 @@ public class AdminAccountServiceImpl implements AdminAccountService {
         authorization.requireManager(managerId);
         return accounts.findByRoleOrderByStatusAscFullNameAsc(UserRole.ADMIN).stream()
                 .map(user -> new AdminAccountCard(user.getUserId(), user.getFullName(), user.getEmail(),
-                        user.getPhone(), user.getStatus().name()))
+                        user.getPhone(), user.getStatus().name(), user.getStatusReason(), user.getStatusChangedAt()))
                 .toList();
     }
 
@@ -61,13 +62,18 @@ public class AdminAccountServiceImpl implements AdminAccountService {
     }
 
     @Transactional
-    public void updateStatus(Long managerId, Long adminId, String status) {
+    public void updateStatus(Long managerId, Long adminId, String status, String reason) {
         authorization.requireManager(managerId);
         if (!"ACTIVE".equals(status) && !"INACTIVE".equals(status)) {
             throw new IllegalArgumentException("Trạng thái Admin không hợp lệ.");
         }
+        String lockReason = "INACTIVE".equals(status) ? AccountLockRules.requireReason(reason) : null;
         User admin = accounts.findByUserIdAndRole(adminId, UserRole.ADMIN)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy tài khoản Admin."));
-        admin.setStatus(UserStatus.valueOf(status));
+        if (lockReason != null) {
+            admin.lock(lockReason, managerId, AccountLockRules.now());
+        } else {
+            admin.unlock(managerId, AccountLockRules.now());
+        }
     }
 }

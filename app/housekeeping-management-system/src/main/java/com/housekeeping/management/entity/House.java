@@ -73,4 +73,23 @@ public class House {
 
     @Column(name = "is_deleted", nullable = false)
     private boolean deleted;
+
+    /**
+     * Địa chỉ đầy đủ cho Staff: số nhà/tên đường khách tự nhập ({@code addressDetail}) ghép với địa chỉ VietMap
+     * ({@code address}). Không lặp lại khi địa chỉ VietMap đã chứa sẵn phần chi tiết.
+     */
+    /** Phần số nhà/tên đường đã đủ cụ thể để đặt lịch hay chưa. */
+    public boolean isSpecificAddress() {
+        return com.housekeeping.management.domain.SpecificAddressRules.isSpecific(addressDetail);
+    }
+
+    public String getFullAddress() {
+        String detail = addressDetail == null ? "" : addressDetail.strip();
+        String located = address == null ? "" : address.strip();
+        if (detail.isEmpty()) return located;
+        if (located.isEmpty() || located.toLowerCase(java.util.Locale.ROOT).contains(detail.toLowerCase(java.util.Locale.ROOT))) {
+            return located.isEmpty() ? detail : located;
+        }
+        return detail + ", " + located;
+    }
 }

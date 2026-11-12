@@ -38,6 +38,14 @@
               <span aria-hidden="true">⚠</span>
               <span>Email hoặc mật khẩu không đúng.</span>
             </div>
+            <div th:if="${param.locked}" class="alert alert-danger mb-3 border-0" role="alert" style="background-color: var(--status-cancelled-bg); color: var(--status-cancelled-text); border-left: 4px solid #ef4444 !important;">
+              <div class="d-flex align-items-center gap-2 fw-semibold">
+                <span aria-hidden="true">⚠</span>
+                <span>Tài khoản của bạn đã bị khóa.</span>
+              </div>
+              <p class="small mb-1 mt-2" th:if="${!#strings.isEmpty(lockReason)}">Lý do: <span th:text="${lockReason}">Lý do khóa</span></p>
+              <p class="small mb-0">Vui lòng liên hệ Gọn Nhà nếu cần hỗ trợ.</p>
+            </div>
             <div th:if="${param.logout}" class="alert alert-success d-flex align-items-center gap-2 mb-3 border-0" role="status" style="background-color: var(--status-confirmed-bg); color: var(--status-confirmed-text); border-left: 4px solid var(--brand) !important;">
               <span aria-hidden="true">✓</span>
               <span>Bạn đã đăng xuất an toàn khỏi hệ thống.</span>

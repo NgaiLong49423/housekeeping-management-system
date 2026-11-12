@@ -2,7 +2,12 @@ package com.housekeeping.management.config;
 
 import com.housekeeping.management.service.AccountAuthorizationService;
 import com.housekeeping.management.service.AuthService;
+import com.housekeeping.management.web.LockedAccountLoginFailureHandler;
 import com.housekeeping.management.web.PortalUser;
+import org.springframework.security.authentication.AccountExpiredException;
+import org.springframework.security.authentication.CredentialsExpiredException;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
 import jakarta.servlet.DispatcherType;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,6 +27,18 @@ public class SecurityConfig {
     DaoAuthenticationProvider portalAuthenticationProvider(AuthService identities, PasswordEncoder encoder) {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider(identities);
         provider.setPasswordEncoder(encoder);
+        // Mặc định Spring kiểm tra "bị khóa" trước khi so mật khẩu, làm lộ trạng thái tài khoản cho người
+        // đoán mật khẩu. Ở đây chỉ báo khóa (kèm lý do) sau khi mật khẩu đã đúng.
+        provider.setPreAuthenticationChecks(user -> { });
+        provider.setPostAuthenticationChecks(user -> {
+            if (!user.isAccountNonLocked()) {
+                String reason = user instanceof PortalUser portalUser ? portalUser.getLockReason() : null;
+                throw new LockedException(reason == null ? "" : reason);
+            }
+            if (!user.isEnabled()) throw new DisabledException("Tài khoản không hoạt động.");
+            if (!user.isAccountNonExpired()) throw new AccountExpiredException("Tài khoản đã hết hạn.");
+            if (!user.isCredentialsNonExpired()) throw new CredentialsExpiredException("Mật khẩu đã hết hạn.");
+        });
         return provider;
     }
 
@@ -54,7 +71,7 @@ public class SecurityConfig {
                     })
                     .anyRequest().authenticated())
                 .formLogin(login -> login.loginPage("/login").usernameParameter("email")
-                    .defaultSuccessUrl("/portal").failureUrl("/login?error").permitAll())
+                    .defaultSuccessUrl("/portal").failureHandler(new LockedAccountLoginFailureHandler()).permitAll())
                 .logout(logout -> logout.logoutSuccessUrl("/login?logout"))
                 .build();
     }
