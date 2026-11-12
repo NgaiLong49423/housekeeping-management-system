@@ -3,17 +3,25 @@
 > **Version:** v3.6.0\
 > **Created:** 2026-06-14\
 > **Last Updated:** 2026-11-12\
-> **Status:** Active\
+> **Status:** Draft\
 
 # Hướng dẫn database
 
-Microsoft SQL Server là database chính thức (`Housekeeping_Database`). Hệ thống sử dụng Flyway để quản lý DDL với `ddl-auto=validate`. Schema hiện tại có 25 bảng nghiệp vụ theo [Từ điển dữ liệu SQL Server](../docs/requirements/SQL_SERVER_DATA_DICTIONARY.md). V18 thêm thông tin món đồ Customer khai báo; V19 từng thêm phương án/phiếu việc; V25 giữ lịch sử migration nhưng loại bỏ bốn bảng phương án/phiếu việc và rút gọn luồng sự cố; V26 thêm mốc Staff hoàn tất để thực thi hạn phản ánh 24 giờ; V27 tách trạng thái đã quyết toán để cho phép xóa ciphertext tài khoản ngân hàng; V28 bổ sung quy trình Staff giải trình/kháng nghị và theo dõi thu hồi theo từng lần thực nhận; V29 đồng bộ nội dung và ảnh minh họa cho các phản ánh demo.
+Microsoft SQL Server là database chính thức. Schema hiện tại có 25 bảng nghiệp vụ theo [Từ điển dữ liệu SQL Server](../docs/requirements/SQL_SERVER_DATA_DICTIONARY.md). V18 thêm thông tin món đồ Customer khai báo; V19 từng thêm phương án/phiếu việc; V25 giữ lịch sử migration nhưng loại bỏ bốn bảng phương án/phiếu việc và rút gọn luồng sự cố; V26 thêm mốc Staff hoàn tất để thực thi hạn phản ánh 24 giờ; V27 tách trạng thái đã quyết toán để cho phép xóa ciphertext tài khoản ngân hàng; V28 bổ sung quy trình Staff giải trình/kháng nghị và theo dõi thu hồi theo từng lần thực nhận; V29 đồng bộ nội dung và ảnh minh họa cho các phản ánh demo. Hibernate dùng `ddl-auto=validate`; chỉ Flyway quản lý DDL.
 
 ## Opt-in automatic local reset
 
-`DB_RESET_ON_STARTUP` mặc định là `false`, giữ nguyên dữ liệu hiện có trong database. Khi được chỉ định rõ ràng là `true`, trước khi khởi tạo datasource, ứng dụng sẽ kết nối tới `master`, ngắt kết nối người dùng hiện tại khỏi database local được hỗ trợ (`Housekeeping_Database`), drop nếu đã có và tạo lại mới. Flyway sau đó sẽ tái tạo schema. **Toàn bộ dữ liệu trước đó và bảng lịch sử Flyway trong database đó sẽ bị xóa.**
+`DB_RESET_ON_STARTUP` defaults to `false`, preserving existing database contents. When explicitly set to `true`, before creating the datasource the application connects to `master`, disconnects existing users from the selected supported local database, drops it if present and creates it again. Flyway then rebuilds the schema. **All previous data and both old and new Flyway history tables in that database are deleted.** A failed migration does not restore the database deleted by the initializer.
 
-Chỉ `Housekeeping_Database` trên `localhost`, `127.0.0.1` hoặc `[::1]` mới được phép reset. SQL login cần quyền ALTER/DROP/CREATE DATABASE. Chỉ đặt `DB_RESET_ON_STARTUP=true` trong file `.env` khi thực sự muốn reset trắng database local; hãy để `false` khi muốn giữ lại dữ liệu.
+Only `Housekeeping_Database` and `home_cleaning_demo` on `localhost`, `127.0.0.1` or `[::1]` can be reset. The SQL login needs ALTER/DROP/CREATE DATABASE permissions. Set `DB_RESET_ON_STARTUP=true` in the module `.env` only for an intentional disposable local reset; leave it false to preserve data or connect to a remote/shared database. The historical setup and manual recovery instructions below apply when automatic reset is disabled; no manual setup/reset script is required when it is enabled.
+
+## Database demo tách biệt
+
+1. Chỉ dùng môi trường SQL Server local dành cho demo/dev.
+2. Chạy [`setup-demo.sql`](setup-demo.sql) bằng SSMS để tạo database mới `home_cleaning_demo` nếu chưa tồn tại. Script không tạo login hoặc chứa password.
+3. Chạy ứng dụng với profile `demo`; Flyway áp dụng schema và dữ liệu mẫu từ `classpath:db/refactor` cùng migration dùng chung trong `classpath:db/shared`. Tài khoản, nhà và dịch vụ mẫu được ghi bởi V3; migration demo-only V7 tạo thêm một Booking để thử xác nhận đến. Migration V11 seed `manager@demo.gonnha.local` trong riêng `home_cleaning_demo`; migration V15 chuyển tài khoản đó thành vai trò MANAGER duy nhất. V20 tạo hai hồ sơ sự cố demo; V25 chuẩn hóa chúng thành một phản ánh đang xử lý và một đề xuất bồi thường đang chờ Customer, chưa giả lập Customer đồng ý hoặc Manager duyệt. V26 backfill mốc hoàn tất cho booking cũ, không sửa hồ sơ sự cố; V27 chuẩn hóa các khoản bồi thường đã chi để xóa ciphertext tài khoản. V28 không chuyển các quyết định Staff lịch sử thành kết luận theo quy trình mới và không tạo khoản hoàn trả mẫu. V29 gắn ảnh minh họa vào hai phản ánh, làm rõ đây là dữ liệu mẫu chưa xác nhận/duyệt/chi; component chỉ chạy trong profile `demo` chép file ảnh vào evidence storage. Nội dung phản ánh được tạo bởi migration, ảnh được cài lúc ứng dụng khởi động.
+
+Tạo SQL login riêng và map vào database demo; cấp quyền DDL cần thiết để Flyway tạo schema. Lưu credentials trong `.env` cục bộ, không commit. Script không xóa database, không tạo hoặc reset login, không tạo schema history thủ công và không sửa database cũ. Nếu `home_cleaning_demo` đã có schema hoặc Flyway history không phù hợp, dừng lại và dùng database dev mới; không chạy `clean`, không drop và không sửa thủ công history.
 
 ## Flyway và lịch sử schema
 
@@ -53,41 +61,24 @@ Database demo seed tài khoản Manager riêng ở V11 và chuyển vai trò t�
 UPDATE dbo.Users SET role='MANAGER'
 WHERE email=N'<manager-admin-email>' AND role='ADMIN' AND status='ACTIVE';
 ```
-Filtered unique index từ V15 ngăn tạo Manager thứ hai. Manager có thể tạo/khoá Admin tại `/admin/accounts`; Admin không được tự cấp quyền hoặc mở trang này.
+Filtered unique index từ V15 ngăn tạo Manager thứ hai. Manager có thể tạo/khoá Admin tại `/admin/accounts`; Admin không được tự cấp quyền hoặc mở trang này. Nếu cần khôi phục Manager sau này, DBA phải chuyển tài khoản Admin đã xác minh bằng thao tác có kiểm soát.
 
-## Cấu hình kết nối
+## Cấu hình riêng
 
-Trong file `.env` ở thư mục dự án hoặc module, đặt thông tin kết nối tới `Housekeeping_Database`:
-- `DB_URL`: `jdbc:sqlserver://localhost:1433;databaseName=Housekeeping_Database;encrypt=true;trustServerCertificate=true`
-- `DB_USERNAME`: tài khoản SQL Server của bạn (ví dụ `hsf302_housekeeping_local` hoặc `sa`)
-- `DB_PASSWORD`: mật khẩu SQL Server
-- `PAYOUT_ENCRYPTION_KEY`: chuỗi Base64 32 byte (AES-256) dùng để mã hóa thông tin tài khoản chuyển khoản bồi thường.
-
-## Dữ liệu mẫu (Sample Data) & Khôi phục nhanh
-
-Có 2 cách nạp dữ liệu mẫu sạch và đồng bộ:
-
-### Cách 1: Chạy file script SQL (Khuyên dùng)
-Để tránh lỗi hiển thị font tiếng Việt (Mojibake), hãy sử dụng cờ `-f 65001` khi dùng `sqlcmd`:
-```powershell
-sqlcmd -S localhost -d Housekeeping_Database -U hsf302_housekeeping_local -P "692E9A74A018766638F530029A13B142350FE42298FD55D9aA1!" -f 65001 -i database\sample-data.sql
-```
-Hoặc mở và thực thi trực tiếp bằng SSMS (SQL Server Management Studio) / DBeaver / Azure Data Studio.
-
-### Cách 2: Khôi phục trực tiếp từ file Backup (`.bak`)
-File backup nguyên bản chuẩn `database/Housekeeping_Database.bak` (6 MB) đã được đóng gói sẵn. Có thể restore 1-click qua SSMS hoặc lệnh:
-```powershell
-sqlcmd -S localhost -d master -E -Q "RESTORE DATABASE Housekeeping_Database FROM DISK = '$(Get-Location)\database\Housekeeping_Database.bak' WITH REPLACE;"
-```
+Trong `.env` ở thư mục Maven module, đặt `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` cho `Housekeeping_Database`. Không dùng credentials production và không commit `.env`. Profile demo tùy chọn trỏ cố định tới `home_cleaning_demo`, không lấy URL từ `.env`. Đặt `PAYOUT_ENCRYPTION_KEY` bằng chuỗi Base64 giải mã thành đúng 32 byte (AES-256) trong secret store hoặc `.env` cục bộ; không đưa khóa thật vào source, migration hay tài liệu. Tính năng nhận thông tin tài khoản chuyển khoản từ Customer yêu cầu khóa này; khi chưa cấu hình hợp lệ, ứng dụng từ chối lưu thông tin đó. Giữ khóa ổn định cho tới khi mọi đề nghị chuyển khoản đang chờ đã được quyết toán, vì đổi khóa trước đó làm mất khả năng giải mã thông tin đang lưu. Không dùng chung khóa giữa các môi trường.
 
 ## Kiểm chứng
 
+GitHub Actions chạy `bash ./mvnw -B verify` trên JDK 21 và Docker; job này bao gồm nhóm Testcontainers SQL Server. Chỉ coi migration, Hibernate mapping và concurrency đã được xác minh khi job kiểm thử ứng dụng hoàn tất thành công.
+
 ```powershell
-# Unit/MVC test, không cần SQL Server
+# Unit/MVC, không cần SQL Server
 mvn "-DexcludedGroups=sqlserver" verify
 
-# Flyway, Hibernate mapping và concurrency trên SQL Server Testcontainers (yêu cầu Docker)
+# Flyway, Hibernate mapping và concurrency trên SQL Server Testcontainers; cần Docker
 mvn verify
 ```
 
 Không kết luận migration hoặc concurrency đã được SQL Server xác minh nếu Testcontainers/SQL Server tests không chạy. Xem [README](../README.md) để chạy ứng dụng.
+
+- Migration dùng chung V16 thêm bảng `Feedback_Case_Messages` và liên kết bằng chứng hiện có qua `message_id`. V17 thêm `Financial_Payout_Responses`; V19 từng thêm lịch sử xác minh, phương án và work order, đưa schema lịch sử lên 27 bảng. V25 đã gỡ các bảng phương án/work order; V26 thêm mốc hoàn tất Booking; V27 ghi trạng thái `SETTLED` sau khi xóa ciphertext; V28 thêm bằng chứng giải trình Staff riêng tư và các lần Staff thực trả, đưa schema lên 25 bảng. V29 gắn ảnh minh họa cho hai hồ sơ demo mà không đổi schema. Mô tả sự cố và reply cũ được nhập vào timeline; thời điểm reply cũ được đánh dấu không chính xác. Bằng chứng hiện có được liên kết với tin Customer đầu tiên. Customer sở hữu booking và Admin/Manager xem/gửi tin, Staff và Customer khác không có quyền. Tin nhắn/bằng chứng Customer/Admin append-only, hồ sơ đã giải quyết chỉ đọc.
