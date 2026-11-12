@@ -102,11 +102,16 @@ class ManagementServicesTest {
                 mock(StaffAvailabilityRepository.class), mock(com.housekeeping.management.repository.StaffLeaveRepository.class), bookings,
                 mock(GlobalEmailUniquenessService.class), mock(PasswordEncoder.class), mock(AccountAuthorizationService.class));
         ServiceManagementService serviceManagement = new com.housekeeping.management.service.impl.ServiceManagementServiceImpl(services, mock(AccountAuthorizationService.class));
-        staffManagement.deactivate(99L, 9L); serviceManagement.deactivate(99L, 4L);
+        assertThatThrownBy(() -> staffManagement.deactivate(99L, 9L, "")).isInstanceOf(IllegalArgumentException.class);
+        assertThat(user.getStatus()).isEqualTo(UserStatus.ACTIVE);
+        staffManagement.deactivate(99L, 9L, "Nghỉ việc từ tháng 11"); serviceManagement.deactivate(99L, 4L);
         assertThat(user.getStatus()).isEqualTo(UserStatus.INACTIVE);
+        assertThat(user.getStatusReason()).isEqualTo("Nghỉ việc từ tháng 11");
+        assertThat(user.getStatusChangedBy()).isEqualTo(99L);
         assertThat(service.getStatus()).isEqualTo(ServiceStatus.INACTIVE);
         staffManagement.activate(99L, 9L); serviceManagement.activate(99L, 4L);
         assertThat(user.getStatus()).isEqualTo(UserStatus.ACTIVE);
+        assertThat(user.getStatusReason()).isNull();
         assertThat(service.getStatus()).isEqualTo(ServiceStatus.ACTIVE);
     }
 
@@ -122,7 +127,7 @@ class ManagementServicesTest {
                 mock(StaffAvailabilityRepository.class), mock(com.housekeeping.management.repository.StaffLeaveRepository.class), bookings,
                 mock(GlobalEmailUniquenessService.class), mock(PasswordEncoder.class), mock(AccountAuthorizationService.class));
 
-        assertThatThrownBy(() -> service.deactivate(99L, 9L))
+        assertThatThrownBy(() -> service.deactivate(99L, 9L, "Nghỉ việc từ tháng 11"))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("chưa hoàn tất");
 
         assertThat(user.getStatus()).isEqualTo(UserStatus.ACTIVE);

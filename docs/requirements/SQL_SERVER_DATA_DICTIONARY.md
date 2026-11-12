@@ -1,6 +1,6 @@
 > **Document:** SQL Server Data Dictionary\
 > **File:** `docs/requirements/SQL_SERVER_DATA_DICTIONARY.md`\
-> **Version:** v5.8.0\
+> **Version:** v5.9.0\
 > **Created:** 2026-10-24\
 > **Last Updated:** 2026-11-12\
 > **Status:** Active\
@@ -73,6 +73,10 @@ V29 không thay đổi schema. Chỉ trong `home_cleaning_demo`, migration đồ
 
 V32 và V33 không thay đổi schema. Chỉ trong `home_cleaning_demo`: V32 đổi `Users.full_name` của năm tài khoản demo ban đầu từ tên tạm "… Demo" sang họ tên tiếng Việt (và `Houses.recipient_name` của Customer demo khi còn tên tạm); V33 thêm năm Staff (`Users`, `Staff`, `Staff_Profiles`) và năm Customer (`Users`, mỗi người một `Houses` mặc định loại `HOME` có tọa độ trong bán kính `Company_Settings`). Bản ghi chỉ được chèn khi email/Staff/địa chỉ chưa tồn tại.
 
+## Migration V35 — lý do khóa tài khoản
+
+V35 (dùng chung cho cả hai database) thêm ba cột vào `Users` để lưu lý do khóa, người và thời điểm đổi trạng thái gần nhất; chi tiết ở mục `Users`. Không thêm bảng, tổng vẫn 25 bảng.
+
 ## Mapping kiểu dữ liệu đề xuất
 | Logical | SQL Server |
 |---|---|
@@ -90,6 +94,8 @@ Recommended Java: `Long`, `BigDecimal`, `LocalDate`, `LocalTime`, `LocalDateTime
 
 ## 1. Users
 `user_id PK BIGINT IDENTITY`, `full_name NVARCHAR(150) NOT NULL`, `email NVARCHAR(255) NOT NULL UNIQUE`, `password_hash NVARCHAR(255) NOT NULL`, `phone NVARCHAR(20) NOT NULL`, `role VARCHAR(20) NOT NULL CHECK CUSTOMER/STAFF/ADMIN/MANAGER`, `status VARCHAR(20) NOT NULL DEFAULT ACTIVE CHECK ACTIVE/INACTIVE`. V15 chuyển người quản lý hiện hữu từ `ADMIN` + cờ V10 sang `MANAGER`, bỏ `can_manage_incidents`, và tạo filtered unique index `UX_Users_Single_Manager` bảo đảm chỉ tồn tại một hàng Manager. Manager có toàn bộ quyền Admin; chỉ Manager được tạo/khóa Admin và duyệt khoản tài chính/quyết định xử lý Staff.
+V35 thêm `status_reason NVARCHAR(500) NULL`, `status_changed_at DATETIME2(0) NULL`, `status_changed_by BIGINT NULL FK -> Users`. CHECK `CK_Users_StatusReasonOnlyWhenLocked`: lý do chỉ có khi `status = INACTIVE` và không rỗng; CHECK `CK_Users_StatusChangeAudit`: `status_changed_at` và `status_changed_by` cùng NULL hoặc cùng có giá trị. Mọi lần khóa mới (Customer, Staff, Admin) bắt buộc có lý do 5–500 ký tự; mở khóa xóa lý do và ghi người/thời điểm mở. Tài khoản đã khóa trước V35 giữ lý do NULL. Phân quyền khóa: Manager khóa được Customer, Staff, Admin; Admin khóa được Customer và Staff, không khóa Admin khác. Customer hoặc Staff còn Booking `CONFIRMED`/`AWAITING_PAYMENT` thì chưa khóa được.
+
 **Không** có created_at/updated_at. Backend role authorization.
 
 ## 2. Staff
@@ -102,13 +108,13 @@ Recommended Java: `Long`, `BigDecimal`, `LocalDate`, `LocalTime`, `LocalDateTime
 `service_id PK`, `service_name NVARCHAR(150) NOT NULL`, `description NVARCHAR(MAX) NULL`, `image_url NVARCHAR(500) NULL`, `price DECIMAL(12,2) NOT NULL CHECK price>=0`, `duration_minutes INT NOT NULL CHECK>0`, `status VARCHAR(20) NOT NULL DEFAULT ACTIVE CHECK ACTIVE/INACTIVE`. Một ảnh URL duy nhất.
 
 ## 5. Company_Settings
-`company_id PK`, `company_address NVARCHAR(500) NOT NULL`, `latitude DECIMAL(10,7) NOT NULL`, `longitude DECIMAL(10,7) NOT NULL`, `service_radius_km DECIMAL(6,2) NOT NULL CHECK >0`. Chỉ 1 row theo nghiệp vụ; enforce qua application/bootstrap hoặc constraint hợp lý, không phát minh company marketplace; tâm/bán kính chỉ giữ để tương thích và không chặn Booking. CHECK lat between -90/+90, lng -180/+180.
+`company_id PK`, `company_address NVARCHAR(500) NOT NULL`, `latitude DECIMAL(10,7) NOT NULL`, `longitude DECIMAL(10,7) NOT NULL`, `service_radius_km DECIMAL(6,2) NOT NULL CHECK >0`. Chỉ 1 row theo nghiệp vụ; enforce qua application/bootstrap hoặc constraint hợp lý, không phát minh company marketplace. Booking chỉ nhận địa chỉ đã xác minh tọa độ và nằm trong bán kính phục vụ. CHECK lat between -90/+90, lng -180/+180.
 
 ## 6. Company_Operating_Hours
 `operating_hour_id PK`, `company_id BIGINT NOT NULL FK`, `effective_from DATE NOT NULL DEFAULT '1900-01-01'`, `day_of_week INT NOT NULL CHECK BETWEEN 1 AND 7` (Mon=1), `period_no SMALLINT NOT NULL DEFAULT 1`, `opening_time TIME(0) NULL`, `closing_time TIME(0) NULL`, `is_closed BIT NOT NULL DEFAULT 0`; `UNIQUE(company_id,effective_from,day_of_week,period_no)`. Mỗi phiên bản có đủ bảy ngày; ngày có thể có nhiều khung không chồng lấn hoặc một dòng nghỉ. Giờ bắt đầu Booking trên lưới :00/:30; biên availability Staff có thể theo mốc 15 phút. Các truy vấn Staff/Booking/Admin chọn phiên bản gần nhất không sau ngày được xét.
 
 ## 7. Houses
-`house_id PK`, `customer_id BIGINT NOT NULL FK -> Users`, `house_name NVARCHAR(100) NOT NULL`, `address NVARCHAR(500) NOT NULL`, `latitude DECIMAL(10,7) NULL`, `longitude DECIMAL(10,7) NULL`, `recipient_name NVARCHAR(150) NOT NULL`, `recipient_phone NVARCHAR(20) NOT NULL`, `province_city NVARCHAR(100) NULL`, `ward_commune NVARCHAR(100) NULL`, `address_detail NVARCHAR(500) NOT NULL`, `address_type VARCHAR(20) NOT NULL CHECK HOME/OFFICE`, `is_default BIT NOT NULL DEFAULT 0`, `address_note NVARCHAR(500) NULL`, `is_deleted BIT NOT NULL DEFAULT 0`. Customer nhập địa chỉ chữ, không tọa độ; backend tra VietMap khi lưu/đặt để lấy vị trí tuyến. `Bookings.house_id` giữ FK sau soft-delete.
+`house_id PK`, `customer_id BIGINT NOT NULL FK -> Users`, `house_name NVARCHAR(100) NOT NULL`, `address NVARCHAR(500) NOT NULL`, `latitude DECIMAL(10,7) NULL`, `longitude DECIMAL(10,7) NULL`, `recipient_name NVARCHAR(150) NOT NULL`, `recipient_phone NVARCHAR(20) NOT NULL`, `province_city NVARCHAR(100) NULL`, `ward_commune NVARCHAR(100) NULL`, `address_detail NVARCHAR(500) NOT NULL`, `address_type VARCHAR(20) NOT NULL CHECK HOME/OFFICE`, `is_default BIT NOT NULL DEFAULT 0`, `address_note NVARCHAR(500) NULL`, `is_deleted BIT NOT NULL DEFAULT 0`. Địa chỉ Customer được xác minh từ VietMap và cần tọa độ khi tạo Booking. `Bookings.house_id` giữ FK sau soft-delete. Từ V35 (quy tắc ứng dụng, không đổi schema), `address_detail` là số nhà/hẻm/căn hộ và tên đường Customer tự nhập, bắt buộc có số không thuộc tên phường/quận và có tên đường; `address` giữ địa chỉ VietMap dùng để định vị. `Bookings.address_snapshot` lưu `address_detail` ghép với `address`. Nhà chưa có `address_detail` đủ cụ thể không đặt Booking mới được cho tới khi Customer cập nhật.
 
 ## 8. Staff_Availability
 `availability_id PK`, `staff_id BIGINT NOT NULL FK -> Staff`, `work_date DATE NOT NULL`, `start_time TIME(0) NOT NULL`, `end_time TIME(0) NOT NULL`, `created_at DATETIME2(0) NOT NULL DEFAULT SYSDATETIME()`, `is_active BIT NOT NULL DEFAULT 1`. CHECK start<end; no updated_at. PART_TIME tạo khoảng trọn trong một khung giờ công ty; ngừng bằng is_active=0, không xóa/sửa lịch sử.

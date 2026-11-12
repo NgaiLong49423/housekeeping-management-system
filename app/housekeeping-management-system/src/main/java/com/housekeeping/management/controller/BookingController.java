@@ -170,6 +170,20 @@ public class BookingController {
         }
     }
 
+    @GetMapping("/customer/bookings/house-service-area")
+    @org.springframework.web.bind.annotation.ResponseBody
+    HouseAreaStatus houseServiceArea(@RequestParam Long houseId, @AuthenticationPrincipal PortalUser user) {
+        if (user == null || !"CUSTOMER".equals(user.getRole())) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        try {
+            var assessment = houses.assessCustomerHouseServiceArea(user.getUserId(), houseId);
+            return new HouseAreaStatus(assessment.eligible(), assessment.message());
+        } catch (IllegalArgumentException | IllegalStateException failure) {
+            return new HouseAreaStatus(false, "Chưa kiểm tra được bán kính phục vụ. Vui lòng thử lại.");
+        }
+    }
+
+    record HouseAreaStatus(boolean eligible, String message) { }
+
     @PostMapping("/customer/bookings")
     String create(@AuthenticationPrincipal PortalUser user, @Valid @ModelAttribute BookingForm bookingForm,
             BindingResult errors, Model model, RedirectAttributes flash) {

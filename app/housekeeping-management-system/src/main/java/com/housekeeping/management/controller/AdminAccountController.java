@@ -49,10 +49,10 @@ public class AdminAccountController {
     }
 
     @PostMapping("/{id}/status")
-    String updateStatus(@PathVariable Long id, @RequestParam String status,
+    String updateStatus(@PathVariable Long id, @RequestParam String status, @RequestParam(required = false) String reason,
             @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
         try {
-            accounts.updateStatus(user.getUserId(), id, status);
+            accounts.updateStatus(user.getUserId(), id, status, reason);
             flash.addFlashAttribute("success", "Đã cập nhật trạng thái tài khoản Admin.");
         } catch (IllegalArgumentException failure) {
             flash.addFlashAttribute("error", failure.getMessage());

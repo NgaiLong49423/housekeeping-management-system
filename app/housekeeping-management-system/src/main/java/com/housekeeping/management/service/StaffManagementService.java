@@ -13,7 +13,7 @@ public interface StaffManagementService {
 
     public void create(Long adminId, StaffCreateForm form);
     public void update(Long adminId, Long staffId, StaffUpdateForm form);
-    public void deactivate(Long adminId, Long staffId);
+    public void deactivate(Long adminId, Long staffId, String reason);
     public void activate(Long adminId, Long staffId);
     Staff findActiveForBookingUpdate(Long staffId);
     Staff findActiveByStaffId(Long staffId);

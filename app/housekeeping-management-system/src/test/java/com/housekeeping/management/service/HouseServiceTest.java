@@ -17,9 +17,10 @@ import org.junit.jupiter.api.Test;
 
 class HouseServiceTest {
     private final HouseRepository houses = mock(HouseRepository.class);
+    private final CompanySettingsService companySettings = mock(CompanySettingsService.class);
     private final BookingQueryService bookings = mock(BookingQueryService.class);
     private final HouseService service = new com.housekeeping.management.service.impl.HouseServiceImpl(
-            houses, bookings, mock(VietmapClient.class));
+            houses, companySettings, bookings, mock(VietmapClient.class));
 
     @Test
     void updatingContactDetailsWithoutNewVietmapReferencePreservesAddressAndCoordinates() {
@@ -35,15 +36,70 @@ class HouseServiceTest {
         existing.setAddressDetail("Số 1");
         when(houses.findLockedByHouseIdAndCustomerIdAndDeletedFalse(8L, 3L)).thenReturn(Optional.of(existing));
 
-        service.save(3L, 8L, new HouseForm("Người nhận", "0900000000", "", HouseAddressType.HOME, false, null));
+        service.save(3L, 8L, new HouseForm("Người nhận", "0900000000", "12/3 hẻm 45 Nguyễn Trãi", "", HouseAddressType.HOME, false, null));
 
         assertThat(existing.getAddress()).isEqualTo("Địa chỉ cũ");
         assertThat(existing.getLatitude()).isEqualByComparingTo("10.1");
         assertThat(existing.getLongitude()).isEqualByComparingTo("106.2");
         assertThat(existing.getProvinceCity()).isEqualTo("TP.HCM");
         assertThat(existing.getWardCommune()).isEqualTo("Phường 1");
-        assertThat(existing.getAddressDetail()).isEqualTo("Số 1");
+        assertThat(existing.getAddressDetail()).isEqualTo("12/3 hẻm 45 Nguyễn Trãi");
         verify(houses).save(existing);
+    }
+
+    @Test
+    void genericStreetAddressIsRejectedBeforeAnyLookup() {
+        assertThatThrownBy(() -> service.save(3L, null,
+                new HouseForm("Người nhận", "0900000000", "Phường Bến Thành", "vietmap-ref", HouseAddressType.HOME, false, null)))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("số nhà");
+        org.mockito.Mockito.verifyNoInteractions(houses);
+    }
+
+    @Test
+    void fullAddressJoinsCustomerStreetWithVietmapLocationWithoutRepeatingIt() {
+        House house = new House();
+        house.setAddress("Phường Bến Thành, Thành phố Hồ Chí Minh");
+        house.setAddressDetail("12/3 hẻm 45 Nguyễn Trãi");
+        assertThat(house.getFullAddress()).isEqualTo("12/3 hẻm 45 Nguyễn Trãi, Phường Bến Thành, Thành phố Hồ Chí Minh");
+        assertThat(house.isSpecificAddress()).isTrue();
+
+        house.setAddress("18 Trần Quang Khải, Phường Tân Định, Thành phố Hồ Chí Minh");
+        house.setAddressDetail("18 Trần Quang Khải");
+        assertThat(house.getFullAddress()).isEqualTo("18 Trần Quang Khải, Phường Tân Định, Thành phố Hồ Chí Minh");
+
+        house.setAddressDetail("Địa chỉ mẫu, Quận 1");
+        assertThat(house.isSpecificAddress()).isFalse();
+    }
+
+    @Test
+    void haversineMeasuresDistanceBetweenCoordinatesInKilometers() {
+        assertThat(HouseService.distanceKm(10.0, 106.0, 10.0, 106.0)).isZero();
+        assertThat(HouseService.distanceKm(0.0, 0.0, 0.0, 1.0)).isBetween(111.0, 111.3);
+    }
+
+    @Test
+    void acceptsHouseExactlyOnConfiguredServiceRadius() {
+        double boundaryDistance = HouseService.distanceKm(0.0, 0.0, 0.0, 1.0);
+        when(companySettings.serviceCenter()).thenReturn(new CompanySettingsService.ServiceCenter(
+                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.valueOf(boundaryDistance)));
+
+        assertThat(service.isWithinServiceRadius(BigDecimal.ZERO, BigDecimal.ONE)).isTrue();
+    }
+
+    @Test
+    void rejectsHouseJustOutsideConfiguredServiceRadius() {
+        double boundaryDistance = HouseService.distanceKm(0.0, 0.0, 0.0, 1.0);
+        when(companySettings.serviceCenter()).thenReturn(new CompanySettingsService.ServiceCenter(BigDecimal.ZERO,
+                BigDecimal.ZERO, BigDecimal.valueOf(boundaryDistance).subtract(new BigDecimal("0.001"))));
+
+        assertThat(service.isWithinServiceRadius(BigDecimal.ZERO, BigDecimal.ONE)).isFalse();
+    }
+
+    @Test
+    void failsClosedWhenCompanyLocationIsMissingOrDuplicated() {
+        when(companySettings.serviceCenter()).thenThrow(new IllegalStateException("Cần cấu hình chính xác một vị trí"));
+        assertThatThrownBy(() -> service.isWithinServiceRadius(BigDecimal.ZERO, BigDecimal.ZERO))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("chính xác một");
     }
 
     @Test

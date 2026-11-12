@@ -16,9 +16,11 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 public interface CompanySettingsService {
+    record ServiceCenter(java.math.BigDecimal latitude, java.math.BigDecimal longitude, java.math.BigDecimal radiusKm) { }
     public record ScheduleWindow(LocalDate effectiveFrom, Integer dayOfWeek, boolean closed,
     LocalTime openingTime, LocalTime closingTime) { }
     public CompanySettingsForm get();
+    ServiceCenter serviceCenter();
     public CompanySettingsForm forDate(LocalDate date);
     public CompanyScheduleVersionForm scheduleForEditor(LocalDate date);
     public List<LocalDate> versionDates();

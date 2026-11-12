@@ -11,6 +11,7 @@ import com.housekeeping.management.dto.response.BookingAvailabilityOptions;
 import com.housekeeping.management.dto.response.BookingAvailabilityOptions.StaffOption;
 import com.housekeeping.management.dto.response.BookingAvailabilityOptions.TimeOption;
 import com.housekeeping.management.dto.response.BookingAvailabilityDates;
+import com.housekeeping.management.dto.SpecificAddressRules;
 import com.housekeeping.management.entity.Services;
 import com.housekeeping.management.entity.House;
 import com.housekeeping.management.repository.BookingAvailabilityRepository;
@@ -51,7 +52,7 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
     public BookingAvailabilityOptions options(LocalDate date,List<Long> serviceIds,Long selectedStaffId,
             LocalTime selectedTime,Long customerId,Long houseId) {
         int duration = serviceDuration(serviceIds);
-        House house=houses.ensureRouteLocation(customerId,houseId);
+        House house=requireBookableHouse(customerId,houseId);
         return options(date,duration,selectedStaffId,selectedTime,house.getLatitude(),house.getLongitude());
     }
 
@@ -138,7 +139,7 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
         LocalDate today=LocalDate.now(BUSINESS_ZONE);
         LocalDate through=today.plusDays(30);
         int duration=serviceDuration(serviceIds);
-        House selectedHouse = houses.ensureRouteLocation(customerId, houseId);
+        House selectedHouse = requireBookableHouse(customerId, houseId);
         java.math.BigDecimal latitude = selectedHouse.getLatitude(), longitude = selectedHouse.getLongitude();
         List<BookingAvailabilityRepository.StaffOption> staff=availability.activeStaff();
         if(selectedStaffId!=null&&staff.stream().noneMatch(person->person.id().equals(selectedStaffId))) {
@@ -178,6 +179,20 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
         String message=result.isEmpty()?"Không có ngày nào trong 30 ngày tới còn giờ và nhân viên phù hợp."
                 :"Chỉ hiển thị ngày có nhân viên nhận được dịch vụ và còn giờ đặt trước hợp lệ.";
         return new BookingAvailabilityDates(result,message);
+    }
+
+    private House requireBookableHouse(Long customerId, Long houseId) {
+        House house = houses.findCustomerHouse(customerId, houseId);
+        if (house.getLatitude() == null || house.getLongitude() == null) {
+            throw new IllegalArgumentException("Địa chỉ nhà chưa có tọa độ VietMap. Hãy cập nhật địa chỉ trước khi xem giờ.");
+        }
+        if (!SpecificAddressRules.isSpecific(house.getAddressDetail())) {
+            throw new IllegalArgumentException("Địa chỉ nhà cần có số nhà và tên đường cụ thể trước khi xem giờ.");
+        }
+        if (!houses.isWithinServiceRadius(house.getLatitude(), house.getLongitude())) {
+            throw new IllegalArgumentException("Địa chỉ nằm ngoài bán kính phục vụ hiện tại của công ty.");
+        }
+        return house;
     }
 
     private String availabilityMessage(LocalDate date,Long selectedStaffId,LocalTime selectedTime,

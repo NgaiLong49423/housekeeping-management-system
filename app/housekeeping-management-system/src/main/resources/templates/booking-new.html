@@ -81,7 +81,7 @@
                 <select class="form-select" id="houseId" th:field="*{houseId}" required>
                   <option value="">Chọn nhà</option>
                   <option th:each="house : ${houses}" th:value="${house.houseId}"
-                          th:text="${ui.label(house.recipientName)} + ' · ' + ${house.addressType.label} + (${house.defaultAddress} ? ' (Mặc định)' : '') + ' · ' + ${house.address}">Nhà</option>
+                          th:text="${ui.label(house.recipientName)} + ' · ' + ${house.addressType.label} + (${house.defaultAddress} ? ' (Mặc định)' : '') + ' · ' + ${house.fullAddress}">Nhà</option>
                 </select>
                 <div class="d-flex align-items-center gap-3 mt-2 flex-wrap">
                   <a class="small text-link" th:href="@{/customer/houses}">

@@ -17,6 +17,10 @@ public interface HouseRepository extends JpaRepository<House, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<House> findLockedByHouseIdAndCustomerIdAndDeletedFalse(Long houseId, Long customerId);
 
+    /** Mỗi dòng: [customerId, số địa chỉ đang dùng]. */
+    @Query("select house.customerId, count(house) from House house where house.deleted=false group by house.customerId")
+    List<Object[]> countActiveHousesByCustomer();
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update House house set house.defaultAddress=false where house.customerId=:customerId "
             + "and house.deleted=false and house.defaultAddress=true and (:exceptId is null or house.houseId<>:exceptId)")

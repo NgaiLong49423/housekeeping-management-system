@@ -24,12 +24,30 @@
       <tbody><tr th:each="admin : ${admins}">
         <td th:text="${admin.name}">Admin</td><td th:text="${admin.email}">admin@example.test</td>
         <td th:text="${admin.phone}">0900000000</td>
-        <td th:text="${admin.status == 'ACTIVE' ? 'Đang hoạt động' : 'Đã khóa'}">Đang hoạt động</td>
-        <td><form method="post" th:action="@{/admin/accounts/{id}/status(id=${admin.userId})}">
-          <input type="hidden" name="status" th:value="${admin.status == 'ACTIVE' ? 'INACTIVE' : 'ACTIVE'}">
-          <button class="btn btn-sm" th:classappend="${admin.status == 'ACTIVE' ? 'btn-outline-danger' : 'btn-outline-success'}"
-                  type="submit" th:text="${admin.status == 'ACTIVE' ? 'Khóa Admin' : 'Kích hoạt Admin'}">Khóa Admin</button>
-        </form></td>
+        <td>
+          <span th:text="${admin.status == 'ACTIVE' ? 'Đang hoạt động' : 'Đã khóa'}">Đang hoạt động</span>
+          <div class="small text-secondary" th:if="${admin.status != 'ACTIVE'}">
+            Lý do: <span th:text="${admin.statusReason != null ? admin.statusReason : 'Không ghi lý do (khóa trước khi có chức năng ghi lý do).'}">Lý do</span>
+            <span th:if="${admin.statusChangedAt != null}" th:text="'· ' + ${#temporals.format(admin.statusChangedAt, 'dd/MM/yyyy HH:mm')}"></span>
+          </div>
+        </td>
+        <td>
+          <form th:if="${admin.status != 'ACTIVE'}" method="post" th:action="@{/admin/accounts/{id}/status(id=${admin.userId})}">
+            <input type="hidden" name="status" value="ACTIVE">
+            <button class="btn btn-sm btn-outline-success" type="submit">Kích hoạt Admin</button>
+          </form>
+          <details th:if="${admin.status == 'ACTIVE'}">
+            <summary class="small text-danger">Khóa Admin</summary>
+            <form class="vstack gap-2 mt-2" method="post" th:action="@{/admin/accounts/{id}/status(id=${admin.userId})}"
+                  data-confirm="Khóa tài khoản Admin này?">
+              <input type="hidden" name="status" value="INACTIVE">
+              <label class="form-label small mb-0" th:for="'admin-lock-reason-' + ${admin.userId}">Lý do khóa (bắt buộc)</label>
+              <textarea class="form-control form-control-sm" th:id="'admin-lock-reason-' + ${admin.userId}" name="reason" rows="2"
+                        minlength="5" maxlength="500" required></textarea>
+              <button class="btn btn-sm btn-outline-danger" type="submit">Xác nhận khóa</button>
+            </form>
+          </details>
+        </td>
       </tr><tr th:if="${#lists.isEmpty(admins)}"><td colspan="5" class="text-secondary">Chưa có tài khoản Admin.</td></tr></tbody>
     </table></div>
   </section>

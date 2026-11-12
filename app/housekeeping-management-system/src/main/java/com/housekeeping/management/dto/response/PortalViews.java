@@ -21,7 +21,12 @@ public final class PortalViews {
         }
     }
     public record StaffCard(Long id, String name, String phone, boolean favorite, String staffType, boolean active,
-            String avatarUrl, String bio) { }
+            String avatarUrl, String bio, String statusReason, java.time.LocalDateTime statusChangedAt) {
+        public StaffCard(Long id, String name, String phone, boolean favorite, String staffType, boolean active,
+                String avatarUrl, String bio) {
+            this(id, name, phone, favorite, staffType, active, avatarUrl, bio, null, null);
+        }
+    }
     public record ScheduleCard(Long id, Long staffId, String staffName, OffsetDateTime start, OffsetDateTime end, boolean active) {
         public ScheduleCard(Long id, Long staffId, String staffName, OffsetDateTime start, OffsetDateTime end) { this(id, staffId, staffName, start, end, true); }
         public String getStartLabel() {
@@ -224,7 +229,11 @@ public final class PortalViews {
     }
     public record FinancialSummary(BigDecimal serviceRevenue, BigDecimal refundsAndReductions,
             BigDecimal remediationAndCompensation, BigDecimal staffRecovery, BigDecimal net, BigDecimal simulated) { }
-    public record AdminAccountCard(Long userId, String name, String email, String phone, String status) { }
+    public record AdminAccountCard(Long userId, String name, String email, String phone, String status,
+            String statusReason, java.time.LocalDateTime statusChangedAt) { }
+    public record CustomerAccountCard(Long userId, String name, String email, String phone, boolean active,
+            String statusReason, java.time.LocalDateTime statusChangedAt, long houseCount, long bookingCount,
+            long unfinishedBookingCount) { }
     public record StaffIncidentActionCard(Long id, String type, String status, String reason,
             String staffNotice, Long proposedBy, Long decidedBy, java.time.LocalDateTime createdAt,
             java.time.LocalDateTime decidedAt, java.time.LocalDateTime acknowledgedAt,

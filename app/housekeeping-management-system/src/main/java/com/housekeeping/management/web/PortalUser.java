@@ -10,18 +10,31 @@ public final class PortalUser extends User {
     private final Long userId;
     private final String displayName;
     private final String role;
+    private final String lockReason;
 
     public PortalUser(Long accountId, String email, String hash, String displayName, String role) {
         this(accountId, accountId, email, hash, displayName, role);
     }
 
     public PortalUser(Long accountId, Long userId, String email, String hash, String displayName, String role) {
-        super(email, hash, authorities(role));
+        this(accountId, userId, email, hash, displayName, role, false, null);
+    }
+
+    /**
+     * {@code locked=true}: tài khoản đã bị khóa. Lý do chỉ được báo cho người dùng sau khi mật khẩu
+     * đã được kiểm tra đúng (xem {@code SecurityConfig}).
+     */
+    public PortalUser(Long accountId, Long userId, String email, String hash, String displayName, String role,
+            boolean locked, String lockReason) {
+        super(email, hash, true, true, true, !locked, authorities(role));
         this.accountId = accountId;
         this.userId = userId;
         this.displayName = displayName;
         this.role = role;
+        this.lockReason = locked ? lockReason : null;
     }
+
+    public String getLockReason() { return lockReason; }
 
     public Long getAccountId() { return accountId; }
     public Long getUserId() { return userId; }

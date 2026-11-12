@@ -128,14 +128,10 @@ public final class PortalForms {
             @NotBlank @Size(max = 500) String reason) { }
     public record HouseForm(@NotBlank @Size(max = 150) String recipientName,
             @NotBlank @Size(min = 7, max = 20) @Pattern(regexp = "[+0-9() .-]+", message = "Số điện thoại không hợp lệ.") String recipientPhone,
-            @NotBlank @Size(max = 500) String address, @Size(max = 500) String vietmapRefId,
+            @NotBlank(message = "Hãy nhập số nhà và tên đường.") @Size(max = 200) String streetAddress,
+            @Size(max = 500) String vietmapRefId,
             @NotNull HouseAddressType addressType, boolean defaultAddress,
-            @Size(max = 500) String addressNote) {
-        public HouseForm(String recipientName, String recipientPhone, String vietmapRefId,
-                HouseAddressType addressType, boolean defaultAddress, String addressNote) {
-            this(recipientName, recipientPhone, "", vietmapRefId, addressType, defaultAddress, addressNote);
-        }
-    }
+            @Size(max = 500) String addressNote) { }
     public record CompanySettingsForm(@NotBlank @Size(max = 500) String companyAddress,
             @NotNull @DecimalMin("-90.0") @DecimalMax("90.0") @Digits(integer = 3, fraction = 7) BigDecimal latitude,
             @NotNull @DecimalMin("-180.0") @DecimalMax("180.0") @Digits(integer = 3, fraction = 7) BigDecimal longitude,
