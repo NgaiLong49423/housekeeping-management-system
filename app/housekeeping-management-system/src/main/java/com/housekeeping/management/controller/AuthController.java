@@ -3,6 +3,9 @@ package com.housekeeping.management.controller;
 import com.housekeeping.management.dto.request.PortalForms.CustomerRegistrationForm;
 import com.housekeeping.management.exception.DuplicateEmailException;
 import com.housekeeping.management.service.RegistrationService;
+import com.housekeeping.management.web.LockedAccountLoginFailureHandler;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
@@ -22,7 +25,15 @@ public class AuthController {
     }
 
     @GetMapping("/login")
-    String login() {
+    String login(HttpServletRequest request, Model model) {
+        HttpSession session = request.getSession(false);
+        if (session != null) {
+            Object reason = session.getAttribute(LockedAccountLoginFailureHandler.LOCK_REASON_ATTRIBUTE);
+            if (reason != null) {
+                session.removeAttribute(LockedAccountLoginFailureHandler.LOCK_REASON_ATTRIBUTE);
+                model.addAttribute("lockReason", reason.toString());
+            }
+        }
         return "login";
     }
 

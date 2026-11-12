@@ -15,6 +15,8 @@ public interface HouseService {
         }
     }
     public List<House> findCustomerHouses(Long customerId);
+    /** Số địa chỉ chưa ẩn của từng Customer (Customer không có địa chỉ sẽ không xuất hiện). */
+    java.util.Map<Long, Long> activeHouseCountsByCustomer();
     public House findCustomerHouse(Long customerId, Long houseId);
     House findCustomerHouseForUpdate(Long customerId, Long houseId);
     public House findHouse(Long houseId);

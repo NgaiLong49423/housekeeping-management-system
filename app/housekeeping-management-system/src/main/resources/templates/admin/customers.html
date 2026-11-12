@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+  <head th:replace="~{fragments/layout :: head('Quản lý khách hàng')}"></head>
+  <body>
+    <header th:replace="~{fragments/layout :: header('customers')}"></header>
+    <main id="main" class="container py-4 py-md-5">
+      <div class="page-heading">
+        <span class="eyebrow">
+          <svg th:replace="~{fragments/icons :: user}"></svg>
+          <span>Quản trị khách hàng · Gọn Nhà</span>
+        </span>
+        <h1>Quản lý khách hàng</h1>
+        <p class="lead">
+          Xem tài khoản Customer, số địa chỉ và Booking. Khóa tài khoản bắt buộc ghi lý do; Customer còn Booking chưa hoàn tất thì chưa khóa được.
+        </p>
+      </div>
+
+      <div th:replace="~{fragments/layout :: alerts}"></div>
+
+      <form class="surface p-3 mb-4 d-flex flex-wrap gap-2 align-items-end" method="get" th:action="@{/admin/customers}" role="search">
+        <div class="flex-grow-1">
+          <label class="form-label small mb-1" for="customer-search">Tìm theo tên, email hoặc số điện thoại</label>
+          <input id="customer-search" class="form-control" type="search" name="q" maxlength="100" th:value="${keyword}" placeholder="VD: Nguyễn, customer@, 0938…">
+        </div>
+        <button class="btn btn-primary" type="submit">Tìm</button>
+        <a class="btn btn-outline-secondary" th:if="${!#strings.isEmpty(keyword)}" th:href="@{/admin/customers}">Xóa lọc</a>
+      </form>
+
+      <div class="empty-state py-5 surface" th:if="${#lists.isEmpty(customers)}">
+        <div class="empty-illustration">
+          <svg th:replace="~{fragments/icons :: users}"></svg>
+        </div>
+        <h2 class="h5">Không có Customer phù hợp</h2>
+        <p class="mb-0" th:text="${#strings.isEmpty(keyword) ? 'Chưa có tài khoản Customer nào.' : 'Thử từ khóa khác.'}">Chưa có tài khoản Customer nào.</p>
+      </div>
+
+      <section class="vstack gap-3" th:unless="${#lists.isEmpty(customers)}" aria-label="Danh sách Customer">
+        <p class="small text-secondary mb-0" th:text="${#lists.size(customers)} + ' tài khoản'">0 tài khoản</p>
+        <article class="surface p-4" th:each="customer : ${customers}">
+          <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+            <div class="d-flex align-items-center gap-3">
+              <span class="avatar" th:text="${#strings.substring(ui.label(customer.name),0,1)}">T</span>
+              <div>
+                <h2 class="h5 mb-1" th:text="${ui.label(customer.name)}">Họ và tên</h2>
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                  <span class="meta-chip">
+                    <svg th:replace="~{fragments/icons :: message-square}"></svg>
+                    <span th:text="${customer.email}">email</span>
+                  </span>
+                  <span class="meta-chip">
+                    <svg th:replace="~{fragments/icons :: phone}"></svg>
+                    <span th:text="${customer.phone}">SĐT</span>
+                  </span>
+                  <span class="status-pill" th:classappend="${customer.active ? 'confirmed' : 'cancelled'}"
+                        th:text="${customer.active ? 'Đang hoạt động' : 'Đã khóa'}">Trạng thái</span>
+                </div>
+                <div class="d-flex flex-wrap gap-2 mt-2">
+                  <span class="meta-chip">
+                    <svg th:replace="~{fragments/icons :: home}"></svg>
+                    <span th:text="${customer.houseCount} + ' địa chỉ'">0 địa chỉ</span>
+                  </span>
+                  <span class="meta-chip">
+                    <svg th:replace="~{fragments/icons :: calendar}"></svg>
+                    <span th:text="${customer.bookingCount} + ' Booking'">0 Booking</span>
+                  </span>
+                  <span class="status-pill awaiting" th:if="${customer.unfinishedBookingCount > 0}"
+                        th:text="${customer.unfinishedBookingCount} + ' Booking chưa hoàn tất'">1 Booking chưa hoàn tất</span>
+                </div>
+              </div>
+            </div>
+            <form class="flex-shrink-0" th:unless="${customer.active}" method="post"
+                  th:action="@{/admin/customers/{id}/unlock(id=${customer.userId})}" data-confirm="Mở khóa tài khoản Customer này?">
+              <input type="hidden" name="q" th:value="${keyword}">
+              <button class="btn btn-reactivate btn-sm" type="submit">Mở khóa</button>
+            </form>
+          </div>
+
+          <p th:unless="${customer.active}" class="small text-secondary mt-3 mb-0">
+            <strong>Lý do khóa:</strong>
+            <span th:text="${customer.statusReason != null ? customer.statusReason : 'Không ghi lý do (khóa trước khi có chức năng ghi lý do).'}">Lý do</span>
+            <span th:if="${customer.statusChangedAt != null}" th:text="'· ' + ${#temporals.format(customer.statusChangedAt, 'dd/MM/yyyy HH:mm')}"></span>
+          </p>
+
+          <details th:if="${customer.active}" class="details-disclosure mt-3">
+            <summary class="details-summary">
+              <span>Khóa tài khoản</span>
+              <svg th:replace="~{fragments/icons :: chevron-down}"></svg>
+            </summary>
+            <p class="small text-warning-emphasis mt-3 mb-0" th:if="${customer.unfinishedBookingCount > 0}">
+              Customer còn Booking chưa hoàn tất. Hãy hoàn tất hoặc hủy các Booking đó trước khi khóa.
+            </p>
+            <form class="vstack gap-2 mt-3 p-3 bg-light rounded" method="post" th:action="@{/admin/customers/{id}/lock(id=${customer.userId})}"
+                  data-confirm="Khóa tài khoản Customer này? Họ sẽ không đăng nhập được cho tới khi được mở khóa.">
+              <input type="hidden" name="q" th:value="${keyword}">
+              <label class="form-label small mb-0" th:for="'customer-lock-reason-' + ${customer.userId}">Lý do khóa (bắt buộc, Customer sẽ thấy khi đăng nhập)</label>
+              <textarea class="form-control" th:id="'customer-lock-reason-' + ${customer.userId}" name="reason" rows="2"
+                        minlength="5" maxlength="500" required placeholder="VD: Nhiều lần hủy lịch sát giờ không báo trước"></textarea>
+              <div class="d-flex justify-content-end">
+                <button class="btn btn-deactivate btn-sm" type="submit">Khóa tài khoản</button>
+              </div>
+            </form>
+          </details>
+        </article>
+      </section>
+    </main>
+    <footer th:replace="~{fragments/layout :: footer}"></footer>
+  </body>
+</html>

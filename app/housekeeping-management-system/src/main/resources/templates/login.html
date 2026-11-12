@@ -19,6 +19,14 @@
           <svg th:replace="~{fragments/icons :: alert-circle}"></svg>
           <span>Email hoặc mật khẩu không đúng.</span>
         </div>
+        <div th:if="${param.locked}" class="auth-alert auth-alert--danger" role="alert">
+          <svg th:replace="~{fragments/icons :: alert-circle}"></svg>
+          <span>
+            <strong>Tài khoản của bạn đã bị khóa.</strong>
+            <span class="d-block" th:if="${!#strings.isEmpty(lockReason)}">Lý do: <span th:text="${lockReason}">Lý do khóa</span></span>
+            <span class="d-block">Vui lòng liên hệ Gọn Nhà nếu cần hỗ trợ.</span>
+          </span>
+        </div>
         <div th:if="${param.logout}" class="auth-alert auth-alert--success" role="status">
           <svg th:replace="~{fragments/icons :: check-circle}"></svg>
           <span>Bạn đã đăng xuất an toàn.</span>

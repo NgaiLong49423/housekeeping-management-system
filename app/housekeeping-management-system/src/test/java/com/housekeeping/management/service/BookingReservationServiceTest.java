@@ -48,7 +48,7 @@ class BookingReservationServiceTest {
         customer.setUserId(12L);
         customer.setRole(UserRole.CUSTOMER);
         customer.setStatus(UserStatus.ACTIVE);
-        when(auth.findActiveCustomer(12L)).thenReturn(customer);
+        when(auth.findActiveCustomerForUpdate(12L)).thenReturn(customer);
         when(houseService.findCustomerHouseForUpdate(12L, 31L)).thenReturn(new House());
         when(staffManagement.findActiveForBookingUpdate(7L)).thenReturn(new Staff());
         LocalDateTime start = LocalDate.now(ZoneOffset.ofHours(7)).plusDays(3).atTime(10, 0);
@@ -103,9 +103,10 @@ class BookingReservationServiceTest {
         User customer = new User();
         customer.setRole(UserRole.CUSTOMER);
         customer.setStatus(UserStatus.ACTIVE);
-        when(auth.findActiveCustomer(12L)).thenReturn(customer);
+        when(auth.findActiveCustomerForUpdate(12L)).thenReturn(customer);
 
         House house = new House();
+        house.setAddressDetail("12 Nguyễn Trãi");
         house.setLatitude(new BigDecimal("10.0000000"));
         house.setLongitude(new BigDecimal("106.0000000"));
         when(houseService.findCustomerHouseForUpdate(12L, 31L)).thenReturn(house);
@@ -132,9 +133,10 @@ class BookingReservationServiceTest {
         customer.setUserId(12L);
         customer.setRole(UserRole.CUSTOMER);
         customer.setStatus(UserStatus.ACTIVE);
-        when(auth.findActiveCustomer(12L)).thenReturn(customer);
+        when(auth.findActiveCustomerForUpdate(12L)).thenReturn(customer);
 
         House house = new House();
+        house.setAddressDetail("12 Nguyễn Trãi");
         house.setHouseId(31L);
         house.setAddress("12 Đường Mẫu, Quận 1");
         house.setLatitude(new BigDecimal("10.0000000"));
@@ -174,9 +176,10 @@ class BookingReservationServiceTest {
         customer.setUserId(12L);
         customer.setRole(UserRole.CUSTOMER);
         customer.setStatus(UserStatus.ACTIVE);
-        when(auth.findActiveCustomer(12L)).thenReturn(customer);
+        when(auth.findActiveCustomerForUpdate(12L)).thenReturn(customer);
 
         House house = new House();
+        house.setAddressDetail("12 Nguyễn Trãi");
         house.setHouseId(31L);
         house.setAddress("12 Đường Mẫu, Quận 1");
         house.setLatitude(new BigDecimal("10.0000000"));
@@ -219,9 +222,10 @@ class BookingReservationServiceTest {
         customer.setUserId(12L);
         customer.setRole(UserRole.CUSTOMER);
         customer.setStatus(UserStatus.ACTIVE);
-        when(auth.findActiveCustomer(12L)).thenReturn(customer);
+        when(auth.findActiveCustomerForUpdate(12L)).thenReturn(customer);
 
         House house = new House();
+        house.setAddressDetail("12 Nguyễn Trãi");
         house.setHouseId(31L);
         house.setAddress("12 Đường Mẫu, Quận 1");
         house.setLatitude(new BigDecimal("10.0000000"));
@@ -248,12 +252,16 @@ class BookingReservationServiceTest {
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("khoảng sẵn sàng đang hiệu lực");
 
         when(staffManagement.acceptsAvailabilityInterval(7L, start.toLocalDate(), start.toLocalTime(), start.plusMinutes(180).toLocalTime())).thenReturn(true);
+        house.setAddressDetail("Phường Bến Thành");
+        assertThatThrownBy(() -> service.createBooking(12L, 7L, 31L, start, java.util.List.of(5L), null))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("số nhà");
+        house.setAddressDetail("12 Nguyễn Trãi");
         when(bookings.adjacentAppointments(7L, start, start.plusMinutes(180), null)).thenReturn(java.util.List.of());
         when(houseService.serviceCenter()).thenReturn(new HouseService.ServiceCenter(new BigDecimal("10.0"),new BigDecimal("106.0"),new BigDecimal("25")));
         when(vietmap.motorcycleMinutesBeforeArrival(new BigDecimal("10.0"),new BigDecimal("106.0"),
                 house.getLatitude(),house.getLongitude(),start)).thenReturn(1);
         when(bookings.insertBooking(org.mockito.ArgumentMatchers.eq(12L), org.mockito.ArgumentMatchers.eq(7L),
-                org.mockito.ArgumentMatchers.eq(31L), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.eq(31L), org.mockito.ArgumentMatchers.eq("12 Nguyễn Trãi, 12 Đường Mẫu, Quận 1"),
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.isNull(),
                 org.mockito.ArgumentMatchers.eq(start), org.mockito.ArgumentMatchers.eq(start.plusMinutes(180)),
                 org.mockito.ArgumentMatchers.eq(180), org.mockito.ArgumentMatchers.eq(new BigDecimal("100.00")),

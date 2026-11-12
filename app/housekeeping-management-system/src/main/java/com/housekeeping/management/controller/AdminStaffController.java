@@ -45,8 +45,15 @@ public class AdminStaffController {
 
 
     @PostMapping("/staff/{id}/delete")
-    String deleteStaff(@PathVariable Long id, @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
-        staffManagement.deactivate(user.getUserId(), id); flash.addFlashAttribute("success", "Đã ngừng hoạt động tài khoản; dữ liệu lịch sử được giữ nguyên."); return "redirect:/admin/staff";
+    String deleteStaff(@PathVariable Long id, @RequestParam(required = false) String reason,
+            @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
+        try {
+            staffManagement.deactivate(user.getUserId(), id, reason);
+            flash.addFlashAttribute("success", "Đã ngừng hoạt động tài khoản; dữ liệu lịch sử được giữ nguyên.");
+        } catch (IllegalArgumentException | IllegalStateException failure) {
+            flash.addFlashAttribute("error", failure.getMessage());
+        }
+        return "redirect:/admin/staff";
     }
 
 

@@ -28,12 +28,14 @@ public class AuthServiceImpl implements AuthService {
     public UserDetails loadUserByUsername(String email) {
         String canonicalEmail = GlobalEmailUniquenessService.canonicalize(email);
         User user = users.findByEmail(canonicalEmail)
-                .filter(candidate -> candidate.getStatus() == UserStatus.ACTIVE)
                 .orElseThrow(() -> new UsernameNotFoundException("Thông tin đăng nhập không hợp lệ."));
 
         Long accountId = accountIdFor(user);
+        // Tài khoản bị khóa vẫn được nạp để kiểm tra mật khẩu; SecurityConfig chỉ từ chối (kèm lý do)
+        // sau khi mật khẩu đúng, nên người đoán sai mật khẩu không biết tài khoản có bị khóa hay không.
+        boolean locked = user.getStatus() != UserStatus.ACTIVE;
         return new PortalUser(accountId, user.getUserId(), user.getEmail(), user.getPasswordHash(),
-                user.getFullName(), user.getRole().name());
+                user.getFullName(), user.getRole().name(), locked, user.getStatusReason());
     }
 
     @Override

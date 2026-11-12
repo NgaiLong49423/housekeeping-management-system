@@ -34,11 +34,12 @@ public class HouseController {
         model.addAttribute("addressTypes", HouseAddressType.values());
         if (!model.containsAttribute("houseForm")) {
             if (editId == null) {
-                model.addAttribute("houseForm", new HouseForm(PortalAdvice.cleanLabel(user.getDisplayName()), "", "",
+                model.addAttribute("houseForm", new HouseForm(PortalAdvice.cleanLabel(user.getDisplayName()), "", "", "",
                         HouseAddressType.HOME, false, ""));
             } else {
                 var house = houses.findCustomerHouse(user.getUserId(), editId);
-                model.addAttribute("houseForm", new HouseForm(PortalAdvice.cleanLabel(house.getRecipientName()), house.getRecipientPhone(), "",
+                model.addAttribute("houseForm", new HouseForm(PortalAdvice.cleanLabel(house.getRecipientName()), house.getRecipientPhone(),
+                        house.getAddressDetail(), "",
                         house.getAddressType(), house.isDefaultAddress(), house.getAddressNote()));
                 model.addAttribute("editHouseId", editId);
             }

@@ -35,6 +35,37 @@ class AdminAccountServiceTest {
     }
 
     @Test
+    void adminCannotLockAnotherAdmin() {
+        doThrow(new AccessDeniedException("manager required")).when(authorization).requireManager(3L);
+
+        assertThatThrownBy(() -> service.updateStatus(3L, 7L, "INACTIVE", "Khóa ngang hàng"))
+                .isInstanceOf(AccessDeniedException.class);
+        verifyNoInteractions(accounts);
+    }
+
+    @Test
+    void managerMustGiveAReasonToLockAndUnlockClearsIt() {
+        com.housekeeping.management.entity.User admin = new com.housekeeping.management.entity.User();
+        admin.setUserId(7L);
+        admin.setRole(UserRole.ADMIN);
+        admin.setStatus(UserStatus.ACTIVE);
+        org.mockito.Mockito.when(accounts.findByUserIdAndRole(7L, UserRole.ADMIN)).thenReturn(java.util.Optional.of(admin));
+
+        assertThatThrownBy(() -> service.updateStatus(5L, 7L, "INACTIVE", " "))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("lý do");
+        org.assertj.core.api.Assertions.assertThat(admin.getStatus()).isEqualTo(UserStatus.ACTIVE);
+
+        service.updateStatus(5L, 7L, "INACTIVE", "Vi phạm quy trình duyệt hoàn tiền");
+        org.assertj.core.api.Assertions.assertThat(admin.getStatus()).isEqualTo(UserStatus.INACTIVE);
+        org.assertj.core.api.Assertions.assertThat(admin.getStatusReason()).isEqualTo("Vi phạm quy trình duyệt hoàn tiền");
+        org.assertj.core.api.Assertions.assertThat(admin.getStatusChangedBy()).isEqualTo(5L);
+
+        service.updateStatus(5L, 7L, "ACTIVE", null);
+        org.assertj.core.api.Assertions.assertThat(admin.getStatus()).isEqualTo(UserStatus.ACTIVE);
+        org.assertj.core.api.Assertions.assertThat(admin.getStatusReason()).isNull();
+    }
+
+    @Test
     void managerMayCreateAdminWithCanonicalEmailAndEncodedPassword() {
         org.mockito.Mockito.when(passwords.encode("password123")).thenReturn("bcrypt-hash");
         org.mockito.Mockito.when(emails.executeWithUniqueEmail(eq("New-Admin@Example.Test"),
