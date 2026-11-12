@@ -25,18 +25,18 @@ mvn spring-boot:run
 
 ## Tài khoản hệ thống
 
-Tất cả tài khoản hệ thống chuẩn sử dụng chung mật khẩu mặc định: **`Password123!`**
+Tất cả tài khoản hệ thống chuẩn sử dụng chung mật khẩu mặc định: **`Admin@12345`**
 
 | Vai trò | Email đăng nhập | Mật khẩu chuẩn | Tên hiển thị | Ghi chú vai trò |
 |---|---|---|---|---|
-| **Manager (Quản lý cấp cao)** | `manager@gonnha.vn` | `Password123!` | Quản lý cấp cao | Quản lý tài khoản Admin, duyệt bồi thường cấp cao |
-| **Admin (Quản trị viên)** | `admin@gonnha.vn` | `Password123!` | Quản trị viên hệ thống | Quản trị vận hành đặt lịch, nhân viên, dịch vụ |
-| **Customer (Khách hàng)** | `customer@gonnha.vn` | `Password123!` | Cao Kỳ Nguyễn Hà | Đặt lịch, thanh toán VNPay, quản lý nhà |
-| **Customer (Khách hàng phụ)** | `nguyenhacaoky@gmail.com` | `Password123!` | Cao Kỳ Nguyễn Hà | Kiểm thử tài khoản cá nhân |
-| **Staff (Toàn thời gian)** | `mai.nguyen@gonnha.vn` | `Password123!` | Nguyễn Thị Mai | Nhân viên yêu thích, check-in, nhận ca |
-| **Staff (Bán thời gian)** | `nam.tran@gonnha.vn` | `Password123!` | Trần Văn Nam | Nhân viên bán thời gian, đăng ký lịch sẵn sàng |
-| **Staff (Toàn thời gian)** | `cuong.le@gonnha.vn` | `Password123!` | Lê Hoàng Cường | Nhân viên kỹ thuật chuyên sâu |
-| **Staff (Bán thời gian)** | `dung.pham@gonnha.vn` | `Password123!` | Phạm Thị Dung | Nhân viên dọn dẹp linh hoạt |
+| **Manager (Quản lý cấp cao)** | `manager@gonnha.vn` | `Admin@12345` | Quản lý cấp cao | Quản lý tài khoản Admin, duyệt bồi thường cấp cao |
+| **Admin (Quản trị viên)** | `admin@gonnha.vn` | `Admin@12345` | Quản trị viên hệ thống | Quản trị vận hành đặt lịch, nhân viên, dịch vụ |
+| **Customer (Khách hàng)** | `customer@gonnha.vn` | `Admin@12345` | Cao Kỳ Nguyễn Hà | Đặt lịch, thanh toán VNPay, quản lý nhà |
+| **Customer (Khách hàng phụ)** | `nguyenhacaoky@gmail.com` | `Admin@12345` | Cao Kỳ Nguyễn Hà | Kiểm thử tài khoản cá nhân |
+| **Staff (Toàn thời gian)** | `mai.nguyen@gonnha.vn` | `Admin@12345` | Nguyễn Thị Mai | Nhân viên yêu thích, check-in, nhận ca |
+| **Staff (Bán thời gian)** | `nam.tran@gonnha.vn` | `Admin@12345` | Trần Văn Nam | Nhân viên bán thời gian, đăng ký lịch sẵn sàng |
+| **Staff (Toàn thời gian)** | `cuong.le@gonnha.vn` | `Admin@12345` | Lê Hoàng Cường | Nhân viên kỹ thuật chuyên sâu |
+| **Staff (Bán thời gian)** | `dung.pham@gonnha.vn` | `Admin@12345` | Phạm Thị Dung | Nhân viên dọn dẹp linh hoạt |
 
 ## Giới hạn xác minh
 

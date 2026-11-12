@@ -1,7 +1,7 @@
 -- ====================================================================================
 -- HOUSEKEEPING MANAGEMENT SYSTEM - COMPLETE SEED & FIXTURE SCRIPT
 -- Database: Housekeeping_Database
--- All accounts use Password: Password123!
+-- All accounts use Password: Admin@12345
 -- Safe, idempotent execution (IF NOT EXISTS)
 -- ====================================================================================
 SET ANSI_NULLS ON;
@@ -9,7 +9,7 @@ SET QUOTED_IDENTIFIER ON;
 SET XACT_ABORT ON;
 BEGIN TRANSACTION;
 
--- BCrypt hash của mật khẩu: Password123!
+-- BCrypt hash của mật khẩu: Admin@12345
 DECLARE @PassHash NVARCHAR(255) = N'{bcrypt}$2a$10$Y85jiA/BKR2TZlb/1kHPWeL79WzLTeWZgv4jiNZHsAWWDjl/qWFoO';
 
 -- 2. CẤU HÌNH DOANH NGHIỆP (Company_Settings)
@@ -45,7 +45,7 @@ SELECT s.service_name, s.description, s.image_url, s.price, s.duration_minutes, 
 FROM @Services s
 WHERE NOT EXISTS (SELECT 1 FROM dbo.Services existing WHERE existing.service_name = s.service_name);
 
--- 4. SEED TÀI KHOẢN HỆ THỐNG CHUẨN (Password: Password123!)
+-- 4. SEED TÀI KHOẢN HỆ THỐNG CHUẨN (Password: Admin@12345)
 -- 4.1. Manager (Quản lý cấp cao)
 IF NOT EXISTS (SELECT 1 FROM dbo.Users WHERE email = N'manager@gonnha.vn')
 BEGIN

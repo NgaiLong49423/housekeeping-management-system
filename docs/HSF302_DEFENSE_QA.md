@@ -179,7 +179,7 @@ Tài liệu này tổng hợp toàn bộ 14 câu hỏi trọng tâm, tiêu chí 
 - **Trả lời vấn đáp**:
   Hệ thống thiết kế theo nguyên tắc bảo mật tối thiểu (Principle of Least Privilege):
   - **Admin thường**: Chỉ có quyền quản trị vận hành hàng ngày (nhân viên, khách hàng, duyệt lịch, dịch vụ). **Tuyệt đối không được phép khóa, sửa hay đổi trạng thái của các Admin khác**.
-  - **Tài khoản SuperAdmin (MANAGER)**: Là tài khoản quản trị cấp cao nhất của hệ thống (mặc định: `manager@gonnha.vn` / `Password123!`). Chỉ khi đăng nhập bằng tài khoản Manager này thì mới có quyền tạo mới, kích hoạt hoặc khóa tài khoản của các Admin khác.
+  - **Tài khoản SuperAdmin (MANAGER)**: Là tài khoản quản trị cấp cao nhất của hệ thống (mặc định: `manager@gonnha.vn` / `Admin@12345`). Chỉ khi đăng nhập bằng tài khoản Manager này thì mới có quyền tạo mới, kích hoạt hoặc khóa tài khoản của các Admin khác.
   - **Bằng chứng code**:
     Trong `AdminAccountServiceImpl.java`:
     ```java

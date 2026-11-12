@@ -52,17 +52,17 @@ Mở trình duyệt truy cập: **`http://localhost:8080`**
 
 ## Tài khoản kiểm thử chuẩn hệ thống
 
-Hệ thống sử dụng mật khẩu chung chuẩn cho toàn bộ tài khoản thử nghiệm: **`Password123!`**
+Hệ thống sử dụng mật khẩu chung chuẩn cho toàn bộ tài khoản thử nghiệm: **`Admin@12345`**
 
 | Vai trò | Email đăng nhập | Mật khẩu chuẩn | Tên hiển thị | Chức năng kiểm thử chính |
 |---|---|---|---|---|
-| **Customer (Khách hàng)** | `customer@gonnha.vn` | `Password123!` | Cao Kỳ Nguyễn Hà | Đặt lịch dịch vụ, chọn nhân viên yêu thích, xem chi tiết lịch, thanh toán, gửi đánh giá |
-| **Customer (Phụ)** | `nguyenhacaoky@gmail.com` | `Password123!` | Cao Kỳ Nguyễn Hà | Đặt lịch kiểm thử, kiểm tra thông tin địa chỉ nhà |
-| **Manager (Quản lý cấp cao)** | `manager@gonnha.vn` | `Password123!` | Quản lý cấp cao | Quản trị tài khoản Admin, phê duyệt bồi thường sự cố cấp cao & quyết toán tài chính |
-| **Admin (Quản trị viên)** | `admin@gonnha.vn` | `Password123!` | Quản trị viên hệ thống | Duyệt lịch hẹn, điều phối nhân viên, xử lý phản ánh & cấu hình công ty |
-| **Staff (Yêu thích - Toàn thời gian)** | `mai.nguyen@gonnha.vn` | `Password123!` | Nguyễn Thị Mai | Nhân viên yêu thích của khách hàng, check-in ca làm, chụp ảnh nghiệm thu |
-| **Staff (Bán thời gian)** | `nam.tran@gonnha.vn` | `Password123!` | Trần Văn Nam | Nhân viên bán thời gian, xem ca nhận việc, xác nhận thu tiền mặt |
-| **Staff (Khác)** | `lan.hoang@gonnha.vn` | `Password123!` | Hoàng Thị Lan | Thử nghiệm đặt lịch với danh sách nhân viên mở rộng |
+| **Customer (Khách hàng)** | `customer@gonnha.vn` | `Admin@12345` | Cao Kỳ Nguyễn Hà | Đặt lịch dịch vụ, chọn nhân viên yêu thích, xem chi tiết lịch, thanh toán, gửi đánh giá |
+| **Customer (Phụ)** | `nguyenhacaoky@gmail.com` | `Admin@12345` | Cao Kỳ Nguyễn Hà | Đặt lịch kiểm thử, kiểm tra thông tin địa chỉ nhà |
+| **Manager (Quản lý cấp cao)** | `manager@gonnha.vn` | `Admin@12345` | Quản lý cấp cao | Quản trị tài khoản Admin, phê duyệt bồi thường sự cố cấp cao & quyết toán tài chính |
+| **Admin (Quản trị viên)** | `admin@gonnha.vn` | `Admin@12345` | Quản trị viên hệ thống | Duyệt lịch hẹn, điều phối nhân viên, xử lý phản ánh & cấu hình công ty |
+| **Staff (Yêu thích - Toàn thời gian)** | `mai.nguyen@gonnha.vn` | `Admin@12345` | Nguyễn Thị Mai | Nhân viên yêu thích của khách hàng, check-in ca làm, chụp ảnh nghiệm thu |
+| **Staff (Bán thời gian)** | `nam.tran@gonnha.vn` | `Admin@12345` | Trần Văn Nam | Nhân viên bán thời gian, xem ca nhận việc, xác nhận thu tiền mặt |
+| **Staff (Khác)** | `lan.hoang@gonnha.vn` | `Admin@12345` | Hoàng Thị Lan | Thử nghiệm đặt lịch với danh sách nhân viên mở rộng |
 
 ---
 
