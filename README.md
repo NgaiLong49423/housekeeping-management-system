@@ -26,7 +26,7 @@ Agent và thành viên nhóm cần theo [hướng dẫn cấu trúc package Java
 
 Authentication; Service Management; Staff Profile; Follow Staff; House Management; Booking Management; Staff Availability; Leave Management; Job Execution; Payment; Feedback; System Configuration.
 
-Ba role là `CUSTOMER`, `STAFF`, `ADMIN`; Admin có thể được cấp thêm quyền quản lý sự cố/tài chính. Schema hiện tại có 20 bảng nghiệp vụ theo Data Dictionary; baseline ban đầu có 15 bảng và các migration sau bổ sung bảng mới. Booking dùng các trạng thái `CONFIRMED`, `AWAITING_PAYMENT`, `COMPLETED`, `CANCELLED`. Payment `CASH` do Staff được giao xác nhận; Payment `ONLINE` qua VNPay sandbox chỉ được xác nhận khi VNPay báo thành công (tra cứu QueryDR, IPN có chữ ký, hoặc — khi QueryDR không dùng được — dữ liệu trả về có chữ ký HMAC hợp lệ và đúng số tiền); giao dịch sandbox được đánh dấu mô phỏng và loại khỏi dòng tiền thật.
+Có bốn role `CUSTOMER`, `STAFF`, `ADMIN`, `MANAGER`; Manager kế thừa quyền vận hành Admin và quyết định các bước được giao riêng. Schema hiện tại có 26 bảng nghiệp vụ theo Data Dictionary. Booking dùng các trạng thái `CONFIRMED`, `AWAITING_PAYMENT`, `COMPLETED`, `CANCELLED`. Staff được giao phải tự xác nhận đã đến trước khi bắt đầu; giờ Staff khai là mốc tính giảm trễ, trừ khi Admin xác minh/chỉnh theo báo cáo Customer trước khi hoàn tất/thanh toán. Customer report chỉ để theo dõi và không tự chặn/hủy/đổi tiền. Payment `CASH` do Staff được giao xác nhận; Payment `ONLINE` qua VNPay sandbox chỉ được xác nhận khi VNPay báo thành công (tra cứu QueryDR, IPN có chữ ký, hoặc — khi QueryDR không dùng được — dữ liệu trả về có chữ ký HMAC hợp lệ và đúng số tiền); giao dịch sandbox được đánh dấu mô phỏng và loại khỏi dòng tiền thật.
 
 ## Chạy database chính
 

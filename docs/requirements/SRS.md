@@ -1,6 +1,6 @@
 > **Document:** Software Requirements Specification\
 > **File:** `docs/requirements/SRS.md`\
-> **Version:** v7.0.0\
+> **Version:** v7.1.0\
 > **Created:** 2026-06-14\
 > **Last Updated:** 2026-11-12\
 > **Status:** Active\
@@ -96,28 +96,28 @@ One server-rendered Java Spring MVC web application, single company, SQL Server.
 - AC-BOOK-04: End outside company/Staff interval rejects.
 - AC-BOOK-05: Concurrent requests for same Staff/slot create at most one Booking, without partial writes.
 ### FR-CANCEL/REASSIGN — Cancellation and admin assignment
-- Customer self-cancel only when `now <= start_time-120min` and work has not started; additionally, Customer may cancel a Booking for a reported Staff delay for free while work has not started. Persist CANCELLED status + cancelled_by/at/reason; not physical delete.
+- Customer self-cancel under the ordinary rule only when `now <= start_time-120min` and work has not started. The Customer may also cancel free, regardless of the 2-hour cutoff, after declining a concrete ETA or after the Staff misses an ETA that Customer accepted, provided work has not started. A Staff delay report with no Customer response and a Customer no-show/incorrect-arrival report do not create free-cancellation rights. Persist CANCELLED status + cancelled_by/at/reason; not physical delete.
 - Confirmed Booking House/time/services changes require cancel+rebook.
 - Admin can replace assigned staff (`staff_id`), preserve immutable `original_staff_id`; verify replacement Staff's eligibility with the relevant rules. No separate reassignment history.
-- AC-CANCEL-01: Exactly -120m allows customer cancellation; -119m rejects; cancellation leaves snapshots/details intact.
+- AC-CANCEL-01: Exactly -120m allows ordinary cancellation; -119m rejects. ETA refusal or missed accepted ETA allows free cancellation before work starts regardless of the cutoff; no-show report alone does not. Cancellation leaves snapshots/details intact.
 - AC-REASSIGN-01: Admin reassignment changes current staff, not original staff, and cannot create conflicting active booking.
 
 ### FR-ARRIVAL — Arrival claim, Customer report and verification
-- Staff self-claim `staff_arrived_at`, Customer confirmation and Admin verification are separate facts. Staff self-claim alone is not verified arrival and never creates a delay discount.
+- Staff self-claim `staff_arrived_at`, Customer confirmation and Admin verification are separate facts. Assigned Staff must self-claim arrival before work starts; Customer/Admin confirmation cannot replace this prerequisite. Staff self-claim is the default time used for delay discount, not proof of physical location.
 - From scheduled start while Booking is CONFIRMED and service is not completed, owning Customer can report Staff absent/arrival time incorrect once, including after Staff self-claimed arrival or sent an ETA. Persist the report time without changing Booking status or money.
-- An open report blocks Staff start until Customer confirms actual presence or Admin records actual arrival, actor, verification time, source and required note. If reported after work starts, block completion/payment until verification. Never auto-unlock on timeout.
-- Customer can cancel free while a no-show/ETA dispute is open and work has not started. Reporting alone never cancels. The no-show report is available while the service is in progress and until it is completed; an open report blocks completion/payment until verification.
-- AC-ARRIVAL-01: Enforce ownership, CONFIRMED, at/after start, one report, and service not completed; allow report despite Staff arrival claim, ETA, prior Customer arrival acknowledgement, or work start.
-- AC-ARRIVAL-02: Open report blocks start and completion; Customer or Admin verification records actual arrival and unlocks the applicable action; no timeout auto-unlocks.
-- AC-ARRIVAL-03: Customer can cancel free while a report is open before work starts; report alone changes neither status nor discount.
+- Customer confirmation only records acknowledgement of the Staff claim. Customer silence leaves the Staff time as the discount basis. An incorrect-time report does not block start/completion, cancel the Booking or change money. Keep report time separate from Staff ETA proposals.
+- Admin may correct the discount time only after an incorrect-time report and before service completion/payment. Preserve Staff's claimed time and record Admin-adjusted time, Admin ID, verification timestamp and required note. Recalculate and persist the discount from the corrected time. After completion/payment, reject correction.
+- AC-ARRIVAL-01: Enforce ownership, CONFIRMED, at/after start, one report, and service not completed; allow report despite Staff arrival claim, ETA, prior Customer acknowledgement, or work start. Report has no state/money side effect.
+- AC-ARRIVAL-02: Staff's own arrival claim is required for start. Customer acknowledgment and Admin verification do not replace it. Customer report does not block start or completion.
+- AC-ARRIVAL-03: Customer confirmation only stores acknowledgement; customer silence retains Staff time as discount basis. Admin correction requires a report, records the audit fields, works before completion/payment and is rejected afterward.
 
 ### FR-INCIDENT — Staff ETA consent and delay compensation
 - Assigned Staff submits a concrete ETA later than scheduled start, reason and time before work starts. Retain every ETA and response append-only in `Booking_Delay_Proposals`; Booking fields are only the current summary.
 - Customer accepts that exact ETA or declines and cancels free. No response blocks start. If an accepted ETA is missed, its consent expires; Staff must submit a new ETA and Customer must agree again. Customer can cancel free before work starts.
-- Only Customer confirmation or Admin verification records actual arrival and computes delay from scheduled start, rounding partial minutes up under configured tiers. Staff self-claim and no-show report do not set a discount. Keep the current 30% cap; payment uses the stored discount from verified arrival.
+- Staff arrival claim immediately calculates delay from scheduled start, rounds partial minutes up under current tiers with no 5-minute grace, caps discount at 30%, and stores the calculated amount on Booking. Early/on-time arrival gives zero delay discount. Admin correction of a reported claim recalculates the persisted amount before completion/payment. Customer confirmation/report alone does not calculate or modify money.
 - AC-INCIDENT-01: Only assigned Staff can submit a valid ETA; ownership/status/time checks apply and every proposal remains auditable.
 - AC-INCIDENT-02: Consent applies to one ETA. Decline cancels free; missed accepted ETA cannot authorize start; next ETA requires new consent.
-- AC-INCIDENT-03: Tiers use verified arrival from scheduled start; report alone leaves payable amount unchanged; discount is capped at 30%.
+- AC-INCIDENT-03: Tiers use Staff claimed arrival from scheduled start unless Admin corrects it before completion/payment; report/Customer acknowledgment alone leaves payable amount unchanged; discount is capped at 30% and persisted.
 - AC-INCIDENT-04: Only Admin can edit contiguous tiers; reject gaps/overlaps/invalid percentages or bounded final tier. Later edits do not change saved Booking discounts.
 ### FR-JOB — Work execution/evidence
 - Authorized assigned Staff upload multiple image evidence records tied to **Booking**, not Booking_Detail; image_url, uploaded_at. At least one image must exist before Staff confirms job completion. Staff confirms without Admin approval.
@@ -148,7 +148,7 @@ One server-rendered Java Spring MVC web application, single company, SQL Server.
 - Hồ sơ bắt đầu `RECEIVED` (Chờ Admin tiếp nhận), Admin tiếp nhận để sang `INVESTIGATING`; phản ánh mất tài sản phải chuyển `SEARCHING_ITEM` trước khi gửi kết quả cuối hoặc đề xuất bồi thường. Customer ghi mong muốn xử lý tùy chọn để Admin tham khảo, không tự định giá hay chốt bồi thường. Admin xác minh và trao đổi; kết quả không có khoản tiền chuyển `WAITING_CUSTOMER` để Customer xác nhận hoặc yêu cầu hỗ trợ thêm.
 - Chỉ `PROPERTY_DAMAGE`/`MISSING_PROPERTY` được tạo một đề xuất `COMPENSATION`; mất đồ phải qua bước tìm kiếm. Admin nhập số tiền và căn cứ, không lấy giá Customer khai để điền tự động. Customer chọn đồng ý hoặc cần trao đổi. Khi đồng ý, khoản chuyển `PENDING_APPROVAL`, hồ sơ `WAITING_MANAGER`; Manager chỉ duyệt sau đồng ý của Customer. Manager từ chối trả hồ sơ `INVESTIGATING`; Admin hủy đề xuất cũ và lập đề xuất mới để Customer xác nhận lại.
 - Sau duyệt, hồ sơ `WAITING_PAYOUT`; Customer chọn tiền mặt/chuyển khoản. Chỉ chọn chuyển khoản mới yêu cầu thông tin ngân hàng, mã hóa AES-GCM và chỉ Admin/Manager xem. Nếu có đề xuất xử lý Staff, chỉ quyết toán sau khi Manager chốt trách nhiệm cuối, kể cả hạn giải trình/kháng nghị; không cần chờ Staff hoàn trả đủ. Admin thực hiện chi ngoài hệ thống, lưu mã tham chiếu/chứng từ; sau chi, payout response chuyển sang `SETTLED`, ciphertext được xóa và hồ sơ chuyển `WAITING_CUSTOMER_CONFIRMATION`. Customer xác nhận đã nhận mới đóng hồ sơ. Thời điểm Customer đồng ý số tiền, chọn cách nhận và xác nhận nhận tiền được lưu riêng.
-- Giữ lịch sử trao đổi, bằng chứng, xác minh và xử lý Staff riêng. Không còn phương án nhiều lựa chọn, work order, chọn Staff/giờ làm lại hoặc trường chi phí/vật tư/bằng chứng công việc. Hồ sơ lịch sử không được tự gán sự đồng ý hay kết quả mới.
+- Giữ lịch sử trao đổi, bằng chứng, xác minh và xử lý Staff riêng. Không còn phương án nhiều lựa chọn, work order, chọn Staff/giờ làm lại hoặc trường chi phí/7ật tư/bằng chứng công việc. Hồ sơ lịch sử không được tự gán sự đồng ý hay kết quả mới.
 - Khi có căn cứ Staff liên quan, Admin mở đề xuất xử lý và yêu cầu Staff giải trình trong 48 giờ. Staff xem nội dung/bằng chứng đã giới hạn quyền, gửi giải trình cùng ảnh/tài liệu; quá hạn chỉ ghi nhận không phản hồi, không xem là thừa nhận lỗi. Manager xem hai phía và chốt không quy trách nhiệm, biện pháp nội bộ, hoặc số tiền trách nhiệm vật chất dựa trên thiệt hại thực tế. Staff được phản đối một lần trong 48 giờ; Manager lưu kết luận cuối. Customer chỉ thấy “Đang xác minh nội bộ”, không thấy nội dung nội bộ. Khoản Customer đã chốt và Manager duyệt chỉ được Admin chi sau khi Manager chốt trách nhiệm Staff; không cần chờ Staff trả hết. Admin ghi từng lần Staff thực trả kèm ngày, phương thức, mã tham chiếu và chứng từ; hệ thống tính số dư, không tự khấu trừ lương. Số Staff hoàn trả độc lập với khoản Customer nhận. V28 thêm hai bảng cho tệp giải trình riêng tư và các lần thực nhận; dữ liệu quyết định Staff cũ được giữ nguyên.
 - AC-CASE-01: Staff và Customer khác không xem hồ sơ, feedback hoặc bằng chứng; Customer chỉ xem case của booking mình. Staff chỉ thấy thông báo quyết định đã duyệt của chính mình. Upload sau resolve hoặc tệp sai định dạng/kích thước bị từ chối.
 - AC-CASE-02: Kết luận khách thấy tách khỏi nội dung nội bộ; không resolve khi Customer chưa xác nhận kết quả/đã nhận tiền hoặc còn khoản bồi thường chưa hủy/quyết toán.
