@@ -238,9 +238,8 @@ window.initQuarterTimePicker = initQuarterTimePicker;
 document.querySelectorAll("[data-quarter-time]").forEach(initQuarterTimePicker);
 
 const companyWindowSource = document.querySelector("#company-operating-hours-source");
-if (companyWindowSource) {
-  const configuredWindows = [...companyWindowSource.querySelectorAll("[data-company-window]")];
-  document.querySelectorAll("[data-company-window-batch-form]").forEach(form => {
+const configuredWindows = companyWindowSource ? [...companyWindowSource.querySelectorAll("[data-company-window]")] : [];
+document.querySelectorAll("[data-company-window-batch-form]").forEach(form => {
     const startDate = form.querySelector("[data-batch-start]");
     const endDate = form.querySelector("[data-batch-end]");
     const weekdays = [...form.querySelectorAll("[data-batch-weekday]")];
@@ -295,8 +294,8 @@ if (companyWindowSource) {
     form.querySelectorAll("[data-time-trigger]").forEach(trigger => trigger.addEventListener("change", validate));
     form.addEventListener("submit", event => { if (!validate()) event.preventDefault(); });
     validate();
-  });
-  document.querySelectorAll("[data-company-window-form]").forEach(form => {
+});
+document.querySelectorAll("[data-company-window-form]").forEach(form => {
     const dateInput = form.querySelector("[data-work-date]");
     const list = form.querySelector("[data-company-window-list]");
     const message = form.querySelector("[data-company-window-message]");
@@ -328,7 +327,8 @@ if (companyWindowSource) {
         }
       }
       let error = "";
-      if (!dateInput.value) error = "Hãy chọn ngày làm.";
+      if (!companyWindowSource) error = "Không tải được giờ hoạt động của công ty. Hãy tải lại trang trước khi đăng ký.";
+      else if (!dateInput.value) error = "Hãy chọn ngày làm.";
       else if (form.dataset.today && dateInput.value < form.dataset.today) error = "Ngày đã qua chỉ có thể xem, không được chỉnh hoặc đăng ký.";
       else if (!windows.length) error = "Ngày này không có khung giờ hoạt động của công ty.";
       const intervals = form.hasAttribute("data-staff-multi-form")
@@ -402,8 +402,7 @@ if (companyWindowSource) {
       });
     }
     validate();
-  });
-}
+});
 
 document.querySelectorAll("[data-upload-form]").forEach(form => {
   const input = form.querySelector("input[type=file]");
@@ -683,8 +682,8 @@ if (bookingForm) {
     if(preference==="staff"&&preferredStaff.value)query.set("staffId",preferredStaff.value);
     try {
       const response=await fetch(`/customer/bookings/availability-dates?${query}`,{headers:{Accept:"application/json"}});
-      if(!response.ok)throw new Error("Không tải được danh sách ngày còn nhân viên làm.");
-      const result=await response.json();
+      const result=await response.json().catch(()=>({}));
+      if(!response.ok)throw new Error(result.detail||result.message||"Không tải được danh sách ngày còn nhân viên làm.");
       if(request!==calendarSequence)return;
       availableDates=result.dates||[];
       const available=new Set(availableDates);
@@ -693,7 +692,7 @@ if (bookingForm) {
       if(removed.length)calendarNotice=`${removed.length} ngày đã chọn không còn phù hợp; thông tin được giữ lại để bạn điều chỉnh.`;
       else calendarNotice=result.message||"";
     } catch(error) {
-      if(request===calendarSequence)calendarError="Không tải được lịch ngày. Vui lòng thử tải lại trước khi tiếp tục.";
+      if(request===calendarSequence)calendarError=error.message||"Không tải được lịch ngày. Vui lòng thử tải lại trước khi tiếp tục.";
     } finally {
       if(request===calendarSequence){calendarPending=false;render();}
     }

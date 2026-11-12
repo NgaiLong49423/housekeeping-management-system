@@ -19,6 +19,10 @@
 
       <!-- Staff Part-Time Dashboard -->
       <section th:if="${currentUser.role == 'STAFF' and partTime}" class="staff-schedule-dashboard surface p-4 mb-4">
+        <div id="company-operating-hours-source" hidden aria-hidden="true">
+          <span th:each="window : ${companyScheduleWindows}" data-company-window
+                th:attr="data-effective-from=${window.effectiveFrom},data-day=${window.dayOfWeek},data-closed=${window.closed},data-start=${window.openingTime == null ? '' : #temporals.format(window.openingTime, 'HH:mm')},data-end=${window.closingTime == null ? '' : #temporals.format(window.closingTime, 'HH:mm')}"></span>
+        </div>
         <div class="staff-schedule-hero d-flex align-items-center gap-3 mb-4 pb-3 border-bottom">
           <span class="staff-schedule-icon" aria-hidden="true">
             <svg th:replace="~{fragments/icons :: calendar}"></svg>
@@ -104,7 +108,7 @@
         <!-- Batch Registration Form -->
         <div class="surface p-4 mb-4 border">
           <h3 class="h6 mb-3">Đăng ký hàng loạt theo khoảng ngày</h3>
-          <form method="post" th:action="@{/staff/schedules}" th:object="${availabilityForm}" class="staff-schedule-form" data-company-window-form th:attr="data-today=${businessToday},data-min-service-duration=${minimumServiceDuration}">
+          <form method="post" th:action="@{/staff/schedules}" th:object="${availabilityForm}" class="staff-schedule-form" th:attr="data-today=${businessToday},data-min-service-duration=${minimumServiceDuration}">
             <input type="hidden" name="weekStart" th:value="${staffWeekStart}">
             <div class="row g-3">
               <div class="col-12">
