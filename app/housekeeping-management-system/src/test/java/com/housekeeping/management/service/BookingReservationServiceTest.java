@@ -46,7 +46,7 @@ class BookingReservationServiceTest {
         customer.setUserId(12L);
         customer.setRole(UserRole.CUSTOMER);
         customer.setStatus(UserStatus.ACTIVE);
-        when(auth.findActiveCustomer(12L)).thenReturn(customer);
+        when(auth.findActiveCustomerForUpdate(12L)).thenReturn(customer);
         when(houseService.findCustomerHouseForUpdate(12L, 31L)).thenReturn(new House());
         when(staffManagement.findActiveForBookingUpdate(7L)).thenReturn(new Staff());
         LocalDateTime start = LocalDate.now(ZoneOffset.ofHours(7)).plusDays(3).atTime(10, 0);
@@ -101,7 +101,7 @@ class BookingReservationServiceTest {
         User customer = new User();
         customer.setRole(UserRole.CUSTOMER);
         customer.setStatus(UserStatus.ACTIVE);
-        when(auth.findActiveCustomer(12L)).thenReturn(customer);
+        when(auth.findActiveCustomerForUpdate(12L)).thenReturn(customer);
 
         House house = new House();
         house.setAddressDetail("12 Nguyễn Trãi");
@@ -131,7 +131,7 @@ class BookingReservationServiceTest {
         customer.setUserId(12L);
         customer.setRole(UserRole.CUSTOMER);
         customer.setStatus(UserStatus.ACTIVE);
-        when(auth.findActiveCustomer(12L)).thenReturn(customer);
+        when(auth.findActiveCustomerForUpdate(12L)).thenReturn(customer);
 
         House house = new House();
         house.setAddressDetail("12 Nguyễn Trãi");
@@ -174,7 +174,7 @@ class BookingReservationServiceTest {
         customer.setUserId(12L);
         customer.setRole(UserRole.CUSTOMER);
         customer.setStatus(UserStatus.ACTIVE);
-        when(auth.findActiveCustomer(12L)).thenReturn(customer);
+        when(auth.findActiveCustomerForUpdate(12L)).thenReturn(customer);
 
         House house = new House();
         house.setAddressDetail("12 Nguyễn Trãi");
@@ -220,7 +220,7 @@ class BookingReservationServiceTest {
         customer.setUserId(12L);
         customer.setRole(UserRole.CUSTOMER);
         customer.setStatus(UserStatus.ACTIVE);
-        when(auth.findActiveCustomer(12L)).thenReturn(customer);
+        when(auth.findActiveCustomerForUpdate(12L)).thenReturn(customer);
 
         House house = new House();
         house.setAddressDetail("12 Nguyễn Trãi");

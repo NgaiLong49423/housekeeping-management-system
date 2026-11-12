@@ -59,11 +59,13 @@ public class BookingReservationServiceImpl implements BookingReservationService 
     @Transactional
     public Long createBooking(Long customerId, Long staffId, Long houseId, LocalDateTime start,
             List<Long> requestedServiceIds, String areaNote) {
-        User customer = auth.findActiveCustomer(customerId);
+        // Khóa dòng Customer trước (thứ tự khóa: Customer, House, Staff) để Admin không thể khóa tài khoản
+        // giữa lúc kiểm tra và lúc ghi Booking; CustomerManagementService khóa cùng dòng này.
+        User customer = auth.findActiveCustomerForUpdate(customerId);
         validateRequestedStart(start, now());
         String normalizedAreaNote = cleanAreaNote(areaNote);
 
-        // Lock order is always House then Staff. The Staff lock serializes overlap checks, including empty ranges.
+        // Lock order is always Customer, then House, then Staff. The Staff lock serializes overlap checks, including empty ranges.
         House house = houseService.findCustomerHouseForUpdate(customerId, houseId);
         Staff staff = staffManagement.findActiveForBookingUpdate(staffId);
         companySettings.lockSettingsForScheduling();

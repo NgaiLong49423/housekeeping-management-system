@@ -536,6 +536,22 @@ class PortalMvcTest {
     }
 
     @Test
+    void accountLockedDuringASessionIsSignedOutOnTheNextRequest() throws Exception {
+        when(accountAuthorization.lockReasonIfInactive(customer.getUserId())).thenReturn(java.util.Optional.of("Gian lận thanh toán"));
+
+        MvcResult result = mvc.perform(get("/customer/bookings").with(user(customer)))
+                .andExpect(redirectedUrl("/login?locked")).andReturn();
+        var session = (org.springframework.mock.web.MockHttpSession) result.getRequest().getSession(false);
+        assertThat(session.getAttribute("SPRING_SECURITY_CONTEXT")).isNull();
+        mvc.perform(get("/login").param("locked", "").session(session))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Gian lận thanh toán")));
+        verifyNoInteractions(cancellation);
+
+        when(accountAuthorization.lockReasonIfInactive(staff.getUserId())).thenReturn(java.util.Optional.of(""));
+        mvc.perform(get("/staff/bookings").with(user(staff))).andExpect(redirectedUrl("/login?locked"));
+    }
+
+    @Test
     void lockedAccountSeesReasonOnlyAfterTheCorrectPassword() throws Exception {
         when(identity.loadUserByUsername(customer.getUsername())).thenReturn(new PortalUser(1L, 1L, customer.getUsername(),
                 encoder.encode("correct-password"), "Test", "CUSTOMER", true, "Hủy lịch sát giờ nhiều lần"));

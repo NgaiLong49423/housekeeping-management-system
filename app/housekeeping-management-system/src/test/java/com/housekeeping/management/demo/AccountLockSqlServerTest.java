@@ -76,6 +76,17 @@ class AccountLockSqlServerTest {
                 .andExpect(content().string(Matchers.containsString("Nhiều lần hủy lịch sát giờ")));
 
         customers.unlock(adminId, customerId);
+
+        // Bị khóa khi đang đăng nhập: request kế tiếp mất phiên và được đưa về trang đăng nhập kèm lý do.
+        var signedIn = mvc.perform(post("/login").with(csrf())
+                        .param("email", "customer3@demo.gonnha.local").param("password", DEMO_PASSWORD))
+                .andExpect(redirectedUrl("/portal")).andReturn();
+        MockHttpSession activeSession = (MockHttpSession) signedIn.getRequest().getSession(false);
+        customers.lock(adminId, customerId, "Khóa khi đang đăng nhập");
+        mvc.perform(get("/customer/houses").session(activeSession)).andExpect(redirectedUrl("/login?locked"));
+        assertThat(activeSession.isInvalid()).isTrue();
+        customers.unlock(adminId, customerId);
+
         assertThat(jdbc.queryForObject("SELECT status FROM dbo.Users WHERE user_id=?", String.class, customerId))
                 .isEqualTo("ACTIVE");
         assertThat(jdbc.queryForObject("SELECT status_reason FROM dbo.Users WHERE user_id=?", String.class, customerId))

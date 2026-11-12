@@ -34,6 +34,22 @@ class AccountAuthorizationServiceTest {
     }
 
     @Test
+    void lockReasonIsEmptyOnlyForActiveAccounts() {
+        User locked = user(UserRole.CUSTOMER, UserStatus.INACTIVE);
+        locked.setStatusReason("Gian lận thanh toán");
+        when(users.findById(1L)).thenReturn(Optional.of(user(UserRole.CUSTOMER, UserStatus.ACTIVE)));
+        when(users.findById(2L)).thenReturn(Optional.of(locked));
+        when(users.findById(3L)).thenReturn(Optional.of(user(UserRole.STAFF, UserStatus.INACTIVE)));
+        when(users.findById(4L)).thenReturn(Optional.empty());
+
+        org.assertj.core.api.Assertions.assertThat(authorization.lockReasonIfInactive(1L)).isEmpty();
+        org.assertj.core.api.Assertions.assertThat(authorization.lockReasonIfInactive(2L)).contains("Gian lận thanh toán");
+        org.assertj.core.api.Assertions.assertThat(authorization.lockReasonIfInactive(3L)).contains("");
+        org.assertj.core.api.Assertions.assertThat(authorization.lockReasonIfInactive(4L)).contains("");
+        org.assertj.core.api.Assertions.assertThat(authorization.lockReasonIfInactive(null)).contains("");
+    }
+
+    @Test
     void onlyActiveManagerCanUseManagerOperations() {
         when(users.findById(5L)).thenReturn(Optional.of(user(UserRole.MANAGER, UserStatus.ACTIVE)));
         when(users.findById(1L)).thenReturn(Optional.of(user(UserRole.ADMIN, UserStatus.ACTIVE)));

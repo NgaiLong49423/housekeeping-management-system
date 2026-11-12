@@ -3,6 +3,8 @@ package com.housekeeping.management.config;
 import com.housekeeping.management.service.AccountAuthorizationService;
 import com.housekeeping.management.service.AuthService;
 import com.housekeeping.management.web.LockedAccountLoginFailureHandler;
+import com.housekeeping.management.web.LockedAccountSessionFilter;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import com.housekeeping.management.web.PortalUser;
 import org.springframework.security.authentication.AccountExpiredException;
 import org.springframework.security.authentication.CredentialsExpiredException;
@@ -73,6 +75,7 @@ public class SecurityConfig {
                 .formLogin(login -> login.loginPage("/login").usernameParameter("email")
                     .defaultSuccessUrl("/portal").failureHandler(new LockedAccountLoginFailureHandler()).permitAll())
                 .logout(logout -> logout.logoutSuccessUrl("/login?logout"))
+                .addFilterBefore(new LockedAccountSessionFilter(authorization), AuthorizationFilter.class)
                 .build();
     }
 }
