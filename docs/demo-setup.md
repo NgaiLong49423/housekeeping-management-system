@@ -25,13 +25,18 @@ mvn spring-boot:run
 
 ## Tài khoản hệ thống
 
-| Vai trò | Email | Mật khẩu mặc định |
-|---|---|---|
-| Customer | `customer@gonnha.vn` (hoặc `customer@demo.gonnha.local`) | Mật khẩu đã tạo khi đăng ký / `Demo@12345` |
-| Staff | `mai.nguyen@gonnha.vn` (hoặc `staff@demo.gonnha.local`) | `Demo@12345` |
-| Staff | `nam.tran@gonnha.vn` (hoặc `staff.fulltime@demo.gonnha.local`) | `Demo@12345` |
-| Admin | `admin@gonnha.vn` (hoặc `admin@demo.gonnha.local`) | `Demo@12345` |
-| Manager | `manager@demo.gonnha.local` | `Demo@12345` |
+Tất cả tài khoản hệ thống chuẩn sử dụng chung mật khẩu mặc định: **`Password123!`**
+
+| Vai trò | Email đăng nhập | Mật khẩu chuẩn | Tên hiển thị | Ghi chú vai trò |
+|---|---|---|---|---|
+| **Manager (Quản lý cấp cao)** | `manager@gonnha.vn` | `Password123!` | Quản lý cấp cao | Quản lý tài khoản Admin, duyệt bồi thường cấp cao |
+| **Admin (Quản trị viên)** | `admin@gonnha.vn` | `Password123!` | Quản trị viên hệ thống | Quản trị vận hành đặt lịch, nhân viên, dịch vụ |
+| **Customer (Khách hàng)** | `customer@gonnha.vn` | `Password123!` | Cao Kỳ Nguyễn Hà | Đặt lịch, thanh toán VNPay, quản lý nhà |
+| **Customer (Khách hàng phụ)** | `nguyenhacaoky@gmail.com` | `Password123!` | Cao Kỳ Nguyễn Hà | Kiểm thử tài khoản cá nhân |
+| **Staff (Toàn thời gian)** | `mai.nguyen@gonnha.vn` | `Password123!` | Nguyễn Thị Mai | Nhân viên yêu thích, check-in, nhận ca |
+| **Staff (Bán thời gian)** | `nam.tran@gonnha.vn` | `Password123!` | Trần Văn Nam | Nhân viên bán thời gian, đăng ký lịch sẵn sàng |
+| **Staff (Toàn thời gian)** | `cuong.le@gonnha.vn` | `Password123!` | Lê Hoàng Cường | Nhân viên kỹ thuật chuyên sâu |
+| **Staff (Bán thời gian)** | `dung.pham@gonnha.vn` | `Password123!` | Phạm Thị Dung | Nhân viên dọn dẹp linh hoạt |
 
 ## Giới hạn xác minh
 

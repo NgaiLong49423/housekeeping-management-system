@@ -79,4 +79,4 @@ Người vận hành hệ thống hàng ngày: quản lý danh mục dịch vụ
 - **Quy tắc bảo mật**: Admin **không có quyền khóa hoặc sửa tài khoản của các Admin khác**.
 
 ### Người quản lý cấp cao / SuperAdmin (MANAGER)
-Tài khoản quản trị cao nhất của toàn hệ thống (mặc định: `manager@demo.gonnha.local`). Chỉ có Manager mới có quyền tạo, kích hoạt, khóa hoặc thay đổi trạng thái của các tài khoản Admin khác.
+Tài khoản quản trị cao nhất của toàn hệ thống (mặc định: `manager@gonnha.vn`). Chỉ có Manager mới có quyền tạo, kích hoạt, khóa hoặc thay đổi trạng thái của các tài khoản Admin khác.
