@@ -1504,8 +1504,10 @@ function initSegmentedControl() {
 
     function moveTo(item) {
       if (!item) return;
+      const list = item.closest('.ios-segmented-list');
+      const listLeft = list ? list.offsetLeft : 0;
       indicator.style.width = `${item.offsetWidth}px`;
-      indicator.style.transform = `translateX(${item.offsetLeft}px)`;
+      indicator.style.transform = `translateX(${listLeft + item.offsetLeft}px)`;
     }
 
     const activeItem = control.querySelector('.ios-segmented-item.active') || items[0];

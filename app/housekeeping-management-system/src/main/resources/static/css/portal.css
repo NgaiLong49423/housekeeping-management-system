@@ -458,60 +458,82 @@ button:active,
   position: relative;
   display: inline-flex;
   align-items: center;
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  padding: 3px;
+  justify-content: center;
+  background: rgba(20, 34, 29, 0.88);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  padding: 4px;
   border-radius: 9999px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.35), inset 0 1px 1px 0 rgba(255, 255, 255, 0.15);
   margin: 0 auto;
 }
 
 .ios-segmented-indicator {
   position: absolute;
-  top: 3px;
-  bottom: 3px;
+  top: 4px;
+  bottom: 4px;
   left: 0;
-  background: var(--chrome-accent);
+  background: var(--chrome-accent, #9fe3cf);
   border-radius: 9999px;
-  box-shadow: 0 2px 8px rgba(159, 227, 207, 0.35);
+  box-shadow: 0 2px 10px rgba(159, 227, 207, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.6);
   pointer-events: none;
-  transition: transform 400ms var(--ease-ios), width 400ms var(--ease-ios);
+  transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1), width 300ms cubic-bezier(0.16, 1, 0.3, 1);
   z-index: 1;
 }
 
 .ios-segmented-list {
   display: flex;
+  align-items: center;
+  justify-content: center;
   list-style: none;
   padding: 0;
   margin: 0;
   position: relative;
   z-index: 2;
+  gap: 3px;
 }
 
 .ios-segmented-item {
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
-.ios-segmented-link {
-  display: block;
-  padding: 6px 18px;
-  font-size: 0.84rem;
-  font-weight: 500;
-  color: rgba(243, 239, 230, 0.78);
+.ios-segmented-link,
+.ios-segmented-link.nav-link {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  padding: 7px 18px !important;
+  font-size: 0.88rem !important;
+  font-weight: 650 !important;
+  letter-spacing: 0.015em;
+  color: rgba(255, 255, 255, 0.88) !important;
   border-radius: 9999px;
-  text-decoration: none;
-  transition: color 250ms var(--ease-ios);
+  text-decoration: none !important;
+  cursor: pointer;
+  user-select: none;
+  transition: color 200ms ease, background-color 200ms ease, transform 150ms ease;
   white-space: nowrap;
 }
 
-.ios-segmented-item.active .ios-segmented-link {
-  color: #13201c !important;
-  font-weight: 600;
+.ios-segmented-link:active {
+  transform: scale(0.96);
 }
 
-.ios-segmented-item:hover .ios-segmented-link {
-  color: #ffffff;
+.ios-segmented-item.active .ios-segmented-link,
+.ios-segmented-item.active .ios-segmented-link.nav-link {
+  color: #0c2618 !important;
+  font-weight: 700 !important;
+  text-shadow: none;
+}
+
+.ios-segmented-item:not(.active) .ios-segmented-link:hover {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.12);
 }
 
 /* Nút bấm kiểu iOS trong Header */
