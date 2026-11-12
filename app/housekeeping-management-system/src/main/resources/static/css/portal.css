@@ -507,17 +507,17 @@ button:active,
   align-items: center !important;
   justify-content: center !important;
   text-align: center !important;
-  padding: 7px 18px !important;
-  font-size: 0.88rem !important;
+  padding: 6px 14px !important;
+  font-size: 0.85rem !important;
   font-weight: 650 !important;
-  letter-spacing: 0.015em;
+  letter-spacing: 0.01em;
   color: rgba(255, 255, 255, 0.88) !important;
   border-radius: 9999px;
   text-decoration: none !important;
   cursor: pointer;
   user-select: none;
   transition: color 200ms ease, background-color 200ms ease, transform 150ms ease;
-  white-space: nowrap;
+  white-space: nowrap !important;
 }
 
 .ios-segmented-link:active {
@@ -533,14 +533,16 @@ button:active,
 
 .ios-segmented-item:not(.active) .ios-segmented-link:hover {
   color: #ffffff !important;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 /* Nút bấm kiểu iOS trong Header */
 .header-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
+  display: flex !important;
+  align-items: center !important;
+  gap: var(--space-2) !important;
+  flex-shrink: 0 !important;
+  white-space: nowrap !important;
 }
 
 .btn-glass-pill {
@@ -557,6 +559,8 @@ button:active,
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
   transition: background 250ms var(--ease-ios), border-color 250ms var(--ease-ios), transform 350ms var(--spring);
 }
 
@@ -570,16 +574,28 @@ button:active,
   background: #fbfaf6;
   color: #14503f;
   border-radius: 9999px;
-  padding: 7px 20px;
-  font-size: 0.84rem;
-  font-weight: 600;
+  padding: 8px 18px;
+  font-size: 0.86rem;
+  font-weight: 650;
   border: 1px solid rgba(255, 255, 255, 0.6);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
-  display: inline-flex;
-  align-items: center;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   gap: 6px;
   text-decoration: none;
-  transition: background 250ms var(--ease-ios), color 250ms var(--ease-ios), transform 350ms var(--spring), box-shadow 250ms var(--ease-ios);
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  line-height: 1.25;
+  transition: background 250ms var(--ease-ios), color 250ms var(--ease-ios), transform 200ms ease, box-shadow 250ms var(--ease-ios);
+}
+
+.btn-cta-prominent span {
+  white-space: nowrap !important;
+}
+
+.btn-cta-prominent svg {
+  flex-shrink: 0 !important;
 }
 
 .btn-cta-prominent:hover {
@@ -592,22 +608,31 @@ button:active,
 /* True 3-Column Symmetric Centering on Desktop (>= 992px) */
 @media (min-width: 992px) {
   .site-header .navbar {
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    align-items: center;
-    column-gap: var(--space-4);
-  }
-
-  .site-header .navbar-collapse {
-    display: contents !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: var(--space-3) !important;
   }
 
   .site-header .brand {
-    justify-self: start;
+    flex-shrink: 0 !important;
+  }
+
+  .site-header .navbar-collapse {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    flex: 1 1 auto !important;
+  }
+
+  .site-header .ios-segmented-control {
+    margin: 0 auto !important;
+    flex-shrink: 0 !important;
   }
 
   .site-header .header-actions {
-    justify-self: end;
+    margin-left: auto !important;
+    flex-shrink: 0 !important;
   }
 }
 

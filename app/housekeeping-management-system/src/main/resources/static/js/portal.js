@@ -1521,8 +1521,11 @@ function initSegmentedControl() {
     });
 
     items.forEach(item => {
-      item.addEventListener('mouseenter', () => moveTo(item));
-      item.addEventListener('mouseleave', () => moveTo(activeItem));
+      item.addEventListener('click', () => {
+        items.forEach(i => i.classList.remove('active'));
+        item.classList.add('active');
+        moveTo(item);
+      });
     });
 
     window.addEventListener('resize', () => {
