@@ -19,17 +19,17 @@
   <body>
     <!-- Header Fragment: Render Left Sidebar for ADMIN, or Centered Top Header for CUSTOMER/STAFF/GUEST -->
     <th:block th:fragment="header(active)">
-      <!-- ===== 1. ADMIN ROLE: LEFT SIDEBAR DASHBOARD ===== -->
-      <th:block th:if="${currentUser != null and currentUser.role == 'ADMIN'}">
+      <!-- ===== 1. ADMIN & MANAGER ROLE: LEFT SIDEBAR DASHBOARD ===== -->
+      <th:block th:if="${currentUser != null and currentUser.admin}">
         <a class="skip-link" href="#main">Đến nội dung chính</a>
 
-        <!-- Mobile Topbar for Admin (< 992px) -->
+        <!-- Mobile Topbar for Admin/Manager (< 992px) -->
         <header class="admin-mobile-header d-lg-none d-flex align-items-center justify-content-between">
           <a class="brand d-flex align-items-center gap-2" th:href="@{/admin/bookings}">
             <img th:src="@{/images/5e7a8.png}" alt="Logo Gọn Nhà" width="32" height="32">
             <span>
               Gọn Nhà
-              <small style="color: var(--chrome-accent);">Quản trị hệ thống</small>
+              <small style="color: var(--chrome-accent);" th:text="${currentUser.manager ? 'Hệ thống Quản lý' : 'Quản trị hệ thống'}">Quản trị hệ thống</small>
             </span>
           </a>
           <button class="navbar-toggler border-0 shadow-none text-white p-1" type="button" data-bs-toggle="collapse" data-bs-target="#adminSidebar" aria-controls="adminSidebar" aria-expanded="false" aria-label="Mở menu quản trị">
@@ -46,7 +46,7 @@
                 <img th:src="@{/images/5e7a8.png}" alt="Logo Gọn Nhà" width="38" height="38">
                 <span>
                   Gọn Nhà
-                  <small style="color: var(--chrome-accent);">Hệ thống Quản trị</small>
+                  <small style="color: var(--chrome-accent);" th:text="${currentUser.manager ? 'Hệ thống Quản lý' : 'Hệ thống Quản trị'}">Hệ thống Quản trị</small>
                 </span>
               </a>
             </div>
@@ -97,10 +97,12 @@
             <!-- User Footer & Logout -->
             <div class="admin-sidebar-user p-3 border-top border-secondary border-opacity-25 mt-auto">
               <div class="d-flex align-items-center gap-2 mb-2">
-                <span class="avatar" style="width: 34px; height: 34px; font-size: 0.85rem; background: rgba(159, 227, 207, 0.16); color: var(--chrome-accent); border: 1px solid rgba(159, 227, 207, 0.36);">AD</span>
+                <span class="avatar" style="width: 34px; height: 34px; font-size: 0.85rem; background: rgba(159, 227, 207, 0.16); color: var(--chrome-accent); border: 1px solid rgba(159, 227, 207, 0.36);"
+                      th:text="${currentUser.manager ? 'MN' : 'AD'}">AD</span>
                 <div class="text-truncate">
                   <strong class="d-block text-white small text-truncate" th:text="${ui.label(currentUser.displayName)}">Quản trị viên</strong>
-                  <span class="badge" style="background-color: rgba(159, 227, 207, 0.14); color: var(--chrome-accent); font-size: 0.65rem;">QUẢN TRỊ VIÊN</span>
+                  <span class="badge" style="background-color: rgba(159, 227, 207, 0.14); color: var(--chrome-accent); font-size: 0.65rem;"
+                        th:text="${currentUser.manager ? 'QUẢN LÝ CẤP CAO' : 'QUẢN TRỊ VIÊN'}">QUẢN TRỊ VIÊN</span>
                 </div>
               </div>
               <form method="post" th:action="@{/logout}">
@@ -120,7 +122,7 @@
       </th:block>
 
       <!-- ===== 2. KHÁCH HÀNG, NHÂN VIÊN & KHÁCH VÃNG LAI: CENTERED TOP NAVBAR (APPLE/IOS FROSTED GLASS & SEGMENTED CONTROL) ===== -->
-      <header class="site-header site-header--ios" id="siteHeader" th:unless="${currentUser != null and currentUser.role == 'ADMIN'}">
+      <header class="site-header site-header--ios" id="siteHeader" th:unless="${currentUser != null and currentUser.admin}">
         <a class="skip-link" href="#main">Đến nội dung chính</a>
 
         <nav class="navbar navbar-expand-lg container py-2" aria-label="Điều hướng chính">
@@ -226,7 +228,7 @@
                   <svg th:replace="~{fragments/icons :: chevron-down}"></svg>
                 </summary>
                 <div class="account-popover">
-                  <span class="eyebrow w-100 justify-content-center" th:text="${currentUser.role == 'ADMIN' ? 'Quản trị viên' : (currentUser.role == 'STAFF' ? 'Nhân viên' : 'Khách hàng')}"></span>
+                  <span class="eyebrow w-100 justify-content-center" th:text="${currentUser.role == 'ADMIN' ? 'Quản trị viên' : (currentUser.role == 'MANAGER' ? 'Quản lý cấp cao' : (currentUser.role == 'STAFF' ? 'Nhân viên' : 'Khách hàng'))}"></span>
                   <a th:if="${currentUser.manager}" class="btn btn-light w-100 mb-2" th:href="@{/admin/accounts}">Tài khoản Admin</a>
                   <form method="post" th:action="@{/logout}">
                     <button class="btn btn-light w-100" type="submit">
@@ -295,7 +297,7 @@
 
     <th:block th:fragment="footer">
       <!-- Compact Single-Line Footer for Admin Role -->
-      <footer class="admin-footer" th:if="${currentUser != null and currentUser.role == 'ADMIN'}">
+      <footer class="admin-footer" th:if="${currentUser != null and currentUser.admin}">
         <div class="container d-flex flex-wrap align-items-center justify-content-between gap-2">
           <span>© Gọn Nhà · Hệ thống quản trị</span>
           <span class="admin-footer-meta">Không gian điều hành nội bộ</span>
@@ -303,7 +305,7 @@
       </footer>
 
       <!-- Public & Customer/Staff Footer (Apple Sheet UI: Bo góc 32px, iOS Inset Grouped, Scroll Reveal) -->
-      <footer class="site-footer site-footer--ios" th:unless="${currentUser != null and currentUser.role == 'ADMIN'}">
+      <footer class="site-footer site-footer--ios" th:unless="${currentUser != null and currentUser.admin}">
         <div class="container">
           <div class="row g-4 justify-content-between align-items-start pb-5">
             <!-- Cột 1: Thương hiệu -->
