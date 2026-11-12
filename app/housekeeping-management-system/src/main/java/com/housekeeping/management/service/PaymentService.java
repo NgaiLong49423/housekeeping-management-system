@@ -9,7 +9,7 @@ import java.util.Optional;
 import org.springframework.security.access.AccessDeniedException;
 
 public interface PaymentService {
-    public record AccountingTotals(BigDecimal paidAmount, BigDecimal simulatedAmount) { }
+    public record AccountingTotals(BigDecimal paidAmount, BigDecimal cashAmount, BigDecimal onlineAmount) { }
     public record AccountingPayment(Long paymentId, Long bookingId, BigDecimal amount, String method,
             String transactionCode, LocalDateTime paidAt, boolean simulated) { }
     public record OnlineCheckout(long orderCode, long amount, LocalDateTime createdAt, boolean recoverExisting) { }

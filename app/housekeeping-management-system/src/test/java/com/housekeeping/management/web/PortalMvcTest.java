@@ -178,7 +178,7 @@ class PortalMvcTest {
         when(financials.all(5L)).thenReturn(List.of(adjustment));
         mvc.perform(get("/admin/finance").with(user(admin)))
                 .andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Tổng hợp dòng tiền thật")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Tổng hợp dòng tiền")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Sổ giao dịch")))
                 .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("Điều chỉnh giá"))));
         when(financials.ledger(3L)).thenReturn(List.of(new PortalViews.FinancialLedgerCard(42L,"ADJUSTMENT","Hoàn tiền",

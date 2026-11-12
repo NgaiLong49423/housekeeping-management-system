@@ -252,7 +252,15 @@ public final class PortalViews {
         public String getStatusLabel() { return switch(status) { case "PAID" -> "Đã chi/hoàn"; case "SIMULATED" -> "Đã mô phỏng (không phát sinh tiền thật)"; case "APPROVED" -> "Đã duyệt, chờ thực hiện"; case "PROPOSED", "PENDING_APPROVAL" -> "Chờ duyệt"; case "REJECTED" -> "Không được duyệt"; case "CANCELLED" -> "Đã hủy"; default -> "Đang xử lý"; }; }
     }
     public record FinancialSummary(BigDecimal serviceRevenue, BigDecimal refundsAndReductions,
-            BigDecimal remediationAndCompensation, BigDecimal staffRecovery, BigDecimal net, BigDecimal simulated) { }
+            BigDecimal remediationAndCompensation, BigDecimal staffRecovery, BigDecimal net,
+            BigDecimal cashRevenue, BigDecimal onlineRevenue, BigDecimal simulatedAdjustments) {
+        public FinancialSummary(BigDecimal serviceRevenue, BigDecimal refundsAndReductions,
+                BigDecimal remediationAndCompensation, BigDecimal staffRecovery, BigDecimal net,
+                BigDecimal simulatedAdjustments) {
+            this(serviceRevenue, refundsAndReductions, remediationAndCompensation, staffRecovery, net,
+                    BigDecimal.ZERO, BigDecimal.ZERO, simulatedAdjustments);
+        }
+    }
     public record AdminAccountCard(Long userId, String name, String email, String phone, String status,
             String statusReason, java.time.LocalDateTime statusChangedAt) { }
     public record CustomerAccountCard(Long userId, String name, String email, String phone, boolean active,

@@ -205,7 +205,7 @@ public class BookingFinancialServiceImpl implements BookingFinancialService {
         var refundsAndReductions = financialPaid;
         var net = paymentTotals.paidAmount().subtract(refundsAndReductions).subtract(remediation).add(recovery);
         return new FinancialSummary(paymentTotals.paidAmount(), refundsAndReductions, remediation, recovery, net,
-                entries.sumSimulated().add(paymentTotals.simulatedAmount()));
+                paymentTotals.cashAmount(), paymentTotals.onlineAmount(), entries.sumSimulated());
     }
 
     @Override
