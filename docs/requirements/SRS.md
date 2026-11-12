@@ -52,10 +52,11 @@ One server-rendered Java Spring MVC web application, single company, SQL Server.
 - AC-FOLLOW-01: Follow trùng không có dòng lặp; unfollow mất dòng.
 
 ### FR-HOUSE — Houses and VietMap addresses
-- Customer quản lý nhiều House gồm người nhận, điện thoại, địa chỉ văn bản, loại, mặc định và optional address_note. Backend tra ngầm VietMap để lấy tọa độ định tuyến; Customer có thể nhập địa chỉ dạng văn bản mà không nhập tọa độ hoặc chọn suggestion.
-- Mỗi Booking dùng một House thuộc Customer và lưu snapshot địa chỉ/tọa độ nếu tra được. Không áp dụng giới hạn bán kính từ tâm cơ sở.
+- Customer quản lý nhiều House gồm người nhận, điện thoại, địa chỉ, loại, mặc định và optional address_note. Khi tạo House hoặc đổi vị trí, Customer phải chọn một suggestion VietMap đã trả về; không tự đoán mã địa điểm từ nội dung nhập. Khi chỉ sửa thông tin người nhận/ghi chú và giữ nguyên phần số nhà/đường, giữ tọa độ VietMap đã lưu. Nếu autocomplete VietMap lỗi, endpoint trả 503 kèm thông báo; không trả suggestion giả. Không lưu vị trí mới chưa được VietMap xác minh.
+- Mỗi Booking dùng một House thuộc Customer, có tọa độ đã xác minh và nằm trong bán kính đường chim bay từ tâm công ty; lưu snapshot địa chỉ/tọa độ. Việc sửa House không đổi snapshot của Booking cũ.
 - Soft delete House `is_deleted=1` chỉ khi không có Booking CONFIRMED hoặc AWAITING_PAYMENT; giữ FK/snapshots lịch sử; House deleted không thể được chọn trong Booking mới.
-- AC-HOUSE-01: Không thể đặt House không thuộc Customer hoặc bị soft-delete; tuyến không xác định được thì slot không khả dụng và nêu lý do.
+- AC-HOUSE-01: Không thể đặt House không thuộc Customer, bị soft-delete, chưa có tọa độ đã xác minh hoặc nằm ngoài bán kính tâm công ty; tuyến không xác định được thì slot không khả dụng và nêu lý do.
+- AC-HOUSE-05: Không chấp nhận địa chỉ/vị trí mới nếu Customer chưa chọn kết quả VietMap; lỗi autocomplete trả 503 và không sinh địa chỉ mẫu. Sửa trường không liên quan đến vị trí giữ tọa độ đã lưu.
 - AC-HOUSE-02: Soft delete với Booking chưa xong bị từ chối; COMPLETED/CANCELLED không ngăn xóa mềm; lịch sử giữ nguyên.
 - AC-HOUSE-03: Sửa House không sửa Booking address snapshots.
 - AC-HOUSE-04: Mỗi Customer có tối đa một House đang hoạt động được đặt làm mặc định; địa chỉ cũ được backfill người nhận/điện thoại và giữ nguyên chuỗi địa chỉ.
@@ -66,7 +67,7 @@ One server-rendered Java Spring MVC web application, single company, SQL Server.
 - Khi tạo/sửa/hủy phiên bản, chặn nếu khoảng ngày phiên bản chi phối có Booking `CONFIRMED` hoặc `AWAITING_PAYMENT`, kể cả khi giờ mới vẫn chứa booking. Booking `CANCELLED` không khóa. Hủy phiên bản tương lai không tự kích hoạt lại availability đã inactive.
 - Admin lưu địa điểm/bán kính riêng với các phiên bản giờ. Khi thay đổi giờ hiệu lực, availability Staff không còn nằm trọn trong giờ mới được inactive và giữ lịch sử.
 - Giờ bắt đầu Booking theo lưới 30 phút (:00/:30); server kiểm tra lại.
-- Tâm/bán kính vẫn lưu để tương thích, không dùng chặn Booking hay reassignment.
+- Tâm công ty dùng để kiểm tra House nằm trong bán kính phục vụ. Bán kính cũng là giới hạn tối đa cho khoảng cách tuyến xe máy VietMap giữa hai Booking liền kề của cùng Staff; không tính tuyến từ công ty đến Booking đầu ngày.
 - Nếu đổi khung giờ khiến Booking CONFIRMED tương lai mất hợp lệ, Admin phải đổi nhân viên/hủy booking trước khi lưu. Availability ngoài giờ mới được giữ lịch sử nhưng inactive.
 - AC-CONFIG-01: Booking phải bắt đầu và kết thúc trong cùng một khung hợp lệ; không nhận khoảng bắc qua giờ nghỉ.
 - AC-CONFIG-02: Staff, Customer booking và Admin reassignment cùng tra phiên bản lịch theo ngày; một phiên bản mới chỉ thay lịch từ ngày hiệu lực trở đi.
@@ -86,15 +87,15 @@ One server-rendered Java Spring MVC web application, single company, SQL Server.
 
 ### FR-BOOK — Create Booking
 - Inputs: Customer, own House, chosen ACTIVE Staff, >=1 ACTIVE Services, proposed start, optional area_note. A multi-date form persists each date as an independent Booking.
-- Availability offers only 30-minute start-grid options that fit services within one company window and Staff availability, leave, existing appointments and 120-minute lead time. Customer enters a textual address; backend resolves it through VietMap without asking for coordinates.
-- Validate start alignment to :00/:30; now+>=120 minutes; start<=now+30 days; full interval inside one company window; Staff not on approved leave; type-specific availability. No service-radius restriction and no company-center-to-first-booking route.
-- Between adjacent same-Staff Bookings require VietMap route ETA + 15 minutes. Same address always requires 15 minutes. If route ETA cannot be resolved, reject that slot with the reason. Apply only between adjacent Bookings.
+- Availability offers only 30-minute start-grid options that fit services within one company window and Staff availability, leave, existing appointments and 120-minute lead time. A new or changed House location must be selected from verified VietMap results; coordinates are never inferred from typed text. Editing other House fields preserves its saved location.
+- Validate start alignment to :00/:30; now+>=120 minutes; start<=now+30 days; full interval inside one company window; Staff not on approved leave; type-specific availability; House is within the configured straight-line service radius from the company center. Do not route from the company center to the first Booking of the day.
+- Between adjacent same-Staff Bookings, require the VietMap motorcycle route distance to be at most the current company service radius and the time gap to be at least ETA + 15 minutes. Exact distance limit is accepted. Same coordinates skip VietMap and require 15 minutes. If route lookup fails or returns no valid route, block the affected slot and explain that the route could not be verified; never substitute a sample ETA/distance. Recheck both previous-to-new and new-to-next routes at booking confirmation.
 - Backend repeats all checks at save; provider failure/no route blocks that slot. Multi-date submissions can independently succeed/fail.
 - On success snapshot House text/coordinates if resolved and each Service details; totals are sums; `original_staff_id=staff_id`; status CONFIRMED.
 - Coordinate concurrent same-Staff requests transactionally; unchecked overlap query followed by insert is insufficient.
 - AC-BOOK-01: Valid Booking persists header/details atomically with totals, duration and snapshots.
 - AC-BOOK-02: Lead time <120min rejects; >=120min accepts only on :00/:30; beyond 30 days rejects.
-- AC-BOOK-03: Adjacent same-Staff gap is ETA+15min, same-address gap is 15min; no first-leg/radius restriction; unavailable ETA blocks slot.
+- AC-BOOK-03: Adjacent same-Staff routes in both directions must not exceed the configured company radius, and their time gap must be ETA+15min; exact radius is allowed. Same coordinates require 15min without a VietMap call. No company-center-to-first-booking route; unavailable route blocks the slot and has no fallback ETA.
 - AC-BOOK-04: End outside company/Staff interval rejects.
 - AC-BOOK-05: Concurrent requests for same Staff/slot create at most one Booking, without partial writes.
 ### FR-CANCEL/REASSIGN — Cancellation and admin assignment

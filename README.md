@@ -2,7 +2,7 @@
 > **File:** `README.md`\
 > **Version:** v2.5.0\
 > **Created:** 2026-06-14\
-> **Last Updated:** 2026-11-10\
+> **Last Updated:** 2026-11-13\
 > **Status:** Draft\
 
 # Housekeeping Management System
@@ -33,7 +33,7 @@ Có bốn role `CUSTOMER`, `STAFF`, `ADMIN`, `MANAGER`; Manager kế thừa quy�
 Yêu cầu JDK 21 và SQL Server 2022+ bật TCP/IP, Mixed Mode, cổng 1433.
 
 1. Start local SQL Server. The application connects to `Housekeeping_Database` by default and preserves its data. Set `DB_RESET_ON_STARTUP=true` only when you intentionally want to delete and recreate a supported local database, including all data and Flyway history; the SQL login then needs permission to alter, drop and create that database. Keep this value `false` for shared or existing databases.
-2. Sao chép [`.env.example`](app/housekeeping-management-system/.env.example) thành `.env` trong thư mục Maven module, rồi đặt `DB_URL`, `DB_USERNAME` và `DB_PASSWORD` cho SQL Server chính. Nếu bật nhận bồi thường chuyển khoản, tạo và đặt khóa AES-256 riêng vào `PAYOUT_ENCRYPTION_KEY` theo hướng dẫn trong file mẫu; không commit `.env`. Địa chỉ nhà được nhập trực tiếp, không cần Google Maps API key.
+2. Sao chép [`.env.example`](app/housekeeping-management-system/.env.example) thành `.env` trong thư mục Maven module, rồi đặt `DB_URL`, `DB_USERNAME` và `DB_PASSWORD` cho SQL Server chính. Nếu bật nhận bồi thường chuyển khoản, tạo và đặt khóa AES-256 riêng vào `PAYOUT_ENCRYPTION_KEY` theo hướng dẫn trong file mẫu; không commit `.env`. Để tìm/chọn địa chỉ mới và kiểm tra tuyến booking, cấu hình `VIETMAP_API_KEY`; hệ thống không dùng địa chỉ hoặc tuyến mẫu khi VietMap không khả dụng. Không cần Google Maps API key.
 3. Từ `app/housekeeping-management-system/`, chạy:
 
    ```powershell

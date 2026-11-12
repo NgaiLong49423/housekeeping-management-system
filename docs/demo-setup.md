@@ -2,7 +2,7 @@
 > **File:** `docs/demo-setup.md`\
 > **Version:** v2.3.0\
 > **Created:** 2026-10-17\
-> **Last Updated:** 2026-11-12\
+> **Last Updated:** 2026-11-13\
 > **Status:** Draft\
 
 # Chạy môi trường demo
@@ -14,7 +14,7 @@ Tài liệu này mô tả cách chạy ứng dụng trên SQL Server local. Prof
 1. Cài JDK 21, Maven và SQL Server local có TCP/IP tại cổng 1433.
 2. Mở `database/setup-demo.sql` trong SSMS và chạy trên instance demo/dev. Script chỉ tạo database `home_cleaning_demo` nếu chưa tồn tại; không tạo login hay chứa password.
 3. Tạo SQL login riêng, map vào database demo và cấp quyền DDL để Flyway tạo schema. Sao chép `.env.example` thành `.env` trong thư mục Maven module rồi tự đặt `DB_USERNAME` và `DB_PASSWORD`. Không commit `.env`.
-4. Địa chỉ nhà được nhập trực tiếp qua biểu mẫu người nhận và địa chỉ; demo không cần Google Maps API key.
+4. Đặt `VIETMAP_API_KEY` trong `.env` để tìm và xác minh địa chỉ mới, đồng thời kiểm tra tuyến khi đặt lịch. Khách cần chọn một kết quả VietMap trước khi lưu địa chỉ mới hoặc đổi vị trí; nếu VietMap lỗi, hệ thống không gợi ý địa chỉ mẫu và không cho phép xác minh tuyến booking. Không cần Google Maps API key.
 5. Mở `app/housekeeping-management-system/pom.xml` bằng IntelliJ, chọn JDK 21 và đợi Maven import.
 6. Chạy cấu hình IntelliJ `Housekeeping Demo` hoặc chạy:
 
