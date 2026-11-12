@@ -314,6 +314,7 @@
             <form th:if="${feedbackForm != null}" method="post" th:object="${feedbackForm}"
                   enctype="multipart/form-data"
                   th:action="${booking.feedbackStatus == null} ? @{/customer/bookings/{id}/feedback(id=${booking.id})} : @{/customer/bookings/{id}/feedback/edit(id=${booking.id})}" data-feedback-form>
+              <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
               <fieldset class="mb-3 border-0 p-0">
                 <legend class="form-label fw-semibold">Chọn số sao</legend>
                 <div class="feedback-rating-grid">
