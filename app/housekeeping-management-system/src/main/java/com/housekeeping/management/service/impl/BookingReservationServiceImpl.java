@@ -20,6 +20,7 @@ import com.housekeeping.management.repository.BookingPersistenceRepository;
 import com.housekeeping.management.repository.BookingDetailRepository;
 import com.housekeeping.management.entity.BookingDetail;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
@@ -171,6 +172,8 @@ public class BookingReservationServiceImpl implements BookingReservationService 
         BookingPersistenceRepository.AppointmentPoint previousAppointment=null;
         BookingPersistenceRepository.AppointmentPoint nextAppointment=null;
         LocalDateTime earliestStart=null,latestStart=null;
+        BigDecimal routeDistanceLimitKm=null;
+        BigDecimal previousDistanceMeters=BigDecimal.ZERO,nextDistanceMeters=BigDecimal.ZERO;
         int previousRoute=0,previousGap=0,previousRequired=0,nextRoute=0,nextGap=0,nextRequired=0;
         for (BookingPersistenceRepository.AppointmentPoint adjacent : appointments) {
             boolean previous = !adjacent.end().isAfter(start);
@@ -187,10 +190,17 @@ public class BookingReservationServiceImpl implements BookingReservationService 
                     }
                     catch(IllegalStateException routeFailure) { return TravelAssessment.unavailable("Chưa xác minh được tuyến từ booking trước đến địa chỉ này. " + routeFailure.getMessage()); }
                     previousRoute=route.durationMinutes();
+                    previousDistanceMeters=route.distanceMeters();
+                    if (routeDistanceLimitKm == null) routeDistanceLimitKm = houseService.serviceCenter().radiusKm();
                 }
                 previousRequired=Math.addExact(previousRoute,15);
                 previousGap=Math.toIntExact(java.time.Duration.between(adjacent.end(),start).toMinutes());
                 earliestStart=adjacent.end().plusMinutes(previousRequired);
+                if (!sameLocation && exceedsRouteDistanceLimit(previousDistanceMeters, routeDistanceLimitKm)) {
+                    return new TravelAssessment(TravelStatus.DISTANCE_LIMIT_EXCEEDED,
+                            routeDistanceLimitMessage("từ booking trước đến địa chỉ này", previousDistanceMeters, routeDistanceLimitKm),
+                            earliestStart, latestStart, previousRoute, previousGap, previousRequired, adjacent.bookingId());
+                }
             } else {
                 nextAppointment=adjacent;
                 if(adjacent.latitude()==null||adjacent.longitude()==null)
@@ -203,10 +213,17 @@ public class BookingReservationServiceImpl implements BookingReservationService 
                     }
                     catch(IllegalStateException routeFailure) { return TravelAssessment.unavailable("Chưa xác minh được tuyến từ địa chỉ này đến booking kế tiếp. " + routeFailure.getMessage()); }
                     nextRoute=route.durationMinutes();
+                    nextDistanceMeters=route.distanceMeters();
+                    if (routeDistanceLimitKm == null) routeDistanceLimitKm = houseService.serviceCenter().radiusKm();
                 }
                 nextRequired=Math.addExact(nextRoute,15);
                 nextGap=Math.toIntExact(java.time.Duration.between(end,adjacent.start()).toMinutes());
                 latestStart=adjacent.start().minusMinutes((long)nextRequired+java.time.Duration.between(start,end).toMinutes());
+                if (!sameLocation && exceedsRouteDistanceLimit(nextDistanceMeters, routeDistanceLimitKm)) {
+                    return new TravelAssessment(TravelStatus.DISTANCE_LIMIT_EXCEEDED,
+                            routeDistanceLimitMessage("từ địa chỉ này đến booking kế tiếp", nextDistanceMeters, routeDistanceLimitKm),
+                            earliestStart, latestStart, nextRoute, nextGap, nextRequired, adjacent.bookingId());
+                }
             }
         }
         if(earliestStart!=null&&start.isBefore(earliestStart)) {
@@ -240,6 +257,14 @@ public class BookingReservationServiceImpl implements BookingReservationService 
 
     private static int roundUpToHalfHour(int minute){return ((minute+29)/30)*30;}
     private static int roundDownToHalfHour(int minute){return (minute/30)*30;}
+    private static boolean exceedsRouteDistanceLimit(BigDecimal distanceMeters, BigDecimal radiusKm) {
+        return distanceMeters.movePointLeft(3).compareTo(radiusKm) > 0;
+    }
+    private static String routeDistanceLimitMessage(String direction, BigDecimal distanceMeters, BigDecimal radiusKm) {
+        String distance = distanceMeters.movePointLeft(3).setScale(2, RoundingMode.CEILING).toPlainString();
+        String limit = radiusKm.setScale(2, RoundingMode.HALF_UP).toPlainString();
+        return "Tuyến " + direction + " dài khoảng " + distance + " km, vượt bán kính phục vụ của công ty (" + limit + " km).";
+    }
     private static boolean sameLocation(BigDecimal firstLatitude,BigDecimal firstLongitude,
             BigDecimal secondLatitude,BigDecimal secondLongitude) {
         return firstLatitude!=null&&firstLongitude!=null&&secondLatitude!=null&&secondLongitude!=null

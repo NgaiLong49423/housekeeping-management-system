@@ -102,6 +102,28 @@ class BookingAvailabilityServiceTest {
     }
 
     @Test
+    void availableDatesExplainsWhenVietmapCannotVerifyAdjacentBookingRoutes() {
+        LocalDate from=LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh"));
+        LocalDate through=from.plusDays(30);
+        when(services.findActiveByIds(List.of(1L))).thenReturn(List.of(activeService(1L,60)));
+        when(availability.activeStaff()).thenReturn(List.of(new BookingAvailabilityRepository.StaffOption(10L,"Full time","FULL_TIME")));
+        when(availability.activeAvailability(from,through)).thenReturn(List.of());
+        when(availability.approvedLeaves(from,through)).thenReturn(List.of());
+        when(availability.bookedIntervals(from,through)).thenReturn(List.of());
+        when(companySettings.scheduleWindows()).thenReturn(java.util.stream.IntStream.rangeClosed(1,7)
+                .mapToObj(day->new ScheduleWindow(LocalDate.of(1900,1,1),day,false,LocalTime.of(6,0),LocalTime.of(21,0))).toList());
+        when(reservations.assessTravel(org.mockito.ArgumentMatchers.anyLong(),org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.isNull())).thenReturn(BookingReservationService.TravelAssessment.unavailable(
+                        "Chưa xác minh được tuyến với VietMap."));
+
+        var result=service.availableDates(List.of(1L),null,99L,100L);
+
+        assertThat(result.dates()).isEmpty();
+        assertThat(result.message()).contains("Chưa thể xác minh tuyến di chuyển với VietMap");
+    }
+
+    @Test
     void selectedTimeFiltersStaffAndBusyOrLeaveExcludesStaff() {
         when(availability.staffOnApprovedLeave(date)).thenReturn(List.of(10L));
         when(availability.bookedIntervals(date)).thenReturn(List.of(new Interval(11L,LocalTime.of(11,30),LocalTime.NOON)));

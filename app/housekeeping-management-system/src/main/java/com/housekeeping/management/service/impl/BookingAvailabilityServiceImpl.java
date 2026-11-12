@@ -12,6 +12,7 @@ import com.housekeeping.management.dto.response.BookingAvailabilityOptions.Staff
 import com.housekeeping.management.dto.response.BookingAvailabilityOptions.TimeOption;
 import com.housekeeping.management.dto.response.BookingAvailabilityDates;
 import com.housekeeping.management.dto.SpecificAddressRules;
+import com.housekeeping.management.enums.TravelStatus;
 import com.housekeeping.management.entity.Services;
 import com.housekeeping.management.entity.House;
 import com.housekeeping.management.repository.BookingAvailabilityRepository;
@@ -155,6 +156,8 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
         List<CompanySettingsService.ScheduleWindow> companyVersions=companySettings.scheduleWindows();
         LocalDateTime earliest=LocalDateTime.now(BUSINESS_ZONE).plusMinutes(120);
         List<LocalDate> result=new ArrayList<>();
+        boolean routeUnavailable=false;
+        availabilityScan:
         for(LocalDate date=today;!date.isAfter(through);date=date.plusDays(1)) {
             LocalDate candidateDate=date;
             int weekday=date.getDayOfWeek().getValue();
@@ -169,15 +172,31 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
                     .map(BookingAvailabilityRepository.LeaveRange::staffId).collect(Collectors.toSet());
             List<Interval> staffHours=partTimeHours.getOrDefault(date,List.of());
             List<Interval> busyThatDay=busy.getOrDefault(date,List.of());
-            boolean found=generateSlots(date,duration,companyWindows,earliest).stream().anyMatch(time->staff.stream()
-                    .filter(person->selectedStaffId==null||person.id().equals(selectedStaffId))
-                    .filter(person->eligible(person,candidateDate,time,duration,companyWindows,staffHours,onLeave,busyThatDay))
-                    .anyMatch(person -> reservations.assessTravel(person.id(), candidateDate.atTime(time),
-                            candidateDate.atTime(time).plusMinutes(duration), latitude, longitude, null).feasible()));
+            boolean found=false;
+            for(LocalTime time:generateSlots(date,duration,companyWindows,earliest)) {
+                for(BookingAvailabilityRepository.StaffOption person:staff) {
+                    if(selectedStaffId!=null&&!person.id().equals(selectedStaffId))continue;
+                    if(!eligible(person,candidateDate,time,duration,companyWindows,staffHours,onLeave,busyThatDay))continue;
+                    BookingReservationService.TravelAssessment assessment=reservations.assessTravel(person.id(),
+                            candidateDate.atTime(time),candidateDate.atTime(time).plusMinutes(duration),latitude,longitude,null);
+                    if(assessment.status()==TravelStatus.ROUTE_UNAVAILABLE) {
+                        routeUnavailable=true;
+                        break availabilityScan;
+                    }
+                    if(assessment.feasible()) {
+                        found=true;
+                        break;
+                    }
+                }
+                if(found)break;
+            }
             if(found)result.add(date);
         }
-        String message=result.isEmpty()?"Không có ngày nào trong 30 ngày tới còn giờ và nhân viên phù hợp."
-                :"Chỉ hiển thị ngày có nhân viên nhận được dịch vụ và còn giờ đặt trước hợp lệ.";
+        String message=routeUnavailable
+                ?(result.isEmpty()?"Chưa thể xác minh tuyến di chuyển với VietMap. Hãy thử tải lịch lại sau."
+                        :"Một số ngày chưa thể xác minh tuyến với VietMap; các ngày đang hiển thị đã được kiểm tra.")
+                :result.isEmpty()?"Không có ngày nào trong 30 ngày tới còn giờ và nhân viên phù hợp."
+                        :"Chỉ hiển thị ngày có nhân viên nhận được dịch vụ và còn giờ đặt trước hợp lệ.";
         return new BookingAvailabilityDates(result,message);
     }
 
