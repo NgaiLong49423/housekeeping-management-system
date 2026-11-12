@@ -151,4 +151,12 @@ SELECT s.service_name, s.description, s.price, s.duration_minutes, s.status, s.i
 FROM @NewServices s
 WHERE NOT EXISTS (SELECT 1 FROM dbo.Services existing WHERE existing.service_name = s.service_name);
 
+-- 4. Tạo tài khoản Quản lý cấp cao (Manager) nếu chưa có
+IF NOT EXISTS (SELECT 1 FROM dbo.Users WHERE role = 'MANAGER')
+BEGIN
+    INSERT INTO dbo.Users (full_name, email, password_hash, phone, role, status)
+    VALUES (N'Quản lý cấp cao', N'manager@gonnha.vn',
+            @PassHash, N'0900000005', 'MANAGER', 'ACTIVE');
+END;
+
 COMMIT TRANSACTION;

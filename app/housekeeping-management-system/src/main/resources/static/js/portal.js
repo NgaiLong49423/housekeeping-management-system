@@ -534,6 +534,10 @@ if (bookingForm) {
   };
   staffCards.forEach(card => {
     card.addEventListener('click', () => {
+      preference = 'staff';
+      const staffRadio = preferenceInputs.find(i => i.value === 'staff');
+      if (staffRadio) staffRadio.checked = true;
+      preferredStaffWrap.hidden = false;
       preferredStaff.value = card.dataset.staffCardId;
       preferredStaff.dispatchEvent(new Event('change'));
     });
@@ -694,7 +698,7 @@ if (bookingForm) {
     if(days.has(date))days.delete(date);
     else {
       days.forEach(day => { day.expanded = false; });
-      days.set(date,{date,time:"",staffId:preference==="staff"?preferredStaff.value:"",loading:false,options:null,timeOptions:[],error:"",notice:"",expanded:true});
+      days.set(date,{date,time:"",staffId:(preference==="staff"||Boolean(preferredStaff.value))?preferredStaff.value:"",loading:false,options:null,timeOptions:[],error:"",notice:"",expanded:true});
     }
     render();
     scheduleDraftSave();
@@ -889,7 +893,7 @@ if (bookingForm) {
     const timeSection = document.createElement("div");
     timeSection.className = "booking-time-section mt-3";
 
-    if (preference === "staff") {
+    if (preference === "staff" || Boolean(preferredStaff.value)) {
       if (!day.staffId) {
         const prompt = document.createElement("div");
         prompt.className = "alert alert-warning py-2 px-3 small mb-0";
@@ -925,6 +929,7 @@ if (bookingForm) {
             btn.innerHTML = `<strong>${option.startTime}</strong><small>${getEndTime(option.startTime, durationMinutes)}</small>`;
             btn.addEventListener("click", () => {
               day.time = option.startTime;
+              day.staffId = preferredStaff.value || day.staffId;
               day.stale = false; day.restored = false; day.notice = "";
               day.expanded = false;
               render(); scheduleDraftSave(); loadDay(day);
@@ -979,12 +984,20 @@ if (bookingForm) {
             btn.addEventListener("click", () => {
               day.time = option.startTime;
               day.stale = false; day.restored = false; day.notice = "";
-              const elig = timeFor(day, option.startTime)?.staffOptions || [];
-              if (!elig.some(p => String(p.id) === String(day.staffId))) {
-                if (elig.length === 1) {
-                  day.staffId = elig[0].id;
-                } else {
-                  day.staffId = "";
+              if (preferredStaff.value) {
+                day.staffId = preferredStaff.value;
+                day.expanded = false;
+              } else {
+                const elig = timeFor(day, option.startTime)?.staffOptions || [];
+                if (!elig.some(p => String(p.id) === String(day.staffId))) {
+                  if (elig.length === 1) {
+                    day.staffId = elig[0].id;
+                    day.expanded = false;
+                  } else {
+                    day.staffId = "";
+                  }
+                } else if (day.staffId) {
+                  day.expanded = false;
                 }
               }
               render(); scheduleDraftSave(); loadDay(day);
@@ -1043,7 +1056,7 @@ if (bookingForm) {
     card.append(timeSection);
 
     // SECTION 2: Chọn nhân viên thực hiện (khi preference === "time")
-    if (preference === "time") {
+    if (preference === "time" && !preferredStaff.value) {
       const staffSection = document.createElement("div");
       staffSection.className = "booking-staff-section mt-3 pt-3 border-top";
 
@@ -1122,13 +1135,25 @@ if (bookingForm) {
     refresh();
   }
   preferredStaff.value=requestedStaffId||"";
-  preferredStaff.addEventListener("change", () => { syncStaffCards();
+  preferredStaff.addEventListener("change", () => {
+    if (preferredStaff.value) {
+      preference = "staff";
+      const staffRadio = preferenceInputs.find(i => i.value === "staff");
+      if (staffRadio) staffRadio.checked = true;
+      preferredStaffWrap.hidden = false;
+    }
+    syncStaffCards();
     days.forEach(day=>{day.time="";day.staffId=preferredStaff.value;day.stale=false;day.restored=false;day.notice="";});
     render(); loadAvailableDates(); days.forEach(loadDay);
     scheduleDraftSave();
   });
   preferenceInputs.forEach(input => input.addEventListener("change", () => {
-    preference=input.value; days.forEach(day=>{day.time="";day.staffId=preference==="staff"?preferredStaff.value:"";day.stale=false;day.restored=false;day.notice="";});
+    preference=input.value;
+    if (preference === "time") {
+      preferredStaff.value = "";
+      syncStaffCards();
+    }
+    days.forEach(day=>{day.time="";day.staffId=preference==="staff"?preferredStaff.value:"";day.stale=false;day.restored=false;day.notice="";});
     if(preference==="staff"&&!preferredStaff.value)days.clear(); syncStaffCards();
     render(); loadAvailableDates(); days.forEach(loadDay);
     scheduleDraftSave();
@@ -1288,6 +1313,42 @@ if (bookingForm) {
 
   const areaNoteInput = bookingForm.querySelector("#areaNote");
   if (areaNoteInput) areaNoteInput.addEventListener("input", scheduleDraftSave);
+
+  const toggleServicesBtn = bookingForm.querySelector("[data-toggle-services-btn]");
+  if (toggleServicesBtn) {
+    const extraItems = [...bookingForm.querySelectorAll('[data-service-item="extra"]')];
+    const toggleText = toggleServicesBtn.querySelector("[data-toggle-text]");
+    const toggleIcon = toggleServicesBtn.querySelector("[data-toggle-icon]");
+    let expanded = false;
+
+    const syncServicesVisibility = () => {
+      extraItems.forEach(item => {
+        const input = item.querySelector('input[name="serviceIds"]');
+        if (expanded || (input && input.checked)) {
+          item.style.display = "";
+        } else {
+          item.style.display = "none";
+        }
+      });
+      if (toggleText) {
+        toggleText.textContent = expanded ? "Thu gọn bớt dịch vụ" : "Xem thêm " + extraItems.length + " dịch vụ khác";
+      }
+      if (toggleIcon) {
+        toggleIcon.style.transform = expanded ? "rotate(180deg)" : "rotate(0deg)";
+        toggleIcon.style.transition = "transform 0.2s ease";
+      }
+    };
+
+    if (extraItems.some(item => item.querySelector('input[name="serviceIds"]')?.checked)) {
+      expanded = true;
+    }
+    syncServicesVisibility();
+
+    toggleServicesBtn.addEventListener("click", () => {
+      expanded = !expanded;
+      syncServicesVisibility();
+    });
+  }
 
   syncStaffCards(); render(); loadAvailableDates(); checkHouseServiceArea();
   if(retryState?.days?.length)retryState.days.forEach(item=>{const day=days.get(item.date);if(day)loadDay(day);});

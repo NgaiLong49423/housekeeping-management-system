@@ -132,4 +132,13 @@ public class Booking {
 
     @Column(name = "delay_discount_amount", precision = 12, scale = 2, nullable = false)
     private BigDecimal delayDiscountAmount = BigDecimal.ZERO;
+
+    @Column(name = "reschedule_count", nullable = false)
+    private Integer rescheduleCount = 0;
+
+    @Column(name = "cancellation_fee", precision = 12, scale = 2, nullable = false)
+    private BigDecimal cancellationFee = BigDecimal.ZERO;
+
+    @Column(name = "refund_amount", precision = 12, scale = 2, nullable = false)
+    private BigDecimal refundAmount = BigDecimal.ZERO;
 }

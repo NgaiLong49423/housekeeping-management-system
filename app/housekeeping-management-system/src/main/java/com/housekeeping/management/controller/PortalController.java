@@ -16,7 +16,11 @@ public class PortalController {
     }
 
     @GetMapping("/")
-    String home(Model model) { model.addAttribute("services", query.services()); return "home"; }
+    String home(Model model) {
+        var services = query.services();
+        model.addAttribute("services", services.size() > 4 ? services.subList(0, 4) : services);
+        return "home";
+    }
 
     @GetMapping("/services")
     String services(Model model) { model.addAttribute("services", query.services()); return "services"; }

@@ -251,7 +251,18 @@
             <svg class="text-link-arrow" th:replace="~{fragments/icons :: arrow-right}"></svg>
           </a>
         </div>
-        <div th:replace="~{fragments/services :: cards}">
+        <!-- Chỉ hiển thị đúng 4 dịch vụ tiêu biểu trên trang chủ -->
+        <div th:with="services=${services != null and #lists.size(services) > 4 ? services.subList(0, 4) : services}">
+          <div th:replace="~{fragments/services :: cards}">
+          </div>
+        </div>
+
+        <!-- Nút Xem tất cả dịch vụ -->
+        <div class="text-center mt-4 mt-md-5" data-reveal="fade-up" data-delay="200">
+          <a class="btn btn-outline-primary btn-lg px-4" th:href="@{/services}">
+            <span>Xem tất cả dịch vụ</span>
+            <svg class="ms-1" style="width: 1.15rem; height: 1.15rem;" th:replace="~{fragments/icons :: arrow-right}"></svg>
+          </a>
         </div>
       </section>
 
