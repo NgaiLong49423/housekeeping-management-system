@@ -5,6 +5,7 @@ import com.housekeeping.management.service.GlobalEmailUniquenessService;
 import com.housekeeping.management.service.StaffManagementService;
 import com.housekeeping.management.service.BookingStaffEligibilityService;
 
+import com.housekeeping.management.dto.AccountLockRules;
 import com.housekeeping.management.enums.UserRole;
 import com.housekeeping.management.enums.UserStatus;
 import com.housekeeping.management.dto.request.PortalForms.StaffCreateForm;
@@ -75,20 +76,21 @@ public class StaffManagementServiceImpl implements StaffManagementService {
     }
 
     @Transactional
-    public void deactivate(Long adminId, Long staffId) {
+    public void deactivate(Long adminId, Long staffId, String reason) {
         authorization.requireActiveAdmin(adminId);
+        String lockReason = AccountLockRules.requireReason(reason);
         Staff staff = staffAccounts.findByStaffIdForUpdate(staffId)
                 .orElseThrow(() -> new IllegalArgumentException("Nhân viên không tồn tại."));
         if (bookingEligibility.hasUnfinishedBookingForStaff(staffId)) {
             throw new IllegalStateException("Không thể ngừng hoạt động khi nhân viên còn lịch hẹn chưa hoàn tất.");
         }
-        staff.getUser().setStatus(UserStatus.INACTIVE);
+        staff.getUser().lock(lockReason, adminId, AccountLockRules.now());
     }
 
     @Transactional
     public void activate(Long adminId, Long staffId) {
         authorization.requireActiveAdmin(adminId);
-        findStaff(staffId).getUser().setStatus(UserStatus.ACTIVE);
+        findStaff(staffId).getUser().unlock(adminId, AccountLockRules.now());
     }
 
     @Transactional

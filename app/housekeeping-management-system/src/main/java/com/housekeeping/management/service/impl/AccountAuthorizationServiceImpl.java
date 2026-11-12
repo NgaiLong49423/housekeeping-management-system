@@ -35,6 +35,16 @@ public class AccountAuthorizationServiceImpl implements AccountAuthorizationServ
         }
     }
 
+    @Override
+    public java.util.Optional<String> lockReasonIfInactive(Long userId) {
+        if (userId == null) return java.util.Optional.of("");
+        var user = users.findById(userId);
+        if (user.isEmpty()) return java.util.Optional.of("");
+        if (user.get().getStatus() == UserStatus.ACTIVE) return java.util.Optional.empty();
+        String reason = user.get().getStatusReason();
+        return java.util.Optional.of(reason == null ? "" : reason);
+    }
+
     public boolean isManager(Long userId) {
         return userId != null && users.findById(userId)
                 .filter(user -> user.getRole() == UserRole.MANAGER && user.getStatus() == UserStatus.ACTIVE)

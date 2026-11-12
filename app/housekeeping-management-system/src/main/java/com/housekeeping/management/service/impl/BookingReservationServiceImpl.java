@@ -10,6 +10,7 @@ import com.housekeeping.management.service.ServiceManagementService;
 import com.housekeeping.management.service.StaffManagementService;
 import com.housekeeping.management.service.CompanySettingsService;
 
+import com.housekeeping.management.dto.SpecificAddressRules;
 import com.housekeeping.management.enums.StaffType;
 import com.housekeeping.management.entity.Services;
 import com.housekeeping.management.entity.House;
@@ -60,11 +61,13 @@ public class BookingReservationServiceImpl implements BookingReservationService 
     @Transactional
     public Long createBooking(Long customerId, Long staffId, Long houseId, LocalDateTime start,
             List<Long> requestedServiceIds, String areaNote) {
-        User customer = auth.findActiveCustomer(customerId);
+        // Khóa dòng Customer trước (thứ tự khóa: Customer, House, Staff) để Admin không thể khóa tài khoản
+        // giữa lúc kiểm tra và lúc ghi Booking; CustomerManagementService khóa cùng dòng này.
+        User customer = auth.findActiveCustomerForUpdate(customerId);
         validateRequestedStart(start, now());
         String normalizedAreaNote = cleanAreaNote(areaNote);
 
-        // Lock order is always House then Staff. The Staff lock serializes overlap checks, including empty ranges.
+        // Lock order is always Customer, then House, then Staff. The Staff lock serializes overlap checks, including empty ranges.
         House house = houseService.findCustomerHouseForUpdate(customerId, houseId);
         Staff staff = staffManagement.findActiveForBookingUpdate(staffId);
         companySettings.lockSettingsForScheduling();
@@ -83,6 +86,9 @@ public class BookingReservationServiceImpl implements BookingReservationService 
             throw new IllegalArgumentException("Toàn bộ lịch phải nằm trong một khoảng sẵn sàng đang hiệu lực của nhân viên.");
         }
         if (house.getLatitude() == null || house.getLongitude() == null) throw new IllegalArgumentException("Địa chỉ này chưa có tọa độ VietMap. Hãy cập nhật địa chỉ bằng kết quả gợi ý.");
+        if (!SpecificAddressRules.isSpecific(house.getAddressDetail())) {
+            throw new IllegalArgumentException("Địa chỉ này chưa có số nhà và tên đường cụ thể. Hãy cập nhật địa chỉ trong mục Nhà của tôi trước khi đặt lịch.");
+        }
         if (!houseService.isWithinServiceRadius(house.getLatitude(), house.getLongitude())) throw new IllegalArgumentException("Địa chỉ nằm ngoài bán kính phục vụ hiện tại của công ty.");
         TravelAssessment travel = assessTravel(staffId,start,end,house.getLatitude(),house.getLongitude(),null);
         if (!travel.feasible()) {
@@ -92,7 +98,7 @@ public class BookingReservationServiceImpl implements BookingReservationService 
         validateRequestedStart(start, now());
 
         Long bookingId = bookings.insertBooking(customer.getUserId(), staff.getStaffId(), house.getHouseId(),
-                house.getAddress(), house.getLatitude(), house.getLongitude(), house.getAddressNote(),
+                house.getFullAddress(), house.getLatitude(), house.getLongitude(), house.getAddressNote(),
                 start, end, totalDurationMinutes, totalAmount, normalizedAreaNote, now());
         bookingDetails.saveAll(selectedServices.stream().map(snapshot -> {
             BookingDetail detail = new BookingDetail();

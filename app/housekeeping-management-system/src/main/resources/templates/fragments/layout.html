@@ -72,6 +72,10 @@
                 <span class="sidebar-icon"><svg th:replace="~{fragments/icons :: users}"></svg></span>
                 <span>Quản lý nhân viên</span>
               </a>
+              <a class="sidebar-nav-item" th:classappend="${active == 'customers'} ? 'active'" th:href="@{/admin/customers}">
+                <span class="sidebar-icon"><svg th:replace="~{fragments/icons :: user}"></svg></span>
+                <span>Quản lý khách hàng</span>
+              </a>
               <a class="sidebar-nav-item" th:classappend="${active == 'services'} ? 'active'" th:href="@{/admin/services}">
                 <span class="sidebar-icon"><svg th:replace="~{fragments/icons :: sparkles}"></svg></span>
                 <span>Danh mục dịch vụ</span>

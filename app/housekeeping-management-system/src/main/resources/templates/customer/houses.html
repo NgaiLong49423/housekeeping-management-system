@@ -57,7 +57,10 @@
                   </p>
                   <p class="mb-2 d-flex align-items-start gap-2">
                     <svg th:replace="~{fragments/icons :: map-pin}"></svg>
-                    <span th:text="${house.address}">Địa chỉ</span>
+                    <span th:text="${house.fullAddress}">Địa chỉ</span>
+                  </p>
+                  <p class="small text-danger mb-2" th:unless="${house.specificAddress}">
+                    Địa chỉ chưa có số nhà và tên đường cụ thể. Hãy bấm Sửa để bổ sung trước khi đặt lịch.
                   </p>
                   <p class="small text-secondary mb-3" th:if="${house.addressNote != null and !house.addressNote.isBlank()}" th:text="${house.addressNote}">Ghi chú</p>
                 </div>
@@ -123,6 +126,16 @@
 
                     <div id="vietmapSuggestions" class="list-group position-absolute w-100 shadow-sm" style="z-index:1050; max-height:280px; overflow-y:auto; display:none; top:calc(100% + 4px); background:#ffffff; border:1.5px solid var(--line-strong); border-radius:var(--radius-md);"></div>
                     <p class="small text-secondary mt-2 mb-0" id="selectedAddress">Chưa chọn kết quả VietMap.</p>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label" for="streetAddress">Số nhà, hẻm/ngõ, tên đường <span class="text-danger">*</span></label>
+                    <input class="form-control" id="streetAddress" th:field="*{streetAddress}" minlength="5" maxlength="200"
+                           autocomplete="address-line1" required aria-describedby="streetAddressHelp"
+                           placeholder="VD: 12/3 hẻm 45 Nguyễn Trãi">
+                    <div id="streetAddressHelp" class="form-text">
+                      Ghi rõ số nhà (hoặc số hẻm, số căn hộ) và tên đường để nhân viên tìm đúng cửa, không ghi chung chung kiểu "Quận 1".
+                    </div>
+                    <div class="text-danger small" th:errors="*{streetAddress}"></div>
                   </div>
                   <div class="col-12">
                     <label class="form-label" for="addressType">Loại địa chỉ</label>

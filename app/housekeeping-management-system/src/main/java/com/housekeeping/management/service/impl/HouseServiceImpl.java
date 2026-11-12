@@ -9,6 +9,7 @@ import com.housekeeping.management.dto.response.LocationSuggestion;
 import com.housekeeping.management.dto.request.PortalForms.HouseForm;
 import com.housekeeping.management.dto.entity.HouseDTO;
 import com.housekeeping.management.enums.HouseAddressType;
+import com.housekeeping.management.dto.SpecificAddressRules;
 import com.housekeeping.management.entity.House;
 import com.housekeeping.management.repository.HouseRepository;
 import java.math.BigDecimal;
@@ -37,6 +38,16 @@ public class HouseServiceImpl implements HouseService {
         return houses.findAllByCustomerIdAndDeletedFalseOrderByDefaultAddressDescHouseNameAsc(customerId);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.Map<Long, Long> activeHouseCountsByCustomer() {
+        java.util.Map<Long, Long> counts = new java.util.HashMap<>();
+        for (Object[] row : houses.countActiveHousesByCustomer()) {
+            counts.put(((Number) row[0]).longValue(), ((Number) row[1]).longValue());
+        }
+        return counts;
+    }
+
     @Transactional(readOnly = true)
     public House findCustomerHouse(Long customerId, Long houseId) {
         return houses.findByHouseIdAndCustomerIdAndDeletedFalse(houseId, customerId)
@@ -57,6 +68,7 @@ public class HouseServiceImpl implements HouseService {
     @Transactional
     public House save(Long customerId, Long houseId, HouseForm form) {
         if (form == null) throw new IllegalArgumentException("Thông tin địa chỉ không hợp lệ.");
+        String streetAddress = SpecificAddressRules.requireSpecific(form.streetAddress());
         House house = houseId == null ? null
                 : houses.findLockedByHouseIdAndCustomerIdAndDeletedFalse(houseId, customerId)
                         .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy nhà thuộc tài khoản của bạn."));
@@ -68,7 +80,11 @@ public class HouseServiceImpl implements HouseService {
         BigDecimal longitude = place == null ? house.getLongitude() : place.longitude();
         String province = place == null ? house.getProvinceCity() : (place.city() == null ? "" : place.city());
         String ward = place == null ? house.getWardCommune() : (place.ward() == null ? "" : place.ward());
-        String detail = place == null ? house.getAddressDetail() : (place.address() == null ? place.display() : place.address());
+        // address_detail giữ số nhà/tên đường do khách tự nhập; address giữ địa chỉ VietMap dùng để định vị.
+        String detail = streetAddress;
+        if (detail.length() + 2 + address.length() > 500) {
+            throw new IllegalArgumentException("Địa chỉ quá dài. Hãy rút gọn phần số nhà, tên đường.");
+        }
         String addressNote = form.addressNote() == null || form.addressNote().isBlank() ? null : form.addressNote().trim();
         HouseDTO dto = new HouseDTO(house == null ? null : house.getHouseId(), customerId,
                 form.addressType().getLabel(), address, latitude, longitude,

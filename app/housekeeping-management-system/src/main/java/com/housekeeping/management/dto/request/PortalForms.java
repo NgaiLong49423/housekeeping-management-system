@@ -128,6 +128,7 @@ public final class PortalForms {
             @NotBlank @Size(max = 500) String reason) { }
     public record HouseForm(@NotBlank @Size(max = 150) String recipientName,
             @NotBlank @Size(min = 7, max = 20) @Pattern(regexp = "[+0-9() .-]+", message = "Số điện thoại không hợp lệ.") String recipientPhone,
+            @NotBlank(message = "Hãy nhập số nhà và tên đường.") @Size(max = 200) String streetAddress,
             @Size(max = 500) String vietmapRefId,
             @NotNull HouseAddressType addressType, boolean defaultAddress,
             @Size(max = 500) String addressNote) { }
