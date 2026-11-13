@@ -30,7 +30,7 @@ public class ServiceManagementServiceImpl implements ServiceManagementService {
         String description = form.description() == null || form.description().isBlank() ? null : form.description().trim();
         ServicesDTO dto = new ServicesDTO(service == null ? null : service.getServiceId(), form.name().trim(),
                 description, form.imageUrl() == null || form.imageUrl().isBlank() ? null : form.imageUrl().trim(),
-                form.duration(), form.price(), status);
+                form.duration(), form.price(), form.additionalStaffPrice(), status);
         services.saveAndFlush(dto.convertDTOToEntity(service));
     }
 

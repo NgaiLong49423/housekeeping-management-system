@@ -39,8 +39,10 @@ class BookingReservationServiceTest {
     private final CompanySettingsService companySettings = mock(CompanySettingsService.class);
     private final com.housekeeping.management.repository.BookingDetailRepository bookingDetails =
             mock(com.housekeeping.management.repository.BookingDetailRepository.class);
+    private final com.housekeeping.management.repository.BookingStaffAssignmentRepository assignments =
+            mock(com.housekeeping.management.repository.BookingStaffAssignmentRepository.class);
     private final BookingReservationService service = new com.housekeeping.management.service.impl.BookingReservationServiceImpl(
-            bookings, houseService, auth, staffManagement, serviceManagement, vietmap, companySettings, bookingDetails);
+            bookings, houseService, auth, staffManagement, serviceManagement, vietmap, companySettings, bookingDetails, assignments);
 
     @Test
     void rejectsDuplicateServiceIdsBeforeReadingServicesOrWritingBooking() {
@@ -92,7 +94,7 @@ class BookingReservationServiceTest {
     }
 
     @Test
-    void acceptsOnlyQuarterHourStartMinutes() {
+    void acceptsOnlyHalfHourStartMinutes() {
         assertThatCode(() -> BookingReservationService.validateRequestedStart(now.plusHours(2).withMinute(0), now)).doesNotThrowAnyException();
         assertThatCode(() -> BookingReservationService.validateRequestedStart(now.plusHours(2).withMinute(30), now)).doesNotThrowAnyException();
         assertThatThrownBy(() -> BookingReservationService.validateRequestedStart(now.plusHours(2).withMinute(15), now))
@@ -258,6 +260,7 @@ class BookingReservationServiceTest {
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("số nhà");
         house.setAddressDetail("12 Nguyễn Trãi");
         when(bookings.adjacentAppointments(7L, start, start.plusMinutes(180), null)).thenReturn(java.util.List.of());
+        when(houseService.serviceCenter()).thenReturn(new HouseService.ServiceCenter(new BigDecimal("10.0"),new BigDecimal("106.0"),new BigDecimal("25")));
         when(bookings.insertBooking(org.mockito.ArgumentMatchers.eq(12L), org.mockito.ArgumentMatchers.eq(7L),
                 org.mockito.ArgumentMatchers.eq(31L), org.mockito.ArgumentMatchers.eq("12 Nguyễn Trãi, 12 Đường Mẫu, Quận 1"),
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.isNull(),
@@ -267,6 +270,53 @@ class BookingReservationServiceTest {
 
         assertThat(service.createBooking(12L, 7L, 31L, start, java.util.List.of(5L), null)).isEqualTo(78L);
         org.mockito.Mockito.verifyNoInteractions(vietmap);
+    }
+
+    @Test
+    void groupBookingAddsPerServicePerAdditionalStaffFeesWithoutChangingDuration() {
+        User customer = new User(); customer.setUserId(12L); customer.setRole(UserRole.CUSTOMER); customer.setStatus(UserStatus.ACTIVE);
+        when(auth.findActiveCustomerForUpdate(12L)).thenReturn(customer);
+        House house = new House(); house.setHouseId(31L); house.setAddress("12 Đường Mẫu"); house.setAddressDetail("12 Nguyễn Trãi");
+        house.setLatitude(new BigDecimal("10.0")); house.setLongitude(new BigDecimal("106.0"));
+        when(houseService.findCustomerHouseForUpdate(12L, 31L)).thenReturn(house);
+        for (Long id : List.of(7L, 8L, 9L)) {
+            Staff member = new Staff(); member.setStaffId(id); member.setStaffType(StaffType.FULL_TIME);
+            when(staffManagement.findActiveForBookingUpdate(id)).thenReturn(member);
+            when(staffManagement.isOnApprovedLeave(id, LocalDate.now(ZoneOffset.ofHours(7)).plusDays(4))).thenReturn(false);
+        }
+        LocalDateTime start = LocalDate.now(ZoneOffset.ofHours(7)).plusDays(4).atTime(10, 0);
+        LocalDateTime end = start.plusMinutes(90);
+        when(companySettings.acceptsInterval(start.toLocalDate(), start.toLocalTime(), end.toLocalTime())).thenReturn(true);
+        when(houseService.isWithinServiceRadius(house.getLatitude(), house.getLongitude())).thenReturn(true);
+        when(bookings.overlappingAppointments(org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.isNull())).thenReturn(List.of());
+        when(bookings.adjacentAppointments(org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.isNull())).thenReturn(List.of());
+        Services first = service(5L, "Dọn phòng", "100000", 60); first.setAdditionalStaffPrice(new BigDecimal("30000"));
+        Services second = service(6L, "Dọn bếp", "50000", 30); second.setAdditionalStaffPrice(new BigDecimal("10000"));
+        when(serviceManagement.findByIds(List.of(5L, 6L))).thenReturn(List.of(first, second));
+        when(bookings.insertBooking(org.mockito.ArgumentMatchers.eq(12L), org.mockito.ArgumentMatchers.eq(8L),
+                org.mockito.ArgumentMatchers.eq(31L), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(start),
+                org.mockito.ArgumentMatchers.eq(end), org.mockito.ArgumentMatchers.eq(90),
+                org.mockito.ArgumentMatchers.argThat(amount -> amount != null && amount.compareTo(new BigDecimal("230000.00")) == 0), org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.any())).thenReturn(78L);
+
+        assertThat(service.createBooking(12L, List.of(9L, 7L, 8L), 8L, 31L, start, List.of(5L, 6L), null)).isEqualTo(78L);
+
+        org.mockito.ArgumentCaptor<List<com.housekeeping.management.entity.BookingStaffAssignment>> assignmentsCaptor =
+                org.mockito.ArgumentCaptor.forClass(List.class);
+        verify(assignments).saveAll(assignmentsCaptor.capture());
+        assertThat(assignmentsCaptor.getValue()).hasSize(3);
+        assertThat(assignmentsCaptor.getValue()).filteredOn(item -> item.getRole() == com.housekeeping.management.enums.BookingStaffRole.LEAD)
+                .extracting(com.housekeeping.management.entity.BookingStaffAssignment::getStaffId).containsExactly(8L);
+        org.mockito.ArgumentCaptor<List<com.housekeeping.management.entity.BookingDetail>> detailsCaptor =
+                org.mockito.ArgumentCaptor.forClass(List.class);
+        verify(bookingDetails).saveAll(detailsCaptor.capture());
+        assertThat(detailsCaptor.getValue()).extracting(com.housekeeping.management.entity.BookingDetail::getAdditionalStaffPriceSnapshot)
+                .containsExactly(new BigDecimal("30000"), new BigDecimal("10000"));
+        assertThat(detailsCaptor.getValue()).extracting(com.housekeeping.management.entity.BookingDetail::getStaffCountSnapshot)
+                .containsExactly(3, 3);
     }
 
     @Test

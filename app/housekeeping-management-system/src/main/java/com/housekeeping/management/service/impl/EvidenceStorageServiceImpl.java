@@ -4,6 +4,8 @@ import com.housekeeping.management.repository.BookingImageRepository;
 import com.housekeeping.management.service.EvidenceStorageService;
 import com.housekeeping.management.service.BookingReservationService;
 import com.housekeeping.management.entity.BookingImage;
+import com.housekeeping.management.repository.BookingStaffAssignmentRepository;
+import com.housekeeping.management.enums.BookingStaffAssignmentStatus;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.file.AtomicMoveNotSupportedException;
@@ -31,16 +33,19 @@ public class EvidenceStorageServiceImpl implements EvidenceStorageService {
 
     private final BookingImageRepository bookingImages;
     private final BookingReservationService bookings;
+    private final BookingStaffAssignmentRepository assignments;
     private final TransactionTemplate transactionTemplate;
     private final Path storageRoot;
 
     public EvidenceStorageServiceImpl(
             BookingImageRepository bookingImages,
             BookingReservationService bookings,
+            BookingStaffAssignmentRepository assignments,
             PlatformTransactionManager transactionManager,
             @Value("${app.evidence.storage-root:./var/evidence}") String storageRoot) {
         this.bookingImages = bookingImages;
         this.bookings = bookings;
+        this.assignments = assignments;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.storageRoot = Path.of(storageRoot).toAbsolutePath().normalize();
     }
@@ -69,7 +74,8 @@ public class EvidenceStorageServiceImpl implements EvidenceStorageService {
                 if (!"CONFIRMED".equals(booking.status())) {
                     throw new IllegalStateException("Chỉ có thể tải ảnh cho lịch đang được xác nhận.");
                 }
-                if (!booking.staffId().equals(staffId)) {
+                if (!assignments.existsByBookingIdAndStaffIdAndStatus(bookingId, staffId,
+                        BookingStaffAssignmentStatus.ASSIGNED)) {
                     throw new IllegalArgumentException("Chỉ nhân viên được phân công mới có thể tải ảnh minh chứng.");
                 }
                 BookingImage evidence = new BookingImage();

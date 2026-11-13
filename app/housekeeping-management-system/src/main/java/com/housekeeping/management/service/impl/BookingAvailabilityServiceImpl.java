@@ -52,14 +52,37 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
 
     public BookingAvailabilityOptions options(LocalDate date,List<Long> serviceIds,Long selectedStaffId,
             LocalTime selectedTime,Long customerId,Long houseId) {
-        int duration = serviceDuration(serviceIds);
+        return optionsForStaffIds(date, serviceIds, selectedStaffId == null ? List.of() : List.of(selectedStaffId),
+                selectedTime, customerId, houseId);
+    }
+
+    @Override
+    public BookingAvailabilityOptions optionsForStaffIds(LocalDate date, List<Long> serviceIds, List<Long> selectedStaffIds,
+            LocalTime selectedTime, Long customerId, Long houseId) {
+        return optionsForStaffIds(date, serviceIds, selectedStaffIds, selectedTime, customerId, houseId, null);
+    }
+
+    @Override
+    public BookingAvailabilityOptions optionsForStaffIds(LocalDate date, List<Long> serviceIds, List<Long> selectedStaffIds,
+            LocalTime selectedTime, Long customerId, Long houseId, Long excludeBookingId) {
+        return optionsForStaffIds(date, serviceIds, selectedStaffIds, selectedTime, customerId, houseId, excludeBookingId, null);
+    }
+
+    @Override
+    public BookingAvailabilityOptions optionsForStaffIds(LocalDate date, List<Long> serviceIds, List<Long> selectedStaffIds,
+            LocalTime selectedTime, Long customerId, Long houseId, Long excludeBookingId, Integer durationOverride) {
+        int duration = durationOverride == null ? serviceDuration(serviceIds) : validateDuration(durationOverride);
         House house=requireBookableHouse(customerId,houseId);
-        return options(date,duration,selectedStaffId,selectedTime,house.getLatitude(),house.getLongitude());
+        return options(date,duration,selectedStaffIds,selectedTime,house.getLatitude(),house.getLongitude(),excludeBookingId);
     }
 
     @Transactional(readOnly = true)
-    private BookingAvailabilityOptions options(LocalDate date,int duration,Long selectedStaffId,
-            LocalTime selectedTime,java.math.BigDecimal latitude,java.math.BigDecimal longitude) {
+    private BookingAvailabilityOptions options(LocalDate date,int duration,List<Long> selectedStaffIds,
+            LocalTime selectedTime,java.math.BigDecimal latitude,java.math.BigDecimal longitude,Long excludeBookingId) {
+        if (selectedStaffIds == null || selectedStaffIds.stream().anyMatch(java.util.Objects::isNull)
+                || selectedStaffIds.stream().distinct().count() != selectedStaffIds.size())
+            throw new IllegalArgumentException("Danh sách nhân viên được chọn không hợp lệ.");
+        Set<Long> selectedIds = Set.copyOf(selectedStaffIds);
         LocalDate today = LocalDate.now(BUSINESS_ZONE);
         if (date == null || date.isBefore(today) || date.isAfter(today.plusDays(30))) {
             throw new IllegalArgumentException("Chỉ tra cứu lịch từ hôm nay đến 30 ngày tới.");
@@ -71,7 +94,8 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
         List<BookingAvailabilityRepository.StaffOption> staff = availability.activeStaff();
         List<Interval> partTimeHours = availability.activeAvailability(date);
         Set<Long> onLeave = new HashSet<>(availability.staffOnApprovedLeave(date));
-        List<Interval> busy = availability.bookedIntervals(date);
+        List<Interval> busy = availability.bookedIntervals(date).stream()
+                .filter(interval -> excludeBookingId == null || !excludeBookingId.equals(interval.bookingId())).toList();
         LocalDateTime earliest = LocalDateTime.now(BUSINESS_ZONE).plusMinutes(120);
         List<LocalTime> slots = generateSlots(date, duration, companyWindows, earliest);
         if (selectedTime != null && (selectedTime.getSecond() != 0 || selectedTime.getNano() != 0 || selectedTime.getMinute() % 30 != 0)) {
@@ -82,7 +106,7 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
         List<String> travelMessages=new ArrayList<>();
         List<TimeOption> timeOptions = slots.stream().map(time -> {
             List<BookingAvailabilityRepository.StaffOption> candidates=staff.stream()
-                    .filter(person -> selectedStaffId == null || person.id().equals(selectedStaffId))
+                    .filter(person -> selectedIds.isEmpty() || selectedIds.contains(person.id()))
                     .filter(person -> selectedTime!=null&&selectedTime.equals(time)
                             ? eligibleForSchedule(person,date,time,duration,companyWindows,partTimeHours,onLeave)
                             : eligible(person,date,time,duration,companyWindows,partTimeHours,onLeave,busy)).toList();
@@ -93,7 +117,7 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
                     continue;
                 }
                 BookingReservationService.TravelAssessment check=reservations.assessTravel(person.id(),date.atTime(time),
-                        date.atTime(time).plusMinutes(duration),latitude,longitude,null);
+                        date.atTime(time).plusMinutes(duration),latitude,longitude,excludeBookingId);
                 selectedTravelChecks.add(check);
                 if(check.feasible()) {
                     feasibleStaff.add(new StaffOption(person.id(),person.name(),person.staffType()));
@@ -103,17 +127,27 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
             }
             return new TimeOption(format(time),feasibleStaff);
         }).filter(option -> !option.staffOptions().isEmpty()).toList();
+        if (!selectedIds.isEmpty()) {
+            timeOptions = timeOptions.stream().filter(option -> option.staffOptions().size() == selectedIds.size()
+                    && option.staffOptions().stream().map(StaffOption::id).collect(Collectors.toSet()).containsAll(selectedIds)).toList();
+        }
+        boolean selectedSlotFeasible = selectedTime != null && timeOptions.stream()
+                .anyMatch(option -> option.startTime().equals(format(selectedTime)));
+        if (selectedSlotFeasible) {
+            timeOptions = timeOptions.stream().filter(option -> option.startTime().equals(format(selectedTime))).toList();
+        }
         List<String> validTimes = timeOptions.stream().map(TimeOption::startTime).toList();
 
         List<StaffOption> validStaff=selectedTime==null?staff.stream()
-                .filter(person->selectedStaffId==null||person.id().equals(selectedStaffId))
+                .filter(person->selectedIds.isEmpty()||selectedIds.contains(person.id()))
                 .map(person->new StaffOption(person.id(),person.name(),person.staffType())).toList()
                 :timeOptions.stream().filter(option->option.startTime().equals(format(selectedTime)))
                         .findFirst().map(TimeOption::staffOptions).orElse(List.of());
-        String message = availabilityMessage(date,selectedStaffId,selectedTime,staff,companyWindows,partTimeHours,
+        if (!selectedIds.isEmpty() && validStaff.size() != selectedIds.size()) validStaff = List.of();
+        String message = availabilityMessage(date,selectedIds,selectedTime,staff,companyWindows,partTimeHours,
                 onLeave,timeOptions,validStaff);
         LocalDateTime earliestStart=null,latestStart=null;
-        if(selectedTime!=null&&selectedStaffId!=null&&!selectedTravelChecks.isEmpty()) {
+        if(selectedTime!=null&&!selectedIds.isEmpty()&&!selectedTravelChecks.isEmpty()) {
             var check=selectedTravelChecks.getFirst();earliestStart=check.earliestStart();latestStart=check.latestStart();
             if(!check.feasible())message=check.message();
         } else if(selectedTime!=null&&validStaff.isEmpty()) {
@@ -137,13 +171,34 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
     }
 
     public BookingAvailabilityDates availableDates(List<Long> serviceIds, Long selectedStaffId, Long customerId, Long houseId) {
+        return availableDatesForStaffIds(serviceIds, selectedStaffId == null ? List.of() : List.of(selectedStaffId), customerId, houseId);
+    }
+
+    @Override
+    public BookingAvailabilityDates availableDatesForStaffIds(List<Long> serviceIds, List<Long> selectedStaffIds, Long customerId, Long houseId) {
+        return availableDatesForStaffIds(serviceIds, selectedStaffIds, customerId, houseId, null);
+    }
+
+    @Override
+    public BookingAvailabilityDates availableDatesForStaffIds(List<Long> serviceIds, List<Long> selectedStaffIds,
+            Long customerId, Long houseId, Long excludeBookingId) {
+        return availableDatesForStaffIds(serviceIds, selectedStaffIds, customerId, houseId, excludeBookingId, null);
+    }
+
+    @Override
+    public BookingAvailabilityDates availableDatesForStaffIds(List<Long> serviceIds, List<Long> selectedStaffIds,
+            Long customerId, Long houseId, Long excludeBookingId, Integer durationOverride) {
         LocalDate today=LocalDate.now(BUSINESS_ZONE);
         LocalDate through=today.plusDays(30);
-        int duration=serviceDuration(serviceIds);
+        int duration=durationOverride == null ? serviceDuration(serviceIds) : validateDuration(durationOverride);
         House selectedHouse = requireBookableHouse(customerId, houseId);
         java.math.BigDecimal latitude = selectedHouse.getLatitude(), longitude = selectedHouse.getLongitude();
+        if (selectedStaffIds == null || selectedStaffIds.stream().anyMatch(java.util.Objects::isNull)
+                || selectedStaffIds.stream().distinct().count() != selectedStaffIds.size())
+            throw new IllegalArgumentException("Danh sách nhân viên được chọn không hợp lệ.");
+        Set<Long> selectedIds = Set.copyOf(selectedStaffIds);
         List<BookingAvailabilityRepository.StaffOption> staff=availability.activeStaff();
-        if(selectedStaffId!=null&&staff.stream().noneMatch(person->person.id().equals(selectedStaffId))) {
+        if(!selectedIds.isEmpty()&&selectedIds.stream().anyMatch(id->staff.stream().noneMatch(person->person.id().equals(id)))) {
             return new BookingAvailabilityDates(List.of(),"Nhân viên đã chọn không còn hoạt động.");
         }
         Map<LocalDate,List<Interval>> partTimeHours=availability.activeAvailability(today,through).stream()
@@ -151,6 +206,7 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
                         Collectors.mapping(item->new Interval(item.staffId(),item.start(),item.end()),Collectors.toList())));
         List<BookingAvailabilityRepository.LeaveRange> leaveRanges=availability.approvedLeaves(today,through);
         Map<LocalDate,List<Interval>> busy=availability.bookedIntervals(today,through).stream()
+                .filter(item -> excludeBookingId == null || !excludeBookingId.equals(item.bookingId()))
                 .collect(Collectors.groupingBy(BookingAvailabilityRepository.DatedInterval::date,
                         Collectors.mapping(item->new Interval(item.staffId(),item.start(),item.end()),Collectors.toList())));
         List<CompanySettingsService.ScheduleWindow> companyVersions=companySettings.scheduleWindows();
@@ -174,29 +230,46 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
             List<Interval> busyThatDay=busy.getOrDefault(date,List.of());
             boolean found=false;
             for(LocalTime time:generateSlots(date,duration,companyWindows,earliest)) {
-                for(BookingAvailabilityRepository.StaffOption person:staff) {
-                    if(selectedStaffId!=null&&!person.id().equals(selectedStaffId))continue;
+                List<BookingAvailabilityRepository.StaffOption> candidates = selectedIds.isEmpty() ? staff
+                        : staff.stream().filter(person -> selectedIds.contains(person.id())).toList();
+                List<BookingAvailabilityRepository.StaffOption> feasibleTeam = new ArrayList<>();
+                for(BookingAvailabilityRepository.StaffOption person:candidates) {
                     if(!eligible(person,candidateDate,time,duration,companyWindows,staffHours,onLeave,busyThatDay))continue;
                     BookingReservationService.TravelAssessment assessment=reservations.assessTravel(person.id(),
-                            candidateDate.atTime(time),candidateDate.atTime(time).plusMinutes(duration),latitude,longitude,null);
+                            candidateDate.atTime(time),candidateDate.atTime(time).plusMinutes(duration),latitude,longitude,excludeBookingId);
                     if(assessment.status()==TravelStatus.ROUTE_UNAVAILABLE) {
                         routeUnavailable=true;
                         break availabilityScan;
                     }
-                    if(assessment.feasible()) {
-                        found=true;
-                        break;
-                    }
+                    if(assessment.feasible()) feasibleTeam.add(person);
                 }
+                found = selectedIds.isEmpty() ? !feasibleTeam.isEmpty() : feasibleTeam.size() == selectedIds.size();
                 if(found)break;
             }
             if(found)result.add(date);
         }
-        String message=routeUnavailable
-                ?(result.isEmpty()?"Chưa thể xác minh tuyến di chuyển với VietMap. Hãy thử tải lịch lại sau."
-                        :"Một số ngày chưa thể xác minh tuyến với VietMap; các ngày đang hiển thị đã được kiểm tra.")
-                :result.isEmpty()?"Không có ngày nào trong 30 ngày tới còn giờ và nhân viên phù hợp."
-                        :"Chỉ hiển thị ngày có nhân viên nhận được dịch vụ và còn giờ đặt trước hợp lệ.";
+        String message;
+        if (routeUnavailable) {
+            message = result.isEmpty() ? "Chưa thể xác minh tuyến di chuyển với VietMap. Hãy thử tải lịch lại sau."
+                    : "Một số ngày chưa thể xác minh tuyến với VietMap; các ngày đang hiển thị đã được kiểm tra.";
+        } else if (!result.isEmpty()) {
+            message = selectedIds.isEmpty()
+                    ? "Các ngày dưới đây có ít nhất một nhân viên phù hợp. Chọn ngày để xem từng giờ và nhóm nhân viên cùng rảnh."
+                    : "Chỉ hiển thị ngày và giờ mà toàn bộ nhóm đã chọn cùng khả dụng.";
+        } else if (!selectedIds.isEmpty()) {
+            List<String> partTimeWithoutAvailability = staff.stream()
+                    .filter(person -> selectedIds.contains(person.id()))
+                    .filter(person -> "PART_TIME".equals(person.staffType()))
+                    .filter(person -> partTimeHours.values().stream().flatMap(List::stream)
+                            .noneMatch(interval -> person.id().equals(interval.staffId())))
+                    .map(BookingAvailabilityRepository.StaffOption::name).toList();
+            message = partTimeWithoutAvailability.isEmpty()
+                    ? "Nhóm này chưa có ngày giờ chung trong 30 ngày tới. Hãy thử đổi thành viên hoặc dịch vụ; giờ gợi ý chỉ hiện khi tất cả người trong nhóm cùng rảnh đủ thời lượng."
+                    : "Chưa có giờ chung vì nhân viên bán thời gian " + String.join(", ", partTimeWithoutAvailability)
+                            + " chưa đăng ký ca trong 30 ngày tới. Hãy cập nhật lịch làm việc hoặc bỏ nhân viên này khỏi nhóm.";
+        } else {
+            message = "Không có ngày nào trong 30 ngày tới còn giờ và nhân viên phù hợp.";
+        }
         return new BookingAvailabilityDates(result,message);
     }
 
@@ -214,18 +287,23 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
         return house;
     }
 
-    private String availabilityMessage(LocalDate date,Long selectedStaffId,LocalTime selectedTime,
+    private String availabilityMessage(LocalDate date,Set<Long> selectedStaffIds,LocalTime selectedTime,
             List<BookingAvailabilityRepository.StaffOption> staff,List<Interval> companyWindows,
             List<Interval> partTimeHours,Set<Long> onLeave,List<TimeOption> timeOptions,List<StaffOption> validStaff) {
         if (companyWindows.isEmpty()) return "Admin đang cấu hình nghỉ vào ngày này.";
-        if (selectedTime != null && validStaff.isEmpty()) return "Không có nhân viên đủ điều kiện nhận dịch vụ vào giờ này; có thể họ chưa đăng ký, đã nghỉ hoặc đang có booking.";
-        if (selectedTime != null) return "Có " + validStaff.size() + " nhân viên phù hợp với giờ " + format(selectedTime) + ".";
-        if (selectedStaffId != null) {
-            BookingAvailabilityRepository.StaffOption person = staff.stream().filter(item -> item.id().equals(selectedStaffId)).findFirst().orElse(null);
-            if (person == null) return "Nhân viên này không còn hoạt động hoặc không tồn tại.";
-            if (onLeave.contains(selectedStaffId)) return "Nhân viên đã được duyệt nghỉ vào ngày này.";
-            if ("PART_TIME".equals(person.staffType()) && partTimeHours.stream().noneMatch(period -> selectedStaffId.equals(period.staffId()))) {
-                return "Nhân viên chưa đăng ký giờ làm vào ngày này.";
+        if (selectedTime != null && validStaff.isEmpty()) return selectedStaffIds.isEmpty()
+                ? "Không có nhân viên đủ điều kiện nhận dịch vụ vào giờ này; có thể họ chưa đăng ký, đã nghỉ hoặc đang có booking."
+                : "Không phải toàn bộ nhóm đã chọn cùng rảnh vào giờ này. Hãy chọn giờ khác hoặc đổi thành viên.";
+        if (selectedTime != null) return selectedStaffIds.isEmpty()
+                ? "Có " + validStaff.size() + " nhân viên phù hợp với giờ " + format(selectedTime) + "."
+                : "Cả nhóm " + validStaff.size() + " người cùng có thể làm vào giờ " + format(selectedTime) + ".";
+        if (!selectedStaffIds.isEmpty()) {
+            if (selectedStaffIds.stream().anyMatch(id -> staff.stream().noneMatch(item -> item.id().equals(id))))
+                return "Một nhân viên đã chọn không còn hoạt động hoặc không tồn tại.";
+            if (selectedStaffIds.stream().anyMatch(onLeave::contains)) return "Có nhân viên trong nhóm đã được duyệt nghỉ vào ngày này.";
+            if (selectedStaffIds.stream().anyMatch(id -> staff.stream().filter(item -> item.id().equals(id)).anyMatch(person ->
+                    "PART_TIME".equals(person.staffType()) && partTimeHours.stream().noneMatch(period -> id.equals(period.staffId()))))) {
+                return "Có nhân viên trong nhóm chưa đăng ký giờ làm vào ngày này.";
             }
             if (timeOptions.isEmpty()) return "Nhân viên có lịch trong ngày nhưng không còn giờ phù hợp với thời lượng dịch vụ, thời gian báo trước hoặc booking khác.";
         }
@@ -251,6 +329,13 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
             Services service = byId.get(id);
             if (service == null) throw new IllegalArgumentException("Một dịch vụ đã ngừng hoạt động hoặc không tồn tại.");
             duration = Math.addExact(duration,service.getDurationMinutes());
+        }
+        return duration;
+    }
+
+    private static int validateDuration(Integer duration) {
+        if (duration == null || duration <= 0 || duration > 1440) {
+            throw new IllegalArgumentException("Thời lượng dịch vụ không hợp lệ.");
         }
         return duration;
     }

@@ -73,6 +73,24 @@ class BookingAvailabilityServiceTest {
     }
 
     @Test
+    void teamAvailabilityKeepsOnlyTimesWhenEverySelectedStaffMemberIsFree() {
+        var result = service.optionsForStaffIds(date, List.of(1L), List.of(10L, 11L), null, 99L, 100L);
+
+        assertThat(result.startTimes()).containsExactly("09:00", "09:30", "10:00");
+        assertThat(result.timeOptions().getFirst().staffOptions()).extracting(BookingAvailabilityOptions.StaffOption::id)
+                .containsExactly(10L, 11L);
+    }
+
+    @Test
+    void teamAvailabilityHidesSlotsWhenOneSelectedMemberIsBusy() {
+        when(availability.bookedIntervals(date)).thenReturn(List.of(new Interval(11L, LocalTime.of(9, 0), LocalTime.of(11, 0))));
+
+        var result = service.optionsForStaffIds(date, List.of(1L), List.of(10L, 11L), null, 99L, 100L);
+
+        assertThat(result.startTimes()).isEmpty();
+    }
+
+    @Test
     void explainsWhenSelectedPartTimeStaffHasNotRegisteredThatDate() {
         when(availability.activeAvailability(date)).thenReturn(List.of());
 
@@ -129,11 +147,11 @@ class BookingAvailabilityServiceTest {
         when(availability.bookedIntervals(date)).thenReturn(List.of(new Interval(11L,LocalTime.of(11,30),LocalTime.NOON)));
         var result = service.options(date,List.of(1L),11L,LocalTime.of(9,0),99L,100L);
         assertThat(result.staffOptions()).extracting(person -> person.id()).containsExactly(11L);
-        assertThat(result.startTimes()).contains("09:00","09:30","10:00");
+        assertThat(result.startTimes()).containsExactly("09:00");
     }
 
     @Test
-    void selectedTravelTimeHidesEarlierQuarterSlotsAndExplainsExactEarliestArrival() {
+    void selectedTravelTimeHidesEarlierHalfHourSlotsAndExplainsExactEarliestArrival() {
         LocalTime selected=LocalTime.of(9,0);
         LocalDateTime earliest=date.atTime(10,35);
         when(availability.activeAvailability(date)).thenReturn(List.of(new Interval(11L,LocalTime.of(9,0),LocalTime.of(12,0))));

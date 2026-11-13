@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+  <head th:replace="~{fragments/layout :: head('Đặt lịch dịch vụ')}"><title>Đặt lịch dịch vụ · Gọn Nhà</title></head>
+  <body>
+    <header th:replace="~{fragments/layout :: header('booking')}"></header>
+    <main id="main" class="container py-4 py-md-5">
+      <div class="mb-3"><a href="/customer/bookings" class="btn btn-outline-secondary btn-sm">← Lịch của tôi</a></div>
+      <div class="page-heading text-center mb-4">
+        <span class="eyebrow justify-content-center">Dọn nhà theo nhu cầu của bạn</span>
+        <h1 th:text="${rescheduleInfo != null ? 'Dời lịch booking #' + rescheduleInfo.bookingId : 'Đặt dịch vụ và chọn nhóm nhân viên'}">Đặt dịch vụ và chọn nhóm nhân viên</h1>
+        <p class="lead" th:if="${rescheduleInfo == null}">Thời lượng không đổi khi thêm người. Phụ phí được tính theo từng nhân viên thêm.</p>
+        <p class="lead" th:if="${rescheduleInfo != null}">Đổi giờ hoặc nhóm trên booking hiện tại. Dịch vụ, địa chỉ và ghi chú được giữ nguyên; giá sẽ tính theo số người cuối cùng.</p>
+      </div>
+      <div th:replace="~{fragments/layout :: alerts}"></div>
+
+      <form method="post" th:action="${rescheduleInfo != null} ? @{/customer/bookings/{id}/reschedule(id=${rescheduleInfo.bookingId})} : @{/customer/bookings/multiple}"
+            data-team-booking-form
+            th:attr="data-reschedule-booking-id=${rescheduleInfo != null ? rescheduleInfo.bookingId : null},data-reschedule-date=${rescheduleInfo != null ? #temporals.format(rescheduleInfo.startAt, 'yyyy-MM-dd') : null},data-reschedule-time=${rescheduleInfo != null ? #temporals.format(rescheduleInfo.startAt, 'HH:mm') : null},data-reschedule-lead-id=${rescheduleInfo != null ? rescheduleInfo.leadStaffId : null},data-exclude-booking-id=${rescheduleInfo != null ? rescheduleInfo.bookingId : null},data-reschedule-duration=${rescheduleInfo != null ? rescheduleInfo.durationMinutes : null}">
+        <select data-team-staff-source hidden aria-hidden="true">
+          <option th:each="person : ${staff}" th:value="${person.id}" th:data-favorite="${person.favorite}"></option>
+        </select>
+        <div class="row g-4 align-items-start">
+          <div class="col-lg-8 vstack gap-4">
+            <section class="surface p-4">
+              <div class="step-heading"><span>01</span><div><h2 class="h5 mb-1">Chọn dịch vụ</h2><p class="small text-secondary mb-0">Giá cơ bản đã gồm một nhân viên. Phạm vi và giới hạn của dịch vụ được mô tả bên dưới.</p></div></div>
+              <div class="row g-3 mt-2" data-team-services th:if="${rescheduleInfo == null}">
+                <div class="col-md-6" th:each="service : ${services}">
+                  <label class="selection-card team-service-card h-100 align-items-start">
+                    <input class="form-check-input mt-1" type="checkbox" name="serviceIds" th:value="${service.id}"
+                           th:data-price="${service.price}" th:data-extra-price="${service.additionalStaffPrice}"
+                           th:data-duration="${service.duration}" th:data-name="${service.name}"
+                           th:checked="${rescheduleInfo != null and #lists.contains(rescheduleInfo.serviceIds, service.id)}"
+                           th:disabled="${rescheduleInfo != null}">
+                    <span class="flex-grow-1">
+                      <strong class="d-block" th:text="${service.name}">Dịch vụ</strong>
+                      <small class="team-service-description" th:text="${service.description}" th:title="${service.description}">Mô tả phạm vi công việc</small>
+                      <span class="team-service-meta">
+                        <small th:text="${service.duration} + ' phút'">Thời lượng</small>
+                        <small>Giá gồm 1 người</small>
+                      </span>
+                      <span class="team-service-pricing">
+                        <b class="price" th:text="${#numbers.formatDecimal(service.price,0,'POINT',0,'COMMA')} + ' ₫'">Giá</b>
+                        <small class="team-service-additional-fee" th:text="'+' + ${#numbers.formatDecimal(service.additionalStaffPrice,0,'POINT',0,'COMMA')} + ' ₫ / người thêm'">Phụ phí</small>
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+              <div class="row g-3 mt-2" data-team-services th:if="${rescheduleInfo != null}">
+                <div class="col-md-6" th:each="service : ${rescheduleInfo.services}">
+                  <label class="selection-card team-service-card h-100 align-items-start">
+                    <input class="form-check-input mt-1" type="checkbox" name="serviceIds" th:value="${service.id}"
+                           th:data-price="${service.price}" th:data-extra-price="${service.additionalStaffPrice}"
+                           th:data-duration="${service.duration}" th:data-name="${service.name}" checked disabled>
+                    <span class="flex-grow-1">
+                      <strong class="d-block" th:text="${service.name}">Dịch vụ</strong>
+                      <span class="team-service-meta">
+                        <small th:text="${service.duration} + ' phút'">Thời lượng</small>
+                        <small>Giá gồm 1 người</small>
+                      </span>
+                      <span class="team-service-pricing">
+                        <b class="price" th:text="${#numbers.formatDecimal(service.price,0,'POINT',0,'COMMA')} + ' ₫'">Giá</b>
+                        <small class="team-service-additional-fee" th:text="'+' + ${#numbers.formatDecimal(service.additionalStaffPrice,0,'POINT',0,'COMMA')} + ' ₫ / người thêm'">Phụ phí</small>
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+              <p class="text-secondary mb-0" th:if="${#lists.isEmpty(services)}">Hiện chưa có dịch vụ khả dụng.</p>
+            </section>
+
+            <section class="surface p-4">
+              <div class="step-heading"><span>02</span><div><h2 class="h5 mb-1">Chọn địa chỉ</h2><p class="small text-secondary mb-0">Địa chỉ phải nằm trong khu vực phục vụ và có số nhà, tên đường cụ thể.</p></div></div>
+              <label class="form-label mt-3" for="teamHouseId">Nhà cần dọn</label>
+              <select class="form-select" id="teamHouseId" name="houseId" required th:disabled="${rescheduleInfo != null}">
+                <option value="">Chọn địa chỉ nhà</option>
+                <option th:each="house : ${houses}" th:value="${house.houseId}" th:selected="${house.houseId == bookingForm.houseId}"
+                        th:text="${ui.label(house.recipientName)} + ' · ' + ${house.addressType.label} + ' · ' + ${house.fullAddress}">Địa chỉ</option>
+              </select>
+              <label class="form-label mt-3" for="teamAreaNote">Ghi chú khu vực cần ưu tiên (không bắt buộc)</label>
+              <textarea class="form-control" id="teamAreaNote" name="areaNote" rows="2" maxlength="2000" th:text="${bookingForm.areaNote}"></textarea>
+            </section>
+
+            <section class="surface p-4">
+              <div class="step-heading"><span>03</span><div><h2 class="h5 mb-1">Chọn ngày, giờ và nhóm nhân viên</h2><p class="small text-secondary mb-0">Mỗi khung giờ hiển thị những nhân viên cùng rảnh. Chọn giờ trước, rồi chọn một hoặc nhiều người trong nhóm giờ đó và chọn trưởng nhóm.</p></div></div>
+              <div class="row g-2 align-items-end mt-2">
+                <div class="col-sm-7"><label class="form-label" for="teamWorkDate">Ngày làm</label><input class="form-control" id="teamWorkDate" type="date" th:min="${businessToday}" th:max="${lastBookableDate}" required></div>
+                <div class="col-sm-5"><button class="btn btn-outline-primary w-100" type="button" data-add-team-date th:text="${rescheduleInfo != null ? 'Chọn ngày dời' : 'Thêm ngày'}">Thêm ngày</button></div>
+              </div>
+              <p class="small text-secondary mt-2 mb-0" data-team-calendar-status>Chọn dịch vụ và địa chỉ trước khi tra giờ.</p>
+              <div class="team-available-dates mt-2" data-team-available-dates aria-label="Ngày có lịch phù hợp"></div>
+              <div class="vstack gap-3 mt-3" data-team-days aria-live="polite"><p class="small text-secondary mb-0">Chưa thêm ngày nào.</p></div>
+            </section>
+          </div>
+
+          <aside class="col-lg-4">
+            <div class="surface p-4 booking-summary position-sticky" style="top: 1rem">
+              <span class="eyebrow mb-2">Tóm tắt</span><h2 class="h5 mb-3">Giá dự kiến</h2>
+              <ul class="list-unstyled mb-3" data-team-price-lines><li class="small text-secondary">Chưa chọn dịch vụ</li></ul>
+              <div class="summary-line"><span class="text-secondary">Thời lượng mỗi booking</span><strong data-team-duration>0 phút</strong></div>
+              <div class="summary-line total"><span th:text="${rescheduleInfo != null ? 'Giá booking sau khi dời' : 'Tổng các ngày đã chọn'}">Tổng các ngày đã chọn</span><strong data-team-total>0 ₫</strong></div>
+              <p class="small text-secondary mt-2">Mỗi ngày tính riêng: tổng giá dịch vụ + (số nhân viên − 1) × tổng phụ phí thêm người. Số người không làm thay đổi thời lượng.</p>
+              <p class="small text-danger fw-semibold" data-team-error role="status"></p>
+              <button class="btn btn-primary btn-lg w-100" type="submit" data-team-submit disabled th:text="${rescheduleInfo != null ? 'Lưu thay đổi booking' : 'Xác nhận đặt lịch'}">Xác nhận đặt lịch</button>
+              <a href="/customer/bookings" class="btn btn-outline-secondary w-100 mt-2">Quay lại</a>
+            </div>
+          </aside>
+        </div>
+      </form>
+    </main>
+    <footer th:replace="~{fragments/layout :: footer}"></footer>
+    <script th:inline="javascript" th:if="${bookingRetryState != null}">window.bookingRetryState = /*[[${bookingRetryState}]]*/ null;</script>
+    <script th:inline="javascript" th:if="${rescheduleInfo != null}">window.bookingRescheduleStaffIds = /*[[${rescheduleInfo.staffIds}]]*/ [];</script>
+    <script defer th:src="@{/js/booking-team.js(v=1.6)}"></script>
+  </body>
+</html>

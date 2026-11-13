@@ -43,6 +43,7 @@
                     th:attr="data-price-val=${service.price}"
                     th:text="${#numbers.formatDecimal(service.price, 0, 'POINT', 0, 'COMMA')} + ' ₫'">0 ₫</strong>
           </div>
+          <p class="small text-secondary mb-0 mt-2" th:text="'Mỗi nhân viên thêm: ' + ${#numbers.formatDecimal(service.additionalStaffPrice, 0, 'POINT', 0, 'COMMA')} + ' ₫'">Mỗi nhân viên thêm: 0 ₫</p>
           <!-- Nút chọn dịch vụ kiểu iOS: full-width, nền xanh nhạt, mũi tên trượt 3px khi hover -->
           <a class="btn btn-service-cta mt-3 w-100" th:href="@{/customer/bookings/new(serviceId=${service.id})}">
             <span>Chọn dịch vụ</span>

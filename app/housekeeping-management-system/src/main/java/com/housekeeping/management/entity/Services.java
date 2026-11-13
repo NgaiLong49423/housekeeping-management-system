@@ -44,6 +44,9 @@ public class Services {
     @Column(name = "price", precision = 12, scale = 2, nullable = false)
     private BigDecimal price;
 
+    @Column(name = "additional_staff_price", precision = 12, scale = 2, nullable = false)
+    private BigDecimal additionalStaffPrice = BigDecimal.ZERO;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20, nullable = false, columnDefinition = "varchar(20)")
     private ServiceStatus status = ServiceStatus.ACTIVE;

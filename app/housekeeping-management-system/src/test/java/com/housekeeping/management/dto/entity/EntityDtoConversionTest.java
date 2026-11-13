@@ -33,8 +33,32 @@ class EntityDtoConversionTest {
 
     @Test
     void bookingDetailConvertsBothWays() {
-        BookingDetailDTO dto = new BookingDetailDTO(1L, 2L, 3L, "service", bd("100"), 60);
+        BookingDetailDTO dto = new BookingDetailDTO(1L, 2L, 3L, "service", bd("100"), bd("25000"), 3, 60);
         assertThat(BookingDetailDTO.convertEntityToDTO(dto.convertDTOToEntity())).isEqualTo(dto);
+    }
+
+    @Test
+    void bookingStaffAssignmentConvertsBothWays() {
+        BookingStaffAssignment entity = new BookingStaffAssignment();
+        entity.setBookingStaffId(11L); entity.setBookingId(12L); entity.setStaffId(13L);
+        entity.setRole(com.housekeeping.management.enums.BookingStaffRole.MEMBER);
+        entity.setStatus(com.housekeeping.management.enums.BookingStaffAssignmentStatus.ASSIGNED);
+        entity.setAssignedAt(DATE_TIME); entity.setArrivedAt(DATE_TIME.plusMinutes(3));
+        BookingStaffAssignmentDTO dto = BookingStaffAssignmentDTO.convertEntityToDTO(entity);
+
+        assertThat(BookingStaffAssignmentDTO.convertEntityToDTO(dto.convertDTOToEntity())).isEqualTo(dto);
+    }
+
+    @Test
+    void bookingTeamChangeRequestConvertsBothWays() {
+        BookingTeamChangeRequest entity = new BookingTeamChangeRequest();
+        entity.setRequestId(21L); entity.setBookingId(22L); entity.setRequestedBy(23L);
+        entity.setAffectedStaffId(24L); entity.setProposedStaffCount(2); entity.setReason("Không tìm được người thay thế");
+        entity.setRequestStatus("RESOLVED"); entity.setResolution("RESCHEDULED");
+        entity.setCreatedAt(DATE_TIME); entity.setResolvedAt(DATE_TIME.plusMinutes(10)); entity.setResolvedBy(25L);
+        BookingTeamChangeRequestDTO dto = BookingTeamChangeRequestDTO.convertEntityToDTO(entity);
+
+        assertThat(BookingTeamChangeRequestDTO.convertEntityToDTO(dto.convertDTOToEntity())).isEqualTo(dto);
     }
 
     @Test
@@ -177,6 +201,8 @@ class EntityDtoConversionTest {
     void entityToDtoConvertersReturnNullForNullEntity() {
         assertThat(BookingDTO.convertEntityToDTO(null)).isNull();
         assertThat(BookingDetailDTO.convertEntityToDTO(null)).isNull();
+        assertThat(BookingStaffAssignmentDTO.convertEntityToDTO(null)).isNull();
+        assertThat(BookingTeamChangeRequestDTO.convertEntityToDTO(null)).isNull();
         assertThat(BookingImageDTO.convertEntityToDTO(null)).isNull();
         assertThat(CompanyOperatingHourDTO.convertEntityToDTO(null)).isNull();
         assertThat(CompanySettingsDTO.convertEntityToDTO(null)).isNull();

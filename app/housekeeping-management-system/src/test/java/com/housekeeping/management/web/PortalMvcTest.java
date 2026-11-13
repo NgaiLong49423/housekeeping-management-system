@@ -76,6 +76,7 @@ class PortalMvcTest {
     @MockitoBean AuthService identity;
     @MockitoBean BookingReservationService reservations;
     @MockitoBean BookingAvailabilityService bookingAvailability;
+    @MockitoBean BookingTeamChangeService teamChanges;
     @MockitoBean BookingArrivalService arrival;
     @MockitoBean BookingIncidentService incidents;
     @MockitoBean CustomerDelayReportService customerDelayReports;
@@ -126,6 +127,7 @@ class PortalMvcTest {
             new ServiceCard(11L, "Tổng vệ sinh nhà cửa", "Làm sạch kỹ lưỡng để tổ ấm thêm trong lành.", 180, new BigDecimal("350000"), true),
             new ServiceCard(12L, "Vệ sinh sofa", "Chăm sóc khu vực sinh hoạt của gia đình.", 60, new BigDecimal("200000"), true)));
         when(query.staff(any())).thenReturn(List.of(new StaffCard(2L, "Nhân viên kiểm thử", "", true, "PART_TIME", true, null, "Tận tâm"), new StaffCard(4L, "Nhân viên thứ hai", "", false, "FULL_TIME", true, null, null)));
+        when(query.bookingTeam(anyLong(), any())).thenReturn(List.of());
         when(query.staff(isNull())).thenReturn(List.of(new StaffCard(2L, "Nhân viên kiểm thử", "", false, "PART_TIME", true, null, null)));
         when(query.isPartTime(22L)).thenReturn(true);
         when(query.schedules(any())).thenReturn(List.of(new ScheduleCard(20L, 2L, "Nhân viên kiểm thử", start, start.plusHours(8))));
@@ -237,7 +239,7 @@ class PortalMvcTest {
     void rendersAllPublicAndRolePagesWithRealThymeleaf() throws Exception {
         render("/", null, "home"); render("/services", null, "services"); render("/login", null, "login");
         render("/customer/bookings", customer, "customer-bookings");
-        render("/customer/bookings/new", customer, "booking-new");
+        render("/customer/bookings/new", customer, "booking-new-team");
         render("/customer/staff", customer, "customer-staff");
         render("/customer/houses", customer, "customer/houses");
         render("/customer/schedules", customer, "customer-schedules");
@@ -258,10 +260,36 @@ class PortalMvcTest {
     void bookingPageStartsWithAvailabilityControlsLockedUntilFilteredOptionsLoad() throws Exception {
         mvc.perform(get("/customer/bookings/new").with(user(customer)))
                 .andExpect(status().isOk())
-                .andExpect(view().name("booking-new"))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("data-booking-submit disabled")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("data-booking-days")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("data-selected-booking-dates")));
+                .andExpect(view().name("booking-new-team"))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("data-team-submit disabled")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("data-team-days")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("data-team-available-dates")));
+    }
+
+    @Test
+    void newAndRescheduledTeamBookingsExposeFavoriteFlagsForAvailableStaffLabels() throws Exception {
+        String newBookingHtml = mvc.perform(get("/customer/bookings/new").with(user(customer)))
+                .andExpect(status().isOk()).andReturn().getResponse()
+                .getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        assertFavoriteStaffSource(newBookingHtml);
+
+        when(teamChanges.rescheduleInfo(eq(42L), eq(customer.getUserId()))).thenReturn(
+                new BookingTeamChangeService.RescheduleInfo(42L, 30L,
+                        List.of(new BookingTeamChangeService.RescheduleServiceLine(10L, "Dọn dẹp nhà theo giờ",
+                                new BigDecimal("140000"), BigDecimal.ZERO, 120)),
+                        List.of(2L), 2L, start.toLocalDateTime(), "Entryway", new BigDecimal("140000")));
+        String rescheduleHtml = mvc.perform(get("/customer/bookings/42/reschedule").with(user(customer)))
+                .andExpect(status().isOk()).andExpect(view().name("booking-new-team"))
+                .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        assertFavoriteStaffSource(rescheduleHtml);
+    }
+
+    private void assertFavoriteStaffSource(String html) {
+        assertThat(html).contains("data-team-staff-source");
+        assertThat(java.util.regex.Pattern.compile("<option(?=[^>]*value=\"2\")(?=[^>]*data-favorite=\"true\")[^>]*>")
+                .matcher(html).find()).isTrue();
+        assertThat(java.util.regex.Pattern.compile("<option(?=[^>]*value=\"4\")(?=[^>]*data-favorite=\"false\")[^>]*>")
+                .matcher(html).find()).isTrue();
     }
 
     @Test
@@ -282,6 +310,7 @@ class PortalMvcTest {
         String html = mvc.perform(get("/admin/settings").with(user(admin))).andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
         assertThat(html).contains("id=\"companyAddressSearch\"", "id=\"companyVietmapRefId\"", "/admin/settings/location/autocomplete")
+                .contains("Bán kính tham khảo")
                 .doesNotContain("id=\"latitude\"", "id=\"longitude\"");
     }
 
@@ -340,21 +369,21 @@ class PortalMvcTest {
     }
 
     @Test
-    void customerAvailabilityLookupReturnsFilteredStaffAndQuarterHourTimes() throws Exception {
+    void customerAvailabilityLookupReturnsFilteredStaffAndHalfHourTimes() throws Exception {
         var workDate = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).plusDays(2);
-        when(bookingAvailability.options(workDate,List.of(10L),2L,java.time.LocalTime.of(10,15),1L,30L))
-                .thenReturn(new BookingAvailabilityOptions(List.of(new StaffOption(2L,"Nhân viên kiểm thử","PART_TIME")),List.of("10:15","10:30")));
+        when(bookingAvailability.optionsForStaffIds(workDate,List.of(10L),List.of(2L),java.time.LocalTime.of(10,30),1L,30L))
+                .thenReturn(new BookingAvailabilityOptions(List.of(new StaffOption(2L,"Nhân viên kiểm thử","PART_TIME")),List.of("10:30","11:00")));
         mvc.perform(get("/customer/bookings/availability-options").with(user(customer))
-                        .param("workDate",workDate.toString()).param("serviceIds","10").param("staffId","2").param("startTime","10:15").param("houseId","30"))
+                        .param("workDate",workDate.toString()).param("serviceIds","10").param("staffId","2").param("startTime","10:30").param("houseId","30"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.staffOptions[0].id").value(2))
-                .andExpect(jsonPath("$.startTimes[0]").value("10:15"));
+                .andExpect(jsonPath("$.startTimes[0]").value("10:30"));
     }
 
     @Test
     void customerCalendarReturnsOnlyDatesWithMatchingStaffAvailability() throws Exception {
         LocalDate availableDay=LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).plusDays(4);
-        when(bookingAvailability.availableDates(List.of(10L),2L,customer.getUserId(),30L))
+        when(bookingAvailability.availableDatesForStaffIds(List.of(10L),List.of(2L),customer.getUserId(),30L))
                 .thenReturn(new BookingAvailabilityDates(List.of(availableDay),"Chỉ các ngày có lịch mới hiện."));
 
         mvc.perform(get("/customer/bookings/availability-dates").with(user(customer))
@@ -365,7 +394,7 @@ class PortalMvcTest {
 
     @Test
     void customerCalendarReturnsSpecificHouseValidationFailure() throws Exception {
-        when(bookingAvailability.availableDates(List.of(10L), null, customer.getUserId(), 30L))
+        when(bookingAvailability.availableDatesForStaffIds(List.of(10L), List.of(), customer.getUserId(), 30L))
                 .thenThrow(new IllegalArgumentException("Địa chỉ nhà cần có số nhà và tên đường cụ thể trước khi xem giờ."));
 
         mvc.perform(get("/customer/bookings/availability-dates").with(user(customer))
@@ -382,6 +411,53 @@ class PortalMvcTest {
                 .andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("window.bookingRetryState")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("2026-11-10")));
+    }
+
+    @Test
+    void customerCanOpenTeamRescheduleFormWithTheExistingBookingSnapshots() throws Exception {
+        LocalDateTime startAt = LocalDateTime.now(ZoneOffset.ofHours(7)).plusDays(3).withHour(10).withMinute(0)
+                .withSecond(0).withNano(0);
+        var info = new BookingTeamChangeService.RescheduleInfo(42L, 30L,
+                List.of(new BookingTeamChangeService.RescheduleServiceLine(10L, "Dọn nhà", new BigDecimal("140000"),
+                        new BigDecimal("25000"), 120)), List.of(2L), 2L, startAt, "Cổng xanh", new BigDecimal("140000"));
+        when(teamChanges.rescheduleInfo(42L, customer.getUserId())).thenReturn(info);
+
+        String html = mvc.perform(get("/customer/bookings/42/reschedule").with(user(customer)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+
+        assertThat(html).contains("Dời lịch booking #42", "Dịch vụ, địa chỉ và ghi chú được giữ nguyên",
+                "data-reschedule-booking-id=\"42\"", "Dọn nhà", "Cổng xanh");
+    }
+
+    @Test
+    void customerCanOpenRescheduleFormWhenNoStaffRemain() throws Exception {
+        LocalDateTime startAt = LocalDateTime.now(ZoneOffset.ofHours(7)).plusDays(3).withHour(10).withMinute(0)
+                .withSecond(0).withNano(0);
+        var info = new BookingTeamChangeService.RescheduleInfo(42L, 30L,
+                List.of(new BookingTeamChangeService.RescheduleServiceLine(10L, "Dọn nhà", new BigDecimal("140000"),
+                        new BigDecimal("25000"), 120)), List.of(), null, startAt, "Cổng xanh", new BigDecimal("140000"));
+        when(teamChanges.rescheduleInfo(42L, customer.getUserId())).thenReturn(info);
+
+        String html = mvc.perform(get("/customer/bookings/42/reschedule").with(user(customer)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+
+        assertThat(html).contains("Dời lịch booking #42", "data-reschedule-booking-id=\"42\"", "Dọn nhà");
+    }
+
+    @Test
+    void customerAndAdminCanSubmitTeamChangeChoices() throws Exception {
+        mvc.perform(post("/admin/bookings/42/request-team-reduction").with(user(admin)).with(csrf())
+                        .param("staffId", "2").param("reason", "Nhân viên báo nghỉ"))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/admin/bookings/42"));
+        verify(teamChanges).requestReduction(42L, 3L, 2L, "Nhân viên báo nghỉ");
+
+        mvc.perform(post("/customer/bookings/42/team-change/proceed").with(user(customer)).with(csrf()))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/customer/bookings/42"));
+        verify(teamChanges).proceedWithFewerStaff(42L, customer.getUserId());
+
+        mvc.perform(post("/customer/bookings/42/team-change/cancel").with(user(customer)).with(csrf()))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/customer/bookings/42"));
+        verify(teamChanges).cancelForTeamChange(42L, customer.getUserId());
     }
 
     @Test
@@ -837,6 +913,8 @@ class PortalMvcTest {
 
     @Test
     void customerCanAcknowledgeStaffClaimAndStaffMustSelfConfirmArrival() throws Exception {
+        when(query.bookingTeam(eq(42L), any())).thenReturn(List.of(new PortalViews.BookingTeamMemberCard(
+                2L, "Nhân viên kiểm thử", "LEAD", null)));
         String customerPage = mvc.perform(get("/customer/bookings/42").with(user(customer)))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         assertThat(customerPage).doesNotContain("Xác nhận giờ Staff khai là đúng");
@@ -850,6 +928,8 @@ class PortalMvcTest {
                 start, start.plusHours(2), "CONFIRMED", new BigDecimal("140000"), null, null, null, null, null,
                 null, null, null, null, null, "0901234567", OffsetDateTime.now(ZoneOffset.ofHours(7)),
                 null, null, null, null, null, null, null, BigDecimal.ZERO, BigDecimal.ZERO, null, List.of(), List.of(), null);
+        when(query.bookingTeam(eq(42L), any())).thenReturn(List.of(new PortalViews.BookingTeamMemberCard(
+                2L, "Nhân viên kiểm thử", "LEAD", OffsetDateTime.now(ZoneOffset.ofHours(7)))));
         when(query.booking(eq(42L), any())).thenReturn(arrivedEarly);
         String customerAcknowledgement = mvc.perform(get("/customer/bookings/42").with(user(customer)))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
@@ -1122,32 +1202,32 @@ class PortalMvcTest {
 
     @Test
     void bookingUsesSessionCustomerServerServiceSelectionAndVietnamOffset() throws Exception {
-        when(reservations.createBooking(anyLong(), anyLong(), anyLong(), any(), anyList(), any())).thenReturn(42L);
+        when(reservations.createBooking(anyLong(), anyList(), anyLong(), anyLong(), any(), anyList(), any())).thenReturn(42L);
         MvcResult created = mvc.perform(post("/customer/bookings").with(user(customer)).with(csrf())
-                .param("customerId", "999").param("totalPrice", "1").param("staffId", "2").param("houseId", "30")
+                .param("customerId", "999").param("totalPrice", "1").param("staffIds", "2").param("leadStaffId", "2").param("houseId", "30")
                 .param("startAt", "2026-11-01T08:00").param("serviceIds", "10", "11").param("areaNote", "Entryway"))
             .andExpect(redirectedUrl("/customer/bookings/42")).andExpect(flash().attributeExists("success")).andReturn();
         assertThat(created.getFlashMap().get("success").toString()).contains("xác nhận trên trang chi tiết");
-        verify(reservations).createBooking(eq(1L), eq(2L), eq(30L), eq(java.time.LocalDateTime.parse("2026-11-01T08:00")),
+        verify(reservations).createBooking(eq(1L), eq(List.of(2L)), eq(2L), eq(30L), eq(java.time.LocalDateTime.parse("2026-11-01T08:00")),
                 eq(List.of(10L, 11L)), eq("Entryway"));
     }
 
     @Test
     void multiDayBookingCreatesIndependentAppointmentsAndReportsUnavailableDates() throws Exception {
-        when(reservations.createBooking(eq(1L), eq(2L), eq(30L), any(), eq(List.of(10L)), eq("Entryway")))
+        when(reservations.createBooking(eq(1L), eq(List.of(2L)), eq(2L), eq(30L), any(), eq(List.of(10L)), eq("Entryway")))
                 .thenReturn(42L)
                 .thenThrow(new IllegalStateException("Staff không còn khả dụng."));
 
         MvcResult partial = mvc.perform(post("/customer/bookings/multiple").with(user(customer)).with(csrf())
                         .param("houseId", "30").param("serviceIds", "10").param("areaNote", "Entryway")
                         .param("workDates", "2026-11-10", "2026-11-12")
-                        .param("staffIds", "2", "2").param("startTimes", "09:00", "10:00"))
+                        .param("staffIds", "2", "2").param("leadStaffIds", "2", "2").param("startTimes", "09:00", "10:00"))
                 .andExpect(redirectedUrl("/customer/bookings/new?houseId=30"))
                 .andExpect(flash().attributeExists("bookingRetryState"))
                 .andExpect(flash().attributeExists("warning")).andReturn();
         assertThat(partial.getFlashMap().get("warning").toString()).contains("xác nhận trên từng lịch");
 
-        verify(reservations, org.mockito.Mockito.times(2)).createBooking(eq(1L), eq(2L), eq(30L), any(),
+        verify(reservations, org.mockito.Mockito.times(2)).createBooking(eq(1L), eq(List.of(2L)), eq(2L), eq(30L), any(),
                 eq(List.of(10L)), eq("Entryway"));
     }
 
@@ -1156,7 +1236,7 @@ class PortalMvcTest {
         mvc.perform(post("/customer/bookings/multiple").with(user(customer)).with(csrf())
                         .param("houseId", "30").param("serviceIds", "10")
                         .param("workDates", "2026-11-10", "2026-11-12")
-                        .param("staffIds", "2").param("startTimes", "09:00", "10:00"))
+                        .param("staffIds", "2").param("leadStaffIds", "2").param("startTimes", "09:00", "10:00"))
                 .andExpect(redirectedUrl("/customer/bookings/new"))
                 .andExpect(flash().attributeExists("error"));
         verifyNoInteractions(reservations);
@@ -1165,7 +1245,7 @@ class PortalMvcTest {
     @Test
     void invalidBookingRedisplaysInputsWithoutCallingReservation() throws Exception {
         mvc.perform(post("/customer/bookings").with(user(customer)).with(csrf()).param("staffId", "2").param("houseId", "20")
-                .param("startAt", "2026-11-01T08:00")).andExpect(status().isOk()).andExpect(view().name("booking-new"));
+                .param("startAt", "2026-11-01T08:00")).andExpect(status().isOk()).andExpect(view().name("booking-new-team"));
         verifyNoInteractions(reservations);
     }
 
@@ -1302,9 +1382,10 @@ class PortalMvcTest {
                 .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/admin/bookings/42"));
         verify(adminBookingManagement).cancelConfirmedBooking(42L, 3L, "Điều phối nhân sự");
 
-        mvc.perform(post("/admin/bookings/42/reassign").with(user(admin)).with(csrf()).param("staffId", "2"))
+        mvc.perform(post("/admin/bookings/42/reassign").with(user(admin)).with(csrf())
+                        .param("currentStaffId", "1").param("staffId", "2"))
                 .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/admin/bookings/42"));
-        verify(adminBookingManagement).reassignConfirmedBooking(42L, 3L, 2L);
+        verify(adminBookingManagement).replaceAssignedStaff(42L, 3L, 1L, 2L);
 
         mvc.perform(post("/admin/bookings/42/arrival-dispute/verify").with(user(admin)).with(csrf())
                         .param("actualArrivalAt", "2026-11-12T10:15").param("note", "Đã đối chiếu với khách"))

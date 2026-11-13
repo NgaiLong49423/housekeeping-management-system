@@ -32,8 +32,10 @@ class AdminBookingManagementServiceTest {
     private final CompanySettingsService companySettings = mock(CompanySettingsService.class);
     private final BookingDelayCompensationSettingsService compensationSettings = mock(BookingDelayCompensationSettingsService.class);
     private final CancellationLogRepository cancellationLogs = mock(CancellationLogRepository.class);
+    private final com.housekeeping.management.repository.BookingStaffAssignmentRepository assignments =
+            mock(com.housekeeping.management.repository.BookingStaffAssignmentRepository.class);
     private final AdminBookingManagementService service = new com.housekeeping.management.service.impl.AdminBookingManagementServiceImpl(
-            bookings, staffManagement, authorization, reservations, houses, companySettings, compensationSettings, cancellationLogs);
+            bookings, staffManagement, authorization, reservations, houses, companySettings, compensationSettings, cancellationLogs, assignments);
 
     @BeforeEach
     void setup() {
@@ -42,6 +44,19 @@ class AdminBookingManagementServiceTest {
         when(bookings.findBooking(51L)).thenReturn(Optional.of(confirmed));
         when(bookings.lockBooking(51L)).thenReturn(Optional.of(confirmed));
         when(bookings.lockBookingWorkflow(51L)).thenReturn(Optional.of(workflow("CONFIRMED")));
+        Booking lockedBooking = new Booking();
+        lockedBooking.setBookingId(51L); lockedBooking.setCustomerId(4L); lockedBooking.setStaffId(12L);
+        lockedBooking.setStatus(BookingStatus.CONFIRMED);
+        lockedBooking.setStartTime(LocalDateTime.of(2026, 11, 1, 10, 0));
+        lockedBooking.setEndTime(LocalDateTime.of(2026, 11, 1, 12, 0));
+        lockedBooking.setLatitudeSnapshot(java.math.BigDecimal.TEN);
+        lockedBooking.setLongitudeSnapshot(java.math.BigDecimal.TEN);
+        when(bookings.lockEntity(51L)).thenReturn(Optional.of(lockedBooking));
+        var lead = new com.housekeeping.management.entity.BookingStaffAssignment();
+        lead.setBookingId(51L); lead.setStaffId(12L); lead.setRole(com.housekeeping.management.enums.BookingStaffRole.LEAD);
+        lead.setStatus(com.housekeeping.management.enums.BookingStaffAssignmentStatus.ASSIGNED);
+        when(assignments.findAllByBookingIdAndStatusOrderByRoleAscBookingStaffIdAsc(51L,
+                com.housekeeping.management.enums.BookingStaffAssignmentStatus.ASSIGNED)).thenReturn(new java.util.ArrayList<>(java.util.List.of(lead)));
     }
 
     @Test
@@ -151,6 +166,31 @@ class AdminBookingManagementServiceTest {
         assertThatThrownBy(() -> service.reassignConfirmedBooking(51L, 99L, 13L))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("duyệt nghỉ");
         verify(bookings, never()).assignStaff(51L, 12L, 13L);
+    }
+
+    @Test
+    void cannotReplaceStaffAfterWorkStarted() {
+        Booking lockedBooking = new Booking();
+        lockedBooking.setBookingId(51L); lockedBooking.setCustomerId(4L); lockedBooking.setStaffId(12L);
+        lockedBooking.setStatus(BookingStatus.CONFIRMED);
+        lockedBooking.setWorkStartedAt(LocalDateTime.of(2026, 11, 1, 10, 5));
+        when(bookings.lockEntity(51L)).thenReturn(Optional.of(lockedBooking));
+
+        assertThatThrownBy(() -> service.replaceAssignedStaff(51L, 99L, 12L, 13L))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("đã bắt đầu");
+        verify(assignments, never()).saveAndFlush(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void cannotReplaceStaffWhoHasAlreadyArrived() {
+        when(staffManagement.findActiveForBookingUpdate(13L)).thenReturn(activeStaff(13L, StaffType.FULL_TIME));
+        var assigned = assignments.findAllByBookingIdAndStatusOrderByRoleAscBookingStaffIdAsc(51L,
+                com.housekeeping.management.enums.BookingStaffAssignmentStatus.ASSIGNED).getFirst();
+        assigned.setArrivedAt(LocalDateTime.of(2026, 11, 1, 9, 55));
+
+        assertThatThrownBy(() -> service.replaceAssignedStaff(51L, 99L, 12L, 13L))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("đã xác nhận có mặt");
+        verify(assignments, never()).saveAndFlush(org.mockito.ArgumentMatchers.any());
     }
 
     @Test

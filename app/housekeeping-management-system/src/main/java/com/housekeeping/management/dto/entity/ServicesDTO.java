@@ -5,11 +5,16 @@ import com.housekeeping.management.entity.Services;
 import java.math.BigDecimal;
 
 public record ServicesDTO(Long serviceId, String serviceName, String description, String imageUrl,
-        Integer durationMinutes, BigDecimal price, ServiceStatus status) {
+        Integer durationMinutes, BigDecimal price, BigDecimal additionalStaffPrice, ServiceStatus status) {
+    public ServicesDTO(Long serviceId, String serviceName, String description, String imageUrl,
+            Integer durationMinutes, BigDecimal price, ServiceStatus status) {
+        this(serviceId, serviceName, description, imageUrl, durationMinutes, price, BigDecimal.ZERO, status);
+    }
+
     public static ServicesDTO convertEntityToDTO(Services entity) {
         if (entity == null) return null;
         return new ServicesDTO(entity.getServiceId(), entity.getServiceName(), entity.getDescription(),
-                entity.getImageUrl(), entity.getDurationMinutes(), entity.getPrice(), entity.getStatus());
+                entity.getImageUrl(), entity.getDurationMinutes(), entity.getPrice(), entity.getAdditionalStaffPrice(), entity.getStatus());
     }
 
     public Services convertDTOToEntity() {
@@ -24,6 +29,7 @@ public record ServicesDTO(Long serviceId, String serviceName, String description
         entity.setImageUrl(imageUrl);
         entity.setDurationMinutes(durationMinutes);
         entity.setPrice(price);
+        entity.setAdditionalStaffPrice(additionalStaffPrice == null ? BigDecimal.ZERO : additionalStaffPrice);
         entity.setStatus(status);
         return entity;
     }

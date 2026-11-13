@@ -26,7 +26,7 @@ class BookingArrivalServiceTest {
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, start)));
         when(bookings.confirmStaffArrival(eq(42L), eq(7L), any(), any(Integer.class), any(), any())).thenReturn(1);
 
-        new com.housekeeping.management.service.impl.BookingArrivalServiceImpl(bookings, settings()).confirmStaffArrival(42L, 7L);
+        new com.housekeeping.management.service.impl.BookingArrivalServiceImpl(bookings, settings(), arrivalAssignments(7L)).confirmStaffArrival(42L, 7L);
 
         ArgumentCaptor<LocalDateTime> recordedAt = ArgumentCaptor.forClass(LocalDateTime.class);
         ArgumentCaptor<Integer> delayedMinutes = ArgumentCaptor.forClass(Integer.class);
@@ -46,7 +46,7 @@ class BookingArrivalServiceTest {
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, start)));
         when(bookings.confirmStaffArrival(eq(42L), eq(8L), any(), any(Integer.class), any(), any())).thenReturn(0);
 
-        assertThatThrownBy(() -> new com.housekeeping.management.service.impl.BookingArrivalServiceImpl(bookings, settings()).confirmStaffArrival(42L, 8L))
+        assertThatThrownBy(() -> new com.housekeeping.management.service.impl.BookingArrivalServiceImpl(bookings, settings(), arrivalAssignments(8L)).confirmStaffArrival(42L, 8L))
                 .isInstanceOf(IllegalStateException.class);
     }
 
@@ -57,7 +57,7 @@ class BookingArrivalServiceTest {
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, start)));
         when(bookings.confirmStaffArrival(eq(42L), eq(7L), any(), any(Integer.class), any(), any())).thenReturn(1);
 
-        new com.housekeeping.management.service.impl.BookingArrivalServiceImpl(bookings, settings()).confirmStaffArrival(42L, 7L);
+        new com.housekeeping.management.service.impl.BookingArrivalServiceImpl(bookings, settings(), arrivalAssignments(7L)).confirmStaffArrival(42L, 7L);
 
         verify(bookings).confirmStaffArrival(eq(42L), eq(7L), any(), any(Integer.class), any(), any());
     }
@@ -69,7 +69,7 @@ class BookingArrivalServiceTest {
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, start)));
         when(bookings.confirmCustomerArrival(eq(42L), eq(3L), any())).thenReturn(1);
 
-        new com.housekeeping.management.service.impl.BookingArrivalServiceImpl(bookings, settings()).confirm(42L, 3L);
+        new com.housekeeping.management.service.impl.BookingArrivalServiceImpl(bookings, settings(), arrivalAssignments(7L)).confirm(42L, 3L);
 
         verify(bookings).confirmCustomerArrival(eq(42L), eq(3L), any());
     }
@@ -81,7 +81,7 @@ class BookingArrivalServiceTest {
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, start)));
         when(bookings.confirmCustomerArrival(eq(42L), eq(3L), any())).thenReturn(1);
 
-        new com.housekeeping.management.service.impl.BookingArrivalServiceImpl(bookings, settings()).confirm(42L, 3L);
+        new com.housekeeping.management.service.impl.BookingArrivalServiceImpl(bookings, settings(), arrivalAssignments(7L)).confirm(42L, 3L);
 
         verify(bookings).confirmCustomerArrival(eq(42L), eq(3L), any());
     }
@@ -99,7 +99,7 @@ class BookingArrivalServiceTest {
         when(bookings.confirmCustomerArrivalAfterNoShow(eq(42L), eq(3L), any(), eq(1), any(), eq(new BigDecimal("7500.00"))))
                 .thenReturn(1);
 
-        new com.housekeeping.management.service.impl.BookingArrivalServiceImpl(bookings, settings()).confirm(42L, 3L);
+        new com.housekeeping.management.service.impl.BookingArrivalServiceImpl(bookings, settings(), arrivalAssignments(7L)).confirm(42L, 3L);
 
         verify(bookings).confirmCustomerArrivalAfterNoShow(eq(42L), eq(3L), any(), eq(1), eq(new BigDecimal("5")),
                 eq(new BigDecimal("7500.00")));
@@ -115,5 +115,17 @@ class BookingArrivalServiceTest {
         BookingDelayCompensationSettingsService settings = mock(BookingDelayCompensationSettingsService.class);
         when(settings.get()).thenReturn(List.of(new Tier(1, 15, 5), new Tier(16, 30, 10), new Tier(31, null, 20)));
         return settings;
+    }
+
+    private com.housekeeping.management.repository.BookingStaffAssignmentRepository arrivalAssignments(Long staffId) {
+        var repo = mock(com.housekeeping.management.repository.BookingStaffAssignmentRepository.class);
+        var assignment = new com.housekeeping.management.entity.BookingStaffAssignment();
+        assignment.setBookingId(42L); assignment.setStaffId(staffId);
+        assignment.setRole(com.housekeeping.management.enums.BookingStaffRole.LEAD);
+        assignment.setStatus(com.housekeeping.management.enums.BookingStaffAssignmentStatus.ASSIGNED);
+        when(repo.findAllByBookingIdAndStatusOrderByRoleAscBookingStaffIdAsc(eq(42L),
+                eq(com.housekeeping.management.enums.BookingStaffAssignmentStatus.ASSIGNED))).thenReturn(List.of(assignment));
+        when(repo.recordArrival(eq(42L), eq(staffId), any())).thenReturn(1);
+        return repo;
     }
 }
