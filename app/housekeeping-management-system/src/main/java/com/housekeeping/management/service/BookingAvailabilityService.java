@@ -21,5 +21,19 @@ import java.util.stream.Collectors;
 
 public interface BookingAvailabilityService {
 
-    public BookingAvailabilityOptions options(LocalDate date,List<Long> serviceIds,Long selectedStaffId, LocalTime selectedTime,Long customerId,Long houseId);
-    public BookingAvailabilityDates availableDates(List<Long> serviceIds, Long selectedStaffId, Long customerId, Long houseId);}
+    public BookingAvailabilityOptions options(LocalDate date, List<Long> serviceIds, Long selectedStaffId,
+            LocalTime selectedTime, Long customerId, Long houseId);
+    public BookingAvailabilityOptions optionsForStaffIds(LocalDate date, List<Long> serviceIds, List<Long> selectedStaffIds,
+            LocalTime selectedTime, Long customerId, Long houseId);
+    public BookingAvailabilityOptions optionsForStaffIds(LocalDate date, List<Long> serviceIds, List<Long> selectedStaffIds,
+            LocalTime selectedTime, Long customerId, Long houseId, Long excludeBookingId);
+    public BookingAvailabilityOptions optionsForStaffIds(LocalDate date, List<Long> serviceIds, List<Long> selectedStaffIds,
+            LocalTime selectedTime, Long customerId, Long houseId, Long excludeBookingId, Integer durationOverride);
+    public BookingAvailabilityDates availableDates(List<Long> serviceIds, Long selectedStaffId, Long customerId, Long houseId);
+    public BookingAvailabilityDates availableDatesForStaffIds(List<Long> serviceIds, List<Long> selectedStaffIds,
+            Long customerId, Long houseId);
+    public BookingAvailabilityDates availableDatesForStaffIds(List<Long> serviceIds, List<Long> selectedStaffIds,
+            Long customerId, Long houseId, Long excludeBookingId);
+    public BookingAvailabilityDates availableDatesForStaffIds(List<Long> serviceIds, List<Long> selectedStaffIds,
+            Long customerId, Long houseId, Long excludeBookingId, Integer durationOverride);
+}

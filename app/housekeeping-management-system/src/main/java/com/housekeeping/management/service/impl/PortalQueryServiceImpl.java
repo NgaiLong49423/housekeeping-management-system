@@ -4,6 +4,7 @@ import com.housekeeping.management.enums.ServiceStatus;
 import static com.housekeeping.management.dto.response.PortalViews.*;
 
 import com.housekeeping.management.enums.BookingStatus;
+import com.housekeeping.management.enums.BookingStaffAssignmentStatus;
 import com.housekeeping.management.enums.FeedbackTopic;
 import com.housekeeping.management.enums.PaymentStatus;
 import com.housekeeping.management.enums.UserStatus;
@@ -29,6 +30,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class PortalQueryServiceImpl implements PortalQueryService {
     private static final ZoneOffset VN = ZoneOffset.ofHours(7);
     private final BookingPersistenceRepository bookings;
+    private final BookingStaffAssignmentRepository bookingStaffAssignments;
     private final CancellationLogRepository cancellationLogs;
     private final BookingDetailRepository details;
     private final BookingImageRepository images;
@@ -42,13 +44,15 @@ public class PortalQueryServiceImpl implements PortalQueryService {
     private final FeedbackRepository feedbackRepository;
     private final FeedbackService feedback;
 
-    public PortalQueryServiceImpl(BookingPersistenceRepository bookings, CancellationLogRepository cancellationLogs,
+    public PortalQueryServiceImpl(BookingPersistenceRepository bookings, BookingStaffAssignmentRepository bookingStaffAssignments,
+            CancellationLogRepository cancellationLogs,
             BookingDetailRepository details,
             BookingImageRepository images, ServicesRepository services, StaffAccountRepository staffRepository,
             UserRepository users, StaffProfileRepository profiles, StaffFollowRepository follows,
             StaffAvailabilityRepository availabilities, PaymentPersistenceRepository payments,
             FeedbackRepository feedbackRepository, FeedbackService feedback) {
-        this.bookings = bookings; this.cancellationLogs = cancellationLogs; this.details = details; this.images = images; this.services = services;
+        this.bookings = bookings; this.bookingStaffAssignments = bookingStaffAssignments;
+        this.cancellationLogs = cancellationLogs; this.details = details; this.images = images; this.services = services;
         this.staffRepository = staffRepository; this.users = users; this.profiles = profiles;
         this.follows = follows; this.availabilities = availabilities; this.payments = payments;
         this.feedbackRepository = feedbackRepository; this.feedback = feedback;
@@ -61,7 +65,8 @@ public class PortalQueryServiceImpl implements PortalQueryService {
         return (includeInactive ? services.findAllByOrderByServiceNameAsc()
                 : services.findAllByStatusOrderByServiceNameAsc(ServiceStatus.ACTIVE)).stream()
                 .map(s -> new ServiceCard(s.getServiceId(), s.getServiceName(), s.getDescription(),
-                        s.getDurationMinutes(), s.getPrice(), s.getImageUrl(), s.getStatus() == ServiceStatus.ACTIVE)).toList();
+                        s.getDurationMinutes(), s.getPrice(), s.getAdditionalStaffPrice(), s.getImageUrl(),
+                        s.getStatus() == ServiceStatus.ACTIVE)).toList();
     }
 
     public List<StaffCard> staff(PortalUser user) {
@@ -103,16 +108,25 @@ public class PortalQueryServiceImpl implements PortalQueryService {
     }
 
     public boolean isPartTime(Long staffId) { return staffRepository.findById(staffId).map(s -> "PART_TIME".equals(s.getStaffType().name())).orElse(false); }
-    public List<BusyInterval> busyIntervals() { return bookings.findAllByStatusInAndEndTimeAfterOrderByStartTime(
-            List.of(BookingStatus.CONFIRMED, BookingStatus.AWAITING_PAYMENT), LocalDateTime.now(VN))
-            .stream().map(b -> new BusyInterval(b.getStaffId(), b.getStartTime().atOffset(VN), b.getEndTime().atOffset(VN))).toList(); }
+    public List<BusyInterval> busyIntervals() {
+        List<Booking> rows = bookings.findAllByStatusInAndEndTimeAfterOrderByStartTime(
+                List.of(BookingStatus.CONFIRMED, BookingStatus.AWAITING_PAYMENT), LocalDateTime.now(VN));
+        if (rows.isEmpty()) return List.of();
+        Map<Long, Booking> byId = rows.stream().collect(Collectors.toMap(Booking::getBookingId, Function.identity()));
+        return bookingStaffAssignments.findAllByBookingIdInAndStatus(byId.keySet().stream().toList(),
+                        BookingStaffAssignmentStatus.ASSIGNED).stream()
+                .map(assignment -> {
+                    Booking booking = byId.get(assignment.getBookingId());
+                    return new BusyInterval(assignment.getStaffId(), booking.getStartTime().atOffset(VN), booking.getEndTime().atOffset(VN));
+                }).toList();
+    }
 
     public List<BookingCard> bookings(PortalUser user) {
         String role = user.getRole();
         if (!Set.of("CUSTOMER", "STAFF", "ADMIN", "MANAGER").contains(role)) throw new AccessDeniedException("Vai trò không hợp lệ.");
         List<Booking> rows = switch (role) {
             case "CUSTOMER" -> bookings.findAllByCustomerIdOrderByStartTimeDesc(user.getAccountId());
-            case "STAFF" -> bookings.findAllByStaffIdOrderByStartTimeDesc(user.getAccountId());
+            case "STAFF" -> bookings.findAllAssignedToStaffOrderByStartTimeDesc(user.getAccountId());
             default -> bookings.findAll().stream().sorted(Comparator.comparing(Booking::getStartTime).reversed()).toList();
         };
         return bookingCards(rows, !"STAFF".equals(role));
@@ -120,6 +134,20 @@ public class PortalQueryServiceImpl implements PortalQueryService {
     public BookingCard booking(Long id, PortalUser user) {
         Booking row = bookings.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         BookingCard card = bookingCards(List.of(row), !"STAFF".equals(user.getRole())).getFirst(); authorize(card, user); return card;
+    }
+    public List<BookingTeamMemberCard> bookingTeam(Long id, PortalUser user) {
+        booking(id, user);
+        List<BookingStaffAssignment> assigned = bookingStaffAssignments.findAllByBookingIdAndStatusOrderByRoleAscBookingStaffIdAsc(
+                id, BookingStaffAssignmentStatus.ASSIGNED);
+        if (assigned.isEmpty()) return List.of();
+        Map<Long, Staff> staffById = staffRepository.findAllByStaffIdIn(assigned.stream()
+                        .map(BookingStaffAssignment::getStaffId).distinct().toList()).stream()
+                .collect(Collectors.toMap(Staff::getStaffId, Function.identity()));
+        return assigned.stream().map(assignment -> {
+            Staff member = staffById.get(assignment.getStaffId());
+            return new BookingTeamMemberCard(assignment.getStaffId(), member == null ? "" : member.getUser().getFullName(),
+                    assignment.getRole().name(), offset(assignment.getArrivedAt()));
+        }).toList();
     }
     public List<CancellationCard> customerCancellationHistory(Long bookingId, PortalUser user) {
         BookingCard card = booking(bookingId, user);
@@ -133,7 +161,8 @@ public class PortalQueryServiceImpl implements PortalQueryService {
     public void authorize(BookingCard card, PortalUser user) {
         boolean allowed = switch (user.getRole()) { case "ADMIN", "MANAGER" -> true;
             case "CUSTOMER" -> Objects.equals(user.getAccountId(), card.customerId());
-            case "STAFF" -> Objects.equals(user.getAccountId(), card.staffId()); default -> false; };
+            case "STAFF" -> bookingStaffAssignments.existsByBookingIdAndStaffIdAndStatus(card.id(), user.getAccountId(),
+                    BookingStaffAssignmentStatus.ASSIGNED); default -> false; };
         if (!allowed) throw new AccessDeniedException("Bạn không có quyền truy cập lịch hẹn này.");
     }
     public List<DetailCard> details(Long bookingId, PortalUser user) {

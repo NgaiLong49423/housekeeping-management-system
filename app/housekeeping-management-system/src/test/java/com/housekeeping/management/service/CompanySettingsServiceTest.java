@@ -116,6 +116,7 @@ class CompanySettingsServiceTest {
         assertThatThrownBy(() -> service.saveLocation(1L, form))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("[15, 19]");
+        verify(repository, never()).saveAndFlush(org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -142,6 +143,7 @@ class CompanySettingsServiceTest {
         assertThatThrownBy(() -> service.saveLocation(1L, form)).isInstanceOf(IllegalStateException.class)
                 .hasMessage("VietMap unavailable");
         verify(repository, org.mockito.Mockito.never()).saveAndFlush(org.mockito.ArgumentMatchers.any());
+        verify(repository).findAllForUpdate();
     }
 
     @Test

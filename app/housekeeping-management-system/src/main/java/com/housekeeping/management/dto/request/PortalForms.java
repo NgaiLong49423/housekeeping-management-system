@@ -13,10 +13,16 @@ import org.springframework.format.annotation.DateTimeFormat;
 
 public final class PortalForms {
     private PortalForms() { }
-    public record BookingForm(@NotNull @Positive Long staffId, @NotNull @Positive Long houseId,
+    public record BookingForm(@NotEmpty List<@NotNull @Positive Long> staffIds, @NotNull @Positive Long leadStaffId,
+            @NotNull @Positive Long houseId,
             @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startAt,
             @NotEmpty List<@NotNull @Positive Long> serviceIds,
-            @Size(max = 2000) String areaNote) { }
+            @Size(max = 2000) String areaNote) {
+        public BookingForm(Long staffId, Long houseId, LocalDateTime startAt, List<Long> serviceIds, String areaNote) {
+            this(staffId == null ? List.of() : List.of(staffId), staffId, houseId, startAt, serviceIds, areaNote);
+        }
+        public Long staffId() { return leadStaffId; }
+    }
     public record FeedbackForm(@NotNull @Min(1) @Max(5) Integer rating,
             @Size(max = 6) List<@NotBlank @Size(max = 30) String> topics,
             @Size(max = 4000) String content, Boolean reportIncident,
@@ -111,11 +117,15 @@ public final class PortalForms {
     public record AdminAccountForm(@NotBlank @Size(max = 150) String name,
             @NotBlank @Email @Size(max = 255) String email, @NotBlank @Size(max = 20) String phone,
             @NotBlank @Size(min = 8, max = 72) String password) { }
-    public record ServiceForm(@NotBlank @Size(max = 150) String name, @Size(max = 1000) String description,
+    public record ServiceForm(@NotBlank @Size(max = 150) String name, @Size(max = 4000) String description,
             @Min(1) int duration, @NotNull @DecimalMin("0") @Digits(integer = 10, fraction = 2) BigDecimal price,
+            @NotNull @DecimalMin("0") @Digits(integer = 10, fraction = 2) BigDecimal additionalStaffPrice,
             @Size(max = 500) @Pattern(regexp = "^$|https://\\S+$", message = "URL ảnh phải bắt đầu bằng https://.") String imageUrl) {
+        public ServiceForm(String name, String description, int duration, BigDecimal price, String imageUrl) {
+            this(name, description, duration, price, BigDecimal.ZERO, imageUrl);
+        }
         public ServiceForm(String name, String description, int duration, BigDecimal price) {
-            this(name, description, duration, price, null);
+            this(name, description, duration, price, BigDecimal.ZERO, null);
         }
     }
     public record StaffCreateForm(@NotBlank @Size(max = 150) String name, @NotBlank @Email @Size(max = 255) String email,
@@ -164,7 +174,11 @@ public final class PortalForms {
             @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime closingTime) { }
     public record StaffProfileForm(@Size(max = 500) String avatarUrl, @Size(max = 5000) String bio) { }
     public record AdminBookingCancellationForm(@NotBlank @Size(max = 500) String reason) { }
-    public record BookingReassignmentForm(@NotNull @Positive Long staffId) { }
+    public record BookingReassignmentForm(@NotNull @Positive Long currentStaffId, @NotNull @Positive Long staffId) {
+        public BookingReassignmentForm(Long staffId) { this(staffId, staffId); }
+    }
+    public record AdminTeamChangeForm(@NotNull @Positive Long staffId,
+            @NotBlank @Size(max = 1000) String reason) { }
     public record ArrivalVerificationForm(@NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime actualArrivalAt,
             @NotBlank @Size(max = 500) String note) { }
 }

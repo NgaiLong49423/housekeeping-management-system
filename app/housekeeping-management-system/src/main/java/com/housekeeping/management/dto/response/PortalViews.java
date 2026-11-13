@@ -16,9 +16,14 @@ public final class PortalViews {
         return value.withOffsetSameInstant(ZoneOffset.ofHours(7)).format(DateTimeFormatter.ofPattern("HH:mm · dd/MM/yyyy"));
     }
     public record ServiceCard(Long id, String name, String description, int duration, BigDecimal price,
+            BigDecimal additionalStaffPrice,
             String imageUrl, boolean active) {
+        public ServiceCard(Long id, String name, String description, int duration, BigDecimal price,
+                String imageUrl, boolean active) {
+            this(id, name, description, duration, price, BigDecimal.ZERO, imageUrl, active);
+        }
         public ServiceCard(Long id, String name, String description, int duration, BigDecimal price, boolean active) {
-            this(id, name, description, duration, price, null, active);
+            this(id, name, description, duration, price, BigDecimal.ZERO, null, active);
         }
     }
     public record StaffCard(Long id, String name, String phone, boolean favorite, String staffType, boolean active,
@@ -28,6 +33,12 @@ public final class PortalViews {
             this(id, name, phone, favorite, staffType, active, avatarUrl, bio, null, null);
         }
     }
+    public record BookingTeamMemberCard(Long staffId, String staffName, String role, OffsetDateTime arrivedAt) {
+        public String getRoleLabel() { return "LEAD".equals(role) ? "Trưởng nhóm" : "Thành viên"; }
+        public String getArrivalLabel() { return arrivedAt == null ? "Chưa xác nhận đến" : time(arrivedAt); }
+    }
+    public record BookingTeamChangeRequestCard(Long requestId, Long affectedStaffId, Integer proposedStaffCount,
+            String reason, LocalDateTime createdAt) { }
     public record ScheduleCard(Long id, Long staffId, String staffName, OffsetDateTime start, OffsetDateTime end, boolean active) {
         public ScheduleCard(Long id, Long staffId, String staffName, OffsetDateTime start, OffsetDateTime end) { this(id, staffId, staffName, start, end, true); }
         public String getStartLabel() {

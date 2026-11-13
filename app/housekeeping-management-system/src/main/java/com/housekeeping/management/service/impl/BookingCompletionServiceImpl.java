@@ -5,6 +5,9 @@ import com.housekeeping.management.service.BookingCompletionService;
 import com.housekeeping.management.repository.BookingImageRepository;
 import com.housekeeping.management.repository.BookingPersistenceRepository;
 import com.housekeeping.management.dto.BookingDelayCompensation;
+import com.housekeeping.management.enums.BookingStaffAssignmentStatus;
+import com.housekeeping.management.repository.BookingStaffAssignmentRepository;
+import com.housekeeping.management.repository.BookingTeamChangeRequestRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,10 +15,15 @@ import org.springframework.transaction.annotation.Transactional;
 public class BookingCompletionServiceImpl implements BookingCompletionService {
     private final BookingPersistenceRepository bookings;
     private final BookingImageRepository bookingImages;
+    private final BookingStaffAssignmentRepository assignments;
+    private final BookingTeamChangeRequestRepository teamChangeRequests;
 
-    public BookingCompletionServiceImpl(BookingPersistenceRepository bookings, BookingImageRepository bookingImages) {
+    public BookingCompletionServiceImpl(BookingPersistenceRepository bookings, BookingImageRepository bookingImages,
+            BookingStaffAssignmentRepository assignments, BookingTeamChangeRequestRepository teamChangeRequests) {
         this.bookings = bookings;
         this.bookingImages = bookingImages;
+        this.assignments = assignments;
+        this.teamChangeRequests = teamChangeRequests;
     }
 
     @Transactional
@@ -27,6 +35,14 @@ public class BookingCompletionServiceImpl implements BookingCompletionService {
         }
         if (!"CONFIRMED".equals(booking.status()) || booking.workStartedAt() != null) {
             throw new IllegalStateException("Lịch không còn ở trạng thái có thể bắt đầu.");
+        }
+        if (teamChangeRequests.existsByBookingIdAndRequestStatus(bookingId, "PENDING")) {
+            throw new IllegalStateException("Booking đang chờ khách chọn cách xử lý thiếu nhân viên.");
+        }
+        var team = assignments.findAllByBookingIdAndStatusOrderByRoleAscBookingStaffIdAsc(
+                bookingId, BookingStaffAssignmentStatus.ASSIGNED);
+        if (team.isEmpty() || team.stream().anyMatch(member -> member.getArrivedAt() == null)) {
+            throw new IllegalStateException("Chỉ trưởng nhóm được bắt đầu và cần toàn bộ nhân viên đang được phân công xác nhận đã đến trước.");
         }
         var now = java.time.LocalDateTime.now(java.time.ZoneOffset.ofHours(7)).withNano(0);
         if (booking.staffArrivedAt() == null) {

@@ -6,6 +6,10 @@ import com.housekeeping.management.service.BookingDelayCompensationSettingsServi
 import com.housekeeping.management.dto.BookingDelayCompensation;
 import com.housekeeping.management.repository.BookingPersistenceRepository;
 import com.housekeeping.management.dto.BookingDelayCompensation.Tier;
+import com.housekeeping.management.entity.BookingStaffAssignment;
+import com.housekeeping.management.enums.BookingStaffAssignmentStatus;
+import com.housekeeping.management.enums.BookingStaffRole;
+import com.housekeeping.management.repository.BookingStaffAssignmentRepository;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import org.springframework.stereotype.Service;
@@ -15,11 +19,14 @@ import org.springframework.transaction.annotation.Transactional;
 public class BookingArrivalServiceImpl implements BookingArrivalService {
     private final BookingPersistenceRepository bookings;
     private final BookingDelayCompensationSettingsService compensationSettings;
+    private final BookingStaffAssignmentRepository assignments;
 
     public BookingArrivalServiceImpl(BookingPersistenceRepository bookings,
-            BookingDelayCompensationSettingsService compensationSettings) {
+            BookingDelayCompensationSettingsService compensationSettings,
+            BookingStaffAssignmentRepository assignments) {
         this.bookings = bookings;
         this.compensationSettings = compensationSettings;
+        this.assignments = assignments;
     }
 
     @Transactional
@@ -50,6 +57,15 @@ public class BookingArrivalServiceImpl implements BookingArrivalService {
         LocalDateTime now = LocalDateTime.now(ZoneOffset.ofHours(7)).withNano(0);
         var booking = bookings.lockBookingWorkflow(bookingId)
                 .orElseThrow(() -> new IllegalStateException("Lịch hẹn không tồn tại."));
+        if (!"CONFIRMED".equals(booking.status())) throw new IllegalStateException("Chỉ Booking CONFIRMED mới xác nhận đã đến.");
+        BookingStaffAssignment assignment = assignments.findAllByBookingIdAndStatusOrderByRoleAscBookingStaffIdAsc(
+                        bookingId, BookingStaffAssignmentStatus.ASSIGNED).stream()
+                .filter(member -> member.getStaffId().equals(staffId)).findFirst()
+                .orElseThrow(() -> new org.springframework.security.access.AccessDeniedException("Bạn không thuộc nhóm nhân viên của lịch này."));
+        if (assignment.getArrivedAt() != null) return;
+        if (assignments.recordArrival(bookingId, staffId, now) != 1)
+            throw new IllegalStateException("Không thể ghi nhận giờ đến. Hãy tải lại lịch để kiểm tra.");
+        if (assignment.getRole() != BookingStaffRole.LEAD) return;
         BookingDelayCompensation compensation = BookingDelayCompensation.calculate(
                 booking.startTime(), now, booking.totalAmount(), compensationSettings.get());
         if (bookings.confirmStaffArrival(bookingId, staffId, now, compensation.delayedMinutes(),

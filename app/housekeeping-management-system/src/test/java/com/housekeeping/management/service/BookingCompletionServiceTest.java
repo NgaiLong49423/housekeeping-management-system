@@ -21,7 +21,7 @@ class BookingCompletionServiceTest {
     @Test
     void assignedStaffCanStartOnTimeAfterArrival() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
-        var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, mock(BookingImageRepository.class));
+        var service = completionService(bookings, mock(BookingImageRepository.class));
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, "CONFIRMED", start,
                 start, null, null, null)));
         when(bookings.startWork(eq(42L), eq(7L), any(), eq(false))).thenReturn(1);
@@ -32,9 +32,29 @@ class BookingCompletionServiceTest {
     }
 
     @Test
+    void pendingTeamChangeBlocksLeadFromStarting() {
+        BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
+        var requests = mock(com.housekeeping.management.repository.BookingTeamChangeRequestRepository.class);
+        var assignments = mock(com.housekeeping.management.repository.BookingStaffAssignmentRepository.class);
+        var lead = new com.housekeeping.management.entity.BookingStaffAssignment();
+        lead.setBookingId(42L); lead.setStaffId(7L); lead.setRole(com.housekeeping.management.enums.BookingStaffRole.LEAD);
+        lead.setStatus(com.housekeeping.management.enums.BookingStaffAssignmentStatus.ASSIGNED); lead.setArrivedAt(start);
+        when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, "CONFIRMED", start, start, null, null, null)));
+        when(assignments.findAllByBookingIdAndStatusOrderByRoleAscBookingStaffIdAsc(42L,
+                com.housekeeping.management.enums.BookingStaffAssignmentStatus.ASSIGNED)).thenReturn(java.util.List.of(lead));
+        when(requests.existsByBookingIdAndRequestStatus(42L, "PENDING")).thenReturn(true);
+        var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings,
+                mock(BookingImageRepository.class), assignments, requests);
+
+        assertThatThrownBy(() -> service.startBooking(42L, 7L)).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("chờ khách");
+        verify(bookings, never()).startWork(any(), any(), any(), org.mockito.ArgumentMatchers.anyBoolean());
+    }
+
+    @Test
     void lateArrivalRequiresEtaAndCustomerConsent() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
-        var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, mock(BookingImageRepository.class));
+        var service = completionService(bookings, mock(BookingImageRepository.class));
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, "CONFIRMED", start,
                 start.plusMinutes(1), null, null, null)));
         assertThatThrownBy(() -> service.startBooking(42L, 7L))
@@ -45,7 +65,7 @@ class BookingCompletionServiceTest {
     @Test
     void arrivalAfterScheduledTimeRequiresIncidentBeforeStarting() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
-        var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, mock(BookingImageRepository.class));
+        var service = completionService(bookings, mock(BookingImageRepository.class));
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, "CONFIRMED", start,
                 start.plusMinutes(5).plusSeconds(1), null, null, null)));
 
@@ -57,7 +77,7 @@ class BookingCompletionServiceTest {
     @Test
     void assignedStaffMayStartEarlyAfterConfirmingArrival() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
-        var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, mock(BookingImageRepository.class));
+        var service = completionService(bookings, mock(BookingImageRepository.class));
         LocalDateTime futureStart = LocalDateTime.now(java.time.ZoneOffset.ofHours(7)).plusHours(2).withNano(0);
         LocalDateTime arrivedAt = LocalDateTime.now(java.time.ZoneOffset.ofHours(7)).withNano(0);
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, "CONFIRMED", futureStart,
@@ -72,7 +92,7 @@ class BookingCompletionServiceTest {
     @Test
     void reportedDelayMustBeAcceptedBeforeWorkStarts() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
-        var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, mock(BookingImageRepository.class));
+        var service = completionService(bookings, mock(BookingImageRepository.class));
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, "CONFIRMED", start,
                 start, null, start.minusMinutes(5), null)));
 
@@ -84,7 +104,7 @@ class BookingCompletionServiceTest {
     @Test
     void customerReportedArrivalBlocksWorkUntilAcknowledgedOrAdminVerified() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
-        var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, mock(BookingImageRepository.class));
+        var service = completionService(bookings, mock(BookingImageRepository.class));
         var disputed = new BookingPersistenceRepository.BookingWorkflowState(42L, 3L, 7L, start,
                 start.plusHours(1), "CONFIRMED", new BigDecimal("150000"), start, null,
                 null, null, null, null, null, 15, BigDecimal.ZERO, BigDecimal.ZERO,
@@ -99,7 +119,7 @@ class BookingCompletionServiceTest {
     @Test
     void customerAcknowledgementResolvesArrivalReportAfterStaffSelfClaim() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
-        var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, mock(BookingImageRepository.class));
+        var service = completionService(bookings, mock(BookingImageRepository.class));
         var resolved = new BookingPersistenceRepository.BookingWorkflowState(42L, 3L, 7L, start,
                 start.plusHours(1), "CONFIRMED", new BigDecimal("150000"), start, null,
                 null, null, null, null, null, 15, BigDecimal.ZERO, BigDecimal.ZERO,
@@ -116,7 +136,7 @@ class BookingCompletionServiceTest {
     void customerReportedDisputeDoesNotBlockCompletion() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
         BookingImageRepository images = mock(BookingImageRepository.class);
-        var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, images);
+        var service = completionService(bookings, images);
         var disputed = new BookingPersistenceRepository.BookingWorkflowState(42L, 3L, 7L, start,
                 start.plusHours(1), "CONFIRMED", new BigDecimal("150000"), start.plusMinutes(2),
                 start.plusMinutes(3), null, null, null, null, null, null, BigDecimal.ZERO, BigDecimal.ZERO,
@@ -132,7 +152,7 @@ class BookingCompletionServiceTest {
     @Test
     void wrongStaffCannotStartAndStartBeforeArrivalIsRejected() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
-        var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, mock(BookingImageRepository.class));
+        var service = completionService(bookings, mock(BookingImageRepository.class));
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, "CONFIRMED", start,
                 start, null, null, null))).thenReturn(Optional.of(workflow(7L, "CONFIRMED", start,
                 null, null, null, null)));
@@ -147,7 +167,7 @@ class BookingCompletionServiceTest {
     void startedWorkNeedsEvidenceBeforeMovingToAwaitingPayment() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
         BookingImageRepository images = mock(BookingImageRepository.class);
-        var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, images);
+        var service = completionService(bookings, images);
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, "CONFIRMED", start,
                 start, start.plusMinutes(1), null, null)));
         when(images.existsByBookingId(42L)).thenReturn(true);
@@ -162,7 +182,7 @@ class BookingCompletionServiceTest {
     void cannotCompleteBeforeStartOrWithoutEvidence() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
         BookingImageRepository images = mock(BookingImageRepository.class);
-        var service = new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, images);
+        var service = completionService(bookings, images);
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(7L, "CONFIRMED", start,
                 start, null, null, null))).thenReturn(Optional.of(workflow(7L, "CONFIRMED", start,
                 start, start.plusMinutes(1), null, null)));
@@ -182,5 +202,18 @@ class BookingCompletionServiceTest {
                 incidentReportedAt == null ? null : "kẹt xe",
                 incidentReportedAt == null ? null : incidentReportedAt.plusMinutes(30), response,
                 response == null ? null : incidentReportedAt.plusMinutes(1), null, BigDecimal.ZERO, BigDecimal.ZERO);
+    }
+
+    private com.housekeeping.management.service.impl.BookingCompletionServiceImpl completionService(
+            BookingPersistenceRepository bookings, BookingImageRepository images) {
+        var assignments = mock(com.housekeeping.management.repository.BookingStaffAssignmentRepository.class);
+        var lead = new com.housekeeping.management.entity.BookingStaffAssignment();
+        lead.setBookingId(42L); lead.setStaffId(7L); lead.setRole(com.housekeeping.management.enums.BookingStaffRole.LEAD);
+        lead.setStatus(com.housekeeping.management.enums.BookingStaffAssignmentStatus.ASSIGNED);
+        lead.setArrivedAt(start);
+        when(assignments.findAllByBookingIdAndStatusOrderByRoleAscBookingStaffIdAsc(42L,
+                com.housekeeping.management.enums.BookingStaffAssignmentStatus.ASSIGNED)).thenReturn(java.util.List.of(lead));
+        return new com.housekeeping.management.service.impl.BookingCompletionServiceImpl(bookings, images, assignments,
+                mock(com.housekeeping.management.repository.BookingTeamChangeRequestRepository.class));
     }
 }

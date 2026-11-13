@@ -15,8 +15,8 @@ public interface BookingAvailabilityRepository extends JpaRepository<Booking, Lo
     interface StaffRow { Long getStaffId(); String getFullName(); com.housekeeping.management.enums.StaffType getStaffType(); }
     interface IntervalRow { Long getStaffId(); LocalTime getStartTime(); LocalTime getEndTime(); }
     interface DatedIntervalRow { LocalDate getWorkDate(); Long getStaffId(); LocalTime getStartTime(); LocalTime getEndTime(); }
-    interface BookingIntervalRow { Long getStaffId(); LocalDateTime getStartTime(); LocalDateTime getEndTime(); }
-    interface DatedBookingIntervalRow { LocalDateTime getStartAt(); Long getStaffId(); LocalDateTime getStartTime(); LocalDateTime getEndTime(); }
+    interface BookingIntervalRow { Long getBookingId(); Long getStaffId(); LocalDateTime getStartTime(); LocalDateTime getEndTime(); }
+    interface DatedBookingIntervalRow { Long getBookingId(); LocalDateTime getStartAt(); Long getStaffId(); LocalDateTime getStartTime(); LocalDateTime getEndTime(); }
     interface LeaveRangeRow { Long getStaffId(); LocalDate getStartDate(); LocalDate getEndDate(); }
 
     @Query("select staff.staffId as staffId, user.fullName as fullName, staff.staffType as staffType "
@@ -33,9 +33,12 @@ public interface BookingAvailabilityRepository extends JpaRepository<Booking, Lo
             + "and leave.startDate<=:date and leave.endDate>=:date")
     List<Long> findStaffOnLeave(@Param("date") LocalDate date, @Param("status") LeaveStatus status);
 
-    @Query("select booking.staffId as staffId, booking.startTime as startTime, booking.endTime as endTime "
-            + "from Booking booking where booking.startTime>=:from and booking.startTime<:until "
-            + "and booking.status in :statuses order by booking.staffId, booking.startTime")
+    @Query("select booking.bookingId as bookingId, assignment.staffId as staffId, booking.startTime as startTime, booking.endTime as endTime "
+            + "from Booking booking, BookingStaffAssignment assignment "
+            + "where assignment.bookingId=booking.bookingId "
+            + "and assignment.status=com.housekeeping.management.enums.BookingStaffAssignmentStatus.ASSIGNED "
+            + "and booking.startTime>=:from and booking.startTime<:until "
+            + "and booking.status in :statuses order by assignment.staffId, booking.startTime")
     List<BookingIntervalRow> findBookedIntervalRows(@Param("from") LocalDateTime from, @Param("until") LocalDateTime until,
             @Param("statuses") List<BookingStatus> statuses);
 
@@ -50,8 +53,11 @@ public interface BookingAvailabilityRepository extends JpaRepository<Booking, Lo
     List<LeaveRangeRow> findApprovedLeaveRows(@Param("from") LocalDate from, @Param("through") LocalDate through,
             @Param("status") LeaveStatus status);
 
-    @Query("select booking.startTime as startAt, booking.staffId as staffId, booking.startTime as startTime, "
-            + "booking.endTime as endTime from Booking booking where booking.startTime>=:from and booking.startTime<:until "
+    @Query("select booking.bookingId as bookingId, booking.startTime as startAt, assignment.staffId as staffId, booking.startTime as startTime, "
+            + "booking.endTime as endTime from Booking booking, BookingStaffAssignment assignment "
+            + "where assignment.bookingId=booking.bookingId "
+            + "and assignment.status=com.housekeeping.management.enums.BookingStaffAssignmentStatus.ASSIGNED "
+            + "and booking.startTime>=:from and booking.startTime<:until "
             + "and booking.status in :statuses order by booking.startTime")
     List<DatedBookingIntervalRow> findDatedBookedIntervalRows(@Param("from") LocalDateTime from, @Param("until") LocalDateTime until,
             @Param("statuses") List<BookingStatus> statuses);
@@ -67,7 +73,7 @@ public interface BookingAvailabilityRepository extends JpaRepository<Booking, Lo
     default List<Long> staffOnApprovedLeave(LocalDate date) { return findStaffOnLeave(date, LeaveStatus.APPROVED); }
     default List<Interval> bookedIntervals(LocalDate date) {
         return findBookedIntervalRows(date.atStartOfDay(), date.plusDays(1).atStartOfDay(), activeBookingStatuses()).stream()
-                .map(row -> new Interval(row.getStaffId(), row.getStartTime().toLocalTime(), row.getEndTime().toLocalTime())).toList();
+                .map(row -> new Interval(row.getStaffId(), row.getStartTime().toLocalTime(), row.getEndTime().toLocalTime(), row.getBookingId())).toList();
     }
     default List<DatedInterval> activeAvailability(LocalDate from, LocalDate through) {
         return findDatedAvailabilityRows(from, through).stream().map(row -> new DatedInterval(row.getWorkDate(),
@@ -80,14 +86,18 @@ public interface BookingAvailabilityRepository extends JpaRepository<Booking, Lo
     default List<DatedInterval> bookedIntervals(LocalDate from, LocalDate through) {
         return findDatedBookedIntervalRows(from.atStartOfDay(), through.plusDays(1).atStartOfDay(), activeBookingStatuses())
                 .stream().map(row -> new DatedInterval(row.getStartAt().toLocalDate(), row.getStaffId(),
-                        row.getStartTime().toLocalTime(), row.getEndTime().toLocalTime())).toList();
+                        row.getStartTime().toLocalTime(), row.getEndTime().toLocalTime(), row.getBookingId())).toList();
     }
     private static List<BookingStatus> activeBookingStatuses() {
         return List.of(BookingStatus.CONFIRMED, BookingStatus.AWAITING_PAYMENT, BookingStatus.COMPLETED);
     }
 
     record StaffOption(Long id, String name, String staffType) { }
-    record Interval(Long staffId, LocalTime start, LocalTime end) { }
-    record DatedInterval(LocalDate date, Long staffId, LocalTime start, LocalTime end) { }
+    record Interval(Long staffId, LocalTime start, LocalTime end, Long bookingId) {
+        public Interval(Long staffId, LocalTime start, LocalTime end) { this(staffId, start, end, null); }
+    }
+    record DatedInterval(LocalDate date, Long staffId, LocalTime start, LocalTime end, Long bookingId) {
+        public DatedInterval(LocalDate date, Long staffId, LocalTime start, LocalTime end) { this(date, staffId, start, end, null); }
+    }
     record LeaveRange(Long staffId, LocalDate start, LocalDate end) { }
 }

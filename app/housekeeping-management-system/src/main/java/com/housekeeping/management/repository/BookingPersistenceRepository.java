@@ -1,6 +1,7 @@
 package com.housekeeping.management.repository;
 
 import com.housekeeping.management.enums.BookingStatus;
+import com.housekeeping.management.enums.BookingStaffAssignmentStatus;
 import com.housekeeping.management.entity.Booking;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -19,12 +20,17 @@ import jakarta.persistence.LockModeType;
 /** Booking-owned persistence queries. Other domains are reached through their service contracts. */
 public interface BookingPersistenceRepository extends JpaRepository<Booking, Long> {
     List<Booking> findAllByCustomerIdOrderByStartTimeDesc(Long customerId);
-    List<Booking> findAllByStaffIdOrderByStartTimeDesc(Long staffId);
     List<Booking> findAllByBookingIdIn(List<Long> bookingIds);
     List<Booking> findAllByStatusInAndEndTimeAfterOrderByStartTime(List<BookingStatus> statuses, LocalDateTime endTime);
     List<BookingStatus> ACTIVE_STATUSES = List.of(BookingStatus.CONFIRMED, BookingStatus.AWAITING_PAYMENT);
     List<BookingStatus> APPOINTMENT_STATUSES = List.of(BookingStatus.CONFIRMED,
             BookingStatus.AWAITING_PAYMENT, BookingStatus.COMPLETED);
+
+    @Query("select distinct booking from Booking booking, BookingStaffAssignment assignment "
+            + "where assignment.bookingId=booking.bookingId and assignment.staffId=:staffId "
+            + "and assignment.status=com.housekeeping.management.enums.BookingStaffAssignmentStatus.ASSIGNED "
+            + "order by booking.startTime desc")
+    List<Booking> findAllAssignedToStaffOrderByStartTimeDesc(@Param("staffId") Long staffId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select booking from Booking booking where booking.bookingId=:id")
@@ -60,11 +66,17 @@ public interface BookingPersistenceRepository extends JpaRepository<Booking, Lon
         return changeStatusEntity(id, BookingStatus.valueOf(expected), BookingStatus.valueOf(next));
     }
 
-    boolean existsByStaffIdAndStatusIn(Long staffId, List<BookingStatus> statuses);
     boolean existsByHouseIdAndStatusIn(Long houseId, List<BookingStatus> statuses);
 
+    @Query("select (count(booking)>0) from Booking booking, BookingStaffAssignment assignment "
+            + "where assignment.bookingId=booking.bookingId and assignment.staffId=:staffId "
+            + "and assignment.status=com.housekeeping.management.enums.BookingStaffAssignmentStatus.ASSIGNED "
+            + "and booking.status in :statuses")
+    boolean existsUnfinishedBookingForStaff(@Param("staffId") Long staffId,
+            @Param("statuses") List<BookingStatus> statuses);
+
     default boolean hasUnfinishedBookingForStaff(Long staffId) {
-        return existsByStaffIdAndStatusIn(staffId, ACTIVE_STATUSES);
+        return existsUnfinishedBookingForStaff(staffId, ACTIVE_STATUSES);
     }
 
     boolean existsByCustomerIdAndStatusIn(Long customerId, List<BookingStatus> statuses);
@@ -101,7 +113,9 @@ public interface BookingPersistenceRepository extends JpaRepository<Booking, Lon
             + "where booking.bookingId=:id and booking.status=com.housekeeping.management.enums.BookingStatus.AWAITING_PAYMENT")
     int completeAfterPayment(@Param("id") Long id);
 
-    @Query("select booking.bookingId from Booking booking where booking.staffId=:staffId "
+    @Query("select booking.bookingId from Booking booking, BookingStaffAssignment assignment "
+            + "where assignment.bookingId=booking.bookingId and assignment.staffId=:staffId "
+            + "and assignment.status=com.housekeeping.management.enums.BookingStaffAssignmentStatus.ASSIGNED "
             + "and booking.status=com.housekeeping.management.enums.BookingStatus.CONFIRMED "
             + "and booking.endTime>:now and booking.startTime>=:from and booking.startTime<:until order by booking.startTime")
     List<Long> futureConfirmedBookingIds(@Param("staffId") Long staffId, @Param("from") LocalDateTime from,
@@ -135,18 +149,27 @@ public interface BookingPersistenceRepository extends JpaRepository<Booking, Lon
             + "and booking.staffId=:expected and booking.status=com.housekeeping.management.enums.BookingStatus.CONFIRMED")
     int assignStaff(@Param("id") Long id, @Param("expected") Long expected, @Param("replacement") Long replacement);
 
-    @Query("select booking from Booking booking where booking.staffId=:staffId and booking.status in :statuses "
+    @Query("select distinct booking from Booking booking, BookingStaffAssignment assignment "
+            + "where assignment.bookingId=booking.bookingId and assignment.staffId=:staffId "
+            + "and assignment.status=com.housekeeping.management.enums.BookingStaffAssignmentStatus.ASSIGNED "
+            + "and booking.status in :statuses "
             + "and booking.startTime<:end and booking.endTime>:start order by booking.startTime")
     List<Booking> findAppointments(@Param("staffId") Long staffId, @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end, @Param("statuses") List<BookingStatus> statuses);
 
-    @Query("select booking from Booking booking where booking.staffId=:staffId and booking.status in :statuses "
+    @Query("select distinct booking from Booking booking, BookingStaffAssignment assignment "
+            + "where assignment.bookingId=booking.bookingId and assignment.staffId=:staffId "
+            + "and assignment.status=com.housekeeping.management.enums.BookingStaffAssignmentStatus.ASSIGNED "
+            + "and booking.status in :statuses "
             + "and booking.bookingId<>:excluded and booking.endTime<=:start order by booking.endTime desc")
     List<Booking> findPreviousAppointments(@Param("staffId") Long staffId, @Param("start") LocalDateTime start,
             @Param("excluded") Long excluded, @Param("statuses") List<BookingStatus> statuses,
             org.springframework.data.domain.Pageable page);
 
-    @Query("select booking from Booking booking where booking.staffId=:staffId and booking.status in :statuses "
+    @Query("select distinct booking from Booking booking, BookingStaffAssignment assignment "
+            + "where assignment.bookingId=booking.bookingId and assignment.staffId=:staffId "
+            + "and assignment.status=com.housekeeping.management.enums.BookingStaffAssignmentStatus.ASSIGNED "
+            + "and booking.status in :statuses "
             + "and booking.bookingId<>:excluded and booking.startTime>=:end order by booking.startTime")
     List<Booking> findNextAppointments(@Param("staffId") Long staffId, @Param("end") LocalDateTime end,
             @Param("excluded") Long excluded, @Param("statuses") List<BookingStatus> statuses,
@@ -172,7 +195,9 @@ public interface BookingPersistenceRepository extends JpaRepository<Booking, Lon
         return List.copyOf(result);
     }
 
-    @Query("select (count(booking)>0) from Booking booking where booking.staffId=:staffId "
+    @Query("select (count(booking)>0) from Booking booking, BookingStaffAssignment assignment "
+            + "where assignment.bookingId=booking.bookingId and assignment.staffId=:staffId "
+            + "and assignment.status=com.housekeeping.management.enums.BookingStaffAssignmentStatus.ASSIGNED "
             + "and booking.status in :statuses and booking.startTime<:end and booking.endTime>:start")
     boolean hasConflictingBooking(@Param("staffId") Long staffId, @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end, @Param("statuses") List<BookingStatus> statuses);
@@ -181,7 +206,9 @@ public interface BookingPersistenceRepository extends JpaRepository<Booking, Lon
         return hasConflictingBooking(staffId, start.minusMinutes(gapMinutes), end.plusMinutes(gapMinutes), APPOINTMENT_STATUSES);
     }
 
-    @Query("select (count(booking)>0) from Booking booking where booking.staffId=:staffId "
+    @Query("select (count(booking)>0) from Booking booking, BookingStaffAssignment assignment "
+            + "where assignment.bookingId=booking.bookingId and assignment.staffId=:staffId "
+            + "and assignment.status=com.housekeeping.management.enums.BookingStaffAssignmentStatus.ASSIGNED "
             + "and booking.bookingId<>:excluded and booking.status in :statuses "
             + "and booking.startTime<:end and booking.endTime>:start")
     boolean hasConflictingBookingExcept(@Param("staffId") Long staffId, @Param("start") LocalDateTime start,
@@ -194,7 +221,10 @@ public interface BookingPersistenceRepository extends JpaRepository<Booking, Lon
                 excluded, APPOINTMENT_STATUSES);
     }
 
-    @Query("select booking from Booking booking where booking.staffId=:staffId and booking.startTime>=:from "
+    @Query("select distinct booking from Booking booking, BookingStaffAssignment assignment "
+            + "where assignment.bookingId=booking.bookingId and assignment.staffId=:staffId "
+            + "and assignment.status=com.housekeeping.management.enums.BookingStaffAssignmentStatus.ASSIGNED "
+            + "and booking.startTime>=:from "
             + "and booking.startTime<:until and booking.status=com.housekeeping.management.enums.BookingStatus.CONFIRMED "
             + "and booking.endTime>:now and booking.endTime>:availabilityStart and booking.startTime<:availabilityEnd")
     List<Booking> findFutureConfirmedWithinInterval(@Param("staffId") Long staffId, @Param("from") LocalDateTime from,
@@ -368,7 +398,7 @@ public interface BookingPersistenceRepository extends JpaRepository<Booking, Lon
                     booking.getLatitudeSnapshot(), booking.getLongitudeSnapshot());
         }
     }
-    record ServiceSnapshot(Long id, String name, BigDecimal price, int durationMinutes) { }
+    record ServiceSnapshot(Long id, String name, BigDecimal price, BigDecimal additionalStaffPrice, int durationMinutes) { }
     record BookingState(Long id, Long customerId, Long staffId, Long houseId, LocalDateTime startTime,
             LocalDateTime endTime, String status, BigDecimal latitude, BigDecimal longitude, LocalDateTime serviceCompletedAt) {
         public BookingState(Long id, Long customerId, Long staffId, Long houseId, LocalDateTime startTime,

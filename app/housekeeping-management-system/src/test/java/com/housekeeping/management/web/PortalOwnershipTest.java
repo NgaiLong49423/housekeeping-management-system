@@ -20,8 +20,11 @@ import org.springframework.security.access.AccessDeniedException;
 class PortalOwnershipTest {
     @Test
     void roleAndIdMustBothMatchToReadBookingOrEvidence() {
+        BookingStaffAssignmentRepository assignments = mock(BookingStaffAssignmentRepository.class);
+        when(assignments.existsByBookingIdAndStaffIdAndStatus(42L, 2L,
+                com.housekeeping.management.enums.BookingStaffAssignmentStatus.ASSIGNED)).thenReturn(true);
         PortalQueryService query = new com.housekeeping.management.service.impl.PortalQueryServiceImpl(
-                mock(BookingPersistenceRepository.class), mock(CancellationLogRepository.class), mock(BookingDetailRepository.class), mock(BookingImageRepository.class),
+                mock(BookingPersistenceRepository.class), assignments, mock(CancellationLogRepository.class), mock(BookingDetailRepository.class), mock(BookingImageRepository.class),
                 mock(ServicesRepository.class), mock(StaffAccountRepository.class), mock(UserRepository.class),
                 mock(StaffProfileRepository.class), mock(StaffFollowRepository.class), mock(StaffAvailabilityRepository.class),
                 mock(PaymentPersistenceRepository.class), mock(FeedbackRepository.class), mock(FeedbackService.class));

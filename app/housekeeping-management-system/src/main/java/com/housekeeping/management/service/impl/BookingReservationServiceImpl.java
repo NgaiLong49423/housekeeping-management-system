@@ -19,6 +19,10 @@ import com.housekeeping.management.entity.User;
 import com.housekeeping.management.repository.BookingPersistenceRepository;
 import com.housekeeping.management.repository.BookingDetailRepository;
 import com.housekeeping.management.entity.BookingDetail;
+import com.housekeeping.management.entity.BookingStaffAssignment;
+import com.housekeeping.management.enums.BookingStaffRole;
+import com.housekeeping.management.enums.BookingStaffAssignmentStatus;
+import com.housekeeping.management.repository.BookingStaffAssignmentRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
@@ -28,6 +32,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.HashSet;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
@@ -45,10 +50,12 @@ public class BookingReservationServiceImpl implements BookingReservationService 
     private final VietmapClient vietmap;
     private final CompanySettingsService companySettings;
     private final BookingDetailRepository bookingDetails;
+    private final BookingStaffAssignmentRepository bookingStaffAssignments;
 
     public BookingReservationServiceImpl(BookingPersistenceRepository bookings, HouseService houseService,
             AuthService auth, StaffManagementService staffManagement, ServiceManagementService serviceManagement,
-            VietmapClient vietmap, CompanySettingsService companySettings, BookingDetailRepository bookingDetails) {
+            VietmapClient vietmap, CompanySettingsService companySettings, BookingDetailRepository bookingDetails,
+            BookingStaffAssignmentRepository bookingStaffAssignments) {
         this.bookings = bookings;
         this.houseService = houseService;
         this.auth = auth;
@@ -57,11 +64,26 @@ public class BookingReservationServiceImpl implements BookingReservationService 
         this.vietmap = vietmap;
         this.companySettings = companySettings;
         this.bookingDetails = bookingDetails;
+        this.bookingStaffAssignments = bookingStaffAssignments;
     }
 
     @Transactional
     public Long createBooking(Long customerId, Long staffId, Long houseId, LocalDateTime start,
             List<Long> requestedServiceIds, String areaNote) {
+        return createBooking(customerId, List.of(staffId), staffId, houseId, start, requestedServiceIds, areaNote);
+    }
+
+    @Override
+    @Transactional
+    public Long createBooking(Long customerId, List<Long> requestedStaffIds, Long leadStaffId, Long houseId,
+            LocalDateTime start, List<Long> requestedServiceIds, String areaNote) {
+        if (requestedStaffIds == null || requestedStaffIds.isEmpty() || requestedStaffIds.stream().anyMatch(java.util.Objects::isNull)
+                || new HashSet<>(requestedStaffIds).size() != requestedStaffIds.size()) {
+            throw new IllegalArgumentException("Hãy chọn ít nhất một nhân viên và không chọn trùng nhân viên.");
+        }
+        if (leadStaffId == null || !requestedStaffIds.contains(leadStaffId)) {
+            throw new IllegalArgumentException("Trưởng nhóm phải nằm trong danh sách nhân viên đã chọn.");
+        }
         // Khóa dòng Customer trước (thứ tự khóa: Customer, House, Staff) để Admin không thể khóa tài khoản
         // giữa lúc kiểm tra và lúc ghi Booking; CustomerManagementService khóa cùng dòng này.
         User customer = auth.findActiveCustomerForUpdate(customerId);
@@ -70,43 +92,66 @@ public class BookingReservationServiceImpl implements BookingReservationService 
 
         // Lock order is always Customer, then House, then Staff. The Staff lock serializes overlap checks, including empty ranges.
         House house = houseService.findCustomerHouseForUpdate(customerId, houseId);
-        Staff staff = staffManagement.findActiveForBookingUpdate(staffId);
+        List<Long> staffIds = requestedStaffIds.stream().sorted().toList();
+        Map<Long, Staff> staffById = new java.util.LinkedHashMap<>();
+        for (Long staffId : staffIds) staffById.put(staffId, staffManagement.findActiveForBookingUpdate(staffId));
         companySettings.lockSettingsForScheduling();
         List<BookingPersistenceRepository.ServiceSnapshot> selectedServices = selectedServices(requestedServiceIds);
         int totalDurationMinutes = selectedServices.stream().mapToInt(BookingPersistenceRepository.ServiceSnapshot::durationMinutes)
                 .reduce(0, Math::addExact);
-        BigDecimal totalAmount = selectedServices.stream().map(BookingPersistenceRepository.ServiceSnapshot::price)
+        BigDecimal basePrice = selectedServices.stream().map(BookingPersistenceRepository.ServiceSnapshot::price)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal extraStaffPrice = selectedServices.stream()
+                .map(BookingPersistenceRepository.ServiceSnapshot::additionalStaffPrice)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalAmount = basePrice.add(extraStaffPrice.multiply(BigDecimal.valueOf(staffIds.size() - 1L)));
         LocalDateTime end = start.plusMinutes(totalDurationMinutes);
         if (end.toLocalDate().isAfter(start.toLocalDate())) throw new IllegalArgumentException("Booking phải kết thúc trong cùng ngày và khung giờ hoạt động.");
         if (!companySettings.acceptsInterval(start.toLocalDate(), start.toLocalTime(), end.toLocalTime())) {
             throw new IllegalArgumentException("Toàn bộ lịch phải kết thúc trong cùng một khung giờ hoạt động của công ty.");
         }
-        if (staffManagement.isOnApprovedLeave(staffId, start.toLocalDate())) throw new IllegalArgumentException("Nhân viên đã được duyệt nghỉ trong ngày bắt đầu này.");
-        if (staff.getStaffType() == StaffType.PART_TIME && !staffManagement.acceptsAvailabilityInterval(staffId, start.toLocalDate(), start.toLocalTime(), end.toLocalTime())) {
-            throw new IllegalArgumentException("Toàn bộ lịch phải nằm trong một khoảng sẵn sàng đang hiệu lực của nhân viên.");
+        for (Long staffId : staffIds) {
+            Staff staff = staffById.get(staffId);
+            if (staffManagement.isOnApprovedLeave(staffId, start.toLocalDate()))
+                throw new IllegalArgumentException("Nhân viên #" + staffId + " đã được duyệt nghỉ trong ngày bắt đầu này.");
+            if (staff.getStaffType() == StaffType.PART_TIME && !staffManagement.acceptsAvailabilityInterval(staffId,
+                    start.toLocalDate(), start.toLocalTime(), end.toLocalTime()))
+                throw new IllegalArgumentException("Toàn bộ lịch phải nằm trong một khoảng sẵn sàng đang hiệu lực của từng nhân viên đã chọn.");
         }
         if (house.getLatitude() == null || house.getLongitude() == null) throw new IllegalArgumentException("Địa chỉ này chưa có tọa độ VietMap. Hãy cập nhật địa chỉ bằng kết quả gợi ý.");
         if (!SpecificAddressRules.isSpecific(house.getAddressDetail())) {
             throw new IllegalArgumentException("Địa chỉ này chưa có số nhà và tên đường cụ thể. Hãy cập nhật địa chỉ trong mục Nhà của tôi trước khi đặt lịch.");
         }
         if (!houseService.isWithinServiceRadius(house.getLatitude(), house.getLongitude())) throw new IllegalArgumentException("Địa chỉ nằm ngoài bán kính phục vụ hiện tại của công ty.");
-        TravelAssessment travel = assessTravel(staffId,start,end,house.getLatitude(),house.getLongitude(),null);
-        if (!travel.feasible()) {
-            if (travel.status()==TravelStatus.ROUTE_UNAVAILABLE) throw new IllegalStateException(travel.message());
-            throw new IllegalArgumentException(travel.message());
+        for (Long staffId : staffIds) {
+            TravelAssessment travel = assessTravel(staffId,start,end,house.getLatitude(),house.getLongitude(),null);
+            if (!travel.feasible()) {
+                if (travel.status()==TravelStatus.ROUTE_UNAVAILABLE) throw new IllegalStateException(travel.message());
+                throw new IllegalArgumentException("Nhân viên #" + staffId + ": " + travel.message());
+            }
         }
         validateRequestedStart(start, now());
 
-        Long bookingId = bookings.insertBooking(customer.getUserId(), staff.getStaffId(), house.getHouseId(),
+        Long bookingId = bookings.insertBooking(customer.getUserId(), leadStaffId, house.getHouseId(),
                 house.getFullAddress(), house.getLatitude(), house.getLongitude(), house.getAddressNote(),
                 start, end, totalDurationMinutes, totalAmount, normalizedAreaNote, now());
+        bookingStaffAssignments.saveAll(staffIds.stream().map(staffId -> {
+            BookingStaffAssignment assignment = new BookingStaffAssignment();
+            assignment.setBookingId(bookingId);
+            assignment.setStaffId(staffId);
+            assignment.setRole(staffId.equals(leadStaffId) ? BookingStaffRole.LEAD : BookingStaffRole.MEMBER);
+            assignment.setStatus(BookingStaffAssignmentStatus.ASSIGNED);
+            assignment.setAssignedAt(now());
+            return assignment;
+        }).toList());
         bookingDetails.saveAll(selectedServices.stream().map(snapshot -> {
             BookingDetail detail = new BookingDetail();
             detail.setBookingId(bookingId);
             detail.setServiceId(snapshot.id());
             detail.setServiceNameSnapshot(snapshot.name());
             detail.setUnitPrice(snapshot.price());
+            detail.setAdditionalStaffPriceSnapshot(snapshot.additionalStaffPrice());
+            detail.setStaffCountSnapshot(staffIds.size());
             detail.setDurationMinutes(snapshot.durationMinutes());
             return detail;
         }).toList());
@@ -299,7 +344,7 @@ public class BookingReservationServiceImpl implements BookingReservationService 
                 throw new IllegalArgumentException("Một dịch vụ đã ngừng hoạt động hoặc không tồn tại.");
             }
             selected.add(new BookingPersistenceRepository.ServiceSnapshot(service.getServiceId(),
-                    service.getServiceName(), service.getPrice(), service.getDurationMinutes()));
+                    service.getServiceName(), service.getPrice(), service.getAdditionalStaffPrice(), service.getDurationMinutes()));
         }
         return List.copyOf(selected);
     }
