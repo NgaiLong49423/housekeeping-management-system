@@ -1,8 +1,13 @@
 package com.housekeeping.management.config;
 
 import java.net.URI;
+import lombok.Getter;
+import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+/** Cấu hình VNPay đọc từ {@code app.payment.vnpay.*} (mã TMN và khóa bí mật lấy từ file .env). */
+@Getter
+@Setter
 @ConfigurationProperties(prefix = "app.payment.vnpay")
 public class VnpayPaymentProperties {
     private String tmnCode = "";
@@ -11,32 +16,25 @@ public class VnpayPaymentProperties {
     private String apiUrl = "https://sandbox.vnpayment.vn/merchant_webapi/api/transaction";
     private String returnUrl = "http://localhost:8080/payments/vnpay/return";
 
-    public String getTmnCode() { return tmnCode; }
-    public void setTmnCode(String tmnCode) { this.tmnCode = tmnCode; }
-    public String getHashSecret() { return hashSecret; }
-    public void setHashSecret(String hashSecret) { this.hashSecret = hashSecret; }
-    public String getPayUrl() { return payUrl; }
-    public void setPayUrl(String payUrl) { this.payUrl = payUrl; }
-    public String getApiUrl() { return apiUrl; }
-    public void setApiUrl(String apiUrl) { this.apiUrl = apiUrl; }
-    public String getReturnUrl() { return returnUrl; }
-    public void setReturnUrl(String returnUrl) { this.returnUrl = returnUrl; }
-
+    /** Đủ mã TMN, khóa bí mật và các URL hợp lệ thì mới cho thanh toán qua VNPay. */
     public boolean isConfigured() {
-        return present(tmnCode) && present(hashSecret) && https(payUrl) && https(apiUrl) && absoluteWebUrl(returnUrl);
+        return present(tmnCode) && present(hashSecret) && isHttps(payUrl) && isHttps(apiUrl) && isWebUrl(returnUrl);
     }
 
-    private static boolean present(String value) { return value != null && !value.isBlank(); }
+    private static boolean present(String value) {
+        return value != null && !value.isBlank();
+    }
 
-    private static boolean https(String value) {
+    private static boolean isHttps(String value) {
         URI uri = parse(value);
         return uri != null && "https".equalsIgnoreCase(uri.getScheme()) && present(uri.getHost());
     }
 
-    private static boolean absoluteWebUrl(String value) {
+    /** URL quay về có thể là http (chạy trên máy cá nhân) hoặc https. */
+    private static boolean isWebUrl(String value) {
         URI uri = parse(value);
-        return uri != null && ("https".equalsIgnoreCase(uri.getScheme()) || "http".equalsIgnoreCase(uri.getScheme()))
-                && present(uri.getHost());
+        if (uri == null || !present(uri.getHost())) return false;
+        return "https".equalsIgnoreCase(uri.getScheme()) || "http".equalsIgnoreCase(uri.getScheme());
     }
 
     private static URI parse(String value) {

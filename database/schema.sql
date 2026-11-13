@@ -19,11 +19,11 @@ CREATE TABLE [dbo].[Users](
 	[phone] [nvarchar](20) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
 	[role] [varchar](20) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
 	[status] [varchar](20) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
- CONSTRAINT [PK_Users] PRIMARY KEY CLUSTERED 
+ CONSTRAINT [PK_Users] PRIMARY KEY CLUSTERED
 (
 	[user_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY],
- CONSTRAINT [UQ_Users_Email] UNIQUE NONCLUSTERED 
+ CONSTRAINT [UQ_Users_Email] UNIQUE NONCLUSTERED
 (
 	[email] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
@@ -43,7 +43,7 @@ CREATE TABLE [dbo].[Company_Settings](
 	[latitude] [decimal](10, 7) NOT NULL,
 	[longitude] [decimal](10, 7) NOT NULL,
 	[service_radius_km] [decimal](6, 2) NOT NULL,
- CONSTRAINT [PK_Company_Settings] PRIMARY KEY CLUSTERED 
+ CONSTRAINT [PK_Company_Settings] PRIMARY KEY CLUSTERED
 (
 	[company_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
@@ -65,7 +65,7 @@ CREATE TABLE [dbo].[Services](
 	[price] [decimal](12, 2) NOT NULL,
 	[duration_minutes] [int] NOT NULL,
 	[status] [varchar](20) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
- CONSTRAINT [PK_Services] PRIMARY KEY CLUSTERED 
+ CONSTRAINT [PK_Services] PRIMARY KEY CLUSTERED
 (
 	[service_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
@@ -84,11 +84,11 @@ CREATE TABLE [dbo].[Booking_Delay_Compensation_Tiers](
 	[min_delay_minutes] [int] NOT NULL,
 	[max_delay_minutes] [int] NULL,
 	[discount_percent] [int] NOT NULL,
- CONSTRAINT [PK_Booking_Delay_Compensation_Tiers] PRIMARY KEY CLUSTERED 
+ CONSTRAINT [PK_Booking_Delay_Compensation_Tiers] PRIMARY KEY CLUSTERED
 (
 	[tier_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY],
- CONSTRAINT [UQ_Booking_Delay_Compensation_Tiers_Min] UNIQUE NONCLUSTERED 
+ CONSTRAINT [UQ_Booking_Delay_Compensation_Tiers_Min] UNIQUE NONCLUSTERED
 (
 	[min_delay_minutes] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
@@ -106,11 +106,11 @@ CREATE TABLE [dbo].[Staff](
 	[staff_id] [bigint] IDENTITY(1,1) NOT NULL,
 	[user_id] [bigint] NOT NULL,
 	[staff_type] [varchar](20) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
- CONSTRAINT [PK_Staff] PRIMARY KEY CLUSTERED 
+ CONSTRAINT [PK_Staff] PRIMARY KEY CLUSTERED
 (
 	[staff_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY],
- CONSTRAINT [UQ_Staff_User] UNIQUE NONCLUSTERED 
+ CONSTRAINT [UQ_Staff_User] UNIQUE NONCLUSTERED
 (
 	[user_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
@@ -140,7 +140,7 @@ CREATE TABLE [dbo].[Houses](
 	[address_detail] [nvarchar](500) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
 	[address_type] [varchar](20) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
 	[is_default] [bit] NOT NULL,
- CONSTRAINT [PK_Houses] PRIMARY KEY CLUSTERED 
+ CONSTRAINT [PK_Houses] PRIMARY KEY CLUSTERED
 (
 	[house_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
@@ -163,7 +163,7 @@ CREATE TABLE [dbo].[Company_Operating_Hours](
 	[is_closed] [bit] NOT NULL,
 	[period_no] [smallint] NOT NULL,
 	[effective_from] [date] NOT NULL,
- CONSTRAINT [PK_Company_Operating_Hours] PRIMARY KEY CLUSTERED 
+ CONSTRAINT [PK_Company_Operating_Hours] PRIMARY KEY CLUSTERED
 (
 	[operating_hour_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
@@ -215,7 +215,7 @@ CREATE TABLE [dbo].[Bookings](
 	[arrival_verified_by] [bigint] NULL,
 	[arrival_verification_source] [varchar](10) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 	[arrival_verification_note] [nvarchar](500) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
- CONSTRAINT [PK_Bookings] PRIMARY KEY CLUSTERED 
+ CONSTRAINT [PK_Bookings] PRIMARY KEY CLUSTERED
 (
 	[booking_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
@@ -234,11 +234,11 @@ CREATE TABLE [dbo].[Staff_Profiles](
 	[staff_id] [bigint] NOT NULL,
 	[avatar_url] [nvarchar](500) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 	[bio] [nvarchar](max) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
- CONSTRAINT [PK_Staff_Profiles] PRIMARY KEY CLUSTERED 
+ CONSTRAINT [PK_Staff_Profiles] PRIMARY KEY CLUSTERED
 (
 	[profile_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY],
- CONSTRAINT [UQ_Staff_Profiles_Staff] UNIQUE NONCLUSTERED 
+ CONSTRAINT [UQ_Staff_Profiles_Staff] UNIQUE NONCLUSTERED
 (
 	[staff_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
@@ -262,7 +262,7 @@ CREATE TABLE [dbo].[Staff_Leaves](
 	[created_at] [datetime2](0) NOT NULL,
 	[reviewed_by] [bigint] NULL,
 	[reviewed_at] [datetime2](0) NULL,
- CONSTRAINT [PK_Staff_Leaves] PRIMARY KEY CLUSTERED 
+ CONSTRAINT [PK_Staff_Leaves] PRIMARY KEY CLUSTERED
 (
 	[leave_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
@@ -280,7 +280,7 @@ CREATE TABLE [dbo].[Staff_Follows](
 	[customer_id] [bigint] NOT NULL,
 	[staff_id] [bigint] NOT NULL,
 	[created_at] [datetime2](0) NOT NULL,
- CONSTRAINT [PK_Staff_Follows] PRIMARY KEY CLUSTERED 
+ CONSTRAINT [PK_Staff_Follows] PRIMARY KEY CLUSTERED
 (
 	[customer_id] ASC,
 	[staff_id] ASC
@@ -303,7 +303,7 @@ CREATE TABLE [dbo].[Staff_Availability](
 	[end_time] [time](0) NOT NULL,
 	[created_at] [datetime2](0) NOT NULL,
 	[is_active] [bit] NOT NULL,
- CONSTRAINT [PK_Staff_Availability] PRIMARY KEY CLUSTERED 
+ CONSTRAINT [PK_Staff_Availability] PRIMARY KEY CLUSTERED
 (
 	[availability_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
@@ -324,7 +324,7 @@ CREATE TABLE [dbo].[Booking_Details](
 	[service_name_snapshot] [nvarchar](150) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
 	[unit_price] [decimal](12, 2) NOT NULL,
 	[duration_minutes] [int] NOT NULL,
- CONSTRAINT [PK_Booking_Details] PRIMARY KEY CLUSTERED 
+ CONSTRAINT [PK_Booking_Details] PRIMARY KEY CLUSTERED
 (
 	[booking_detail_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
@@ -348,7 +348,7 @@ CREATE TABLE [dbo].[Payments](
 	[created_at] [datetime2](0) NOT NULL,
 	[paid_at] [datetime2](0) NULL,
 	[is_simulated] [bit] NOT NULL,
- CONSTRAINT [PK_Payments] PRIMARY KEY CLUSTERED 
+ CONSTRAINT [PK_Payments] PRIMARY KEY CLUSTERED
 (
 	[payment_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
@@ -367,7 +367,7 @@ CREATE TABLE [dbo].[Booking_Images](
 	[booking_id] [bigint] NOT NULL,
 	[image_url] [nvarchar](500) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
 	[uploaded_at] [datetime2](0) NOT NULL,
- CONSTRAINT [PK_Booking_Images] PRIMARY KEY CLUSTERED 
+ CONSTRAINT [PK_Booking_Images] PRIMARY KEY CLUSTERED
 (
 	[image_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
@@ -390,11 +390,11 @@ CREATE TABLE [dbo].[Feedbacks](
 	[status] [varchar](20) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
 	[rating] [tinyint] NULL,
 	[topics] [nvarchar](300) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
- CONSTRAINT [PK_Feedbacks] PRIMARY KEY CLUSTERED 
+ CONSTRAINT [PK_Feedbacks] PRIMARY KEY CLUSTERED
 (
 	[feedback_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY],
- CONSTRAINT [UQ_Feedbacks_Booking] UNIQUE NONCLUSTERED 
+ CONSTRAINT [UQ_Feedbacks_Booking] UNIQUE NONCLUSTERED
 (
 	[booking_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
@@ -430,11 +430,11 @@ CREATE TABLE [dbo].[Feedback_Cases](
 	[customer_estimated_value] [decimal](12, 2) NULL,
 	[item_age_months] [int] NULL,
 	[customer_requested_resolution] [nvarchar](1000) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
- CONSTRAINT [PK_Feedback_Cases] PRIMARY KEY CLUSTERED 
+ CONSTRAINT [PK_Feedback_Cases] PRIMARY KEY CLUSTERED
 (
 	[case_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY],
- CONSTRAINT [UQ_Feedback_Cases_Feedback] UNIQUE NONCLUSTERED 
+ CONSTRAINT [UQ_Feedback_Cases_Feedback] UNIQUE NONCLUSTERED
 (
 	[feedback_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
@@ -470,7 +470,7 @@ CREATE TABLE [dbo].[Booking_Financial_Entries](
 	[cancelled_by] [bigint] NULL,
 	[cancellation_reason] [nvarchar](1000) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 	[rejection_reason] [nvarchar](1000) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
- CONSTRAINT [PK_Booking_Financial_Entries] PRIMARY KEY CLUSTERED 
+ CONSTRAINT [PK_Booking_Financial_Entries] PRIMARY KEY CLUSTERED
 (
 	[entry_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
@@ -492,7 +492,7 @@ CREATE TABLE [dbo].[Feedback_Case_Verifications](
 	[reviewed_evidence_ids] [nvarchar](2000) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
 	[internal_finding] [nvarchar](4000) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 	[created_at] [datetime2](0) NOT NULL,
- CONSTRAINT [PK_Feedback_Case_Verifications] PRIMARY KEY CLUSTERED 
+ CONSTRAINT [PK_Feedback_Case_Verifications] PRIMARY KEY CLUSTERED
 (
 	[verification_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
@@ -515,7 +515,7 @@ CREATE TABLE [dbo].[Feedback_Case_Messages](
 	[sent_at] [datetime2](0) NOT NULL,
 	[legacy_imported] [bit] NOT NULL,
 	[legacy_timestamp_unknown] [bit] NOT NULL,
- CONSTRAINT [PK_Feedback_Case_Messages] PRIMARY KEY CLUSTERED 
+ CONSTRAINT [PK_Feedback_Case_Messages] PRIMARY KEY CLUSTERED
 (
 	[message_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
@@ -554,7 +554,7 @@ CREATE TABLE [dbo].[Staff_Incident_Actions](
 	[appeal_decided_by] [bigint] NULL,
 	[appeal_decided_at] [datetime2](0) NULL,
 	[decision_outcome] [varchar](20) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
- CONSTRAINT [PK_Staff_Incident_Actions] PRIMARY KEY CLUSTERED 
+ CONSTRAINT [PK_Staff_Incident_Actions] PRIMARY KEY CLUSTERED
 (
 	[action_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
@@ -577,7 +577,7 @@ CREATE TABLE [dbo].[Staff_Recovery_Installments](
 	[receipt_path] [nvarchar](500) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
 	[received_by] [bigint] NOT NULL,
 	[received_at] [datetime2](0) NOT NULL,
- CONSTRAINT [PK_Staff_Recovery_Installments] PRIMARY KEY CLUSTERED 
+ CONSTRAINT [PK_Staff_Recovery_Installments] PRIMARY KEY CLUSTERED
 (
 	[installment_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
@@ -601,7 +601,7 @@ CREATE TABLE [dbo].[Staff_Incident_Action_Evidence](
 	[original_name] [nvarchar](255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 	[storage_path] [nvarchar](500) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
 	[uploaded_at] [datetime2](0) NOT NULL,
- CONSTRAINT [PK_Staff_Incident_Action_Evidence] PRIMARY KEY CLUSTERED 
+ CONSTRAINT [PK_Staff_Incident_Action_Evidence] PRIMARY KEY CLUSTERED
 (
 	[evidence_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
@@ -626,11 +626,11 @@ CREATE TABLE [dbo].[Financial_Payout_Responses](
 	[customer_confirmed_at] [datetime2](0) NULL,
 	[amount_agreed_at] [datetime2](0) NULL,
 	[payout_method_selected_at] [datetime2](0) NULL,
- CONSTRAINT [PK_Financial_Payout_Responses] PRIMARY KEY CLUSTERED 
+ CONSTRAINT [PK_Financial_Payout_Responses] PRIMARY KEY CLUSTERED
 (
 	[payout_response_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY],
- CONSTRAINT [UQ_Financial_Payout_Responses_Entry] UNIQUE NONCLUSTERED 
+ CONSTRAINT [UQ_Financial_Payout_Responses_Entry] UNIQUE NONCLUSTERED
 (
 	[entry_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
@@ -655,7 +655,7 @@ CREATE TABLE [dbo].[Feedback_Case_Evidence](
 	[content_type] [varchar](100) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 	[original_name] [nvarchar](255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 	[external_url] [nvarchar](1000) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
- CONSTRAINT [PK_Feedback_Case_Evidence] PRIMARY KEY CLUSTERED 
+ CONSTRAINT [PK_Feedback_Case_Evidence] PRIMARY KEY CLUSTERED
 (
 	[evidence_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
@@ -1825,4 +1825,3 @@ GO
 
 ALTER TABLE [dbo].[Feedback_Case_Evidence] CHECK CONSTRAINT [CK_Feedback_Case_Evidence_Media_Type]
 GO
-

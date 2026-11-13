@@ -13,14 +13,27 @@ public final class SpecificAddressRules {
     public static final String REQUIREMENT_MESSAGE = "Hãy nhập địa chỉ cụ thể gồm số nhà (hoặc số hẻm, số căn hộ) và tên đường, "
             + "ví dụ: \"12/3 hẻm 45 Nguyễn Trãi\" hoặc \"Căn hộ 12.05, 45 Nguyễn Thị Minh Khai\".";
 
-    // Số đứng sau tên đơn vị hành chính ("Quận 1", "P.5", "TP. Thủ Đức" không có số) không phải số nhà.
+    /**
+     * Số đứng ngay sau tên đơn vị hành chính, ví dụ "Quận 1", "P.5", "phường 12". Những số này không phải số nhà
+     * nên bị xóa trước khi kiểm tra.
+     * <ul>
+     *   <li>{@code (?iu)}: không phân biệt hoa thường, hiểu chữ có dấu tiếng Việt.</li>
+     *   <li>{@code (?<![\p{L}])}: phía trước không được là chữ cái, để chữ "p" cuối "Tháp 2" không bị hiểu là "phường 2".</li>
+     *   <li>{@code \.?\s*\d+}: có thể có dấu chấm, khoảng trắng, rồi tới con số.</li>
+     * </ul>
+     */
     private static final Pattern ADMINISTRATIVE_NUMBER = Pattern.compile(
             "(?iu)(?<![\\p{L}])(quận|huyện|phường|xã|thị xã|thị trấn|tỉnh|thành phố|tp|q|p)\\.?\\s*\\d+");
     private static final Pattern DIGIT = Pattern.compile("\\d");
+    /** Một từ có ít nhất 2 chữ cái (tên đường, tòa nhà...). */
     private static final Pattern WORD = Pattern.compile("(?u)\\p{L}{2,}");
 
     private SpecificAddressRules() { }
 
+    /**
+     * Ví dụ hợp lệ: "12/3 hẻm 45 Nguyễn Trãi", "Căn hộ 12.05, 45 Nguyễn Thị Minh Khai".
+     * Ví dụ chưa đủ: "Quận 1" (chỉ có số quận), "Nguyễn Trãi" (thiếu số nhà), "123" (thiếu tên đường).
+     */
     public static boolean isSpecific(String address) {
         String normalized = normalize(address);
         if (normalized.length() < MIN_LENGTH || normalized.length() > MAX_LENGTH) return false;

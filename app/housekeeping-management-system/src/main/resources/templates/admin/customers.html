@@ -39,7 +39,7 @@
         <article class="surface p-4" th:each="customer : ${customers}">
           <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
             <div class="d-flex align-items-center gap-3">
-              <span class="avatar" th:text="${#strings.substring(ui.label(customer.name),0,1)}">T</span>
+              <span class="avatar avatar-accented" th:text="${ui.initial(customer.name)}">T</span>
               <div>
                 <h2 class="h5 mb-1" th:text="${ui.label(customer.name)}">Họ và tên</h2>
                 <div class="d-flex flex-wrap gap-2 align-items-center">

@@ -4,7 +4,9 @@ import com.housekeeping.management.service.AccountAuthorizationService;
 
 import com.housekeeping.management.enums.UserRole;
 import com.housekeeping.management.enums.UserStatus;
+import com.housekeeping.management.entity.User;
 import com.housekeeping.management.repository.UserRepository;
+import java.util.Optional;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
@@ -35,14 +37,18 @@ public class AccountAuthorizationServiceImpl implements AccountAuthorizationServ
         }
     }
 
+    /**
+     * Dùng cho bộ lọc phiên đăng nhập. Tài khoản không còn tồn tại cũng bị coi như đã khóa (lý do rỗng),
+     * để phiên đăng nhập cũ của tài khoản đó bị hủy luôn.
+     */
     @Override
-    public java.util.Optional<String> lockReasonIfInactive(Long userId) {
-        if (userId == null) return java.util.Optional.of("");
-        var user = users.findById(userId);
-        if (user.isEmpty()) return java.util.Optional.of("");
-        if (user.get().getStatus() == UserStatus.ACTIVE) return java.util.Optional.empty();
+    public Optional<String> lockReasonIfInactive(Long userId) {
+        if (userId == null) return Optional.of("");
+        Optional<User> user = users.findById(userId);
+        if (user.isEmpty()) return Optional.of("");
+        if (user.get().getStatus() == UserStatus.ACTIVE) return Optional.empty();
         String reason = user.get().getStatusReason();
-        return java.util.Optional.of(reason == null ? "" : reason);
+        return Optional.of(reason == null ? "" : reason);
     }
 
     public boolean isManager(Long userId) {

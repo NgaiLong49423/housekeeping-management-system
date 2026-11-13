@@ -3,13 +3,15 @@ package com.housekeeping.management.service;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 /** Read-only booking queries used by other business domains. */
 public interface BookingQueryService {
     boolean hasActiveBookingForHouse(Long houseId);
     /** Customer còn Booking đã xác nhận hoặc đang chờ thanh toán. */
     boolean hasUnfinishedBookingForCustomer(Long customerId);
-    java.util.Map<Long, CustomerBookingCounts> bookingCountsByCustomer();
+    /** Số Booking (tổng và chưa hoàn tất) của từng Customer, theo userId. */
+    Map<Long, CustomerBookingCounts> bookingCountsByCustomer();
     boolean hasFutureConfirmedBookingOverlapping(Long staffId, LocalDate date, java.time.LocalTime start,
             java.time.LocalTime end);
     List<Long> activeBookingIdsInInterval(LocalDate from, LocalDate until);

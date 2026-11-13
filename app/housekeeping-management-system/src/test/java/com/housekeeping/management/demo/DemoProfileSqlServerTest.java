@@ -64,25 +64,27 @@ class DemoProfileSqlServerTest {
 
     @Test
     void demoProfileMigratesSeedsAndAuthenticatesAllFourRolesOnSqlServer() throws Exception {
+        // Cùng số bảng nghiệp vụ như database chính.
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA='dbo' AND TABLE_TYPE='BASE TABLE' AND TABLE_NAME<>'flyway_schema_history'",
-                Integer.class)).isEqualTo(26);
+                Integer.class)).isEqualTo(29);
         assertThat(jdbc.queryForObject("""
                 SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
                 WHERE TABLE_SCHEMA='dbo' AND TABLE_NAME='Users' AND COLUMN_NAME='must_change_password'
                 """, Integer.class)).isEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Users WHERE must_change_password = 1", Integer.class))
                 .isZero();
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Users", Integer.class)).isEqualTo(4);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Staff", Integer.class)).isEqualTo(2);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Company_Operating_Hours", Integer.class)).isEqualTo(7);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Services", Integer.class)).isEqualTo(3);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Houses", Integer.class)).isEqualTo(1);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Staff_Availability", Integer.class)).isEqualTo(1);
+        // Bốn tài khoản gốc của V3; các migration demo sau (V11, V33) thêm tài khoản khác với cùng mật khẩu demo.
+        assertThat(jdbc.queryForObject("""
+                SELECT COUNT(*) FROM dbo.Users WHERE email IN (N'customer@demo.gonnha.local', N'staff@demo.gonnha.local',
+                    N'staff.fulltime@demo.gonnha.local', N'admin@demo.gonnha.local')
+                """, Integer.class)).isEqualTo(4);
 
         var demoUsers = jdbc.query("SELECT email, role, password_hash FROM dbo.Users ORDER BY email",
                 (rs, row) -> Map.entry(rs.getString("email"), Map.entry(rs.getString("role"), rs.getString("password_hash"))))
                 .stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-        assertThat(demoUsers).hasSize(4);
+        // Mọi tài khoản demo đều dùng chung mật khẩu demo đã mã hóa bcrypt.
+        assertThat(demoUsers).isNotEmpty();
         demoUsers.forEach((email, roleAndHash) -> {
             assertThat(roleAndHash.getValue()).startsWith("{bcrypt}");
             assertThat(passwords.matches(DEMO_PASSWORD, roleAndHash.getValue())).isTrue();

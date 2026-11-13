@@ -68,10 +68,12 @@ public class AdminAccountServiceImpl implements AdminAccountService {
         if (!"ACTIVE".equals(status) && !"INACTIVE".equals(status)) {
             throw new IllegalArgumentException("Trạng thái Admin không hợp lệ.");
         }
-        String lockReason = "INACTIVE".equals(status) ? AccountLockRules.requireReason(reason) : null;
+        boolean locking = "INACTIVE".equals(status);
+        // Kiểm tra lý do trước khi tìm tài khoản, để báo lỗi thiếu lý do ngay cả khi id sai.
+        String lockReason = locking ? AccountLockRules.requireReason(reason) : null;
         User admin = accounts.findByUserIdAndRole(adminId, UserRole.ADMIN)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy tài khoản Admin."));
-        if (lockReason != null) {
+        if (locking) {
             admin.lock(lockReason, managerId, AccountLockRules.now());
         } else {
             admin.unlock(managerId, AccountLockRules.now());

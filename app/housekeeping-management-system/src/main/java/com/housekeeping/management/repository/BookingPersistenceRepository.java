@@ -73,11 +73,17 @@ public interface BookingPersistenceRepository extends JpaRepository<Booking, Lon
         return existsByCustomerIdAndStatusIn(customerId, ACTIVE_STATUSES);
     }
 
-    /** Mỗi dòng: [customerId, tổng số Booking, số Booking chưa hoàn tất]. */
-    @Query("select booking.customerId, count(booking), "
-            + "sum(case when booking.status in :unfinished then 1 else 0 end) "
+    /** Một dòng thống kê Booking của một Customer (Spring Data tự gán theo tên cột {@code as ...}). */
+    interface CustomerBookingCountRow {
+        Long getCustomerId();
+        Long getTotal();
+        Long getUnfinished();
+    }
+
+    @Query("select booking.customerId as customerId, count(booking) as total, "
+            + "sum(case when booking.status in :unfinished then 1 else 0 end) as unfinished "
             + "from Booking booking group by booking.customerId")
-    List<Object[]> countBookingsByCustomer(@Param("unfinished") List<BookingStatus> unfinished);
+    List<CustomerBookingCountRow> countBookingsByCustomer(@Param("unfinished") List<BookingStatus> unfinished);
 
     default boolean hasActiveBookingForHouse(Long houseId) {
         return existsByHouseIdAndStatusIn(houseId, ACTIVE_STATUSES);

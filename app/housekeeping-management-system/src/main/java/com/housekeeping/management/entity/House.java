@@ -8,8 +8,10 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import com.housekeeping.management.dto.SpecificAddressRules;
 import com.housekeeping.management.enums.HouseAddressType;
 import java.math.BigDecimal;
+import java.util.Locale;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -74,22 +76,21 @@ public class House {
     @Column(name = "is_deleted", nullable = false)
     private boolean deleted;
 
+    /** Phần số nhà/tên đường đã đủ cụ thể để đặt lịch hay chưa. */
+    public boolean isSpecificAddress() {
+        return SpecificAddressRules.isSpecific(addressDetail);
+    }
+
     /**
      * Địa chỉ đầy đủ cho Staff: số nhà/tên đường khách tự nhập ({@code addressDetail}) ghép với địa chỉ VietMap
      * ({@code address}). Không lặp lại khi địa chỉ VietMap đã chứa sẵn phần chi tiết.
      */
-    /** Phần số nhà/tên đường đã đủ cụ thể để đặt lịch hay chưa. */
-    public boolean isSpecificAddress() {
-        return com.housekeeping.management.dto.SpecificAddressRules.isSpecific(addressDetail);
-    }
-
     public String getFullAddress() {
         String detail = addressDetail == null ? "" : addressDetail.strip();
         String located = address == null ? "" : address.strip();
         if (detail.isEmpty()) return located;
-        if (located.isEmpty() || located.toLowerCase(java.util.Locale.ROOT).contains(detail.toLowerCase(java.util.Locale.ROOT))) {
-            return located.isEmpty() ? detail : located;
-        }
+        if (located.isEmpty()) return detail;
+        if (located.toLowerCase(Locale.ROOT).contains(detail.toLowerCase(Locale.ROOT))) return located;
         return detail + ", " + located;
     }
 }

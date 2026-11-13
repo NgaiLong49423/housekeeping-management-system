@@ -12,14 +12,17 @@ import java.util.stream.Collectors;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
-/** VNPay HMAC-SHA512 checksums, following VNPay's Java integration sample. */
+/** Tạo và kiểm tra chữ ký HMAC-SHA512 của VNPay, theo code mẫu Java của VNPay. */
 final class VnpaySignature {
     static final String SECURE_HASH = "vnp_SecureHash";
     static final String SECURE_HASH_TYPE = "vnp_SecureHashType";
 
     private VnpaySignature() { }
 
-    /** Sorted {@code name=urlEncodedValue} pairs joined by {@code &}, without empty values or hash fields. */
+    /**
+     * Chuỗi dùng để ký: các cặp {@code tên=giá trị đã mã hóa URL}, sắp xếp theo tên và nối bằng {@code &};
+     * bỏ các giá trị rỗng và chính hai trường chữ ký.
+     */
     static String hashData(Map<String, String> params) {
         return new TreeMap<>(params).entrySet().stream()
                 .filter(entry -> !SECURE_HASH.equals(entry.getKey()) && !SECURE_HASH_TYPE.equals(entry.getKey()))
@@ -42,10 +45,11 @@ final class VnpaySignature {
             mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA512"));
             return HexFormat.of().formatHex(mac.doFinal(data.getBytes(StandardCharsets.UTF_8)));
         } catch (GeneralSecurityException unavailable) {
-            throw new IllegalStateException("HMAC-SHA512 is unavailable.", unavailable);
+            throw new IllegalStateException("Máy chủ không hỗ trợ thuật toán HMAC-SHA512.", unavailable);
         }
     }
 
+    /** So sánh hai chữ ký với thời gian không đổi, để không bị dò chữ ký qua thời gian phản hồi. */
     static boolean matches(String actual, String expected) {
         if (actual == null || expected == null) return false;
         return MessageDigest.isEqual(actual.toLowerCase(Locale.ROOT).getBytes(StandardCharsets.US_ASCII),

@@ -81,6 +81,10 @@ V33 chỉ cập nhật `home_cleaning_demo`: thêm năm Staff (`Users`, `Staff`,
 
 V37 (dùng chung cho cả hai database) thêm ba cột vào `Users` để lưu lý do khóa, người và thời điểm đổi trạng thái gần nhất; chi tiết ở mục `Users`. Không thêm bảng, tổng vẫn 29 bảng.
 
+## Migration V42 — sửa mã băm mật khẩu Staff
+
+V42 (dùng chung) không đổi cấu trúc bảng. Nó chỉ cập nhật `Users.password_hash` của những dòng mang đúng mã băm bị cắt đầu có trong bản sao lưu `database/Housekeeping_Database.bak`, trả về mã băm của mật khẩu mẫu như `database/sample-data.sql`.
+
 ## Mapping kiểu dữ liệu đề xuất
 | Logical | SQL Server |
 |---|---|
