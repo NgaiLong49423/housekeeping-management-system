@@ -46,7 +46,8 @@ public class PaymentController {
         OnlinePaymentService.ReturnOutcome outcome;
         try {
             outcome = onlinePayments.handleReturn(params);
-        } catch (IllegalArgumentException invalid) {
+        } catch (IllegalArgumentException | IllegalStateException invalid) {
+            // Dữ liệu trả về hoặc phản hồi QueryDR không hợp lệ: không đổi trạng thái thanh toán.
             flash.addFlashAttribute("error", "Dữ liệu trả về từ VNPay không hợp lệ. Trạng thái thanh toán chưa thay đổi.");
             return "redirect:/customer/bookings";
         }

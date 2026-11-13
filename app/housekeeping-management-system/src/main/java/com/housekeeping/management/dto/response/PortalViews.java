@@ -3,6 +3,7 @@ package com.housekeeping.management.dto.response;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -21,7 +22,7 @@ public final class PortalViews {
         }
     }
     public record StaffCard(Long id, String name, String phone, boolean favorite, String staffType, boolean active,
-            String avatarUrl, String bio, String statusReason, java.time.LocalDateTime statusChangedAt) {
+            String avatarUrl, String bio, String statusReason, LocalDateTime statusChangedAt) {
         public StaffCard(Long id, String name, String phone, boolean favorite, String staffType, boolean active,
                 String avatarUrl, String bio) {
             this(id, name, phone, favorite, staffType, active, avatarUrl, bio, null, null);
@@ -230,9 +231,9 @@ public final class PortalViews {
     public record FinancialSummary(BigDecimal serviceRevenue, BigDecimal refundsAndReductions,
             BigDecimal remediationAndCompensation, BigDecimal staffRecovery, BigDecimal net, BigDecimal simulated) { }
     public record AdminAccountCard(Long userId, String name, String email, String phone, String status,
-            String statusReason, java.time.LocalDateTime statusChangedAt) { }
+            String statusReason, LocalDateTime statusChangedAt) { }
     public record CustomerAccountCard(Long userId, String name, String email, String phone, boolean active,
-            String statusReason, java.time.LocalDateTime statusChangedAt, long houseCount, long bookingCount,
+            String statusReason, LocalDateTime statusChangedAt, long houseCount, long bookingCount,
             long unfinishedBookingCount) { }
     public record StaffIncidentActionCard(Long id, String type, String status, String reason,
             String staffNotice, Long proposedBy, Long decidedBy, java.time.LocalDateTime createdAt,
