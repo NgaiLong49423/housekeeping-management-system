@@ -21,7 +21,7 @@ GO
 -- 2. Tạo Login SQL Server hsf302_housekeeping_local
 IF NOT EXISTS (SELECT name FROM sys.server_principals WHERE name = N'hsf302_housekeeping_local')
 BEGIN
-    CREATE LOGIN [hsf302_housekeeping_local] 
+    CREATE LOGIN [hsf302_housekeeping_local]
     WITH PASSWORD = N'692E9A74A018766638F530029A13B142350FE42298FD55D9aA1!',
     DEFAULT_DATABASE = [Housekeeping_Database],
     CHECK_EXPIRATION = OFF,
@@ -30,7 +30,7 @@ BEGIN
 END
 ELSE
 BEGIN
-    ALTER LOGIN [hsf302_housekeeping_local] 
+    ALTER LOGIN [hsf302_housekeeping_local]
     WITH PASSWORD = N'692E9A74A018766638F530029A13B142350FE42298FD55D9aA1!';
     PRINT N'Đã cập nhật mật khẩu Login hsf302_housekeeping_local.';
 END;

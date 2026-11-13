@@ -16,7 +16,10 @@ class DemoArrivalFixtureSqlServerTest extends SqlServerIntegrationTest {
     private static final String DEMO_DATABASE = "home_cleaning_demo";
     private static Flyway demoFlyway;
     private static DriverManagerDataSource demoDataSource;
-    private static java.util.Map<String, Object> bookingCompensationBeforeMigration;
+    private static java.util.List<java.util.Map<String, Object>> bookingCompensationBeforeMigration;
+    /** V20 seed thêm hai Booking COMPLETED; Booking đến nơi của V7 là Booking CONFIRMED duy nhất. */
+    private static final String COMPENSATION_OF_ALL_BOOKINGS =
+            "SELECT booking_id, delay_discount_percent, delay_discount_amount FROM dbo.Bookings ORDER BY booking_id";
 
     @BeforeAll
     static void migrateDemoDatabase() throws Exception {
@@ -34,8 +37,7 @@ class DemoArrivalFixtureSqlServerTest extends SqlServerIntegrationTest {
         demoFlyway.migrate();
         var jdbc = new org.springframework.jdbc.core.JdbcTemplate(demoDataSource);
         jdbc.update("UPDATE dbo.Booking_Delay_Compensation_Tiers SET discount_percent=100 WHERE min_delay_minutes=31");
-        bookingCompensationBeforeMigration=jdbc.queryForMap(
-                "SELECT delay_discount_percent, delay_discount_amount FROM dbo.Bookings");
+        bookingCompensationBeforeMigration = jdbc.queryForList(COMPENSATION_OF_ALL_BOOKINGS);
         demoFlyway = Flyway.configure().dataSource(demoDataSource)
                 .locations("classpath:db/refactor", "classpath:db/shared")
                 .table("flyway_schema_history").load();
@@ -45,16 +47,19 @@ class DemoArrivalFixtureSqlServerTest extends SqlServerIntegrationTest {
     @Test
     void demoMigrationSeedsOneUpcomingBookingAndKeepsFifteenBusinessTables() {
         var jdbc = new org.springframework.jdbc.core.JdbcTemplate(demoDataSource);
-        LocalDateTime start = jdbc.queryForObject("SELECT start_time FROM dbo.Bookings", LocalDateTime.class);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Bookings WHERE status='CONFIRMED'", Integer.class)).isEqualTo(1);
+        Long arrivalBookingId = jdbc.queryForObject("SELECT booking_id FROM dbo.Bookings WHERE status='CONFIRMED'", Long.class);
+        LocalDateTime start = jdbc.queryForObject("SELECT start_time FROM dbo.Bookings WHERE booking_id=?",
+                LocalDateTime.class, arrivalBookingId);
         var now = LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"));
         assertThat(start).isBetween(now.plusMinutes(8), now.plusMinutes(12));
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Booking_Details WHERE booking_id=?",
+                Integer.class, arrivalBookingId)).isEqualTo(1);
 
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Bookings", Integer.class)).isEqualTo(1);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Booking_Details", Integer.class)).isEqualTo(1);
+        // V30 giới hạn mức bồi thường ở 30% nhưng không sửa số liệu của các Booking đã có.
         assertThat(jdbc.queryForObject("SELECT discount_percent FROM dbo.Booking_Delay_Compensation_Tiers WHERE min_delay_minutes=31", Integer.class))
                 .isEqualTo(30);
-        assertThat(jdbc.queryForMap("SELECT delay_discount_percent, delay_discount_amount FROM dbo.Bookings"))
-                .isEqualTo(bookingCompensationBeforeMigration);
+        assertThat(jdbc.queryForList(COMPENSATION_OF_ALL_BOOKINGS)).isEqualTo(bookingCompensationBeforeMigration);
         assertThat(jdbc.queryForObject("""
                 SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
                 WHERE TABLE_SCHEMA='dbo' AND TABLE_TYPE='BASE TABLE'
@@ -64,6 +69,6 @@ class DemoArrivalFixtureSqlServerTest extends SqlServerIntegrationTest {
                     'Bookings', 'Booking_Details', 'Booking_Images', 'Payments', 'Feedbacks', 'Staff_Follows'
                   )
                 """, Integer.class)).isEqualTo(15);
-        assertThat(demoFlyway.info().current().getVersion().getVersion()).isEqualTo("30");
+        assertThat(demoFlyway.info().pending()).isEmpty();
     }
 }

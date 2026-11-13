@@ -93,7 +93,7 @@ class DemoAdditionalAccountsSqlServerTest {
                 .isZero();
         assertThat(jdbc.queryForObject("""
                 SELECT h.recipient_name FROM dbo.Houses h JOIN dbo.Users u ON u.user_id=h.customer_id
-                WHERE u.email=N'customer@demo.gonnha.local'
+                WHERE u.email=N'customer@demo.gonnha.local' AND h.is_deleted=0
                 """, String.class)).isEqualTo("Trần Thị Thu Hà");
     }
 
@@ -174,9 +174,11 @@ class DemoAdditionalAccountsSqlServerTest {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Houses", Integer.class)).isEqualTo(housesBefore);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) - COUNT(DISTINCT phone) FROM dbo.Users", Integer.class))
                 .isZero();
-        assertThat(jdbc.queryForObject("SELECT address_detail FROM dbo.Houses WHERE customer_id=? AND is_default=1",
+        // V39 thay nhà mặc định của Customer demo bằng địa chỉ công khai; chạy lại V38 không đổi địa chỉ đó.
+        assertThat(jdbc.queryForObject(
+                "SELECT address_detail FROM dbo.Houses WHERE customer_id=? AND is_default=1 AND is_deleted=0",
                 String.class, jdbc.queryForObject("SELECT user_id FROM dbo.Users WHERE email=?", Long.class,
-                        "customer@demo.gonnha.local"))).isEqualTo("12/3 Nguyễn Trãi");
+                        "customer@demo.gonnha.local"))).isEqualTo("13-15 Nguyễn Thái Học");
     }
 
     @Test

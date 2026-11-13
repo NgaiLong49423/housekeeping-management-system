@@ -2,6 +2,7 @@ package com.housekeeping.management.service;
 
 import com.housekeeping.management.enums.UserRole;
 import com.housekeeping.management.enums.UserStatus;
+import java.util.Optional;
 import org.springframework.security.access.AccessDeniedException;
 
 public interface AccountAuthorizationService {
@@ -11,4 +12,5 @@ public interface AccountAuthorizationService {
     public boolean isManager(Long userId);
     public void requireManager(Long userId);
     /** Rỗng khi tài khoản đang hoạt động; ngược lại là lý do khóa (chuỗi rỗng nếu không ghi lý do hoặc không còn tồn tại). */
-    java.util.Optional<String> lockReasonIfInactive(Long userId);}
+    Optional<String> lockReasonIfInactive(Long userId);
+}

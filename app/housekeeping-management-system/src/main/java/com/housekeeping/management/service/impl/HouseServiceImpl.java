@@ -12,14 +12,19 @@ import com.housekeeping.management.enums.HouseAddressType;
 import com.housekeeping.management.dto.SpecificAddressRules;
 import com.housekeeping.management.entity.House;
 import com.housekeeping.management.repository.HouseRepository;
+import com.housekeeping.management.repository.HouseRepository.CustomerHouseCountRow;
 import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class HouseServiceImpl implements HouseService {
     private static final double EARTH_RADIUS_KM = 6371.0088;
+    /** Độ dài cột Bookings.address dùng để lưu địa chỉ đầy đủ khi đặt lịch. */
+    private static final int MAX_FULL_ADDRESS_LENGTH = 500;
     private final HouseRepository houses;
     private final CompanySettingsService companySettings;
     private final BookingQueryService bookings;
@@ -40,10 +45,10 @@ public class HouseServiceImpl implements HouseService {
 
     @Override
     @Transactional(readOnly = true)
-    public java.util.Map<Long, Long> activeHouseCountsByCustomer() {
-        java.util.Map<Long, Long> counts = new java.util.HashMap<>();
-        for (Object[] row : houses.countActiveHousesByCustomer()) {
-            counts.put(((Number) row[0]).longValue(), ((Number) row[1]).longValue());
+    public Map<Long, Long> activeHouseCountsByCustomer() {
+        Map<Long, Long> counts = new HashMap<>();
+        for (CustomerHouseCountRow row : houses.countActiveHousesByCustomer()) {
+            counts.put(row.getCustomerId(), row.getHouseCount());
         }
         return counts;
     }
@@ -84,14 +89,15 @@ public class HouseServiceImpl implements HouseService {
         String province = place == null ? house.getProvinceCity() : (place.city() == null ? "" : place.city());
         String ward = place == null ? house.getWardCommune() : (place.ward() == null ? "" : place.ward());
         // address_detail giữ số nhà/tên đường do khách tự nhập; address giữ địa chỉ VietMap dùng để định vị.
-        String detail = streetAddress;
-        if (detail.length() + 2 + address.length() > 500) {
+        // Booking lưu "số nhà, địa chỉ VietMap" vào một cột nên tổng độ dài không được vượt giới hạn cột đó.
+        String fullAddress = streetAddress + ", " + address;
+        if (fullAddress.length() > MAX_FULL_ADDRESS_LENGTH) {
             throw new IllegalArgumentException("Địa chỉ quá dài. Hãy rút gọn phần số nhà, tên đường.");
         }
         String addressNote = form.addressNote() == null || form.addressNote().isBlank() ? null : form.addressNote().trim();
         HouseDTO dto = new HouseDTO(house == null ? null : house.getHouseId(), customerId,
                 form.addressType().getLabel(), address, latitude, longitude,
-                form.recipientName().trim(), form.recipientPhone().trim(), province, ward, detail,
+                form.recipientName().trim(), form.recipientPhone().trim(), province, ward, streetAddress,
                 form.addressType(), form.defaultAddress(), addressNote, house != null && house.isDeleted());
         house = dto.convertDTOToEntity(house);
         if (form.defaultAddress()) {

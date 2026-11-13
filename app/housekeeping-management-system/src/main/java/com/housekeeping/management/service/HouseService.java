@@ -6,6 +6,7 @@ import com.housekeeping.management.enums.HouseAddressType;
 import com.housekeeping.management.entity.House;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 public interface HouseService {
     public record ServiceAreaAssessment(boolean eligible, String message) { }
@@ -16,7 +17,7 @@ public interface HouseService {
     }
     public List<House> findCustomerHouses(Long customerId);
     /** Số địa chỉ chưa ẩn của từng Customer (Customer không có địa chỉ sẽ không xuất hiện). */
-    java.util.Map<Long, Long> activeHouseCountsByCustomer();
+    Map<Long, Long> activeHouseCountsByCustomer();
     public House findCustomerHouse(Long customerId, Long houseId);
     House findCustomerHouseForUpdate(Long customerId, Long houseId);
     public House findHouse(Long houseId);

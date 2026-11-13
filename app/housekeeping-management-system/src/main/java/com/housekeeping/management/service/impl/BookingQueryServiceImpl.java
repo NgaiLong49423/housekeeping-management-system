@@ -3,12 +3,15 @@ package com.housekeeping.management.service.impl;
 import com.housekeeping.management.enums.BookingStatus;
 import com.housekeeping.management.entity.Booking;
 import com.housekeeping.management.repository.BookingPersistenceRepository;
+import com.housekeeping.management.repository.BookingPersistenceRepository.CustomerBookingCountRow;
 import com.housekeeping.management.service.BookingQueryService;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,11 +38,11 @@ public class BookingQueryServiceImpl implements BookingQueryService {
     }
 
     @Override
-    public java.util.Map<Long, CustomerBookingCounts> bookingCountsByCustomer() {
-        java.util.Map<Long, CustomerBookingCounts> counts = new java.util.HashMap<>();
-        for (Object[] row : bookings.countBookingsByCustomer(ACTIVE_STATUSES)) {
-            long unfinished = row[2] == null ? 0 : ((Number) row[2]).longValue();
-            counts.put(((Number) row[0]).longValue(), new CustomerBookingCounts(((Number) row[1]).longValue(), unfinished));
+    public Map<Long, CustomerBookingCounts> bookingCountsByCustomer() {
+        Map<Long, CustomerBookingCounts> counts = new HashMap<>();
+        for (CustomerBookingCountRow row : bookings.countBookingsByCustomer(ACTIVE_STATUSES)) {
+            long unfinished = row.getUnfinished() == null ? 0 : row.getUnfinished();
+            counts.put(row.getCustomerId(), new CustomerBookingCounts(row.getTotal(), unfinished));
         }
         return counts;
     }

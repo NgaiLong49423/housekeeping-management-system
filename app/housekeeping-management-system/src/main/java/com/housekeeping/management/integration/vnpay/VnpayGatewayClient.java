@@ -23,16 +23,16 @@ import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
-/** Talks to VNPay: builds signed checkout URLs, verifies returned data and queries transaction results. */
+/** Làm việc với VNPay: tạo link thanh toán có chữ ký, kiểm tra chữ ký dữ liệu trả về và tra cứu giao dịch (QueryDR). */
 @Component
 public class VnpayGatewayClient {
     private static final Logger log = LoggerFactory.getLogger(VnpayGatewayClient.class);
     private static final ZoneOffset VIETNAM = ZoneOffset.ofHours(7);
     private static final DateTimeFormatter VNPAY_TIME = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
     private static final String VERSION = "2.1.0";
-    /** Lifetime of a VNPay checkout ({@code vnp_ExpireDate}); VNPay refuses to reopen an order it has started. */
+    /** Thời gian link thanh toán còn hiệu lực ({@code vnp_ExpireDate}); VNPay không cho mở lại đơn đã bắt đầu. */
     public static final int CHECKOUT_MINUTES = 15;
-    /** VNPay asks for the calling server's IP; the sandbox does not restrict it. */
+    /** VNPay yêu cầu IP của máy chủ gọi QueryDR; môi trường sandbox không giới hạn IP. */
     private static final String SERVER_IP = "127.0.0.1";
 
     private final VnpayPaymentProperties properties;
@@ -40,12 +40,14 @@ public class VnpayGatewayClient {
     private final Clock clock;
     private final Supplier<String> requestIds;
 
+    /** Constructor Spring dùng khi chạy thật. */
     @Autowired
     public VnpayGatewayClient(VnpayPaymentProperties properties) {
         this(properties, RestClient.builder().requestFactory(timeoutRequestFactory()), Clock.system(VIETNAM),
                 () -> UUID.randomUUID().toString().replace("-", ""));
     }
 
+    /** Constructor cho test: truyền đồng hồ và mã request cố định để kết quả lặp lại được. */
     VnpayGatewayClient(VnpayPaymentProperties properties, RestClient.Builder restClient, Clock clock,
             Supplier<String> requestIds) {
         this.properties = properties;
@@ -56,13 +58,13 @@ public class VnpayGatewayClient {
 
     public boolean isConfigured() { return properties.isConfigured(); }
 
-    /** Signed VNPay checkout URL; {@code createdAt} must be the stored attempt time so it can be queried later. */
+    /** Link thanh toán VNPay có chữ ký; {@code createdAt} phải là thời điểm đã lưu để sau này tra cứu QueryDR. */
     public String paymentUrl(long txnRef, long amount, LocalDateTime createdAt, String clientIp) {
         Map<String, String> params = new TreeMap<>();
         params.put("vnp_Version", VERSION);
         params.put("vnp_Command", "pay");
         params.put("vnp_TmnCode", properties.getTmnCode());
-        params.put("vnp_Amount", Long.toString(Math.multiplyExact(amount, 100L)));
+        params.put("vnp_Amount", VnpayCodes.fromVnd(amount));
         params.put("vnp_CurrCode", "VND");
         params.put("vnp_TxnRef", Long.toString(txnRef));
         params.put("vnp_OrderInfo", "Thanh toan don dat lich " + txnRef);
@@ -79,17 +81,17 @@ public class VnpayGatewayClient {
                 + VnpaySignature.sign(params, properties.getHashSecret());
     }
 
-    /** VNPay stops accepting a checkout at its {@code vnp_ExpireDate}, set from the attempt's creation time. */
+    /** Link thanh toán còn mở, tức là chưa quá {@code vnp_ExpireDate}. */
     public boolean checkoutOpen(LocalDateTime createdAt) {
         return LocalDateTime.now(clock).isBefore(createdAt.plusMinutes(CHECKOUT_MINUTES));
     }
 
-    /** Verifies the checksum of data VNPay sent back through the browser return or the IPN call. */
+    /** Kiểm tra chữ ký của dữ liệu VNPay gửi về (qua trình duyệt hoặc qua IPN). */
     public boolean hasValidSignature(Map<String, String> params) {
         return VnpaySignature.hasValidSignature(params, properties.getHashSecret());
     }
 
-    /** Server-to-server QueryDR lookup of a payment attempt, so the result never depends on browser data. */
+    /** Hỏi trực tiếp VNPay (QueryDR) về kết quả giao dịch, để không phụ thuộc dữ liệu trên trình duyệt. */
     public QueryResult query(long txnRef, LocalDateTime transactionDate) {
         Map<String, String> request = new LinkedHashMap<>();
         request.put("vnp_RequestId", requestIds.get());
@@ -101,6 +103,7 @@ public class VnpayGatewayClient {
         request.put("vnp_TransactionDate", VNPAY_TIME.format(transactionDate));
         request.put("vnp_CreateDate", VNPAY_TIME.format(LocalDateTime.now(clock)));
         request.put("vnp_IpAddr", SERVER_IP);
+        // Thứ tự các trường nối bằng "|" do tài liệu QueryDR của VNPay quy định.
         request.put(VnpaySignature.SECURE_HASH, VnpaySignature.hmacSha512(properties.getHashSecret(), String.join("|",
                 request.get("vnp_RequestId"), request.get("vnp_Version"), request.get("vnp_Command"),
                 request.get("vnp_TmnCode"), request.get("vnp_TxnRef"), request.get("vnp_TransactionDate"),
@@ -112,10 +115,10 @@ public class VnpayGatewayClient {
                 .body(request)
                 .retrieve()
                 .body(new ParameterizedTypeReference<Map<String, Object>>() { });
-        if (response == null) throw new IllegalStateException("VNPay QueryDR returned an empty response.");
+        if (response == null) throw new IllegalStateException("VNPay không trả dữ liệu khi tra cứu giao dịch.");
         String responseCode = text(response, "vnp_ResponseCode");
-        if (!"00".equals(responseCode)) {
-            // VNPay does not sign error responses; they can only ever mean "not confirmed as paid".
+        if (!VnpayCodes.SUCCESS.equals(responseCode)) {
+            // VNPay không ký phản hồi lỗi; phản hồi lỗi chỉ có nghĩa là "chưa xác nhận đã thanh toán".
             log.warn("VNPay QueryDR for order {} answered {} ({}).", txnRef, responseCode, text(response, "vnp_Message"));
             return new QueryResult(responseCode, text(response, "vnp_TransactionStatus"), null);
         }
@@ -127,11 +130,11 @@ public class VnpayGatewayClient {
                 text(response, "vnp_TransactionStatus"), text(response, "vnp_OrderInfo"),
                 text(response, "vnp_PromotionCode"), text(response, "vnp_PromotionAmount")));
         if (!VnpaySignature.matches(text(response, VnpaySignature.SECURE_HASH), expectedSignature)) {
-            throw new IllegalStateException("VNPay QueryDR response checksum is invalid.");
+            throw new IllegalStateException("Chữ ký phản hồi QueryDR của VNPay không hợp lệ.");
         }
         if (!Long.toString(txnRef).equals(text(response, "vnp_TxnRef"))
                 || !properties.getTmnCode().equals(text(response, "vnp_TmnCode"))) {
-            throw new IllegalStateException("VNPay QueryDR response does not match the requested order.");
+            throw new IllegalStateException("Phản hồi QueryDR của VNPay không khớp với đơn hàng đã hỏi.");
         }
         return new QueryResult(responseCode, text(response, "vnp_TransactionStatus"), vnpayAmount(text(response, "vnp_Amount")));
     }
@@ -139,9 +142,9 @@ public class VnpayGatewayClient {
     private static BigDecimal vnpayAmount(String value) {
         if (value.isEmpty()) return null;
         try {
-            return new BigDecimal(value).movePointLeft(2);
+            return VnpayCodes.toVnd(value);
         } catch (NumberFormatException invalid) {
-            throw new IllegalStateException("VNPay returned an invalid amount.", invalid);
+            throw new IllegalStateException("VNPay trả về số tiền không hợp lệ.", invalid);
         }
     }
 
@@ -157,25 +160,28 @@ public class VnpayGatewayClient {
         return factory;
     }
 
-    /** {@code amount} is in VND (VNPay sends it multiplied by 100). */
+    /** Kết quả QueryDR; {@code amount} đã đổi về VND. */
     public record QueryResult(String responseCode, String transactionStatus, BigDecimal amount) {
+        /** VNPay xác nhận khách đã thanh toán thành công. */
         public boolean paid() {
-            return "00".equals(responseCode) && "00".equals(transactionStatus) && amount != null;
+            return VnpayCodes.SUCCESS.equals(responseCode) && VnpayCodes.SUCCESS.equals(transactionStatus)
+                    && amount != null;
         }
 
-        /** VNPay has the transaction but the customer has not finished paying it. */
+        /** VNPay có giao dịch nhưng khách chưa thanh toán xong. */
         public boolean unfinished() {
-            return "00".equals(responseCode) && "01".equals(transactionStatus);
+            return VnpayCodes.SUCCESS.equals(responseCode) && VnpayCodes.UNFINISHED.equals(transactionStatus);
         }
 
-        /** VNPay positively reports that no money was taken: the order is unknown (91) or the payment failed (02). */
+        /** VNPay khẳng định chưa trừ tiền: không có đơn này, hoặc thanh toán đã thất bại. */
         public boolean knownUnpaid() {
-            return "91".equals(responseCode) || ("00".equals(responseCode) && "02".equals(transactionStatus));
+            return VnpayCodes.ORDER_NOT_FOUND.equals(responseCode)
+                    || (VnpayCodes.SUCCESS.equals(responseCode) && VnpayCodes.FAILED.equals(transactionStatus));
         }
 
-        /** QueryDR actually answered about the order; any other code means the lookup itself is unavailable. */
+        /** QueryDR đã trả lời về đơn hàng; mã khác nghĩa là chưa tra cứu được (VNPay lỗi hoặc mất kết nối). */
         public boolean answered() {
-            return "00".equals(responseCode) || "91".equals(responseCode);
+            return VnpayCodes.SUCCESS.equals(responseCode) || VnpayCodes.ORDER_NOT_FOUND.equals(responseCode);
         }
     }
 }

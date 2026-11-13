@@ -5079,7 +5079,7 @@ tr.hours-row:has(.closed-day-checkbox:checked) .hours-time-input {
   background: #ffffff;
   border-radius: 36px;
   padding: 48px 36px 40px;
-  box-shadow: 0 24px 60px rgba(20, 80, 63, 0.08), 
+  box-shadow: 0 24px 60px rgba(20, 80, 63, 0.08),
               0 6px 20px rgba(0, 0, 0, 0.03),
               0 0 0 1px rgba(255, 255, 255, 0.9);
   text-align: center;
