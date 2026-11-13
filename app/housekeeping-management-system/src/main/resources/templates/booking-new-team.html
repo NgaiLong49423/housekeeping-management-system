@@ -16,6 +16,9 @@
       <form method="post" th:action="${rescheduleInfo != null} ? @{/customer/bookings/{id}/reschedule(id=${rescheduleInfo.bookingId})} : @{/customer/bookings/multiple}"
             data-team-booking-form
             th:attr="data-reschedule-booking-id=${rescheduleInfo != null ? rescheduleInfo.bookingId : null},data-reschedule-date=${rescheduleInfo != null ? #temporals.format(rescheduleInfo.startAt, 'yyyy-MM-dd') : null},data-reschedule-time=${rescheduleInfo != null ? #temporals.format(rescheduleInfo.startAt, 'HH:mm') : null},data-reschedule-lead-id=${rescheduleInfo != null ? rescheduleInfo.leadStaffId : null},data-exclude-booking-id=${rescheduleInfo != null ? rescheduleInfo.bookingId : null},data-reschedule-duration=${rescheduleInfo != null ? rescheduleInfo.durationMinutes : null}">
+        <select data-team-staff-source hidden aria-hidden="true">
+          <option th:each="person : ${staff}" th:value="${person.id}" th:data-favorite="${person.favorite}"></option>
+        </select>
         <div class="row g-4 align-items-start">
           <div class="col-lg-8 vstack gap-4">
             <section class="surface p-4">
@@ -108,6 +111,6 @@
     <footer th:replace="~{fragments/layout :: footer}"></footer>
     <script th:inline="javascript" th:if="${bookingRetryState != null}">window.bookingRetryState = /*[[${bookingRetryState}]]*/ null;</script>
     <script th:inline="javascript" th:if="${rescheduleInfo != null}">window.bookingRescheduleStaffIds = /*[[${rescheduleInfo.staffIds}]]*/ [];</script>
-    <script defer th:src="@{/js/booking-team.js(v=1.5)}"></script>
+    <script defer th:src="@{/js/booking-team.js(v=1.6)}"></script>
   </body>
 </html>

@@ -14,6 +14,7 @@
   const totalNode = form.querySelector("[data-team-total]");
   const errorNode = form.querySelector("[data-team-error]");
   const submit = form.querySelector("[data-team-submit]");
+  const staffSource = form.querySelector("[data-team-staff-source]");
   const rescheduleBookingId = form.dataset.rescheduleBookingId || "";
   const excludedBookingQueryId = form.dataset.excludeBookingId || "";
   const rescheduleStaffIds = (window.bookingRescheduleStaffIds || []).map(String);
@@ -21,7 +22,12 @@
   const days = new Map();
   const currency = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });
   let datesRequest = 0;
+  const favoriteStaffIds = new Set([...(staffSource?.options || [])]
+    .filter(option => option.dataset.favorite === "true")
+    .map(option => String(option.value)));
 
+  const isFavorite = person => favoriteStaffIds.has(String(person.id));
+  const favoritesFirst = people => [...people].sort((a, b) => Number(isFavorite(b)) - Number(isFavorite(a)));
   const selectedServices = () => serviceInputs.filter(input => input.checked);
   const selectedServiceIds = () => selectedServices().map(input => input.value);
   const basePrice = () => selectedServices().reduce((sum, input) => sum + Number(input.dataset.price || 0), 0);
@@ -227,7 +233,7 @@
       const times = document.createElement("div"); times.className = "team-time-options";
       day.timeOptions.forEach(option => {
         const selected = day.time === option.startTime;
-        const people = selected && day.routeCheckedTime === option.startTime ? day.eligibleStaff : option.staffOptions;
+        const people = favoritesFirst(selected && day.routeCheckedTime === option.startTime ? day.eligibleStaff : option.staffOptions);
         const button = document.createElement("button");
         button.type = "button";
         button.className = `team-time-option${selected ? " is-selected" : ""}`;
@@ -247,7 +253,21 @@
         capacity.textContent = `${people.length} người`;
         top.append(time, capacity);
         const names = document.createElement("span"); names.className = "team-time-option-members";
-        names.textContent = people.length ? people.map(person => person.name).join(" · ") : "Không có người phù hợp tuyến di chuyển";
+        if (people.length) {
+          people.forEach(person => {
+            const personTag = document.createElement("span"); personTag.className = "team-time-person";
+            const name = document.createElement("span"); name.textContent = person.name;
+            personTag.append(name);
+            if (isFavorite(person)) {
+              const favoriteBadge = document.createElement("span"); favoriteBadge.className = "team-favorite-badge";
+              favoriteBadge.textContent = "★ Yêu thích";
+              personTag.append(favoriteBadge);
+            }
+            names.append(personTag);
+          });
+        } else {
+          names.textContent = "Không có người phù hợp tuyến di chuyển";
+        }
         button.append(top, names);
         times.append(button);
       });
@@ -278,13 +298,19 @@
         card.append(unavailable);
       } else {
         const list = document.createElement("div"); list.className = "team-staff-options";
-        day.eligibleStaff.forEach(person => {
+        favoritesFirst(day.eligibleStaff).forEach(person => {
           const id = String(person.id);
           const row = document.createElement("div"); row.className = "team-staff-option";
           const checkboxLabel = document.createElement("label"); checkboxLabel.className = "team-staff-choice";
           const checkbox = document.createElement("input"); checkbox.type = "checkbox"; checkbox.className = "form-check-input m-0";
           checkbox.checked = day.staffIds.includes(id);
-          const name = document.createElement("span"); name.className = "team-staff-name"; name.textContent = person.name;
+          const name = document.createElement("span"); name.className = "team-staff-name";
+          const personName = document.createElement("span"); personName.textContent = person.name; name.append(personName);
+          if (isFavorite(person)) {
+            const favoriteBadge = document.createElement("span"); favoriteBadge.className = "team-favorite-badge";
+            favoriteBadge.textContent = "★ Yêu thích";
+            name.append(favoriteBadge);
+          }
           checkboxLabel.append(checkbox, name);
           checkbox.addEventListener("change", () => {
             day.staffIds = checkbox.checked ? [...day.staffIds, id] : day.staffIds.filter(item => item !== id);

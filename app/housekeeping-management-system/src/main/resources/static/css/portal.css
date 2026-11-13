@@ -4662,10 +4662,35 @@ body.has-admin-sidebar .table tbody tr:hover td {
 }
 
 .team-time-option-members {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
   color: var(--muted);
   font-size: 0.75rem;
   line-height: 1.45;
   overflow-wrap: anywhere;
+}
+
+.team-time-person {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.35rem;
+  padding: 0.18rem 0.35rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+}
+
+.team-favorite-badge {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  color: var(--brand);
+  font-size: 0.67rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .team-staff-options {
@@ -4701,6 +4726,11 @@ body.has-admin-sidebar .table tbody tr:hover td {
 }
 
 .team-staff-name {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.45rem;
   overflow-wrap: anywhere;
   font-size: 0.84rem;
   font-weight: 600;

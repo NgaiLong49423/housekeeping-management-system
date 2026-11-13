@@ -267,6 +267,32 @@ class PortalMvcTest {
     }
 
     @Test
+    void newAndRescheduledTeamBookingsExposeFavoriteFlagsForAvailableStaffLabels() throws Exception {
+        String newBookingHtml = mvc.perform(get("/customer/bookings/new").with(user(customer)))
+                .andExpect(status().isOk()).andReturn().getResponse()
+                .getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        assertFavoriteStaffSource(newBookingHtml);
+
+        when(teamChanges.rescheduleInfo(eq(42L), eq(customer.getUserId()))).thenReturn(
+                new BookingTeamChangeService.RescheduleInfo(42L, 30L,
+                        List.of(new BookingTeamChangeService.RescheduleServiceLine(10L, "Dọn dẹp nhà theo giờ",
+                                new BigDecimal("140000"), BigDecimal.ZERO, 120)),
+                        List.of(2L), 2L, start.toLocalDateTime(), "Entryway", new BigDecimal("140000")));
+        String rescheduleHtml = mvc.perform(get("/customer/bookings/42/reschedule").with(user(customer)))
+                .andExpect(status().isOk()).andExpect(view().name("booking-new-team"))
+                .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        assertFavoriteStaffSource(rescheduleHtml);
+    }
+
+    private void assertFavoriteStaffSource(String html) {
+        assertThat(html).contains("data-team-staff-source");
+        assertThat(java.util.regex.Pattern.compile("<option(?=[^>]*value=\"2\")(?=[^>]*data-favorite=\"true\")[^>]*>")
+                .matcher(html).find()).isTrue();
+        assertThat(java.util.regex.Pattern.compile("<option(?=[^>]*value=\"4\")(?=[^>]*data-favorite=\"false\")[^>]*>")
+                .matcher(html).find()).isTrue();
+    }
+
+    @Test
     void adminLocationAutocompleteIsAdminOnlyAndReturnsVietmapSuggestions() throws Exception {
         var suggestion = new com.housekeeping.management.dto.response.LocationSuggestion("ref-1", "Địa chỉ kiểm thử");
         when(companySettings.locationAutocomplete("Địa chỉ")).thenReturn(List.of(suggestion));
