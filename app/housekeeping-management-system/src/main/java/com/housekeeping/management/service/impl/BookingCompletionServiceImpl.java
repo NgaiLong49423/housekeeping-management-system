@@ -29,23 +29,30 @@ public class BookingCompletionServiceImpl implements BookingCompletionService {
             throw new IllegalStateException("Lịch không còn ở trạng thái có thể bắt đầu.");
         }
         var now = java.time.LocalDateTime.now(java.time.ZoneOffset.ofHours(7)).withNano(0);
-        if (booking.staffArrivedAt() == null && booking.arrivalVerifiedAt() == null) {
+        if (booking.staffArrivedAt() == null) {
             throw new IllegalStateException("Hãy xác nhận đã đến trước khi bắt đầu công việc.");
         }
-        if (booking.customerDelayReportedAt() != null && booking.arrivalVerifiedAt() == null) {
-            throw new IllegalStateException("Customer đã báo Staff chưa đến. Cần Customer xác nhận giờ có mặt hoặc Admin xác minh trước khi bắt đầu.");
+        boolean customerVerifiedArrival = booking.customerArrivedAt() != null || booking.arrivalVerifiedAt() != null;
+        boolean customerDelayReportOpen = booking.customerDelayReportedAt() != null
+                && booking.customerArrivedAt() == null && booking.arrivalVerifiedAt() == null;
+        if (customerDelayReportOpen) {
+            throw new IllegalStateException("Khách đã báo giờ đến chưa đúng. Cần khách xác nhận nhân viên đã có mặt hoặc Admin xác minh trước khi bắt đầu.");
         }
-        java.time.LocalDateTime effectiveArrival = booking.arrivalVerifiedAt() == null
-                ? booking.staffArrivedAt() : booking.arrivalVerifiedAt();
-        boolean lateBeyondGrace = effectiveArrival.isAfter(
-                booking.startTime().plusMinutes(BookingDelayCompensation.GRACE_PERIOD_MINUTES));
-        if (lateBeyondGrace && booking.incidentReportedAt() == null && booking.arrivalVerifiedAt() == null) {
-            throw new IllegalStateException("Staff đến trễ quá 5 phút cần báo sự cố và chờ Customer đồng ý trước khi bắt đầu.");
+        java.time.LocalDateTime effectiveArrival = "ADMIN".equals(booking.arrivalVerificationSource())
+                && booking.arrivalVerifiedAt() != null ? booking.arrivalVerifiedAt() : booking.staffArrivedAt();
+        boolean lateBeyondGrace = effectiveArrival.isAfter(booking.startTime());
+        if (lateBeyondGrace && booking.incidentReportedAt() == null && !customerVerifiedArrival) {
+            throw new IllegalStateException("Nhân viên đến trễ cần gửi giờ dự kiến và chờ khách đồng ý, hoặc khách xác nhận nhân viên đã có mặt.");
         }
-        if (booking.incidentReportedAt() != null && !"ACCEPTED".equals(booking.incidentCustomerResponse())) {
-            throw new IllegalStateException("Cần Customer đồng ý giờ đến trễ trước khi bắt đầu công việc.");
+        if (booking.incidentReportedAt() != null && !customerVerifiedArrival
+                && !"ACCEPTED".equals(booking.incidentCustomerResponse())) {
+            throw new IllegalStateException("Cần khách đồng ý giờ đến trễ hoặc xác nhận nhân viên đã có mặt trước khi bắt đầu.");
         }
-        if (bookings.startWork(bookingId, staffId, now, lateBeyondGrace) != 1) {
+        if (!customerVerifiedArrival && "ACCEPTED".equals(booking.incidentCustomerResponse()) && booking.incidentExpectedArrivalAt() != null
+                && effectiveArrival.isAfter(booking.incidentExpectedArrivalAt())) {
+            throw new IllegalStateException("Nhân viên đã lỡ giờ đến được đồng ý. Cần gửi giờ mới hoặc khách xác nhận nhân viên đã có mặt.");
+        }
+        if (bookings.startWork(bookingId, staffId, now, lateBeyondGrace && !customerVerifiedArrival) != 1) {
             throw new IllegalStateException("Lịch vừa thay đổi hoặc chưa đủ điều kiện bắt đầu. Hãy tải lại trang.");
         }
     }

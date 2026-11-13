@@ -170,8 +170,9 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional(readOnly = true)
     public PaymentService.AccountingTotals accountingTotals() {
-        return new PaymentService.AccountingTotals(payments.sumSuccessfulRealPayments(),
-                payments.sumSuccessfulSimulatedPayments());
+        return new PaymentService.AccountingTotals(payments.sumSuccessfulPayments(),
+                payments.sumSuccessfulPaymentsByMethod(PaymentMethod.CASH),
+                payments.sumSuccessfulPaymentsByMethod(PaymentMethod.ONLINE));
     }
 
     @Override

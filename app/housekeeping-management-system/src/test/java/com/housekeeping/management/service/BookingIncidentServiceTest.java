@@ -8,6 +8,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.housekeeping.management.repository.BookingPersistenceRepository;
+import com.housekeeping.management.repository.BookingDelayProposalRepository;
+import com.housekeeping.management.repository.CancellationLogRepository;
+import com.housekeeping.management.entity.BookingDelayProposal;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -17,18 +20,18 @@ import org.mockito.ArgumentCaptor;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class BookingIncidentServiceTest {
+    private static BookingDelayProposalRepository proposalRepository;
     @Test
-    void staffWhoAlreadyArrivedCanReportWithoutFutureEta() {
+    void staffCannotSubmitEtaAfterScheduledStartEvenIfArrivalWasClaimed() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
         BookingIncidentService service = incidentService(bookings);
-        LocalDateTime start = LocalDateTime.now(ZoneOffset.ofHours(7)).minusMinutes(20).withNano(0);
+        LocalDateTime start = LocalDateTime.now(ZoneOffset.ofHours(7)).minusHours(1).withNano(0);
         LocalDateTime arrival = start.plusMinutes(10);
+        LocalDateTime eta = LocalDateTime.now(ZoneOffset.ofHours(7)).plusMinutes(15).withNano(0);
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(booking(7L, "CONFIRMED", start, arrival, null, null)));
-        when(bookings.reportStaffIncident(eq(42L), eq(7L), eq("kẹt xe"), any(), any())).thenReturn(1);
-
-        service.report(42L, 7L, "kẹt xe", null);
-
-        verify(bookings).reportStaffIncident(eq(42L), eq(7L), eq("kẹt xe"), eq(arrival), any());
+        assertThatThrownBy(() -> service.report(42L, 7L, "kẹt xe", eta))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("trước giờ bắt đầu");
+        verify(bookings, org.mockito.Mockito.never()).reportStaffIncident(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -46,17 +49,23 @@ class BookingIncidentServiceTest {
     }
 
     @Test
-    void canCompleteLegacyIncidentWithoutEtaByAddingEtaBeforeWorkStarts() {
+    void doesNotOverwriteAnUnresolvedExistingEta() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
         BookingIncidentService service = incidentService(bookings);
-        LocalDateTime start = LocalDateTime.now(ZoneOffset.ofHours(7)).plusMinutes(10).withNano(0);
+        LocalDateTime start = LocalDateTime.now(ZoneOffset.ofHours(7)).plusMinutes(20).withNano(0);
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(booking(7L, "CONFIRMED", start,
-                start.minusMinutes(1), null, null)));
+                start.minusMinutes(1), null, start.plusMinutes(15))));
+        BookingDelayProposal proposal = new BookingDelayProposal();
+        proposal.setProposalId(88L); proposal.setBookingId(42L); proposal.setStaffId(7L);
+        proposal.setExpectedArrivalAt(LocalDateTime.now(ZoneOffset.ofHours(7)).plusMinutes(10).withNano(0)); proposal.setStatus("ACCEPTED");
+        when(proposalRepository.findFirstByBookingIdOrderByProposalIdDesc(42L)).thenReturn(Optional.of(proposal));
+        when(proposalRepository.expireAccepted(eq(88L), any())).thenReturn(1);
         when(bookings.reportStaffIncident(eq(42L), eq(7L), eq("kẹt xe"), any(), any())).thenReturn(1);
 
-        service.report(42L, 7L, "kẹt xe", start.plusMinutes(5));
-
-        verify(bookings).reportStaffIncident(eq(42L), eq(7L), eq("kẹt xe"), eq(start.minusMinutes(1)), any());
+        assertThatThrownBy(() -> service.report(42L, 7L, "kẹt xe", start.plusMinutes(15)))
+                .isInstanceOf(IllegalStateException.class);
+        org.mockito.Mockito.verify(bookings, org.mockito.Mockito.never()).reportStaffIncident(any(), any(), any(), any(), any());
+        org.mockito.Mockito.verify(proposalRepository, org.mockito.Mockito.never()).expireAccepted(any(), any());
     }
 
     @Test
@@ -77,14 +86,19 @@ class BookingIncidentServiceTest {
     }
 
     @Test
-    void rejectsReportAfterWorkStartsAndDuplicateReport() {
+    void rejectsDuplicateReportAndReportAfterServiceCompletion() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
         BookingIncidentService service = incidentService(bookings);
         LocalDateTime start = LocalDateTime.now(ZoneOffset.ofHours(7)).plusDays(1);
         when(bookings.lockBookingWorkflow(42L))
-                .thenReturn(Optional.of(booking(7L, "CONFIRMED", start, null, start, null)))
-                .thenReturn(Optional.of(booking(7L, "CONFIRMED", start, null, null, start.plusMinutes(15))));
+                .thenReturn(Optional.of(booking(7L, "CONFIRMED", start, null, null, start.plusMinutes(15))))
+                .thenReturn(Optional.of(new BookingPersistenceRepository.BookingWorkflowState(42L, 3L, 7L,
+                        start, start.plusHours(1), "CONFIRMED", new BigDecimal("150000.00"), null, start, null,
+                        null, null, null, null, null, BigDecimal.ZERO, BigDecimal.ZERO,
+                        start.plusMinutes(20), null, null, null, null, null, start.plusMinutes(30))));
 
+        assertThatThrownBy(() -> service.report(42L, 7L, "kẹt xe", start.plusMinutes(15)))
+                .isInstanceOf(IllegalStateException.class);
         assertThatThrownBy(() -> service.report(42L, 7L, "kẹt xe", start.plusMinutes(15)))
                 .isInstanceOf(IllegalStateException.class);
         assertThatThrownBy(() -> service.report(42L, 7L, "kẹt xe", start.plusMinutes(15)))
@@ -92,21 +106,20 @@ class BookingIncidentServiceTest {
     }
 
     @Test
-    void customerAcceptanceStoresResponseAndCalculatedDiscount() {
+    void customerAcceptanceStoresConsentButDoesNotCalculateUnverifiedDiscount() {
         BookingPersistenceRepository bookings = mock(BookingPersistenceRepository.class);
         BookingIncidentService service = incidentService(bookings);
         LocalDateTime start = LocalDateTime.now(ZoneOffset.ofHours(7)).minusMinutes(20).withNano(0);
         when(bookings.lockBookingWorkflow(42L)).thenReturn(Optional.of(booking(7L, "CONFIRMED", start,
                 start.plusMinutes(20), null, start.plusMinutes(25))));
-        when(bookings.respondToIncident(eq(42L), eq(3L), eq("ACCEPTED"), any(), any(), any())).thenReturn(1);
+        BookingDelayProposal proposal = pendingProposal(42L, 7L, start.plusMinutes(25));
+        when(proposalRepository.findFirstByBookingIdOrderByProposalIdDesc(42L)).thenReturn(Optional.of(proposal));
+        when(proposalRepository.respond(eq(proposal.getProposalId()), eq("ACCEPTED"), any())).thenReturn(1);
+        when(bookings.respondToIncident(eq(42L), eq(3L), eq("ACCEPTED"), any())).thenReturn(1);
 
         service.respond(42L, 3L, "ACCEPTED");
 
-        ArgumentCaptor<BigDecimal> percent = ArgumentCaptor.forClass(BigDecimal.class);
-        ArgumentCaptor<BigDecimal> amount = ArgumentCaptor.forClass(BigDecimal.class);
-        verify(bookings).respondToIncident(eq(42L), eq(3L), eq("ACCEPTED"), any(), percent.capture(), amount.capture());
-        assertThat(percent.getValue()).isEqualByComparingTo("5");
-        assertThat(amount.getValue()).isEqualByComparingTo("7500.00");
+        verify(bookings).respondToIncident(eq(42L), eq(3L), eq("ACCEPTED"), any());
     }
 
     @Test
@@ -119,17 +132,25 @@ class BookingIncidentServiceTest {
                         start, start.plusHours(1), "CONFIRMED", new BigDecimal("150000.00"), null, null,
                         start.minusMinutes(2), "kẹt xe", start.plusMinutes(15), null, null, null,
                         BigDecimal.ZERO, BigDecimal.ZERO)));
-        when(bookings.respondToIncident(eq(42L), eq(3L), eq("DECLINED"), any(), any(), any())).thenReturn(1);
+        BookingDelayProposal proposal = pendingProposal(42L, 7L, start.plusMinutes(15));
+        when(proposalRepository.findFirstByBookingIdOrderByProposalIdDesc(42L)).thenReturn(Optional.of(proposal));
+        when(proposalRepository.respond(eq(proposal.getProposalId()), eq("DECLINED"), any())).thenReturn(1);
+        when(bookings.respondToIncident(eq(42L), eq(3L), eq("DECLINED"), any())).thenReturn(1);
 
         service.respond(42L, 3L, "DECLINED");
-        verify(bookings).respondToIncident(eq(42L), eq(3L), eq("DECLINED"), any(), eq(BigDecimal.ZERO), eq(new BigDecimal("0.00")));
+        verify(bookings).respondToIncident(eq(42L), eq(3L), eq("DECLINED"), any());
         assertThatThrownBy(() -> service.respond(42L, 3L, "ACCEPTED"))
                 .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
     }
 
+    private static BookingDelayProposal pendingProposal(Long bookingId, Long staffId, LocalDateTime eta) {
+        BookingDelayProposal proposal = new BookingDelayProposal(); proposal.setProposalId(1L); proposal.setBookingId(bookingId);
+        proposal.setStaffId(staffId); proposal.setExpectedArrivalAt(eta); proposal.setStatus("PENDING"); return proposal;
+    }
+
     private BookingPersistenceRepository.BookingWorkflowState booking(Long staffId, String status, LocalDateTime start,
             LocalDateTime staffArrivedAt, LocalDateTime workStartedAt, LocalDateTime expectedArrivalAt) {
-        boolean reported = expectedArrivalAt != null || staffArrivedAt != null || workStartedAt != null;
+        boolean reported = expectedArrivalAt != null || workStartedAt != null;
         return new BookingPersistenceRepository.BookingWorkflowState(42L, 3L, staffId, start, start.plusHours(1), status,
                 new BigDecimal("150000.00"), staffArrivedAt, workStartedAt,
                 reported ? start.minusMinutes(2) : null, reported ? "kẹt xe" : null, expectedArrivalAt,
@@ -138,11 +159,8 @@ class BookingIncidentServiceTest {
     }
 
     private static BookingIncidentService incidentService(BookingPersistenceRepository bookings) {
-        var settings = mock(BookingDelayCompensationSettingsService.class);
-        when(settings.get()).thenReturn(java.util.List.of(
-                new com.housekeeping.management.dto.BookingDelayCompensation.Tier(1, 15, 5),
-                new com.housekeeping.management.dto.BookingDelayCompensation.Tier(16, 30, 10),
-                new com.housekeeping.management.dto.BookingDelayCompensation.Tier(31, null, 20)));
-        return new com.housekeeping.management.service.impl.BookingIncidentServiceImpl(bookings, settings);
+        proposalRepository = mock(BookingDelayProposalRepository.class);
+        return new com.housekeeping.management.service.impl.BookingIncidentServiceImpl(
+                bookings, proposalRepository, mock(CancellationLogRepository.class));
     }
 }

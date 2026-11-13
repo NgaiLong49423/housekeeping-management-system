@@ -167,6 +167,8 @@ public class BookingFinancialServiceImpl implements BookingFinancialService {
                 .orElseThrow(() -> new IllegalStateException("Khoản tiền không tồn tại hoặc đã thay đổi."));
         FinancialPayoutResponse payout = null;
         if ("COMPENSATION".equals(entry.getEntryType())) {
+            if (!cases.staffInvestigationFinalized(entry.getCaseId()))
+                throw new IllegalStateException("Chờ Manager chốt cuối trách nhiệm Staff, bao gồm thời hạn giải trình/kháng nghị, trước khi quyết toán bồi thường cho khách.");
             if (simulated) throw new IllegalStateException("Bồi thường phải được ghi nhận là khoản chi thật sau khi thực hiện.");
             if (!cases.hasSufficientEvidence(entry.getCaseId()))
                 throw new IllegalStateException("Chỉ quyết toán bồi thường khi hồ sơ đã được xác minh đủ bằng chứng.");
@@ -203,7 +205,7 @@ public class BookingFinancialServiceImpl implements BookingFinancialService {
         var refundsAndReductions = financialPaid;
         var net = paymentTotals.paidAmount().subtract(refundsAndReductions).subtract(remediation).add(recovery);
         return new FinancialSummary(paymentTotals.paidAmount(), refundsAndReductions, remediation, recovery, net,
-                entries.sumSimulated().add(paymentTotals.simulatedAmount()));
+                paymentTotals.cashAmount(), paymentTotals.onlineAmount(), entries.sumSimulated());
     }
 
     @Override

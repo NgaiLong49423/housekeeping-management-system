@@ -8,15 +8,17 @@
     <p class="lead">Tổng quan doanh thu và lối tắt tới từng phần. Mở chi tiết khoản điều chỉnh khi cần duyệt hoặc quyết toán.</p></div>
   <div th:replace="~{fragments/layout :: alerts}"></div>
   <section class="surface p-4 mb-4">
-    <h2 class="h5">Tổng hợp dòng tiền thật</h2>
-    <p class="small text-secondary">Doanh thu đến từ thanh toán booking thành công. Khoản đang chờ duyệt chưa phải tiền đã thu hoặc đã chi.</p>
+    <h2 class="h5">Tổng hợp dòng tiền</h2>
+    <p class="small text-secondary">Doanh thu gồm booking thanh toán thành công. Thanh toán Online sandbox vẫn được tính và tách riêng theo phương thức; khoản điều chỉnh mô phỏng chưa tính vào dòng tiền ròng.</p>
     <div class="row g-3">
       <div class="col-md-4"><div class="border rounded p-3 h-100"><span>Doanh thu dịch vụ</span><strong class="d-block mt-1" th:text="|${#numbers.formatDecimal(summary.serviceRevenue,0,'POINT',0,'COMMA')} ₫|">0 ₫</strong></div></div>
+      <div class="col-md-4"><div class="border rounded p-3 h-100"><span>Tiền mặt</span><strong class="d-block mt-1" th:text="|${#numbers.formatDecimal(summary.cashRevenue,0,'POINT',0,'COMMA')} ₫|">0 ₫</strong></div></div>
+      <div class="col-md-4"><div class="border rounded p-3 h-100"><span>Online (gồm sandbox)</span><strong class="d-block mt-1" th:text="|${#numbers.formatDecimal(summary.onlineRevenue,0,'POINT',0,'COMMA')} ₫|">0 ₫</strong></div></div>
       <div class="col-md-4"><div class="border rounded p-3 h-100"><span>Hoàn/giảm</span><strong class="d-block mt-1" th:text="|${#numbers.formatDecimal(summary.refundsAndReductions,0,'POINT',0,'COMMA')} ₫|">0 ₫</strong></div></div>
       <div class="col-md-4"><div class="border rounded p-3 h-100"><span>Khắc phục/bồi thường</span><strong class="d-block mt-1" th:text="|${#numbers.formatDecimal(summary.remediationAndCompensation,0,'POINT',0,'COMMA')} ₫|">0 ₫</strong></div></div>
       <div class="col-md-4"><div class="border rounded p-3 h-100"><span>Thu hồi nội bộ</span><strong class="d-block mt-1" th:text="|${#numbers.formatDecimal(summary.staffRecovery,0,'POINT',0,'COMMA')} ₫|">0 ₫</strong></div></div>
       <div class="col-md-4"><div class="border rounded p-3 h-100"><span>Ròng</span><strong class="d-block mt-1" th:text="|${#numbers.formatDecimal(summary.net,0,'POINT',0,'COMMA')} ₫|">0 ₫</strong></div></div>
-      <div class="col-md-4"><div class="border rounded p-3 h-100"><span>Mô phỏng · không tính tiền thật</span><strong class="d-block mt-1" th:text="|${#numbers.formatDecimal(summary.simulated,0,'POINT',0,'COMMA')} ₫|">0 ₫</strong></div></div>
+      <div class="col-md-4"><div class="border rounded p-3 h-100"><span>Điều chỉnh mô phỏng · chưa tính ròng</span><strong class="d-block mt-1" th:text="|${#numbers.formatDecimal(summary.simulatedAdjustments,0,'POINT',0,'COMMA')} ₫|">0 ₫</strong></div></div>
     </div>
   </section>
   <section class="row g-3" aria-label="Các mục đối soát">

@@ -52,6 +52,18 @@ public class User {
     @Column(name = "status", length = 20, nullable = false, columnDefinition = "varchar(20)")
     private UserStatus status = UserStatus.ACTIVE;
 
+    @Column(name = "must_change_password", nullable = false)
+    private boolean mustChangePassword;
+
+    @Column(name = "unpaid_penalty_debt", precision = 12, scale = 2, nullable = false)
+    private java.math.BigDecimal unpaidPenaltyDebt = java.math.BigDecimal.ZERO;
+
+    @Column(name = "allow_cod", nullable = false)
+    private Boolean allowCod = true;
+
+    @Column(name = "suspended_until")
+    private java.time.LocalDateTime suspendedUntil;
+
     @Nationalized
     @Column(name = "status_reason", length = 500)
     private String statusReason;

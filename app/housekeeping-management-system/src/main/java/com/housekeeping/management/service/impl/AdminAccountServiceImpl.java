@@ -56,6 +56,7 @@ public class AdminAccountServiceImpl implements AdminAccountService {
             user.setPhone(form.phone().trim());
             user.setRole(UserRole.ADMIN);
             user.setStatus(UserStatus.ACTIVE);
+            user.setMustChangePassword(true);
             accounts.save(user);
             return user.getUserId();
         });

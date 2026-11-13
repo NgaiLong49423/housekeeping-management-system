@@ -40,6 +40,6 @@ public interface BookingReservationService {
         if (start == null) throw new IllegalArgumentException("Hãy chọn giờ bắt đầu.");
         if (start.isBefore(now.plusMinutes(120))) throw new IllegalArgumentException("Lịch phải được đặt trước giờ bắt đầu ít nhất 120 phút.");
         if (start.isAfter(now.plusDays(30))) throw new IllegalArgumentException("Chỉ có thể đặt lịch trong 30 ngày tới.");
-        if (start.getSecond()!=0 || start.getNano()!=0 || start.getMinute()%15!=0) throw new IllegalArgumentException("Giờ bắt đầu chỉ được chọn phút 00, 15, 30 hoặc 45.");
+        if (start.getSecond()!=0 || start.getNano()!=0 || start.getMinute()%30!=0) throw new IllegalArgumentException("Giờ bắt đầu chỉ được chọn phút 00 hoặc 30.");
     }
 }

@@ -90,12 +90,12 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
     }
 
     @Test
-    void simplifiedFeedbackMigrationKeepsTwentyThreeBusinessTablesAndDropsWorkflows() {
+    void currentSchemaKeepsTwentySixBusinessTablesAndDropsRetiredWorkflows() {
         Integer tables=jdbc.queryForObject("""
                 SELECT COUNT(*) FROM sys.tables t JOIN sys.schemas s ON s.schema_id=t.schema_id
                 WHERE s.name='dbo' AND t.name<>'flyway_primary_schema_history'
                 """,Integer.class);
-        assertThat(tables).isEqualTo(23);
+        assertThat(tables).isEqualTo(26);
         Integer v10Columns=jdbc.queryForObject("""
                 SELECT COUNT(*) FROM sys.columns WHERE object_id=OBJECT_ID('dbo.Payments') AND name='is_simulated'
                 """,Integer.class);
@@ -284,10 +284,13 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
         Long availabilityId = jdbc.queryForObject("SELECT availability_id FROM dbo.Staff_Availability WHERE staff_id=?",
                 Long.class, savedStaff.getStaffId());
 
-        assertThat(availability.overlapsAnotherInterval(savedStaff.getStaffId(), workDate,
-                LocalTime.of(8, 30), LocalTime.of(9, 30), null)).isTrue();
-        assertThat(availability.overlapsAnotherInterval(savedStaff.getStaffId(), workDate,
-                LocalTime.of(9, 0), LocalTime.of(10, 0), null)).isFalse();
+        var registered = availability.findAllByStaffIdAndWorkDateAndActiveTrue(savedStaff.getStaffId(), workDate);
+        assertThat(registered).singleElement().satisfies(interval -> {
+            assertThat(LocalTime.of(8, 30).isBefore(interval.getEndTime())
+                    && LocalTime.of(9, 30).isAfter(interval.getStartTime())).isTrue();
+            assertThat(LocalTime.of(9, 0).isBefore(interval.getEndTime())
+                    && LocalTime.of(10, 0).isAfter(interval.getStartTime())).isFalse();
+        });
         assertThat(availability.unchanged(availabilityId, savedStaff.getStaffId(), workDate,
                 LocalTime.of(8, 0), LocalTime.of(9, 0))).isTrue();
 

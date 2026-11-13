@@ -238,9 +238,8 @@ window.initQuarterTimePicker = initQuarterTimePicker;
 document.querySelectorAll("[data-quarter-time]").forEach(initQuarterTimePicker);
 
 const companyWindowSource = document.querySelector("#company-operating-hours-source");
-if (companyWindowSource) {
-  const configuredWindows = [...companyWindowSource.querySelectorAll("[data-company-window]")];
-  document.querySelectorAll("[data-company-window-batch-form]").forEach(form => {
+const configuredWindows = companyWindowSource ? [...companyWindowSource.querySelectorAll("[data-company-window]")] : [];
+document.querySelectorAll("[data-company-window-batch-form]").forEach(form => {
     const startDate = form.querySelector("[data-batch-start]");
     const endDate = form.querySelector("[data-batch-end]");
     const weekdays = [...form.querySelectorAll("[data-batch-weekday]")];
@@ -295,8 +294,8 @@ if (companyWindowSource) {
     form.querySelectorAll("[data-time-trigger]").forEach(trigger => trigger.addEventListener("change", validate));
     form.addEventListener("submit", event => { if (!validate()) event.preventDefault(); });
     validate();
-  });
-  document.querySelectorAll("[data-company-window-form]").forEach(form => {
+});
+document.querySelectorAll("[data-company-window-form]").forEach(form => {
     const dateInput = form.querySelector("[data-work-date]");
     const list = form.querySelector("[data-company-window-list]");
     const message = form.querySelector("[data-company-window-message]");
@@ -328,7 +327,8 @@ if (companyWindowSource) {
         }
       }
       let error = "";
-      if (!dateInput.value) error = "Hãy chọn ngày làm.";
+      if (!companyWindowSource) error = "Không tải được giờ hoạt động của công ty. Hãy tải lại trang trước khi đăng ký.";
+      else if (!dateInput.value) error = "Hãy chọn ngày làm.";
       else if (form.dataset.today && dateInput.value < form.dataset.today) error = "Ngày đã qua chỉ có thể xem, không được chỉnh hoặc đăng ký.";
       else if (!windows.length) error = "Ngày này không có khung giờ hoạt động của công ty.";
       const intervals = form.hasAttribute("data-staff-multi-form")
@@ -373,7 +373,7 @@ if (companyWindowSource) {
     form.addEventListener("submit", event => { if (!validate()) event.preventDefault(); });
     if (form.hasAttribute("data-staff-multi-form")) {
       const rows = form.querySelector("[data-staff-interval-list]");
-      form.querySelector("[data-add-staff-interval]")?.addEventListener("click", () => {
+      form.querySelector("[data-add-interval]")?.addEventListener("click", () => {
         if (rows.querySelectorAll("[data-staff-interval-row]").length >= 8) {
           if (message) { message.textContent = "Mỗi ngày đăng ký tối đa 8 khoảng giờ."; message.hidden = false; }
           return;
@@ -391,7 +391,7 @@ if (companyWindowSource) {
         validate();
       });
       form.addEventListener("click", event => {
-        const remove = event.target.closest("[data-remove-staff-interval]");
+        const remove = event.target.closest("[data-remove-interval]");
         if (!remove) return;
         if (rows.querySelectorAll("[data-staff-interval-row]").length === 1) {
           if (message) { message.textContent = "Cần giữ lại ít nhất một khoảng giờ."; message.hidden = false; }
@@ -402,8 +402,7 @@ if (companyWindowSource) {
       });
     }
     validate();
-  });
-}
+});
 
 document.querySelectorAll("[data-upload-form]").forEach(form => {
   const input = form.querySelector("input[type=file]");
@@ -672,14 +671,25 @@ if (bookingForm) {
     const chosen=selectedServices();
     const request=++calendarSequence;
     calendarError=""; calendarNotice=""; availableDates=[];
-    if(!chosen.length||(preference==="staff"&&!preferredStaff.value)) { calendarPending=false; renderAvailableDates(); refresh(); return; }
+    if(!chosen.length||(preference==="staff"&&!preferredStaff.value)||!house.value) {
+      calendarPending=false;
+      calendarNotice=chosen.length&&!house.value?"Chọn địa chỉ nhà để xem ngày có nhân viên phù hợp.":"";
+      renderAvailableDates(); refresh(); return;
+    }
     calendarPending=true; renderAvailableDates(); refresh();
     const query=new URLSearchParams(); chosen.forEach(input=>query.append("serviceIds",input.value));
+    query.set("houseId",house.value);
     if(preference==="staff"&&preferredStaff.value)query.set("staffId",preferredStaff.value);
     try {
       const response=await fetch(`/customer/bookings/availability-dates?${query}`,{headers:{Accept:"application/json"}});
-      if(!response.ok)throw new Error("Không tải được danh sách ngày còn nhân viên làm.");
-      const result=await response.json();
+      const body=await response.text();
+      let result={};
+      try { result=body?JSON.parse(body):{}; } catch { result={}; }
+      if(!response.ok) {
+        const detail=result.detail||result.message||result.error||(typeof result==="string"?result:body.replace(/^"|"$/g,""));
+        throw new Error(detail||"Không tải được danh sách ngày còn nhân viên làm.");
+      }
+      if(typeof result!=="object"||result===null)throw new Error("Dữ liệu lịch ngày không hợp lệ.");
       if(request!==calendarSequence)return;
       availableDates=result.dates||[];
       const available=new Set(availableDates);
@@ -688,7 +698,7 @@ if (bookingForm) {
       if(removed.length)calendarNotice=`${removed.length} ngày đã chọn không còn phù hợp; thông tin được giữ lại để bạn điều chỉnh.`;
       else calendarNotice=result.message||"";
     } catch(error) {
-      if(request===calendarSequence)calendarError="Không tải được lịch ngày. Vui lòng thử tải lại trước khi tiếp tục.";
+      if(request===calendarSequence)calendarError=error.message||"Không tải được lịch ngày. Vui lòng thử tải lại trước khi tiếp tục.";
     } finally {
       if(request===calendarSequence){calendarPending=false;render();}
     }
@@ -706,6 +716,7 @@ if (bookingForm) {
   }
   async function loadDay(day) {
     const chosen = selectedServices();
+    if (!house.value) { day.options = null; day.loading = false; day.error = "Chọn địa chỉ nhà để tra lịch phù hợp."; render(); return; }
     if (!chosen.length) { day.options = null; day.loading = false; day.error = "Chọn ít nhất một dịch vụ để tra lịch."; render(); return; }
     const request = ++sequence; day.request = request; day.loading = true; day.error = ""; pending++; render();
     const query = new URLSearchParams({ workDate: day.date });
@@ -1192,7 +1203,7 @@ if (bookingForm) {
   house.addEventListener("change",()=>{
     checkHouseServiceArea();
     days.forEach(day=>{day.time="";day.staffId=preference==="staff"?preferredStaff.value:"";day.stale=false;day.restored=false;day.notice="";});
-    render();days.forEach(loadDay);
+    render();loadAvailableDates();days.forEach(loadDay);
     scheduleDraftSave();
   });
   function refresh() {

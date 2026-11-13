@@ -5,4 +5,6 @@ import java.time.ZoneOffset;
 
 public interface CustomerDelayReportService {
 
-    public void reportStaffNotArrived(Long bookingId, Long customerId);}
+    void reportStaffNotArrived(Long bookingId, Long customerId);
+    void respondAfterAdminReview(Long bookingId, Long customerId, String response);
+}

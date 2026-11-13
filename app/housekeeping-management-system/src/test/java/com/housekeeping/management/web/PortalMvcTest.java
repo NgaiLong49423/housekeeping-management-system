@@ -98,6 +98,7 @@ class PortalMvcTest {
     @MockitoBean AdminAccountService adminAccounts;
     @MockitoBean com.housekeeping.management.service.CustomerManagementService customerManagement;
     @MockitoBean AccountAuthorizationService accountAuthorization;
+    @MockitoBean PasswordChangeService passwordChanges;
 
     private final PortalUser customer = account(1L, "CUSTOMER", "Khách hàng kiểm thử");
     private final PortalUser staff = new PortalUser(2L, 22L, "staff@example.test", "unused-hash", "Nhân viên kiểm thử", "STAFF");
@@ -177,7 +178,7 @@ class PortalMvcTest {
         when(financials.all(5L)).thenReturn(List.of(adjustment));
         mvc.perform(get("/admin/finance").with(user(admin)))
                 .andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Tổng hợp dòng tiền thật")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Tổng hợp dòng tiền")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Sổ giao dịch")))
                 .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("Điều chỉnh giá"))));
         when(financials.ledger(3L)).thenReturn(List.of(new PortalViews.FinancialLedgerCard(42L,"ADJUSTMENT","Hoàn tiền",
@@ -280,8 +281,7 @@ class PortalMvcTest {
     void adminLocationFormRequiresVietmapSelectionAndDoesNotExposeCoordinateInputs() throws Exception {
         String html = mvc.perform(get("/admin/settings").with(user(admin))).andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
-        assertThat(html).contains("id=\"companyAddressSearch\"", "id=\"companyVietmapRefId\"", "/admin/settings/location/autocomplete",
-                        "mốc bắt đầu là lúc nhân viên có mặt")
+        assertThat(html).contains("id=\"companyAddressSearch\"", "id=\"companyVietmapRefId\"", "/admin/settings/location/autocomplete")
                 .doesNotContain("id=\"latitude\"", "id=\"longitude\"");
     }
 
@@ -354,26 +354,24 @@ class PortalMvcTest {
     @Test
     void customerCalendarReturnsOnlyDatesWithMatchingStaffAvailability() throws Exception {
         LocalDate availableDay=LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).plusDays(4);
-        when(bookingAvailability.availableDates(List.of(10L),2L))
+        when(bookingAvailability.availableDates(List.of(10L),2L,customer.getUserId(),30L))
                 .thenReturn(new BookingAvailabilityDates(List.of(availableDay),"Chỉ các ngày có lịch mới hiện."));
 
         mvc.perform(get("/customer/bookings/availability-dates").with(user(customer))
-                        .param("serviceIds","10").param("staffId","2"))
+                        .param("serviceIds","10").param("staffId","2").param("houseId","30"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.dates[0]").value(availableDay.toString()));
     }
 
     @Test
-    void houseAreaLookupChecksOwnedHouseAndReturnsInlineEligibility() throws Exception {
-        House house=new House();house.setLatitude(new BigDecimal("10.0"));house.setLongitude(new BigDecimal("106.0"));
-        when(houses.assessCustomerHouseServiceArea(1L,30L)).thenReturn(
-                new HouseService.ServiceAreaAssessment(false,"Địa chỉ nhà này nằm ngoài bán kính phục vụ của công ty."));
-        mvc.perform(get("/customer/bookings/house-service-area").with(user(customer)).param("houseId","30"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.eligible").value(false))
-                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("ngoài bán kính")));
-        verify(houses).assessCustomerHouseServiceArea(1L,30L);
-        mvc.perform(get("/customer/bookings/house-service-area").with(user(staff)).param("houseId","30"))
-                .andExpect(status().isForbidden());
+    void customerCalendarReturnsSpecificHouseValidationFailure() throws Exception {
+        when(bookingAvailability.availableDates(List.of(10L), null, customer.getUserId(), 30L))
+                .thenThrow(new IllegalArgumentException("Địa chỉ nhà cần có số nhà và tên đường cụ thể trước khi xem giờ."));
+
+        mvc.perform(get("/customer/bookings/availability-dates").with(user(customer))
+                        .param("serviceIds", "10").param("houseId", "30"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("Địa chỉ nhà cần có số nhà và tên đường cụ thể trước khi xem giờ."));
     }
 
     @Test
@@ -421,6 +419,22 @@ class PortalMvcTest {
     }
 
     @Test
+    void staffGetsLoggedFailureMessageInsteadOfSuccessWhenAvailabilityPersistenceFails() throws Exception {
+        LocalDate workDate = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).plusDays(9);
+        LocalDate weekStart = workDate.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY));
+        when(availability.saveForDate(22L, workDate, List.of(java.time.LocalTime.of(8, 0)),
+                List.of(java.time.LocalTime.of(12, 0))))
+                .thenThrow(new org.springframework.dao.InvalidDataAccessResourceUsageException("database failure"));
+
+        mvc.perform(post("/staff/schedules/day").with(user(staff)).with(csrf())
+                        .param("workDate", workDate.toString()).param("weekStart", weekStart.toString())
+                        .param("startTimes", "08:00").param("endTimes", "12:00"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/staff/schedules?weekStart=" + weekStart))
+                .andExpect(flash().attribute("error", org.hamcrest.Matchers.containsString("lỗi hệ thống")));
+    }
+
+    @Test
     void availabilityLookupRejectsStaffAndAdminRoles() throws Exception {
         var workDate = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).plusDays(2);
         mvc.perform(get("/customer/bookings/availability-options").with(user(staff))
@@ -446,7 +460,7 @@ class PortalMvcTest {
     }
 
     @Test
-    void customerHouseFormRequiresVietmapSelection() throws Exception {
+    void customerCanSubmitTypedAddressWithoutVietmapSuggestion() throws Exception {
         mvc.perform(post("/customer/houses").with(user(customer)).with(csrf())
                         .param("recipientName", "Khách Demo")
                         .param("recipientPhone", "0900000000")
@@ -822,11 +836,10 @@ class PortalMvcTest {
     }
 
     @Test
-    void customerAndStaffMayConfirmArrivalBeforeScheduledStart() throws Exception {
+    void customerCanAcknowledgeStaffClaimAndStaffMustSelfConfirmArrival() throws Exception {
         String customerPage = mvc.perform(get("/customer/bookings/42").with(user(customer)))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
-        assertThat(customerPage).contains("Xác nhận nhân viên đã đến", "ghi nhận giờ có mặt thực tế")
-                .doesNotContain("Nút xác nhận sẽ mở lúc");
+        assertThat(customerPage).doesNotContain("Xác nhận giờ Staff khai là đúng");
 
         String staffPage = mvc.perform(get("/staff/bookings/42").with(user(staff)))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
@@ -838,6 +851,10 @@ class PortalMvcTest {
                 null, null, null, null, null, "0901234567", OffsetDateTime.now(ZoneOffset.ofHours(7)),
                 null, null, null, null, null, null, null, BigDecimal.ZERO, BigDecimal.ZERO, null, List.of(), List.of(), null);
         when(query.booking(eq(42L), any())).thenReturn(arrivedEarly);
+        String customerAcknowledgement = mvc.perform(get("/customer/bookings/42").with(user(customer)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(customerAcknowledgement).contains("Xác nhận nhân viên đã đến",
+                "Xác nhận này lưu giờ nhân viên thực sự có mặt", "cho phép công việc bắt đầu");
         String readyToStart = mvc.perform(get("/staff/bookings/42").with(user(staff)))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         assertThat(readyToStart).contains(">Bắt đầu công việc</button>").doesNotContain("Chỉ bắt đầu từ giờ hẹn");
@@ -946,6 +963,23 @@ class PortalMvcTest {
     }
 
     @Test
+    void staffSchedulePageRendersCompanyWindowsForMultiIntervalControls() throws Exception {
+        when(query.isPartTime(2L)).thenReturn(true);
+        when(companySettings.scheduleWindows()).thenReturn(java.util.stream.IntStream.rangeClosed(1, 7)
+                .mapToObj(day -> new CompanySettingsService.ScheduleWindow(LocalDate.of(1900, 1, 1), day,
+                        false, java.time.LocalTime.of(8, 0), java.time.LocalTime.of(18, 0)))
+                .toList());
+
+        String page = mvc.perform(get("/staff/schedules").with(user(staff)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(page).contains("id=\"company-operating-hours-source\"", "data-company-window",
+                "data-start=\"08:00\"", "data-end=\"18:00\"", "data-staff-multi-form",
+                "data-add-interval", "name=\"startTimes\"");
+    }
+
+    @Test
     void loginCreatesSessionAndPortalRedirectsByDatabaseRole() throws Exception {
         for (PortalUser user : List.of(customer, staff, admin)) {
             PortalUser stored = new PortalUser(user.getAccountId(), user.getUsername(), encoder.encode("test-password"), user.getDisplayName(), user.getRole());
@@ -956,6 +990,105 @@ class PortalMvcTest {
             assertThat(((PortalUser) context.getAuthentication().getPrincipal()).getRole()).isEqualTo(user.getRole());
             mvc.perform(get("/portal").with(user(user))).andExpect(redirectedUrl("/" + user.getRole().toLowerCase() + "/bookings"));
         }
+    }
+
+    @Test
+    void firstLoginWithTemporaryPasswordGoesDirectlyToChangePassword() throws Exception {
+        PortalUser newStaff = new PortalUser(22L, 22L, "new-staff@example.test",
+                encoder.encode("temporary-password"), "Nhân viên mới", "STAFF", false, null, true);
+        when(identity.loadUserByUsername("new-staff@example.test")).thenReturn(newStaff);
+
+        mvc.perform(post("/login").with(csrf()).param("email", "new-staff@example.test")
+                        .param("password", "temporary-password"))
+                .andExpect(redirectedUrl("/account/change-password"));
+    }
+
+    @Test
+    void temporaryPasswordSessionCannotOpenOtherRoutesButCanOpenChangePageAndLogout() throws Exception {
+        PortalUser forcedStaff = new PortalUser(2L, 22L, staff.getUsername(), "unused-hash",
+                staff.getDisplayName(), "STAFF", false, null, true);
+        when(passwordChanges.isPasswordChangeRequired(22L)).thenReturn(true);
+
+        mvc.perform(get("/staff/bookings").with(user(forcedStaff)))
+                .andExpect(redirectedUrl("/account/change-password"));
+        mvc.perform(get("/portal").with(user(forcedStaff)))
+                .andExpect(redirectedUrl("/account/change-password"));
+        mvc.perform(get("/login").with(user(forcedStaff)))
+                .andExpect(redirectedUrl("/account/change-password"));
+        mvc.perform(post("/staff/schedules/day").with(user(forcedStaff)).with(csrf())
+                        .param("staffId", "22").param("workDate", "2026-11-16")
+                        .param("startTime", "08:00").param("endTime", "12:00"))
+                .andExpect(redirectedUrl("/account/change-password"));
+        mvc.perform(post("/account/change-password").with(user(forcedStaff)))
+                .andExpect(status().isForbidden());
+
+        mvc.perform(get("/account/change-password").with(user(forcedStaff)))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Mật khẩu hiện tại")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Xác nhận mật khẩu mới")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("/staff/bookings"))));
+        mvc.perform(post("/logout").with(user(forcedStaff)).with(csrf()))
+                .andExpect(redirectedUrl("/"));
+
+        PortalUser forcedAdmin = new PortalUser(3L, 3L, admin.getUsername(), "temporary-hash",
+                admin.getDisplayName(), "ADMIN", false, null, true);
+        when(passwordChanges.isPasswordChangeRequired(3L)).thenReturn(true);
+        mvc.perform(get("/admin/accounts").with(user(forcedAdmin)))
+                .andExpect(redirectedUrl("/account/change-password"));
+    }
+
+    @Test
+    void staleTemporaryPasswordSessionCanContinueAfterAnotherSessionChangesPassword() throws Exception {
+        PortalUser stalePrincipal = new PortalUser(2L, 22L, staff.getUsername(), "old-hash",
+                staff.getDisplayName(), "STAFF", false, null, true);
+        when(passwordChanges.isPasswordChangeRequired(22L)).thenReturn(false);
+
+        mvc.perform(get("/portal").with(user(stalePrincipal)))
+                .andExpect(redirectedUrl("/staff/bookings"));
+        mvc.perform(get("/account/change-password").with(user(stalePrincipal)))
+                .andExpect(redirectedUrl("/portal"));
+    }
+
+    @Test
+    void successfulPasswordChangeRefreshesSessionAndContinuesToRolePortal() throws Exception {
+        PortalUser forcedStaff = new PortalUser(2L, 22L, staff.getUsername(), "temporary-hash",
+                staff.getDisplayName(), "STAFF", false, null, true);
+        PortalUser updatedStaff = new PortalUser(2L, 22L, staff.getUsername(), "new-hash",
+                staff.getDisplayName(), "STAFF", false, null, false);
+        when(passwordChanges.isPasswordChangeRequired(22L)).thenReturn(true);
+        when(identity.loadUserByUsername(staff.getUsername())).thenReturn(updatedStaff);
+
+        MvcResult changed = mvc.perform(post("/account/change-password").with(user(forcedStaff)).with(csrf())
+                        .param("currentPassword", "temporary-password")
+                        .param("newPassword", "new-password")
+                        .param("confirmPassword", "new-password"))
+                .andExpect(redirectedUrl("/portal"))
+                .andReturn();
+
+        verify(passwordChanges).changePassword(eq(22L), any(com.housekeeping.management.dto.request.PortalForms.ChangePasswordForm.class));
+        var session = (org.springframework.mock.web.MockHttpSession) changed.getRequest().getSession(false);
+        SecurityContext context = (SecurityContext) session.getAttribute("SPRING_SECURITY_CONTEXT");
+        assertThat(((PortalUser) context.getAuthentication().getPrincipal()).isMustChangePassword()).isFalse();
+        mvc.perform(get("/portal").session(session)).andExpect(redirectedUrl("/staff/bookings"));
+    }
+
+    @Test
+    void failedPasswordChangeShowsErrorWithoutEchoingSubmittedPasswords() throws Exception {
+        PortalUser forcedStaff = new PortalUser(2L, 22L, staff.getUsername(), "temporary-hash",
+                staff.getDisplayName(), "STAFF", false, null, true);
+        when(passwordChanges.isPasswordChangeRequired(22L)).thenReturn(true);
+        org.mockito.Mockito.doThrow(new IllegalArgumentException("Mật khẩu hiện tại không chính xác."))
+                .when(passwordChanges).changePassword(eq(22L),
+                        any(com.housekeeping.management.dto.request.PortalForms.ChangePasswordForm.class));
+
+        mvc.perform(post("/account/change-password").with(user(forcedStaff)).with(csrf())
+                        .param("currentPassword", "wrong-secret-123")
+                        .param("newPassword", "new-secret-123")
+                        .param("confirmPassword", "new-secret-123"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Mật khẩu hiện tại không chính xác.")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("wrong-secret-123"))))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("new-secret-123"))));
     }
 
     @Test
@@ -1027,25 +1160,6 @@ class PortalMvcTest {
                 .andExpect(redirectedUrl("/customer/bookings/new"))
                 .andExpect(flash().attributeExists("error"));
         verifyNoInteractions(reservations);
-    }
-
-    @Test
-    void outOfRadiusBookingReturnsCustomerToAddressWithSpecificInlineError() throws Exception {
-        when(reservations.createBooking(eq(1L), eq(2L), eq(30L), any(), eq(List.of(10L)), isNull()))
-                .thenThrow(new IllegalArgumentException("Địa chỉ nằm ngoài bán kính phục vụ hiện tại của công ty."));
-
-        mvc.perform(post("/customer/bookings/multiple").with(user(customer)).with(csrf())
-                        .param("houseId", "30").param("serviceIds", "10")
-                        .param("workDates", "2026-11-10").param("staffIds", "2").param("startTimes", "09:00"))
-                .andExpect(redirectedUrl("/customer/bookings/new?houseId=30"))
-                .andExpect(flash().attributeExists("houseServiceAreaError"))
-                .andExpect(flash().attribute("error", "Chưa tạo được lịch nào vì địa chỉ nằm ngoài bán kính phục vụ."));
-
-        mvc.perform(get("/customer/bookings/new").with(user(customer))
-                        .flashAttr("houseServiceAreaError", "Địa chỉ nhà này nằm ngoài bán kính phục vụ của công ty."))
-                .andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("id=\"houseServiceAreaError\"")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Địa chỉ nhà này nằm ngoài bán kính phục vụ của công ty.")));
     }
 
     @Test
@@ -1197,6 +1311,31 @@ class PortalMvcTest {
                 .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/admin/bookings/42"));
         verify(adminBookingManagement).verifyDisputedArrival(42L, 3L,
                 LocalDateTime.parse("2026-11-12T10:15"), "Đã đối chiếu với khách");
+
+        mvc.perform(post("/admin/bookings/42/arrival-dispute/not-arrived").with(user(admin)).with(csrf())
+                        .param("note", "Đã gọi xác minh"))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/admin/bookings/42"));
+        verify(adminBookingManagement).verifyStaffNotArrived(42L, 3L, "Đã gọi xác minh");
+    }
+
+    @Test
+    void customerCanRespondToVerifiedDelayWithWaitOrCancelChoice() throws Exception {
+        mvc.perform(post("/customer/bookings/42/arrival-dispute-response").with(user(customer)).with(csrf())
+                        .param("response", "WAIT"))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/customer/bookings/42"));
+        verify(customerDelayReports).respondAfterAdminReview(42L, 1L, "WAIT");
+
+        mvc.perform(post("/customer/bookings/42/arrival-dispute-response").with(user(customer)).with(csrf())
+                        .param("response", "CANCEL"))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/customer/bookings/42"));
+        verify(customerDelayReports).respondAfterAdminReview(42L, 1L, "CANCEL");
+    }
+
+    @Test
+    void customerUsesDirectMvcCancellationEndpoint() throws Exception {
+        mvc.perform(post("/customer/bookings/42/cancel").with(user(customer)).with(csrf()))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/customer/bookings/42"));
+        verify(cancellation).cancelByCustomer(42L, 1L);
     }
 
     @Test

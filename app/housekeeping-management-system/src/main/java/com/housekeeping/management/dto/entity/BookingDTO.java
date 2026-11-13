@@ -14,7 +14,9 @@ public record BookingDTO(Long bookingId, Long customerId, Long staffId, Long ori
         String arrivalVerificationSource, String arrivalVerificationNote, LocalDateTime incidentReportedAt, String incidentNote,
         LocalDateTime incidentExpectedArrivalAt, String incidentCustomerResponse,
         LocalDateTime incidentCustomerRespondedAt, LocalDateTime workStartedAt, Integer delayMinutes,
-        BigDecimal delayDiscountPercent, BigDecimal delayDiscountAmount, LocalDateTime serviceCompletedAt) {
+        BigDecimal delayDiscountPercent, BigDecimal delayDiscountAmount, LocalDateTime serviceCompletedAt,
+        LocalDateTime adminNoShowVerifiedAt, Long adminNoShowVerifiedBy, String adminNoShowNote,
+        LocalDateTime customerWaitedAt) {
 
     public static BookingDTO convertEntityToDTO(Booking entity) {
         if (entity == null) return null;
@@ -28,7 +30,9 @@ public record BookingDTO(Long bookingId, Long customerId, Long staffId, Long ori
                 entity.getArrivalVerifiedBy(), entity.getArrivalVerificationSource(), entity.getArrivalVerificationNote(), entity.getIncidentReportedAt(),
                 entity.getIncidentNote(), entity.getIncidentExpectedArrivalAt(), entity.getIncidentCustomerResponse(),
                 entity.getIncidentCustomerRespondedAt(), entity.getWorkStartedAt(), entity.getDelayMinutes(),
-                entity.getDelayDiscountPercent(), entity.getDelayDiscountAmount(), entity.getServiceCompletedAt());
+                entity.getDelayDiscountPercent(), entity.getDelayDiscountAmount(), entity.getServiceCompletedAt(),
+                entity.getAdminNoShowVerifiedAt(), entity.getAdminNoShowVerifiedBy(), entity.getAdminNoShowNote(),
+                entity.getCustomerWaitedAt());
     }
 
     public Booking convertDTOToEntity() {
@@ -70,6 +74,10 @@ public record BookingDTO(Long bookingId, Long customerId, Long staffId, Long ori
         entity.setDelayDiscountPercent(delayDiscountPercent);
         entity.setDelayDiscountAmount(delayDiscountAmount);
         entity.setServiceCompletedAt(serviceCompletedAt);
+        entity.setAdminNoShowVerifiedAt(adminNoShowVerifiedAt);
+        entity.setAdminNoShowVerifiedBy(adminNoShowVerifiedBy);
+        entity.setAdminNoShowNote(adminNoShowNote);
+        entity.setCustomerWaitedAt(customerWaitedAt);
         return entity;
     }
 }

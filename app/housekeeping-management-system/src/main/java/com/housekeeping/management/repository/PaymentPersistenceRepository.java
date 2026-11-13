@@ -1,6 +1,7 @@
 package com.housekeeping.management.repository;
 
 import com.housekeeping.management.enums.PaymentStatus;
+import com.housekeeping.management.enums.PaymentMethod;
 import com.housekeeping.management.entity.Payment;
 import jakarta.persistence.LockModeType;
 import java.math.BigDecimal;
@@ -45,10 +46,10 @@ public interface PaymentPersistenceRepository extends JpaRepository<Payment, Lon
     int markFailed(@Param("paymentId") Long paymentId);
 
     @Query("select coalesce(sum(payment.amount), 0) from Payment payment "
-            + "where payment.status=com.housekeeping.management.enums.PaymentStatus.SUCCESS and payment.simulated=false")
-    BigDecimal sumSuccessfulRealPayments();
+            + "where payment.status=com.housekeeping.management.enums.PaymentStatus.SUCCESS")
+    BigDecimal sumSuccessfulPayments();
 
     @Query("select coalesce(sum(payment.amount), 0) from Payment payment "
-            + "where payment.status=com.housekeeping.management.enums.PaymentStatus.SUCCESS and payment.simulated=true")
-    BigDecimal sumSuccessfulSimulatedPayments();
+            + "where payment.status=com.housekeeping.management.enums.PaymentStatus.SUCCESS and payment.paymentMethod=:method")
+    BigDecimal sumSuccessfulPaymentsByMethod(@Param("method") PaymentMethod method);
 }

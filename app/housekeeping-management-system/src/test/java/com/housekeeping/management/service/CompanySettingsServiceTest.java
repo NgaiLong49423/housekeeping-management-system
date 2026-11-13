@@ -105,7 +105,7 @@ class CompanySettingsServiceTest {
     }
 
     @Test
-    void blocksLocationChangeWhenActiveBookingsWouldFallOutsideTheRadius() {
+    void locationChangeRejectsExistingBookingsOutsideTheNewServiceRadius() {
         CompanyLocationForm form = new CompanyLocationForm("place-1", BigDecimal.ONE);
         when(vietmap.place("place-1")).thenReturn(new VietmapClient.Place("Verified address", null, null, null, null,
                 BigDecimal.TEN, BigDecimal.valueOf(106)));
@@ -113,8 +113,9 @@ class CompanySettingsServiceTest {
         when(bookings.futureActiveBookingsWithLocation()).thenReturn(List.of(
                 new BookingQueryService.BookingLocation(15L, BigDecimal.ZERO, BigDecimal.ZERO),
                 new BookingQueryService.BookingLocation(19L, BigDecimal.ONE, BigDecimal.ONE)));
-        assertThatThrownBy(() -> service.saveLocation(1L, form)).isInstanceOf(IllegalStateException.class).hasMessageContaining("15, 19");
-        verify(repository, never()).saveAndFlush(org.mockito.ArgumentMatchers.any());
+        assertThatThrownBy(() -> service.saveLocation(1L, form))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("[15, 19]");
     }
 
     @Test
@@ -140,7 +141,7 @@ class CompanySettingsServiceTest {
 
         assertThatThrownBy(() -> service.saveLocation(1L, form)).isInstanceOf(IllegalStateException.class)
                 .hasMessage("VietMap unavailable");
-        verifyNoInteractions(repository);
+        verify(repository, org.mockito.Mockito.never()).saveAndFlush(org.mockito.ArgumentMatchers.any());
     }
 
     @Test

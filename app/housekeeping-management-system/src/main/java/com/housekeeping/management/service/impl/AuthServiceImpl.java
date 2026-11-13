@@ -35,7 +35,8 @@ public class AuthServiceImpl implements AuthService {
         // sau khi mật khẩu đúng, nên người đoán sai mật khẩu không biết tài khoản có bị khóa hay không.
         boolean locked = user.getStatus() != UserStatus.ACTIVE;
         return new PortalUser(accountId, user.getUserId(), user.getEmail(), user.getPasswordHash(),
-                user.getFullName(), user.getRole().name(), locked, user.getStatusReason());
+                user.getFullName(), user.getRole().name(), locked, user.getStatusReason(),
+                user.isMustChangePassword());
     }
 
     @Override

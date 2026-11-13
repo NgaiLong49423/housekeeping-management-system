@@ -81,6 +81,7 @@ class AdminAccountServiceTest {
                         && "new-admin@example.test".equals(user.getEmail())
                         && "bcrypt-hash".equals(user.getPasswordHash())
                         && UserRole.ADMIN == user.getRole()
-                        && UserStatus.ACTIVE == user.getStatus()));
+                        && UserStatus.ACTIVE == user.getStatus()
+                        && user.isMustChangePassword()));
     }
 }

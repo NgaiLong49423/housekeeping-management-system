@@ -84,7 +84,6 @@
                   <option th:each="house : ${houses}" th:value="${house.houseId}"
                           th:text="${ui.label(house.recipientName)} + ' · ' + ${house.addressType.label} + (${house.defaultAddress} ? ' (Mặc định)' : '') + ' · ' + ${house.fullAddress}">Nhà</option>
                 </select>
-                <p class="small text-danger fw-semibold mt-2 mb-0" id="houseServiceAreaError" role="alert" th:text="${houseServiceAreaError}" th:hidden="${houseServiceAreaError == null}"></p>
                 <div class="d-flex align-items-center gap-3 mt-2 flex-wrap">
                   <a class="small text-link" th:href="@{/customer/houses}">
                     <span>Quản lý địa chỉ nhà</span>
@@ -225,7 +224,7 @@
                 <div>
                   <h2 class="h5 mb-1">Chọn thời gian phù hợp</h2>
                   <p class="mb-0 small text-secondary">
-                    Tính theo giờ Việt Nam. Giờ bắt đầu theo mốc 15 phút, đặt trước ít nhất 120 phút và kết thúc trong khung giờ mở cửa.
+                    Tính theo giờ Việt Nam. Giờ bắt đầu theo mốc 30 phút (:00 hoặc :30), đặt trước ít nhất 120 phút và kết thúc trong khung giờ mở cửa.
                   </p>
                 </div>
               </div>
