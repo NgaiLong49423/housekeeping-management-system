@@ -11,14 +11,14 @@ public interface CancellationLogRepository extends JpaRepository<CancellationLog
     List<CancellationLog> findAllByCustomerIdOrderByCreatedAtDesc(Long customerId);
 
     @Query("""
-        SELECT COUNT(c) FROM CancellationLog c 
-        WHERE c.customerId = :customerId 
-          AND c.cancellationFee > 0 
-          AND c.isWorkerFault = false 
+        SELECT COUNT(c) FROM CancellationLog c
+        WHERE c.customerId = :customerId
+          AND c.cancellationFee > 0
+          AND c.isWorkerFault = false
           AND c.createdAt >= :since
     """)
     long countLateCancellationsWithinDays(
-        @Param("customerId") Long customerId, 
+        @Param("customerId") Long customerId,
         @Param("since") LocalDateTime since
     );
 }
