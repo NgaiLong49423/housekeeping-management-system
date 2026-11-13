@@ -91,6 +91,37 @@ public class LeaveManagementServiceImpl implements LeaveManagementService {
         request.setReviewedAt(businessNow());
     }
 
+    @Override
+    public java.util.Map<Long, String> findStaffLeaveConflicts() {
+        java.util.Map<Long, String> conflicts = new java.util.LinkedHashMap<>();
+        DateTimeFormatter dateFmt = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        for (StaffLeave request : leaves.findAllForAdmin()) {
+            if (request.getStatus() != LeaveStatus.PENDING && request.getStatus() != LeaveStatus.APPROVED) {
+                continue;
+            }
+            Long staffId = request.getStaff().getStaffId();
+            List<Long> affectedIds = bookings.futureConfirmedBookingIds(
+                    staffId, request.getStartDate(), request.getEndDate());
+            if (affectedIds.isEmpty()) {
+                continue;
+            }
+            String statusLabel = request.getStatus() == LeaveStatus.PENDING
+                    ? "Đơn xin nghỉ chờ duyệt"
+                    : "Đã duyệt nghỉ";
+            String range = request.getStartDate().equals(request.getEndDate())
+                    ? request.getStartDate().format(dateFmt)
+                    : request.getStartDate().format(dateFmt) + " - " + request.getEndDate().format(dateFmt);
+            String reason = request.getReason() != null && !request.getReason().isBlank()
+                    ? request.getReason().trim()
+                    : "Nghỉ phép";
+            String message = statusLabel + " (" + range + "): " + reason;
+            for (Long bookingId : affectedIds) {
+                conflicts.putIfAbsent(bookingId, message);
+            }
+        }
+        return conflicts;
+    }
+
     private Staff requireActiveStaff(Long staffId) { return staffManagement.findActiveByStaffId(staffId); }
 
     private static void validateDateRange(LeaveRequestForm form) {

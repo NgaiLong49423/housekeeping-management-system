@@ -93,8 +93,9 @@
               <a th:if="${editHouseId != null}" th:href="@{/customer/houses}" class="btn btn-sm btn-outline-secondary">Hủy sửa</a>
             </div>
             <form id="houseForm" method="post" th:object="${houseForm}"
-                  th:action="${editHouseId == null ? '/customer/houses' : '/customer/houses/' + editHouseId}"
+                  th:action="@{${editHouseId == null ? '/customer/houses' : '/customer/houses/' + editHouseId}}"
                   th:attr="data-edit-mode=${editHouseId != null}">
+                <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                 <div class="row g-3">
                   <div class="col-12">
                     <label class="form-label" for="recipientName">Họ và tên người nhận</label>

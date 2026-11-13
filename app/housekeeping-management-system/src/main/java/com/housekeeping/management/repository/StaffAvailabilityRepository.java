@@ -14,18 +14,43 @@ import org.springframework.data.repository.query.Param;
 public interface StaffAvailabilityRepository extends JpaRepository<StaffAvailability, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     List<StaffAvailability> findAllByStaffIdAndWorkDateAndActiveTrue(Long staffId, LocalDate workDate);
+    List<StaffAvailability> findByStaffIdAndWorkDateAndActiveTrue(Long staffId, LocalDate workDate);
     List<StaffAvailability> findAllByActiveTrueAndWorkDateGreaterThanEqual(LocalDate from);
     List<StaffAvailability> findAllByActiveTrueAndWorkDateGreaterThanEqualAndWorkDateLessThan(
             LocalDate from, LocalDate until);
 
-    boolean existsByAvailabilityIdAndStaffIdAndWorkDateAndStartTimeAndEndTime(
-            Long availabilityId, Long staffId, LocalDate workDate, LocalTime startTime, LocalTime endTime);
     boolean existsByAvailabilityIdAndStaffIdAndActiveTrue(Long availabilityId, Long staffId);
     boolean existsByAvailabilityIdAndStaffIdAndWorkDateBefore(Long availabilityId, Long staffId, LocalDate date);
-    boolean existsByStaffIdAndWorkDateAndActiveTrueAndStartTimeLessThanEqualAndEndTimeGreaterThanEqual(
-            Long staffId, LocalDate workDate, LocalTime startTime, LocalTime endTime);
-    boolean existsByStaffIdAndWorkDateAndActiveTrueAndStartTimeLessThanEqualAndEndTimeGreaterThan(
-            Long staffId, LocalDate workDate, LocalTime startTime, LocalTime endTime);
+
+    default boolean existsByAvailabilityIdAndStaffIdAndWorkDateAndStartTimeAndEndTime(
+            Long availabilityId, Long staffId, LocalDate workDate, LocalTime startTime, LocalTime endTime) {
+        return findById(availabilityId)
+                .filter(slot -> slot.getStaffId().equals(staffId)
+                        && slot.getWorkDate().equals(workDate)
+                        && slot.getStartTime().equals(startTime)
+                        && slot.getEndTime().equals(endTime))
+                .isPresent();
+    }
+
+    default boolean existsByStaffIdAndWorkDateAndActiveTrueAndStartTimeLessThanEqualAndEndTimeGreaterThanEqual(
+            Long staffId, LocalDate workDate, LocalTime startTime, LocalTime endTime) {
+        return findByStaffIdAndWorkDateAndActiveTrue(staffId, workDate).stream()
+                .anyMatch(slot -> !slot.getStartTime().isAfter(startTime) && !slot.getEndTime().isBefore(endTime));
+    }
+
+    default boolean existsByStaffIdAndWorkDateAndActiveTrueAndStartTimeLessThanEqualAndEndTimeGreaterThan(
+            Long staffId, LocalDate workDate, LocalTime startTime, LocalTime endTime) {
+        return findByStaffIdAndWorkDateAndActiveTrue(staffId, workDate).stream()
+                .anyMatch(slot -> !slot.getStartTime().isAfter(startTime) && slot.getEndTime().isAfter(endTime));
+    }
+
+    default boolean overlapsAnotherInterval(Long staffId, LocalDate workDate,
+            LocalTime startTime, LocalTime endTime, Long exceptId) {
+        return findByStaffIdAndWorkDateAndActiveTrue(staffId, workDate).stream()
+                .anyMatch(slot -> (exceptId == null || !slot.getAvailabilityId().equals(exceptId))
+                        && slot.getStartTime().isBefore(endTime)
+                        && slot.getEndTime().isAfter(startTime));
+    }
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update StaffAvailability availability set availability.active=false where "

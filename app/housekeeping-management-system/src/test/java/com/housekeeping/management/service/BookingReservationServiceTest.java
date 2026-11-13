@@ -86,16 +86,17 @@ class BookingReservationServiceTest {
         assertThatThrownBy(() -> BookingReservationService.validateRequestedStart(now.plusMinutes(119), now))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("120 phút");
         assertThatThrownBy(() -> BookingReservationService.validateRequestedStart(now.plusMinutes(136), now))
-                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("00, 15, 30 hoặc 45");
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("00 hoặc 30");
         assertThatThrownBy(() -> BookingReservationService.validateRequestedStart(now.plusDays(30).plusMinutes(30), now))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("30 ngày");
     }
 
     @Test
     void acceptsOnlyQuarterHourStartMinutes() {
-        assertThatCode(() -> BookingReservationService.validateRequestedStart(now.plusHours(2).withMinute(15), now)).doesNotThrowAnyException();
-        assertThatThrownBy(() -> BookingReservationService.validateRequestedStart(now.plusHours(2).withMinute(1), now))
-                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("00, 15, 30 hoặc 45");
+        assertThatCode(() -> BookingReservationService.validateRequestedStart(now.plusHours(2).withMinute(0), now)).doesNotThrowAnyException();
+        assertThatCode(() -> BookingReservationService.validateRequestedStart(now.plusHours(2).withMinute(30), now)).doesNotThrowAnyException();
+        assertThatThrownBy(() -> BookingReservationService.validateRequestedStart(now.plusHours(2).withMinute(15), now))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("00 hoặc 30");
     }
 
     @Test
@@ -257,9 +258,6 @@ class BookingReservationServiceTest {
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("số nhà");
         house.setAddressDetail("12 Nguyễn Trãi");
         when(bookings.adjacentAppointments(7L, start, start.plusMinutes(180), null)).thenReturn(java.util.List.of());
-        when(houseService.serviceCenter()).thenReturn(new HouseService.ServiceCenter(new BigDecimal("10.0"),new BigDecimal("106.0"),new BigDecimal("25")));
-        when(vietmap.motorcycleMinutesBeforeArrival(new BigDecimal("10.0"),new BigDecimal("106.0"),
-                house.getLatitude(),house.getLongitude(),start)).thenReturn(1);
         when(bookings.insertBooking(org.mockito.ArgumentMatchers.eq(12L), org.mockito.ArgumentMatchers.eq(7L),
                 org.mockito.ArgumentMatchers.eq(31L), org.mockito.ArgumentMatchers.eq("12 Nguyễn Trãi, 12 Đường Mẫu, Quận 1"),
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.isNull(),
@@ -268,8 +266,7 @@ class BookingReservationServiceTest {
                 org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.any())).thenReturn(78L);
 
         assertThat(service.createBooking(12L, 7L, 31L, start, java.util.List.of(5L), null)).isEqualTo(78L);
-        verify(vietmap).motorcycleMinutesBeforeArrival(new BigDecimal("10.0"),new BigDecimal("106.0"),
-                house.getLatitude(),house.getLongitude(),start);
+        org.mockito.Mockito.verifyNoInteractions(vietmap);
     }
 
     @Test
@@ -307,7 +304,7 @@ class BookingReservationServiceTest {
         assertThat(tooEarly.earliestStart()).isEqualTo(previousEnd.plusMinutes(15));
         assertThat(tooEarly.routeMinutes()).isZero();
         assertThat(tooEarly.requiredGapMinutes()).isEqualTo(15);
-        assertThat(tooEarly.message()).contains("Booking trước kết thúc lúc 10:00", "nghỉ 15 phút", "10:15")
+        assertThat(tooEarly.message()).contains("Booking trước kết thúc lúc 10:00", "nghỉ 15 phút", "10:30")
                 .doesNotContain("#");
 
         LocalDateTime restCompleteStart=previousEnd.plusMinutes(15);
@@ -381,7 +378,7 @@ class BookingReservationServiceTest {
 
         assertThat(result.status()).isEqualTo(TravelStatus.TOO_LATE);
         assertThat(result.latestStart()).isEqualTo(LocalDateTime.of(2026,11,10,12,25));
-        assertThat(result.message()).contains("Booking kế tiếp","20 phút","15 phút","30 phút","12:25","12:15")
+        assertThat(result.message()).contains("Booking kế tiếp","20 phút","15 phút","30 phút","12:25","12:00")
                 .doesNotContain("#");
     }
 

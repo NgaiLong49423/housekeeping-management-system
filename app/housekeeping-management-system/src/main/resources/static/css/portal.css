@@ -458,67 +458,91 @@ button:active,
   position: relative;
   display: inline-flex;
   align-items: center;
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  padding: 3px;
+  justify-content: center;
+  background: rgba(20, 34, 29, 0.88);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  padding: 4px;
   border-radius: 9999px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.35), inset 0 1px 1px 0 rgba(255, 255, 255, 0.15);
   margin: 0 auto;
 }
 
 .ios-segmented-indicator {
   position: absolute;
-  top: 3px;
-  bottom: 3px;
+  top: 4px;
+  bottom: 4px;
   left: 0;
-  background: var(--chrome-accent);
+  background: var(--chrome-accent, #9fe3cf);
   border-radius: 9999px;
-  box-shadow: 0 2px 8px rgba(159, 227, 207, 0.35);
+  box-shadow: 0 2px 10px rgba(159, 227, 207, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.6);
   pointer-events: none;
-  transition: transform 400ms var(--ease-ios), width 400ms var(--ease-ios);
+  transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1), width 300ms cubic-bezier(0.16, 1, 0.3, 1);
   z-index: 1;
 }
 
 .ios-segmented-list {
   display: flex;
+  align-items: center;
+  justify-content: center;
   list-style: none;
   padding: 0;
   margin: 0;
   position: relative;
   z-index: 2;
+  gap: 3px;
 }
 
 .ios-segmented-item {
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
-.ios-segmented-link {
-  display: block;
-  padding: 6px 18px;
-  font-size: 0.84rem;
-  font-weight: 500;
-  color: rgba(243, 239, 230, 0.78);
+.ios-segmented-link,
+.ios-segmented-link.nav-link {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  padding: 6px 14px !important;
+  font-size: 0.85rem !important;
+  font-weight: 650 !important;
+  letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.88) !important;
   border-radius: 9999px;
-  text-decoration: none;
-  transition: color 250ms var(--ease-ios);
-  white-space: nowrap;
+  text-decoration: none !important;
+  cursor: pointer;
+  user-select: none;
+  transition: color 200ms ease, background-color 200ms ease, transform 150ms ease;
+  white-space: nowrap !important;
 }
 
-.ios-segmented-item.active .ios-segmented-link {
-  color: #13201c !important;
-  font-weight: 600;
+.ios-segmented-link:active {
+  transform: scale(0.96);
 }
 
-.ios-segmented-item:hover .ios-segmented-link {
-  color: #ffffff;
+.ios-segmented-item.active .ios-segmented-link,
+.ios-segmented-item.active .ios-segmented-link.nav-link {
+  color: #0c2618 !important;
+  font-weight: 700 !important;
+  text-shadow: none;
+}
+
+.ios-segmented-item:not(.active) .ios-segmented-link:hover {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 /* Nút bấm kiểu iOS trong Header */
 .header-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
+  display: flex !important;
+  align-items: center !important;
+  gap: var(--space-2) !important;
+  flex-shrink: 0 !important;
+  white-space: nowrap !important;
 }
 
 .btn-glass-pill {
@@ -535,6 +559,8 @@ button:active,
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
   transition: background 250ms var(--ease-ios), border-color 250ms var(--ease-ios), transform 350ms var(--spring);
 }
 
@@ -545,47 +571,76 @@ button:active,
 }
 
 .btn-cta-prominent {
-  background: #fbfaf6;
-  color: #14503f;
-  border-radius: 9999px;
-  padding: 7px 20px;
-  font-size: 0.84rem;
-  font-weight: 600;
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  text-decoration: none;
-  transition: background 250ms var(--ease-ios), color 250ms var(--ease-ios), transform 350ms var(--spring), box-shadow 250ms var(--ease-ios);
+  background: #9fe3cf !important;
+  color: #0c2618 !important;
+  border-radius: 9999px !important;
+  height: 38px !important;
+  max-height: 38px !important;
+  padding: 0 16px !important;
+  font-size: 0.85rem !important;
+  font-weight: 650 !important;
+  border: 1px solid rgba(159, 227, 207, 0.5) !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  align-self: center !important;
+  gap: 6px !important;
+  text-decoration: none !important;
+  white-space: nowrap !important;
+  min-width: max-content !important;
+  flex-shrink: 0 !important;
+  box-sizing: border-box !important;
+  line-height: 1 !important;
+  transition: background 250ms var(--ease-ios), color 250ms var(--ease-ios), transform 200ms ease, box-shadow 250ms var(--ease-ios);
+}
+
+.btn-cta-prominent span {
+  white-space: nowrap !important;
+  line-height: 1 !important;
+}
+
+.btn-cta-prominent svg {
+  flex-shrink: 0 !important;
+  width: 15px !important;
+  height: 15px !important;
 }
 
 .btn-cta-prominent:hover {
-  background: #ffffff;
-  color: #0e3b2e;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  background: #bbf0e2 !important;
+  color: #06170e !important;
+  box-shadow: 0 4px 16px rgba(159, 227, 207, 0.35);
   transform: translateY(-1px);
 }
 
 /* True 3-Column Symmetric Centering on Desktop (>= 992px) */
 @media (min-width: 992px) {
   .site-header .navbar {
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    align-items: center;
-    column-gap: var(--space-4);
-  }
-
-  .site-header .navbar-collapse {
-    display: contents !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: var(--space-3) !important;
   }
 
   .site-header .brand {
-    justify-self: start;
+    flex-shrink: 0 !important;
+  }
+
+  .site-header .navbar-collapse {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    flex: 1 1 auto !important;
+  }
+
+  .site-header .ios-segmented-control {
+    margin: 0 auto !important;
+    flex-shrink: 0 !important;
   }
 
   .site-header .header-actions {
-    justify-self: end;
+    margin-left: auto !important;
+    flex-shrink: 0 !important;
   }
 }
 

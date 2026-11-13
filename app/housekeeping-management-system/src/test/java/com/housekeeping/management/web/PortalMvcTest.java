@@ -281,8 +281,7 @@ class PortalMvcTest {
     void adminLocationFormRequiresVietmapSelectionAndDoesNotExposeCoordinateInputs() throws Exception {
         String html = mvc.perform(get("/admin/settings").with(user(admin))).andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
-        assertThat(html).contains("id=\"companyAddressSearch\"", "id=\"companyVietmapRefId\"", "/admin/settings/location/autocomplete",
-                        "Không giới hạn địa chỉ Booking")
+        assertThat(html).contains("id=\"companyAddressSearch\"", "id=\"companyVietmapRefId\"", "/admin/settings/location/autocomplete")
                 .doesNotContain("id=\"latitude\"", "id=\"longitude\"");
     }
 

@@ -1186,7 +1186,13 @@ if (bookingForm) {
       const result=await response.json();
       if(request!==houseAreaRequest)return;
       houseAreaState=result.eligible?"eligible":"ineligible";
-      if(houseServiceAreaError){houseServiceAreaError.hidden=false;houseServiceAreaError.classList.toggle("text-danger",!result.eligible);houseServiceAreaError.classList.toggle("text-secondary",Boolean(result.eligible));houseServiceAreaError.textContent=result.message;}
+      if(houseServiceAreaError){
+        houseServiceAreaError.hidden = false;
+        houseServiceAreaError.classList.toggle("text-danger", !result.eligible);
+        houseServiceAreaError.classList.toggle("text-success", Boolean(result.eligible));
+        houseServiceAreaError.classList.remove("text-secondary");
+        houseServiceAreaError.textContent = (result.eligible ? "✓ " : "⚠️ ") + result.message;
+      }
     } catch(error) {
       if(request!==houseAreaRequest)return;
       houseAreaState="error";
@@ -1515,8 +1521,10 @@ function initSegmentedControl() {
 
     function moveTo(item) {
       if (!item) return;
+      const list = item.closest('.ios-segmented-list');
+      const listLeft = list ? list.offsetLeft : 0;
       indicator.style.width = `${item.offsetWidth}px`;
-      indicator.style.transform = `translateX(${item.offsetLeft}px)`;
+      indicator.style.transform = `translateX(${listLeft + item.offsetLeft}px)`;
     }
 
     const activeItem = control.querySelector('.ios-segmented-item.active') || items[0];
@@ -1530,8 +1538,11 @@ function initSegmentedControl() {
     });
 
     items.forEach(item => {
-      item.addEventListener('mouseenter', () => moveTo(item));
-      item.addEventListener('mouseleave', () => moveTo(activeItem));
+      item.addEventListener('click', () => {
+        items.forEach(i => i.classList.remove('active'));
+        item.classList.add('active');
+        moveTo(item);
+      });
     });
 
     window.addEventListener('resize', () => {

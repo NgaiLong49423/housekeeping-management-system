@@ -23,6 +23,7 @@ import com.housekeeping.management.service.BookingIncidentService;
 import com.housekeeping.management.service.CustomerDelayReportService;
 import com.housekeeping.management.service.PortalQueryService;
 import com.housekeeping.management.service.BookingAvailabilityService;
+import com.housekeeping.management.service.LeaveManagementService;
 import com.housekeeping.management.web.PortalMessages;
 import com.housekeeping.management.web.PortalUser;
 import jakarta.validation.Valid;
@@ -59,13 +60,15 @@ public class BookingController {
     private final BookingAvailabilityService bookingAvailability;
     private final BookingIncidentService incidents;
     private final CustomerDelayReportService customerDelayReports;
+    private final LeaveManagementService leaves;
 
     public BookingController(PortalQueryService query, BookingCancellationService cancellation,
             BookingReservationService reservations, CustomerFeedbackSubmissionService feedbackSubmission,
             FeedbackCaseService feedbackCases,
             CaseAttachmentStorageService attachments, BookingFinancialService financials, HouseService houses, BookingArrivalService arrival,
             BookingAvailabilityService bookingAvailability,
-            BookingIncidentService incidents, CustomerDelayReportService customerDelayReports) {
+            BookingIncidentService incidents, CustomerDelayReportService customerDelayReports,
+            LeaveManagementService leaves) {
         this.query = query;
         this.cancellation = cancellation;
         this.reservations = reservations;
@@ -78,6 +81,7 @@ public class BookingController {
         this.bookingAvailability = bookingAvailability;
         this.incidents = incidents;
         this.customerDelayReports = customerDelayReports;
+        this.leaves = leaves;
     }
 
     @PostMapping("/customer/bookings/{id}/report-staff-delay")
@@ -106,6 +110,9 @@ public class BookingController {
         List<BookingCard> items = query.bookings(user);
         model.addAttribute("bookings", items);
         model.addAttribute("now", OffsetDateTime.now(java.time.ZoneOffset.ofHours(7)));
+        if (user.isAdmin() || user.isManager()) {
+            model.addAttribute("staffLeaveConflicts", leaves.findStaffLeaveConflicts());
+        }
         if ("CUSTOMER".equals(user.getRole())) {
             model.addAttribute("pendingCompensationBookingIds",financials.customerCompensationOffers(user.getAccountId()).stream()
                     .filter(offer -> "PENDING_CUSTOMER".equals(offer.responseStatus()))
@@ -271,6 +278,12 @@ public class BookingController {
                             : null);
         model.addAttribute("details", details);
         model.addAttribute("bookingImages", query.bookingImages(id, user));
+        if (user.isAdmin() || user.isManager()) {
+            String staffLeaveConflict = leaves.findStaffLeaveConflicts().get(id);
+            if (staffLeaveConflict != null) {
+                model.addAttribute("staffLeaveConflict", staffLeaveConflict);
+            }
+        }
         if (user.isAdmin() || "CUSTOMER".equals(user.getRole())) model.addAttribute("assignableStaff", query.staff(user));
         if ("CUSTOMER".equals(user.getRole()) && (booking.feedbackStatus() == null
                 || ("OPEN".equals(booking.feedbackStatus()) && booking.feedbackRating() != null))) {
