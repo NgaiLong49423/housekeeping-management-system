@@ -18,7 +18,9 @@ class HousekeepingManagementSystemApplicationTests extends SqlServerIntegrationT
 
     @Test
     void freshSqlServerSchemaContainsExactlyTheApprovedBusinessTables() {
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("17");
+        // Mọi migration của db/primary + db/shared đều đã chạy (không ghi cứng số phiên bản cuối).
+        assertThat(flyway.info().pending()).isEmpty();
+        assertThat(flyway.info().current()).isNotNull();
         Integer tableCount = jdbc.queryForObject("""
                 SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
                 WHERE TABLE_SCHEMA='dbo' AND TABLE_TYPE='BASE TABLE'
@@ -44,7 +46,8 @@ class HousekeepingManagementSystemApplicationTests extends SqlServerIntegrationT
         assertThat(jdbc.queryForObject("SELECT COL_LENGTH('dbo.Feedbacks', 'rating')", Integer.class)).isNotNull();
         assertThat(jdbc.queryForObject("SELECT COL_LENGTH('dbo.Feedbacks', 'topics')", Integer.class)).isNotNull();
         String workStartConstraint = jdbc.queryForObject("SELECT definition FROM sys.check_constraints WHERE name='CK_Bookings_Work_Start'", String.class);
-        assertThat(workStartConstraint).contains("staff_arrived_at IS NOT NULL").doesNotContain("start_time");
+        // SQL Server luôn trả định nghĩa CHECK với tên cột trong ngoặc vuông.
+        assertThat(workStartConstraint).contains("[staff_arrived_at] IS NOT NULL").doesNotContain("start_time");
 
         Integer obsoleteTables = jdbc.queryForObject("""
                 SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
@@ -63,7 +66,8 @@ class HousekeepingManagementSystemApplicationTests extends SqlServerIntegrationT
                         "BookingDetail", "BookingImage", "Payment", "Feedback", "StaffFollow",
                         "BookingFinancialEntry", "BookingDelayCompensationTier", "FeedbackCase",
                         "FeedbackCaseEvidence", "FeedbackCaseMessage", "StaffIncidentAction",
-                        "FinancialPayoutResponse");
+                        "FinancialPayoutResponse", "StaffIncidentActionEvidence", "FeedbackCaseVerification",
+                        "StaffRecoveryInstallment", "UserWallet", "WalletTransaction", "CancellationLog");
     }
 
     @Test
@@ -73,7 +77,8 @@ class HousekeepingManagementSystemApplicationTests extends SqlServerIntegrationT
         try (var input = properties.getInputStream()) {
             content = new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
         }
-        assertThat(content).contains("spring.flyway.locations=classpath:db/refactor,classpath:db/shared");
+        // Profile demo dùng database chính; db/refactor vẫn được giữ cho database demo cũ.
+        assertThat(content).contains("spring.flyway.locations=classpath:db/primary,classpath:db/shared");
         assertThat(new ClassPathResource("db/refactor/V4__extend_booking_schedule_and_service_area.sql").exists()).isTrue();
         assertThat(new ClassPathResource("db/shared/V5__add_effective_dates_to_company_hours.sql").exists()).isTrue();
         assertThat(new ClassPathResource("db/shared/V6__track_booking_arrivals_and_incidents.sql").exists()).isTrue();

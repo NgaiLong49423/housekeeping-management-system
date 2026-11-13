@@ -39,6 +39,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @SpringBootTest
 class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
@@ -60,6 +62,7 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
     @Autowired private CompanySettingsService companySettings;
     @Autowired private BookingAvailabilityRepository bookingAvailability;
     @Autowired private JdbcTemplate jdbc;
+    @Autowired private PlatformTransactionManager transactionManager;
 
     @BeforeEach
     void seedCompanyHoursWhenEmpty() {
@@ -90,12 +93,14 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
     }
 
     @Test
-    void simplifiedFeedbackMigrationKeepsTwentyThreeBusinessTablesAndDropsWorkflows() {
+    void simplifiedFeedbackMigrationKeepsTwentyEightBusinessTablesAndDropsWorkflows() {
+        // 23 bảng sau V25, thêm Staff_Incident_Action_Evidence, Feedback_Case_Verifications,
+        // Staff_Recovery_Installments và V34 thêm UserWallets, WalletTransactions, CancellationLogs.
         Integer tables=jdbc.queryForObject("""
                 SELECT COUNT(*) FROM sys.tables t JOIN sys.schemas s ON s.schema_id=t.schema_id
                 WHERE s.name='dbo' AND t.name<>'flyway_primary_schema_history'
                 """,Integer.class);
-        assertThat(tables).isEqualTo(23);
+        assertThat(tables).isEqualTo(28);
         Integer v10Columns=jdbc.queryForObject("""
                 SELECT COUNT(*) FROM sys.columns WHERE object_id=OBJECT_ID('dbo.Payments') AND name='is_simulated'
                 """,Integer.class);
@@ -190,8 +195,10 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
         assertThat(bookingPersistence.overlappingAppointments(savedStaff.getStaffId(),
                 existingStart.plusMinutes(30), existingStart.plusMinutes(90), null))
                 .extracting(BookingPersistenceRepository.AppointmentPoint::bookingId).containsExactly(bookingId);
+        // Booking kéo dài 60 phút (10:00-11:00): khoảng bắt đầu đúng lúc Booking kết thúc không bị tính là trùng,
+        // tức là không cộng thêm thời gian đệm nào.
         assertThat(bookingPersistence.overlappingAppointments(savedStaff.getStaffId(),
-                existingStart.plusMinutes(35), existingStart.plusMinutes(95), null)).isEmpty();
+                existingStart.plusMinutes(60), existingStart.plusMinutes(120), null)).isEmpty();
     }
 
     @Test
@@ -265,7 +272,7 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
     }
 
     @Test
-    void partTimeBookingUsesSqlServerTimeValuesAndMayEndAfterAvailability() {
+    void partTimeBookingUsesSqlServerTimeValuesAndMustStayInsideAvailability() {
         String suffix = UUID.randomUUID().toString();
         User customer = users.saveAndFlush(user("part-time-customer-" + suffix, UserRole.CUSTOMER));
         User staffUser = users.saveAndFlush(user("part-time-staff-" + suffix, UserRole.STAFF));
@@ -291,11 +298,21 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
         assertThat(availability.unchanged(availabilityId, savedStaff.getStaffId(), workDate,
                 LocalTime.of(8, 0), LocalTime.of(9, 0))).isTrue();
 
+        // Booking của Staff bán thời gian phải nằm trọn trong một khoảng rảnh: 8:30 + 120 phút vượt quá 9:00.
+        assertThatThrownBy(() -> reservationService.createBooking(customer.getUserId(), savedStaff.getStaffId(),
+                house.getHouseId(), workDate.atTime(8, 30), List.of(savedService.getServiceId()), null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Toàn bộ lịch phải nằm trong một khoảng sẵn sàng đang hiệu lực của nhân viên.");
+
+        // Kết thúc đúng 9:00 (bằng giờ kết thúc khoảng rảnh) vẫn hợp lệ.
+        Services shortService = service();
+        shortService.setDurationMinutes(30);
+        Services savedShortService = services.saveAndFlush(shortService);
         Long bookingId = reservationService.createBooking(customer.getUserId(), savedStaff.getStaffId(),
-                house.getHouseId(), workDate.atTime(8, 30), List.of(savedService.getServiceId()), null);
+                house.getHouseId(), workDate.atTime(8, 30), List.of(savedShortService.getServiceId()), null);
 
         assertThat(bookingPersistence.findBooking(bookingId).orElseThrow().endTime())
-                .isEqualTo(workDate.atTime(10, 30));
+                .isEqualTo(workDate.atTime(9, 0));
         assertThat(availability.existsByStaffIdAndWorkDateAndActiveTrueAndStartTimeLessThanEqualAndEndTimeGreaterThan(
                 savedStaff.getStaffId(), workDate, LocalTime.of(9, 0), LocalTime.of(9, 0))).isFalse();
     }
@@ -363,6 +380,11 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
                 .withHour(10).withMinute(0).withSecond(0).withNano(0);
         Long bookingId = reservationService.createBooking(customer.getUserId(), savedStaff.getStaffId(),
                 house.getHouseId(), start, List.of(service.getServiceId()), null);
+        // Hoàn thành chỉ được khi Staff đã đến, đã bắt đầu làm và đã tải ít nhất một ảnh minh chứng.
+        jdbc.update("UPDATE dbo.Bookings SET staff_arrived_at=?, work_started_at=? WHERE booking_id=?",
+                start, start, bookingId);
+        jdbc.update("INSERT INTO dbo.Booking_Images (booking_id, image_url) VALUES (?, ?)",
+                bookingId, "test-evidence/" + bookingId + ".jpg");
         bookingCompletion.completeBooking(bookingId, savedStaff.getStaffId());
         paymentService.confirmCashReceived(bookingId, savedStaff.getStaffId());
 
@@ -417,10 +439,14 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
         assertThat(leaves.findAllByStaff_StaffIdOrderByCreatedAtDesc(savedStaff.getStaffId()))
                 .singleElement().satisfies(request -> assertThat(request.getStatus()).isEqualTo(LeaveStatus.PENDING));
 
-        reservationService.createBooking(customer.getUserId(), savedStaff.getStaffId(), house.getHouseId(), bookingDate,
-                List.of(service.getServiceId()), null);
+        Long bookingId = reservationService.createBooking(customer.getUserId(), savedStaff.getStaffId(), house.getHouseId(),
+                bookingDate, List.of(service.getServiceId()), null);
 
+        // Không được duyệt nghỉ khi Staff còn Booking trong ngày nghỉ; phải hủy (hoặc đổi Staff) trước.
         Long leaveId = leaves.findAllByStaff_StaffIdOrderByCreatedAtDesc(savedStaff.getStaffId()).getFirst().getLeaveId();
+        assertThatThrownBy(() -> leaveManagement.reviewLeaveRequest(leaveId, admin.getUserId(), LeaveStatus.APPROVED))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining(String.valueOf(bookingId));
+        cancelInTransaction(bookingId, admin.getUserId());
         leaveManagement.reviewLeaveRequest(leaveId, admin.getUserId(), LeaveStatus.APPROVED);
 
         LocalDateTime laterStart = bookingDate.plusHours(4);
@@ -482,11 +508,18 @@ class BookingReservationServiceSqlServerTest extends SqlServerIntegrationTest {
         assertThat(jdbc.queryForObject("SELECT status FROM dbo.Users WHERE user_id=?", String.class,
                 staffUser.getUserId())).isEqualTo("ACTIVE");
 
-        assertThat(bookingPersistence.cancel(bookingId, admin.getUserId(), "Integration cancellation",
-                LocalDateTime.now(ZoneOffset.ofHours(7)).withNano(0))).isEqualTo(1);
+        cancelInTransaction(bookingId, admin.getUserId());
         staffManagement.deactivate(admin.getUserId(), savedStaff.getStaffId(), "Integration lock reason");
         assertThat(jdbc.queryForObject("SELECT status FROM dbo.Users WHERE user_id=?", String.class,
                 staffUser.getUserId())).isEqualTo("INACTIVE");
+    }
+
+    /** Câu lệnh hủy là @Modifying nên phải chạy trong một transaction. */
+    private void cancelInTransaction(Long bookingId, Long adminId) {
+        Integer cancelled = new TransactionTemplate(transactionManager).execute(status ->
+                bookingPersistence.cancel(bookingId, adminId, "Integration cancellation",
+                        LocalDateTime.now(ZoneOffset.ofHours(7)).withNano(0)));
+        assertThat(cancelled).isEqualTo(1);
     }
 
     private boolean reserve(Long customerId, Long staffId, Long houseId, LocalDateTime start,
