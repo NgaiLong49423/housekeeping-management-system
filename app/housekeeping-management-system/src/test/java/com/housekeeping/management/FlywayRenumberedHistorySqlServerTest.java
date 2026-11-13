@@ -38,6 +38,25 @@ class FlywayRenumberedHistorySqlServerTest extends SqlServerIntegrationTest {
         verifyRenumbering(3);
     }
 
+    @Test
+    void historyFromTheFirstVersionOfPullRequestEightIsRenumbered() throws Exception {
+        // Bản đầu của PR #8 đặt lý do khóa là V34, khi phí hủy (nay là V32) còn chưa có.
+        DriverManagerDataSource dataSource = recreateDatabase();
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+        flyway(dataSource).target(MigrationVersion.fromVersion("31")).load().migrate();
+        Flyway latest = flyway(dataSource).load();
+        recordAsApplied(jdbc, latest, "35", "32", "rename demo accounts to realistic names",
+                "V32__rename_demo_accounts_to_realistic_names.sql");
+        recordAsApplied(jdbc, latest, "33", "33", "seed additional demo staff and customers",
+                "V33__seed_additional_demo_staff_and_customers.sql");
+        jdbc.execute(script("db/shared/V37__record_account_lock_reasons.sql"));
+        recordAsApplied(jdbc, latest, "37", "34", "record account lock reasons", "V34__record_account_lock_reasons.sql");
+
+        latest.migrate();
+
+        assertMigratedToLatest(latest, jdbc);
+    }
+
     /** {@code oldMigrations}: 1 = bản .bak, 2 = thêm V35 lý do khóa cũ, 3 = thêm V36 sửa mật khẩu cũ. */
     private void verifyRenumbering(int oldMigrations) throws Exception {
         DriverManagerDataSource dataSource = recreateDatabase();
@@ -63,6 +82,10 @@ class FlywayRenumberedHistorySqlServerTest extends SqlServerIntegrationTest {
 
         latest.migrate();
 
+        assertMigratedToLatest(latest, jdbc);
+    }
+
+    private static void assertMigratedToLatest(Flyway latest, JdbcTemplate jdbc) {
         assertThat(latest.info().pending()).isEmpty();
         assertThat(latest.validateWithResult().validationSuccessful).isTrue();
         assertThat(jdbc.queryForList("SELECT script FROM dbo." + HISTORY + " WHERE version IN ('32','35','37','42')",

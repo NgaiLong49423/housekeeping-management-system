@@ -5,6 +5,7 @@
 -- nên ở đây chỉ cần ghi lại số phiên bản mới cho đúng các dòng lịch sử cũ. Không chạy lại migration nào.
 --   V32__rename_demo_accounts_to_realistic_names      -> V35
 --   V34__add_cancellation_penalty_policy_and_wallets  -> V32
+--   V34__record_account_lock_reasons (bản đầu PR #8)  -> V37
 --   V35__record_account_lock_reasons                  -> V37
 --   V36__repair_truncated_staff_password_hashes       -> V42
 -- Database mới hoặc đã đúng số thì không có dòng nào bị đổi.
@@ -17,6 +18,7 @@ BEGIN
         INSERT INTO @renames (old_script, new_version, new_script) VALUES
             (N''V32__rename_demo_accounts_to_realistic_names.sql'', N''35'', N''V35__rename_demo_accounts_to_realistic_names.sql''),
             (N''V34__add_cancellation_penalty_policy_and_wallets.sql'', N''32'', N''V32__add_cancellation_penalty_policy_and_wallets.sql''),
+            (N''V34__record_account_lock_reasons.sql'', N''37'', N''V37__record_account_lock_reasons.sql''),
             (N''V35__record_account_lock_reasons.sql'', N''37'', N''V37__record_account_lock_reasons.sql''),
             (N''V36__repair_truncated_staff_password_hashes.sql'', N''42'', N''V42__repair_truncated_staff_password_hashes.sql'');
 
