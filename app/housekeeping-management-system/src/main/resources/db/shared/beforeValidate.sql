@@ -8,6 +8,7 @@
 --   V34__record_account_lock_reasons (bản đầu PR #8)  -> V37
 --   V35__record_account_lock_reasons                  -> V37
 --   V36__repair_truncated_staff_password_hashes       -> V42
+--   V42__support_multi_staff_bookings                  -> V43 (checksum 1917262565)
 -- Database mới hoặc đã đúng số thì không có dòng nào bị đổi.
 IF OBJECT_ID(N'[${flyway:defaultSchema}].[${flyway:table}]', N'U') IS NOT NULL
 BEGIN
@@ -20,7 +21,8 @@ BEGIN
             (N''V34__add_cancellation_penalty_policy_and_wallets.sql'', N''32'', N''V32__add_cancellation_penalty_policy_and_wallets.sql''),
             (N''V34__record_account_lock_reasons.sql'', N''37'', N''V37__record_account_lock_reasons.sql''),
             (N''V35__record_account_lock_reasons.sql'', N''37'', N''V37__record_account_lock_reasons.sql''),
-            (N''V36__repair_truncated_staff_password_hashes.sql'', N''42'', N''V42__repair_truncated_staff_password_hashes.sql'');
+            (N''V36__repair_truncated_staff_password_hashes.sql'', N''42'', N''V42__repair_truncated_staff_password_hashes.sql''),
+            (N''V42__support_multi_staff_bookings.sql'', N''43'', N''V43__support_multi_staff_bookings.sql'');
 
         -- Đổi đồng thời trong một câu lệnh để các số cũ/mới không đè lên nhau.
         UPDATE history
@@ -28,6 +30,8 @@ BEGIN
         FROM ' + @history + N' history
         JOIN @renames renames ON renames.old_script = history.script
         WHERE history.success = 1
+          AND (renames.old_script <> N''V42__support_multi_staff_bookings.sql''
+               OR (history.version = N''42'' AND history.checksum = 1917262565))
           AND NOT EXISTS (SELECT 1 FROM ' + @history + N' existing WHERE existing.script = renames.new_script);';
     EXEC sys.sp_executesql @renumber;
 END;

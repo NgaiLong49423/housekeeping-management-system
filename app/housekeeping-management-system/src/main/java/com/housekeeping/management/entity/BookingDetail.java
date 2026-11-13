@@ -32,6 +32,12 @@ public class BookingDetail {
     @Column(name = "unit_price", precision = 12, scale = 2, nullable = false)
     private BigDecimal unitPrice;
 
+    @Column(name = "additional_staff_price_snapshot", precision = 12, scale = 2, nullable = false)
+    private BigDecimal additionalStaffPriceSnapshot = BigDecimal.ZERO;
+
+    @Column(name = "staff_count_snapshot", nullable = false)
+    private Integer staffCountSnapshot = 1;
+
     @Column(name = "duration_minutes", nullable = false)
     private Integer durationMinutes;
 }
