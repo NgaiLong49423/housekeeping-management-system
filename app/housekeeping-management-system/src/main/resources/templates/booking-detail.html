@@ -121,9 +121,24 @@
                 <dt>Khách hàng</dt>
                 <dd th:text="${ui.label(booking.customerName)}">Khách hàng</dd>
               </div>
-              <div>
+              <div th:if="${bookingTeam != null and !#lists.isEmpty(bookingTeam)}">
+                <dt>Trưởng nhóm</dt>
+                <dd th:text="${ui.label(booking.staffName)}">Trưởng nhóm</dd>
+              </div>
+              <div th:if="${bookingTeam == null or #lists.isEmpty(bookingTeam)}">
                 <dt>Nhân viên phụ trách</dt>
-                <dd th:text="${ui.label(booking.staffName)}">Nhân viên</dd>
+                <dd>Chưa có nhân viên đang được phân công</dd>
+              </div>
+              <div style="grid-column: 1 / -1;" th:if="${bookingTeam != null and !#lists.isEmpty(bookingTeam)}">
+                <dt>Nhóm nhân viên</dt>
+                <dd>
+                  <ul class="mb-0 ps-3">
+                    <li th:each="member : ${bookingTeam}">
+                      <span th:text="${ui.label(member.staffName)} + ' · ' + ${member.roleLabel} + ' · ' + ${member.arrivalLabel}">Nhân viên</span>
+                    </li>
+                  </ul>
+                  <span class="small text-secondary" th:if="${!teamAllArrived}">Trưởng nhóm chỉ có thể bắt đầu sau khi mọi thành viên xác nhận đã đến.</span>
+                </dd>
               </div>
               <div>
                 <dt>Bắt đầu dự kiến</dt>
@@ -249,16 +264,33 @@
               <h2 class="h5 mb-0">Xử lý lịch đã xác nhận</h2>
               <span th:if="${staffLeaveConflict != null}" class="badge text-bg-danger">Bắt buộc đổi nhân viên</span>
             </div>
-            <form method="post" class="mb-4" th:action="@{/admin/bookings/{id}/reassign(id=${booking.id})}">
-              <label class="form-label" for="replacementStaff">Đổi nhân viên phụ trách</label>
+            <form method="post" class="mb-4" th:if="${!pendingTeamChangeExists and booking.workStartedAt == null and bookingHasUnarrivedStaff}" th:action="@{/admin/bookings/{id}/reassign(id=${booking.id})}">
+              <label class="form-label" for="currentTeamMember">Thành viên cần thay</label>
+              <select class="form-select mb-2" name="currentStaffId" id="currentTeamMember" required>
+                <option th:each="member : ${bookingTeam}" th:if="${member.arrivedAt == null}" th:value="${member.staffId}" th:text="${ui.label(member.staffName) + ' · ' + member.roleLabel}">Thành viên nhóm</option>
+              </select>
+              <label class="form-label" for="replacementStaff">Nhân viên thay thế</label>
               <div class="input-group">
                 <select class="form-select" name="staffId" id="replacementStaff" required>
-                  <option th:each="candidate : ${assignableStaff}" th:value="${candidate.id}" th:selected="${candidate.id == booking.staffId}" th:text="${ui.label(candidate.name) + (candidate.staffType == 'FULL_TIME' ? ' · Toàn thời gian' : ' · Bán thời gian')}">Nhân viên</option>
+                  <option th:each="candidate : ${assignableStaff}" th:value="${candidate.id}" th:text="${ui.label(candidate.name) + (candidate.staffType == 'FULL_TIME' ? ' · Toàn thời gian' : ' · Bán thời gian')}">Nhân viên</option>
                 </select>
-                <button class="btn btn-outline-primary" type="submit">Lưu nhân viên</button>
+                <button class="btn btn-outline-primary" type="submit">Thay trong nhóm</button>
               </div>
-              <p class="small text-secondary mt-2 mb-0">Hệ thống kiểm tra nhân viên đang hoạt động, ngày nghỉ, giờ sẵn sàng của nhân viên bán thời gian và tuyến giữa hai lịch liền kề (ETA cộng 15 phút; cùng địa điểm đệm 15 phút). Không kiểm tra chặng từ công ty tới Booking đầu ngày.</p>
+              <p class="small text-secondary mt-2 mb-0">Thay thế một thành viên, giữ quy mô và giá booking. Nếu thay trưởng nhóm, người mới trở thành trưởng nhóm. Hệ thống kiểm tra hoạt động, nghỉ phép, giờ làm, lịch trùng và tuyến di chuyển.</p>
             </form>
+            <form method="post" class="mb-4 border-top pt-3" th:action="@{/admin/bookings/{id}/request-team-reduction(id=${booking.id})}"
+                  th:if="${!pendingTeamChangeExists and booking.workStartedAt == null and bookingHasUnarrivedStaff}">
+              <label class="form-label" for="staffToRemove">Không tìm được người thay thế: chọn thành viên không thể tham gia</label>
+              <select class="form-select mb-2" id="staffToRemove" name="staffId" required>
+                <option th:each="member : ${bookingTeam}" th:if="${member.arrivedAt == null}" th:value="${member.staffId}"
+                        th:text="${ui.label(member.staffName)}">Thành viên</option>
+              </select>
+              <label class="form-label" for="teamChangeReason">Lý do thiếu nhân viên</label>
+              <textarea class="form-control mb-2" id="teamChangeReason" name="reason" maxlength="1000" required></textarea>
+              <button class="btn btn-outline-warning" type="submit">Gửi khách lựa chọn xử lý</button>
+              <p class="small text-secondary mt-2 mb-0">Nhân viên chưa đến sẽ được bỏ khỏi nhóm đang hoạt động. Nếu chọn trưởng nhóm, một thành viên còn lại sẽ được nâng thành trưởng nhóm. Booking bị khóa bắt đầu cho tới khi khách chọn tiếp tục với nhóm nhỏ hơn (giảm phụ phí), dời lịch trên booking này hoặc hủy miễn phí.</p>
+            </form>
+            <p class="small text-warning border-top pt-3" th:if="${pendingTeamChangeExists}">Booking đang chờ khách xử lý tình trạng thiếu nhân viên.</p>
             <form method="post" th:action="@{/admin/bookings/{id}/cancel(id=${booking.id})}">
               <label class="form-label" for="adminCancelReason">Hủy lịch (ghi rõ lý do)</label>
               <div class="input-group">
@@ -645,6 +677,22 @@
 
           <!-- Customer Cancel Option -->
           <section th:if="${currentUser.role == 'CUSTOMER' and booking.status == 'CONFIRMED'}" class="surface p-4">
+            <div th:if="${pendingTeamChange != null}" class="alert alert-warning">
+              <h2 class="h6">Cần chọn cách xử lý nhóm nhân viên</h2>
+              <p class="small mb-2" th:text="${pendingTeamChange.reason}">Lý do thiếu nhân viên</p>
+              <p class="small mb-3" th:text="'Nhóm hiện tại có ' + ${pendingTeamChange.proposedStaffCount} + ' người. Booking chưa bắt đầu cho tới khi bạn chọn.'">Số người</p>
+              <form method="post" class="d-grid gap-2" th:if="${pendingTeamChange.proposedStaffCount > 0}"
+                    th:action="@{/customer/bookings/{id}/team-change/proceed(id=${booking.id})}"
+                    data-confirm="Tiếp tục với nhóm hiện có? Phụ phí thêm người sẽ được tính lại theo số nhân viên còn lại.">
+                <button class="btn btn-primary" type="submit">Tiếp tục với nhóm hiện có</button>
+              </form>
+              <p class="small text-danger mb-2" th:if="${pendingTeamChange.proposedStaffCount == 0}">Hiện chưa còn nhân viên nào cho booking này; bạn cần dời lịch để chọn nhóm mới hoặc hủy miễn phí.</p>
+              <a class="btn btn-outline-primary w-100 mt-2" th:href="@{/customer/bookings/{id}/reschedule(id=${booking.id})}">Dời lịch trên booking hiện tại</a>
+              <form method="post" class="mt-2" th:action="@{/customer/bookings/{id}/team-change/cancel(id=${booking.id})}"
+                    data-confirm="Hủy miễn phí booking này vì không đủ nhân viên?">
+                <button class="btn btn-outline-danger w-100" type="submit">Hủy miễn phí</button>
+              </form>
+            </div>
             <h2 class="h6 mb-2">
               Thay đổi kế hoạch?
             </h2>
@@ -659,7 +707,7 @@
             </p>
             <p class="small text-secondary mb-3" th:if="${booking.workStartedAt != null}">Công việc đã bắt đầu; lịch không thể hủy.</p>
             <form method="post" th:action="@{/customer/bookings/{id}/cancel(id=${booking.id})}"
-                  th:if="${booking.workStartedAt == null}" data-confirm="Xác nhận hủy miễn phí lịch hẹn này?">
+                  th:if="${booking.workStartedAt == null and pendingTeamChange == null}" data-confirm="Xác nhận hủy miễn phí lịch hẹn này?">
               <button class="btn btn-outline-danger w-100" type="submit" th:disabled="${!booking.cancellable}">Hủy lịch</button>
             </form>
             <form th:if="${booking.status == 'CONFIRMED' and booking.staffArrivedAt != null and booking.customerArrivedAt == null and booking.arrivalVerifiedAt == null}" method="post" th:action="@{/customer/bookings/{id}/arrived(id=${booking.id})}" class="mt-3">
@@ -668,7 +716,7 @@
             </form>
           </section>
 
-          <section th:if="${currentUser.role == 'STAFF' and booking.status == 'CONFIRMED' and booking.staffArrivedAt == null}" class="surface p-4">
+          <section th:if="${currentUser.role == 'STAFF' and staffIsAssigned and booking.status == 'CONFIRMED' and !currentStaffArrived}" class="surface p-4">
             <h2 class="h6 mb-2">Xác nhận đã đến</h2>
             <p class="small text-secondary mb-3">Xác nhận khi bạn đã có mặt tại địa điểm. Sau đó, bạn có thể bắt đầu ngay hoặc chờ đến giờ hẹn.</p>
             <form method="post" th:action="@{/staff/bookings/{id}/arrived(id=${booking.id})}">
@@ -676,7 +724,7 @@
             </form>
           </section>
 
-          <section th:if="${currentUser.role == 'STAFF' and booking.status == 'CONFIRMED' and booking.workStartedAt == null and booking.staffArrivedAt == null and booking.start.isAfter(now) and (booking.incidentReportedAt == null or booking.incidentExpectedArrivalAt == null)}" class="surface p-4">
+          <section th:if="${currentUser.role == 'STAFF' and staffIsLead and booking.status == 'CONFIRMED' and booking.workStartedAt == null and booking.staffArrivedAt == null and booking.start.isAfter(now) and (booking.incidentReportedAt == null or booking.incidentExpectedArrivalAt == null)}" class="surface p-4">
             <button class="btn btn-outline-warning w-100" type="button" data-bs-toggle="collapse"
                     th:attr="data-bs-target=|#delayIncident-${booking.id}|,aria-controls=|delayIncident-${booking.id}|" aria-expanded="false">
               Báo sự cố đến trễ (nếu cần)
@@ -695,7 +743,7 @@
             </div>
           </section>
 
-          <section th:if="${currentUser.role == 'STAFF' and booking.status == 'CONFIRMED' and booking.workStartedAt == null}" class="surface p-4">
+          <section th:if="${currentUser.role == 'STAFF' and staffIsLead and booking.status == 'CONFIRMED' and booking.workStartedAt == null}" class="surface p-4">
             <h2 class="h6 mb-2">Bắt đầu công việc</h2>
             <p class="small text-secondary mb-3" th:if="${booking.staffArrivedAt == null}">Xác nhận đã đến trước khi bắt đầu.</p>
             <p class="small text-secondary mb-3" th:if="${booking.staffArrivedAt != null}">Bạn có thể bắt đầu ngay hoặc chờ đến giờ hẹn.</p>
@@ -706,7 +754,7 @@
           </section>
 
           <!-- Staff Complete Option -->
-          <section th:if="${currentUser.role == 'STAFF' and booking.status == 'CONFIRMED' and booking.workStartedAt != null}" class="surface p-4">
+          <section th:if="${currentUser.role == 'STAFF' and staffIsLead and booking.status == 'CONFIRMED' and booking.workStartedAt != null}" class="surface p-4">
             <h2 class="h6 mb-2">
               Hoàn thành công việc
             </h2>

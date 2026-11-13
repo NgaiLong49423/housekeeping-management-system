@@ -42,9 +42,9 @@
               </div>
               <div>
                 <label class="form-label" for="add-service-desc">
-                  Mô tả chi tiết
+                  Mô tả chi tiết và khuyến nghị (không bắt buộc)
                 </label>
-                <textarea id="add-service-desc" class="form-control" name="description" maxlength="1000" rows="3" placeholder="Mô tả công việc và phạm vi thực hiện..."></textarea>
+                <textarea id="add-service-desc" class="form-control" name="description" maxlength="4000" rows="4" placeholder="Nêu rõ công việc bao gồm/không bao gồm. Có thể thêm khuyến nghị số nhân viên; khách tự quyết định."></textarea>
               </div>
               <div>
                 <label class="form-label" for="add-service-image">Liên kết ảnh minh họa (không bắt buộc)</label>
@@ -59,10 +59,15 @@
               </div>
               <div>
                 <label class="form-label" for="add-service-price">
-                  Giá dịch vụ (₫)
+                  Giá dịch vụ, gồm 1 nhân viên (₫)
                 </label>
                 <input id="add-service-price" class="form-control" name="price" type="number" min="0" step="0.01" required placeholder="150000" aria-describedby="add-service-price-help">
                 <small id="add-service-price-help" class="form-text">Nhập số, ví dụ 150000 (đồng)</small>
+              </div>
+              <div>
+                <label class="form-label" for="add-service-additional-staff-price">Phụ phí mỗi nhân viên thêm (₫)</label>
+                <input id="add-service-additional-staff-price" class="form-control" name="additionalStaffPrice" type="number" min="0" step="0.01" required value="0" aria-describedby="add-service-additional-staff-price-help">
+                <small id="add-service-additional-staff-price-help" class="form-text">Áp dụng cho mỗi người vượt quá 1 người, tính riêng cho từng dịch vụ đã chọn.</small>
               </div>
               <button class="btn btn-primary w-100 mt-2" type="submit">
                 <svg th:replace="~{fragments/icons :: plus}"></svg>
@@ -103,6 +108,7 @@
                   <p class="small text-secondary mt-2 mb-0" th:text="${service.description}">
                     Mô tả dịch vụ
                   </p>
+                  <p class="small text-secondary mt-1 mb-0" th:text="'Phụ phí nhân viên thêm: ' + ${#numbers.formatDecimal(service.additionalStaffPrice,0,'POINT',0,'COMMA')} + ' ₫/người'">Phụ phí: 0 ₫/người</p>
                 </div>
               </div>
               <div class="d-flex flex-column align-items-end gap-2">
@@ -128,8 +134,8 @@
                   <input id="service-name" th:id="|service-name-${service.id}|" name="name" class="form-control" th:value="${service.name}" maxlength="150" required>
                 </div>
                 <div>
-                  <label class="form-label small" for="service-description" th:for="|service-description-${service.id}|">Mô tả</label>
-                  <textarea id="service-description" th:id="|service-description-${service.id}|" name="description" class="form-control" th:text="${service.description}" maxlength="1000" rows="2"></textarea>
+                  <label class="form-label small" for="service-description" th:for="|service-description-${service.id}|">Mô tả và khuyến nghị</label>
+                  <textarea id="service-description" th:id="|service-description-${service.id}|" name="description" class="form-control" th:text="${service.description}" maxlength="4000" rows="4" placeholder="Phạm vi bao gồm/không bao gồm; khuyến nghị số nhân viên (khách tự quyết định)."></textarea>
                 </div>
                 <div>
                   <label class="form-label small" for="service-image" th:for="|service-image-${service.id}|">Liên kết ảnh minh họa (không bắt buộc)</label>
@@ -142,9 +148,13 @@
                     <input id="service-duration" th:id="|service-duration-${service.id}|" name="duration" class="form-control" type="number" min="1" step="1" th:value="${service.duration}" required>
                   </div>
                   <div class="col-sm-6">
-                    <label class="form-label small" for="service-price" th:for="|service-price-${service.id}|">Giá (₫)</label>
+                    <label class="form-label small" for="service-price" th:for="|service-price-${service.id}|">Giá gồm 1 nhân viên (₫)</label>
                     <input id="service-price" th:id="|service-price-${service.id}|" name="price" class="form-control" type="number" min="0" step="0.01" th:value="${service.price}" required>
                     <small class="form-text">Nhập số, ví dụ 150000 (đồng)</small>
+                  </div>
+                  <div class="col-sm-6">
+                    <label class="form-label small" for="service-additional-staff-price" th:for="|service-additional-staff-price-${service.id}|">Phụ phí mỗi nhân viên thêm (₫)</label>
+                    <input id="service-additional-staff-price" th:id="|service-additional-staff-price-${service.id}|" name="additionalStaffPrice" class="form-control" type="number" min="0" step="0.01" th:value="${service.additionalStaffPrice}" required>
                   </div>
                 </div>
                 <div class="d-flex justify-content-end">
