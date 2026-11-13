@@ -137,20 +137,29 @@ public class CompanySettingsServiceImpl implements CompanySettingsService {
     public void saveLocation(Long adminId, CompanyLocationForm form) {
         authorization.requireActiveAdmin(adminId);
         validateLocation(form);
-        VietmapClient.Place place = vietmap.place(form.vietmapRefId().trim());
         List<CompanySettings> companyRows = settings.findAllForUpdate();
         if (companyRows.size() > 1) throw new IllegalStateException("Phát hiện nhiều hơn một cấu hình công ty.");
+        CompanySettings existing = companyRows.isEmpty() ? null : companyRows.getFirst();
+        boolean selectedNewAddress = form.vietmapRefId() != null && !form.vietmapRefId().isBlank();
+        VietmapClient.Place place = selectedNewAddress ? vietmap.place(form.vietmapRefId().trim()) : null;
+        if (!selectedNewAddress && (existing == null || form.companyAddress() == null
+                || !existing.getCompanyAddress().equals(form.companyAddress().trim()))) {
+            throw new IllegalArgumentException("Địa chỉ tâm hiện tại đã được giữ nguyên. Nếu đổi địa chỉ, hãy chọn một kết quả VietMap.");
+        }
+        java.math.BigDecimal latitude = selectedNewAddress ? place.latitude() : existing.getLatitude();
+        java.math.BigDecimal longitude = selectedNewAddress ? place.longitude() : existing.getLongitude();
+        String address = selectedNewAddress ? place.display() : existing.getCompanyAddress();
         List<Long> conflicts = bookings.futureActiveBookingsWithLocation().stream()
                 .filter(booking -> distanceKm(booking.latitude(), booking.longitude(),
-                        place.latitude(), place.longitude()) > form.serviceRadiusKm().doubleValue())
+                        latitude, longitude) > form.serviceRadiusKm().doubleValue())
                 .map(BookingQueryService.BookingLocation::bookingId).toList();
         if (!conflicts.isEmpty()) {
             throw new IllegalStateException("Chưa thể đổi vị trí/bán kính. Hãy xử lý Booking: " + conflicts);
         }
-        CompanySettings company = companyRows.isEmpty() ? new CompanySettings() : companyRows.getFirst();
-        company.setCompanyAddress(place.display());
-        company.setLatitude(place.latitude());
-        company.setLongitude(place.longitude());
+        CompanySettings company = existing == null ? new CompanySettings() : existing;
+        company.setCompanyAddress(address);
+        company.setLatitude(latitude);
+        company.setLongitude(longitude);
         company.setServiceRadiusKm(form.serviceRadiusKm());
         settings.saveAndFlush(company);
     }
@@ -334,8 +343,9 @@ public class CompanySettingsServiceImpl implements CompanySettingsService {
 
     private void validateLocation(CompanyLocationForm form) {
         if (form == null || form.serviceRadiusKm() == null || form.serviceRadiusKm().signum() <= 0
-                || form.vietmapRefId() == null || form.vietmapRefId().isBlank() || form.vietmapRefId().length() > 500) {
-            throw new IllegalArgumentException("Hãy chọn địa chỉ VietMap và nhập bán kính phục vụ dương.");
+                || (form.vietmapRefId() != null && form.vietmapRefId().length() > 500)
+                || (form.companyAddress() != null && form.companyAddress().length() > 500)) {
+            throw new IllegalArgumentException("Hãy nhập bán kính phục vụ dương và địa chỉ hợp lệ.");
         }
     }
 

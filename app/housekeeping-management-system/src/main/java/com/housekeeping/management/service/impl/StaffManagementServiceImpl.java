@@ -54,7 +54,7 @@ public class StaffManagementServiceImpl implements StaffManagementService {
         String passwordHash = passwords.encode(form.password());
         emails.executeWithUniqueEmail(form.email(), canonicalEmail -> {
             UserDTO userDto = new UserDTO(null, form.name().trim(), canonicalEmail, form.phone().trim(),
-                    UserRole.STAFF, UserStatus.ACTIVE);
+                    UserRole.STAFF, UserStatus.ACTIVE, true);
             User user = userDto.convertDTOToEntity(passwordHash);
             entities.persist(user);
             entities.flush();
@@ -149,11 +149,12 @@ public class StaffManagementServiceImpl implements StaffManagementService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public boolean acceptsAvailabilityInterval(Long staffId, java.time.LocalDate date,
             java.time.LocalTime start, java.time.LocalTime end) {
-        return availability.existsByStaffIdAndWorkDateAndActiveTrueAndStartTimeLessThanEqualAndEndTimeGreaterThanEqual(
-                staffId, date, start, end);
+        return availability.findAllByStaffIdAndWorkDateAndActiveTrue(staffId, date).stream()
+                .anyMatch(window -> !start.isBefore(window.getStartTime())
+                        && !end.isAfter(window.getEndTime()));
     }
 
     private Staff findStaff(Long staffId) {

@@ -29,6 +29,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class PortalQueryServiceImpl implements PortalQueryService {
     private static final ZoneOffset VN = ZoneOffset.ofHours(7);
     private final BookingPersistenceRepository bookings;
+    private final CancellationLogRepository cancellationLogs;
     private final BookingDetailRepository details;
     private final BookingImageRepository images;
     private final ServicesRepository services;
@@ -41,12 +42,13 @@ public class PortalQueryServiceImpl implements PortalQueryService {
     private final FeedbackRepository feedbackRepository;
     private final FeedbackService feedback;
 
-    public PortalQueryServiceImpl(BookingPersistenceRepository bookings, BookingDetailRepository details,
+    public PortalQueryServiceImpl(BookingPersistenceRepository bookings, CancellationLogRepository cancellationLogs,
+            BookingDetailRepository details,
             BookingImageRepository images, ServicesRepository services, StaffAccountRepository staffRepository,
             UserRepository users, StaffProfileRepository profiles, StaffFollowRepository follows,
             StaffAvailabilityRepository availabilities, PaymentPersistenceRepository payments,
             FeedbackRepository feedbackRepository, FeedbackService feedback) {
-        this.bookings = bookings; this.details = details; this.images = images; this.services = services;
+        this.bookings = bookings; this.cancellationLogs = cancellationLogs; this.details = details; this.images = images; this.services = services;
         this.staffRepository = staffRepository; this.users = users; this.profiles = profiles;
         this.follows = follows; this.availabilities = availabilities; this.payments = payments;
         this.feedbackRepository = feedbackRepository; this.feedback = feedback;
@@ -119,6 +121,15 @@ public class PortalQueryServiceImpl implements PortalQueryService {
         Booking row = bookings.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         BookingCard card = bookingCards(List.of(row), !"STAFF".equals(user.getRole())).getFirst(); authorize(card, user); return card;
     }
+    public List<CancellationCard> customerCancellationHistory(Long bookingId, PortalUser user) {
+        BookingCard card = booking(bookingId, user);
+        if (!user.isAdmin()) throw new AccessDeniedException("Chỉ Admin được xem lịch sử hủy của khách hàng.");
+        LocalDateTime since = LocalDateTime.now(VN).minusDays(30);
+        return cancellationLogs.findAllByCustomerIdAndCreatedAtGreaterThanEqualOrderByCreatedAtDesc(card.customerId(), since)
+                .stream().filter(log -> "CUSTOMER".equals(log.getCancelledByType()))
+                .map(log -> new CancellationCard(log.getBookingId(), log.getReasonCode(), log.getReasonNote(), offset(log.getCreatedAt())))
+                .toList();
+    }
     public void authorize(BookingCard card, PortalUser user) {
         boolean allowed = switch (user.getRole()) { case "ADMIN", "MANAGER" -> true;
             case "CUSTOMER" -> Objects.equals(user.getAccountId(), card.customerId());
@@ -160,6 +171,7 @@ public class PortalQueryServiceImpl implements PortalQueryService {
         Map<Long, Payment> paymentByBooking = new HashMap<>();
         for (Payment payment : payments.findAllByBookingIdInOrderByCreatedAtDescPaymentIdDesc(bookingIds))
             paymentByBooking.putIfAbsent(payment.getBookingId(), payment);
+        LocalDateTime now = LocalDateTime.now(VN);
         return rows.stream().map(b -> {
             User customer = userById.get(b.getCustomerId()); Staff staff = staffById.get(b.getStaffId());
             Feedback f = showFeedback ? feedbackByBooking.get(b.getBookingId()) : null; Payment p = paymentByBooking.get(b.getBookingId());
@@ -174,13 +186,16 @@ public class PortalQueryServiceImpl implements PortalQueryService {
                     topics(f), topicCodes(f), offset(b.getCustomerDelayReportedAt()), offset(b.getArrivalVerifiedAt()),
                     offset(b.getArrivalVerificationRecordedAt()), b.getArrivalVerifiedBy(),
                     b.getArrivalVerificationSource(), b.getArrivalVerificationNote(),
+                    offset(b.getAdminNoShowVerifiedAt()), b.getAdminNoShowVerifiedBy(), b.getAdminNoShowNote(),
+                    offset(b.getCustomerWaitedAt()),
                     "CONFIRMED".equals(b.getStatus().name()) && b.getWorkStartedAt() == null
-                            && (b.getIncidentReportedAt() != null
-                                || (b.getCustomerArrivedAt() == null && b.getArrivalVerifiedAt() == null
-                                    && b.getIncidentReportedAt() == null
-                                    && !LocalDateTime.now(VN).isBefore(b.getStartTime().plusMinutes(15)))
+                            && ((b.getIncidentReportedAt() != null && b.getIncidentExpectedArrivalAt() != null)
+                                || b.getAdminNoShowVerifiedAt() != null
+                                || (b.getCustomerDelayReportedAt() != null
+                                    && "ADMIN".equals(b.getArrivalVerificationSource())
+                                    && b.getArrivalVerifiedAt() != null && b.getArrivalVerifiedAt().isAfter(b.getStartTime()))
                                 || BookingCancellationService.canCustomerCancel(
-                                    b.getStatus().name(), b.getStartTime(), LocalDateTime.now(VN), b.getWorkStartedAt())));
+                                    b.getStatus().name(), b.getStartTime(), now, b.getWorkStartedAt())));
         }).toList();
     }
     private static OffsetDateTime offset(LocalDateTime value) { return value == null ? null : value.atOffset(VN); }

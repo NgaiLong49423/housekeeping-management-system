@@ -19,6 +19,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmailForUpdate(@Param("email") String email);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select user from User user where user.userId = :userId")
+    Optional<User> findByUserIdForUpdate(@Param("userId") Long userId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select user from User user where user.userId=:userId and user.role=com.housekeeping.management.enums.UserRole.CUSTOMER and user.status=com.housekeeping.management.enums.UserStatus.ACTIVE")
     Optional<User> findActiveCustomerByIdForUpdate(@Param("userId") Long userId);
 }

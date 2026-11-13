@@ -1,12 +1,11 @@
 package com.housekeeping.management.service;
 
-import com.housekeeping.management.enums.StaffType;
-import com.housekeeping.management.entity.Staff;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 
 public interface AdminBookingManagementService {
 
-    public void cancelConfirmedBooking(Long bookingId, Long adminId, String reason);
-    public void reassignConfirmedBooking(Long bookingId, Long adminId, Long replacementStaffId);
-    public void verifyDisputedArrival(Long bookingId, Long adminId, LocalDateTime actualArrivalAt, String note);}
+    void cancelConfirmedBooking(Long bookingId, Long adminId, String reason);
+    void reassignConfirmedBooking(Long bookingId, Long adminId, Long replacementStaffId);
+    void verifyDisputedArrival(Long bookingId, Long adminId, LocalDateTime actualArrivalAt, String note);
+    void verifyStaffNotArrived(Long bookingId, Long adminId, String note);
+}

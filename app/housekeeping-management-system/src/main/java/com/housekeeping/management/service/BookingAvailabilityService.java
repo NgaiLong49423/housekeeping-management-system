@@ -22,4 +22,4 @@ import java.util.stream.Collectors;
 public interface BookingAvailabilityService {
 
     public BookingAvailabilityOptions options(LocalDate date,List<Long> serviceIds,Long selectedStaffId, LocalTime selectedTime,Long customerId,Long houseId);
-    public BookingAvailabilityDates availableDates(List<Long> serviceIds, Long selectedStaffId);}
+    public BookingAvailabilityDates availableDates(List<Long> serviceIds, Long selectedStaffId, Long customerId, Long houseId);}

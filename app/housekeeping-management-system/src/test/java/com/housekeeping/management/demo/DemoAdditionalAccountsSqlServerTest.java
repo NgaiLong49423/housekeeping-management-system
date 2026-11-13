@@ -2,8 +2,10 @@ package com.housekeeping.management.demo;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -91,7 +93,7 @@ class DemoAdditionalAccountsSqlServerTest {
                 .isZero();
         assertThat(jdbc.queryForObject("""
                 SELECT h.recipient_name FROM dbo.Houses h JOIN dbo.Users u ON u.user_id=h.customer_id
-                WHERE u.email=N'customer@demo.gonnha.local'
+                WHERE u.email=N'customer@demo.gonnha.local' AND h.is_deleted=0
                 """, String.class)).isEqualTo("Trần Thị Thu Hà");
     }
 
@@ -137,16 +139,46 @@ class DemoAdditionalAccountsSqlServerTest {
     }
 
     @Test
+    void originalDemoCustomerCanLoadAvailableDatesWithItsDefaultHouse() throws Exception {
+        Long customerId = jdbc.queryForObject("SELECT user_id FROM dbo.Users WHERE email=?", Long.class,
+                "customer@demo.gonnha.local");
+        Long houseId = jdbc.queryForObject("SELECT house_id FROM dbo.Houses WHERE customer_id=? AND is_default=1 AND is_deleted=0",
+                Long.class, customerId);
+        Long staffId = jdbc.queryForObject("""
+                SELECT staff.staff_id FROM dbo.Staff staff JOIN dbo.Users account ON account.user_id=staff.user_id
+                WHERE account.email=N'staff5@demo.gonnha.local' AND account.status='ACTIVE'
+                """, Long.class);
+        Long serviceId = jdbc.queryForObject("SELECT TOP (1) service_id FROM dbo.Services WHERE status='ACTIVE' ORDER BY duration_minutes",
+                Long.class);
+        PortalUser customer = new PortalUser(customerId, "customer@demo.gonnha.local", "unused-hash",
+                "Trần Thị Thu Hà", "CUSTOMER");
+
+        mvc.perform(get("/customer/bookings/availability-dates").with(user(customer))
+                        .param("houseId", houseId.toString()).param("staffId", staffId.toString())
+                        .param("serviceIds", serviceId.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.dates").isArray())
+                .andExpect(jsonPath("$.dates.length()").value(org.hamcrest.Matchers.greaterThan(0)));
+    }
+
+    @Test
     void phoneNumbersStayUniqueAndMigrationsCanRunAgainWithoutDuplicates() throws Exception {
         int usersBefore = jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Users", Integer.class);
         int housesBefore = jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Houses", Integer.class);
-        jdbc.execute(script("db/shared/V32__rename_demo_accounts_to_realistic_names.sql"));
+        jdbc.execute(script("db/shared/V35__rename_demo_accounts_to_realistic_names.sql"));
         jdbc.execute(script("db/shared/V33__seed_additional_demo_staff_and_customers.sql"));
+        jdbc.execute(script("db/refactor/V38__make_default_demo_house_bookable.sql"));
+        jdbc.execute(script("db/refactor/V38__make_default_demo_house_bookable.sql"));
 
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Users", Integer.class)).isEqualTo(usersBefore);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Houses", Integer.class)).isEqualTo(housesBefore);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) - COUNT(DISTINCT phone) FROM dbo.Users", Integer.class))
                 .isZero();
+        // V39 thay nhà mặc định của Customer demo bằng địa chỉ công khai; chạy lại V38 không đổi địa chỉ đó.
+        assertThat(jdbc.queryForObject(
+                "SELECT address_detail FROM dbo.Houses WHERE customer_id=? AND is_default=1 AND is_deleted=0",
+                String.class, jdbc.queryForObject("SELECT user_id FROM dbo.Users WHERE email=?", Long.class,
+                        "customer@demo.gonnha.local"))).isEqualTo("13-15 Nguyễn Thái Học");
     }
 
     @Test

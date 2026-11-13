@@ -187,6 +187,7 @@ class BookingFinancialServiceTest {
         var entry=new BookingFinancialEntry(); entry.setEntryId(9L); entry.setBookingId(42L);
         entry.setCaseId(11L); entry.setEntryType("COMPENSATION"); entry.setStatus("APPROVED");
         when(entries.findByIdForUpdate(9L)).thenReturn(Optional.of(entry));
+        when(cases.staffInvestigationFinalized(11L)).thenReturn(true);
         when(cases.hasSufficientEvidence(11L)).thenReturn(true);
         when(payoutResponses.findByEntryIdForUpdate(9L)).thenReturn(Optional.empty());
         assertThatThrownBy(()->service.settle(9L,2L,"CASH","SIM-1",true))
@@ -203,6 +204,17 @@ class BookingFinancialServiceTest {
         org.assertj.core.api.Assertions.assertThat(response.getResponseStatus()).isEqualTo("SETTLED");
         org.assertj.core.api.Assertions.assertThat(response.getEncryptedAccountDetails()).isNull();
         verify(payoutResponses).save(response);
+    }
+
+    @Test void compensationSettlementWaitsForFinalStaffResponsibilityDecision() {
+        var entry=new BookingFinancialEntry(); entry.setEntryId(19L); entry.setBookingId(42L);
+        entry.setCaseId(11L); entry.setEntryType("COMPENSATION"); entry.setStatus("APPROVED");
+        when(entries.findByIdForUpdate(19L)).thenReturn(Optional.of(entry));
+        when(cases.staffInvestigationFinalized(11L)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.settle(19L,2L,"CASH","REF-19",false))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("Manager chốt cuối trách nhiệm Staff");
+        verify(entries, never()).settle(anyLong(),anyLong(),anyString(),anyString(),anyBoolean(),anyString());
     }
 
     @Test void cancellingAcceptedTransferProposalClearsEncryptedBankDetails() {

@@ -56,11 +56,6 @@ class DemoProfileSqlServerTest {
         registry.add("spring.datasource.password", SQL_SERVER::getPassword);
         registry.add("app.evidence.storage-root", () ->
                 Path.of(System.getProperty("java.io.tmpdir"), "hsf302-demo-profile-test-evidence").toString());
-        // Profile demo giờ trỏ vào database chính (không có dữ liệu mẫu); tài khoản demo chỉ được seed bởi
-        // bộ migration demo cũ db/refactor + db/shared, nên test này chỉ định rõ bộ migration đó.
-        registry.add("spring.flyway.locations", () -> "classpath:db/refactor,classpath:db/shared");
-        registry.add("spring.flyway.table", () -> "flyway_schema_history");
-        registry.add("spring.flyway.baseline-on-migrate", () -> "false");
     }
 
     @Autowired private JdbcTemplate jdbc;
@@ -69,9 +64,15 @@ class DemoProfileSqlServerTest {
 
     @Test
     void demoProfileMigratesSeedsAndAuthenticatesAllFourRolesOnSqlServer() throws Exception {
-        // Cùng 28 bảng nghiệp vụ như database chính.
+        // Cùng số bảng nghiệp vụ như database chính.
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA='dbo' AND TABLE_TYPE='BASE TABLE' AND TABLE_NAME<>'flyway_schema_history'",
-                Integer.class)).isEqualTo(28);
+                Integer.class)).isEqualTo(29);
+        assertThat(jdbc.queryForObject("""
+                SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA='dbo' AND TABLE_NAME='Users' AND COLUMN_NAME='must_change_password'
+                """, Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Users WHERE must_change_password = 1", Integer.class))
+                .isZero();
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM dbo.Company_Operating_Hours", Integer.class)).isEqualTo(7);
         // Bốn tài khoản gốc của V3; các migration demo sau (V11, V33) thêm tài khoản khác với cùng mật khẩu demo.
         assertThat(jdbc.queryForObject("""

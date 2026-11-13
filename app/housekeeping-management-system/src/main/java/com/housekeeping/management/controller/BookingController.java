@@ -105,6 +105,7 @@ public class BookingController {
         }
         List<BookingCard> items = query.bookings(user);
         model.addAttribute("bookings", items);
+        model.addAttribute("now", OffsetDateTime.now(java.time.ZoneOffset.ofHours(7)));
         if ("CUSTOMER".equals(user.getRole())) {
             model.addAttribute("pendingCompensationBookingIds",financials.customerCompensationOffers(user.getAccountId()).stream()
                     .filter(offer -> "PENDING_CUSTOMER".equals(offer.responseStatus()))
@@ -143,44 +144,47 @@ public class BookingController {
 
     @GetMapping("/customer/bookings/availability-options")
     @org.springframework.web.bind.annotation.ResponseBody
-    BookingAvailabilityOptions availabilityOptions(@RequestParam LocalDate workDate,
+    org.springframework.http.ResponseEntity<?> availabilityOptions(@RequestParam LocalDate workDate,
             @RequestParam List<Long> serviceIds, @RequestParam(required = false) Long staffId,
             @RequestParam(required = false) String startTime,@RequestParam Long houseId,
             @AuthenticationPrincipal PortalUser user) {
         if (user == null || !"CUSTOMER".equals(user.getRole())) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         try {
-            return bookingAvailability.options(workDate,serviceIds,staffId,
-                    startTime == null || startTime.isBlank() ? null : LocalTime.parse(startTime),user.getUserId(),houseId);
+            return org.springframework.http.ResponseEntity.ok(bookingAvailability.options(workDate,serviceIds,staffId,
+                    startTime == null || startTime.isBlank() ? null : LocalTime.parse(startTime),user.getUserId(),houseId));
         } catch (IllegalArgumentException | IllegalStateException | java.time.DateTimeException failure) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,failure.getMessage(),failure);
+            return org.springframework.http.ResponseEntity.badRequest().body(
+                    org.springframework.http.ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,failure.getMessage()));
         }
     }
 
     @GetMapping("/customer/bookings/availability-dates")
     @org.springframework.web.bind.annotation.ResponseBody
-    BookingAvailabilityDates availabilityDates(@RequestParam List<Long> serviceIds,
-            @RequestParam(required = false) Long staffId, @AuthenticationPrincipal PortalUser user) {
+    org.springframework.http.ResponseEntity<?> availabilityDates(@RequestParam List<Long> serviceIds,
+            @RequestParam(required = false) Long staffId, @RequestParam Long houseId,
+            @AuthenticationPrincipal PortalUser user) {
         if (user == null || !"CUSTOMER".equals(user.getRole())) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         try {
-            return bookingAvailability.availableDates(serviceIds,staffId);
+            return org.springframework.http.ResponseEntity.ok(bookingAvailability.availableDates(serviceIds,staffId,user.getUserId(),houseId));
         } catch (IllegalArgumentException failure) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,failure.getMessage(),failure);
+            return org.springframework.http.ResponseEntity.badRequest().body(
+                    org.springframework.http.ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,failure.getMessage()));
         }
     }
 
     @GetMapping("/customer/bookings/house-service-area")
     @org.springframework.web.bind.annotation.ResponseBody
-    HouseAreaStatus houseServiceArea(@RequestParam Long houseId,@AuthenticationPrincipal PortalUser user) {
-        if(user==null||!"CUSTOMER".equals(user.getRole()))throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+    HouseAreaStatus houseServiceArea(@RequestParam Long houseId, @AuthenticationPrincipal PortalUser user) {
+        if (user == null || !"CUSTOMER".equals(user.getRole())) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         try {
-            var assessment=houses.assessCustomerHouseServiceArea(user.getUserId(),houseId);
-            return new HouseAreaStatus(assessment.eligible(),assessment.message());
-        } catch(IllegalArgumentException|IllegalStateException failure) {
-            return new HouseAreaStatus(false,"Chưa kiểm tra được bán kính phục vụ. Vui lòng thử lại.");
+            var assessment = houses.assessCustomerHouseServiceArea(user.getUserId(), houseId);
+            return new HouseAreaStatus(assessment.eligible(), assessment.message());
+        } catch (IllegalArgumentException | IllegalStateException failure) {
+            return new HouseAreaStatus(false, "Chưa kiểm tra được bán kính phục vụ. Vui lòng thử lại.");
         }
     }
 
-    record HouseAreaStatus(boolean eligible,String message) { }
+    record HouseAreaStatus(boolean eligible, String message) { }
 
     @PostMapping("/customer/bookings")
     String create(@AuthenticationPrincipal PortalUser user, @Valid @ModelAttribute BookingForm bookingForm,
@@ -193,7 +197,6 @@ public class BookingController {
             return "redirect:/customer/bookings/" + id;
         } catch (IllegalArgumentException | IllegalStateException failure) {
             model.addAttribute("error", PortalMessages.business(failure));
-            if (isOutOfServiceArea(failure)) model.addAttribute("houseServiceAreaError", failure.getMessage());
             return newBooking(user, bookingForm.houseId(), model);
         }
     }
@@ -213,7 +216,6 @@ public class BookingController {
         int created = 0;
         List<String> failures = new java.util.ArrayList<>();
         List<java.util.Map<String,Object>> retryDays=new java.util.ArrayList<>();
-        boolean serviceAreaFailure = false;
         for (int index = 0; index < workDates.size(); index++) {
             LocalDate date = workDates.get(index);
             try {
@@ -225,36 +227,48 @@ public class BookingController {
                 String message = PortalMessages.business(failure);
                 failures.add(date + ": " + message);
                 retryDays.add(java.util.Map.of("date",date.toString(),"staffId",staffIds.get(index),"time",startTimes.get(index).toString()));
-                serviceAreaFailure |= isOutOfServiceArea(failure);
             }
         }
         if (!failures.isEmpty()) {
             flash.addFlashAttribute("bookingRetryState",java.util.Map.of("houseId",houseId,"serviceIds",serviceIds,
                     "areaNote",areaNote==null?"":areaNote,"days",retryDays));
             if (created > 0) flash.addFlashAttribute("warning", "Đã tạo " + created + " lịch. Khi nhân viên đến, hãy xác nhận trên từng lịch để tiện theo dõi. Các ngày còn lại chưa đặt được: " + String.join("; ",failures));
-            else flash.addFlashAttribute("error", serviceAreaFailure ? "Chưa tạo được lịch nào vì địa chỉ nằm ngoài bán kính phục vụ." : "Chưa tạo được lịch nào. " + String.join("; ",failures));
-            if(serviceAreaFailure)flash.addFlashAttribute("houseServiceAreaError", "Địa chỉ nhà này nằm ngoài bán kính phục vụ của công ty. Hãy chọn địa chỉ khác hoặc liên hệ Admin.");
+            else flash.addFlashAttribute("error", "Chưa tạo được lịch nào. " + String.join("; ",failures));
             return "redirect:/customer/bookings/new?houseId=" + houseId;
         }
         if (created > 0) flash.addFlashAttribute("success", "Đã tạo " + created + " lịch hẹn riêng cho các ngày bạn chọn. Khi nhân viên đến, hãy xác nhận trên từng lịch để tiện theo dõi.");
         return "redirect:/customer/bookings";
     }
 
-    private static boolean isOutOfServiceArea(RuntimeException failure) {
-        return failure.getMessage() != null && failure.getMessage().startsWith("Địa chỉ nằm ngoài bán kính phục vụ");
-    }
-
     @GetMapping({"/customer/bookings/{id}", "/staff/bookings/{id}", "/admin/bookings/{id}", "/manager/bookings/{id}"})
     String detail(@PathVariable Long id, @AuthenticationPrincipal PortalUser user, Model model) {
         BookingCard booking = query.booking(id, user);
         List<DetailCard> details = query.details(id, user);
+        OffsetDateTime now = OffsetDateTime.now(java.time.ZoneOffset.ofHours(7));
         model.addAttribute("booking", booking);
-        model.addAttribute("now", OffsetDateTime.now(java.time.ZoneOffset.ofHours(7)));
+        model.addAttribute("now", now);
+        if (user.isAdmin()) model.addAttribute("customerCancellationHistory", query.customerCancellationHistory(id, user));
+        boolean customerVerifiedArrival = booking.customerArrivedAt() != null || booking.arrivalVerifiedAt() != null;
+        boolean customerDelayReportOpen = booking.customerDelayReportedAt() != null && !customerVerifiedArrival;
+        boolean acceptedEta = "ACCEPTED".equals(booking.incidentCustomerResponse())
+                && booking.incidentExpectedArrivalAt() != null
+                && booking.staffArrivedAt() != null
+                && !booking.staffArrivedAt().isAfter(booking.incidentExpectedArrivalAt());
+        boolean lateArrival = booking.staffArrivedAt() != null && booking.staffArrivedAt().isAfter(booking.start());
+        boolean startAllowed = !customerDelayReportOpen && (customerVerifiedArrival || acceptedEta
+                || (booking.incidentReportedAt() == null && !lateArrival));
         model.addAttribute("staffCanStartWork", "CONFIRMED".equals(booking.status())
-                && (booking.staffArrivedAt() != null || booking.arrivalVerifiedAt() != null)
-                && booking.workStartedAt() == null
-                && (booking.customerDelayReportedAt() == null || booking.arrivalVerifiedAt() != null)
-                && (booking.incidentReportedAt() == null || "ACCEPTED".equals(booking.incidentCustomerResponse())));
+                && booking.staffArrivedAt() != null && booking.workStartedAt() == null && startAllowed);
+        model.addAttribute("staffStartBlockMessage", customerDelayReportOpen
+                ? (booking.adminNoShowVerifiedAt() != null && booking.customerWaitedAt() != null
+                    ? "Khách đã chọn đợi sau khi Admin xác minh nhân viên chưa tới. Admin cần xác nhận giờ đến thực tế trước khi bắt đầu."
+                    : "Khách đã báo giờ đến chưa đúng. Cần khách xác nhận nhân viên đã có mặt hoặc Admin xác minh trước khi bắt đầu.")
+                : booking.incidentReportedAt() != null && !customerVerifiedArrival && !acceptedEta
+                    ? "Cần khách đồng ý giờ đến trễ hoặc xác nhận nhân viên đã có mặt trước khi bắt đầu."
+                    : lateArrival
+                        && booking.incidentReportedAt() == null && !customerVerifiedArrival
+                            ? "Nhân viên đến trễ cần gửi giờ dự kiến và chờ khách đồng ý, hoặc khách xác nhận nhân viên đã có mặt."
+                            : null);
         model.addAttribute("details", details);
         model.addAttribute("bookingImages", query.bookingImages(id, user));
         if (user.isAdmin() || "CUSTOMER".equals(user.getRole())) model.addAttribute("assignableStaff", query.staff(user));
@@ -330,7 +344,21 @@ public class BookingController {
             incidents.respond(id, user.getAccountId(), response);
             flash.addFlashAttribute("success", "DECLINED".equals(response)
                     ? "Đã hủy miễn phí lịch do Staff đến trễ. Admin có thể xem lại sự cố."
-                    : "Đã ghi nhận bạn đồng ý chờ. Mức giảm sẽ tính theo thời điểm Staff thực tế đến.");
+                    : "Đã ghi nhận phản hồi. Nếu ETA đã lỡ, bạn vẫn có thể hủy miễn phí trước khi bắt đầu; để tiếp tục, hãy xác nhận giờ đến thực tế hoặc báo Admin xác minh.");
+        } catch (IllegalArgumentException | IllegalStateException failure) {
+            flash.addFlashAttribute("error", PortalMessages.business(failure));
+        }
+        return "redirect:/customer/bookings/" + id;
+    }
+
+    @PostMapping("/customer/bookings/{id}/arrival-dispute-response")
+    String respondToArrivalDispute(@PathVariable Long id, @RequestParam String response,
+            @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
+        try {
+            customerDelayReports.respondAfterAdminReview(id, user.getAccountId(), response);
+            flash.addFlashAttribute("success", "WAIT".equals(response)
+                    ? "Đã ghi nhận bạn chọn đợi thêm. Mức giảm do trễ sẽ theo giờ đến Admin xác minh."
+                    : "Đã hủy miễn phí lịch vì nhân viên đến trễ.");
         } catch (IllegalArgumentException | IllegalStateException failure) {
             flash.addFlashAttribute("error", PortalMessages.business(failure));
         }
@@ -339,8 +367,14 @@ public class BookingController {
 
     @PostMapping("/customer/bookings/{id}/cancel")
     String cancel(@PathVariable Long id, @AuthenticationPrincipal PortalUser user, RedirectAttributes flash) {
-        cancellation.cancelByCustomer(id, user.getAccountId());
-        flash.addFlashAttribute("success", "Đã hủy lịch hẹn và giải phóng thời gian.");
+        try {
+            cancellation.cancelByCustomer(id, user.getAccountId());
+            flash.addFlashAttribute("success", "Đã hủy lịch miễn phí và giải phóng thời gian.");
+        } catch (IllegalArgumentException | IllegalStateException failure) {
+            flash.addFlashAttribute("error", failure.getMessage());
+        } catch (org.springframework.security.access.AccessDeniedException failure) {
+            flash.addFlashAttribute("error", "Bạn không có quyền thao tác lịch hẹn này.");
+        }
         return "redirect:/customer/bookings/" + id;
     }
 

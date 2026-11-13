@@ -48,7 +48,30 @@ public final class PortalViews {
             Integer feedbackRating, List<String> feedbackTopics, List<String> feedbackTopicCodes,
             OffsetDateTime customerDelayReportedAt, OffsetDateTime arrivalVerifiedAt,
             OffsetDateTime arrivalVerificationRecordedAt, Long arrivalVerifiedBy,
-            String arrivalVerificationSource, String arrivalVerificationNote, boolean cancellable) {
+            String arrivalVerificationSource, String arrivalVerificationNote,
+            OffsetDateTime adminNoShowVerifiedAt, Long adminNoShowVerifiedBy, String adminNoShowNote,
+            OffsetDateTime customerWaitedAt, boolean cancellable) {
+        public BookingCard(Long id, Long customerId, Long staffId, String customerName, String staffName,
+                OffsetDateTime start, OffsetDateTime end, String status, BigDecimal amount,
+                String paymentStatus, String method, String feedbackContent, String adminReply, String feedbackStatus,
+                String addressSnapshot, String addressNoteSnapshot, String areaNote, String cancellationReason,
+                OffsetDateTime customerArrivedAt, String customerPhone, OffsetDateTime staffArrivedAt,
+                OffsetDateTime incidentReportedAt, String incidentNote, OffsetDateTime incidentExpectedArrivalAt,
+                String incidentCustomerResponse, OffsetDateTime incidentCustomerRespondedAt, OffsetDateTime workStartedAt,
+                Integer delayMinutes, BigDecimal delayDiscountPercent, BigDecimal delayDiscountAmount,
+                Integer feedbackRating, List<String> feedbackTopics, List<String> feedbackTopicCodes,
+                OffsetDateTime customerDelayReportedAt, OffsetDateTime arrivalVerifiedAt,
+                OffsetDateTime arrivalVerificationRecordedAt, Long arrivalVerifiedBy,
+                String arrivalVerificationSource, String arrivalVerificationNote, boolean cancellable) {
+            this(id, customerId, staffId, customerName, staffName, start, end, status, amount,
+                    paymentStatus, method, feedbackContent, adminReply, feedbackStatus, addressSnapshot,
+                    addressNoteSnapshot, areaNote, cancellationReason, customerArrivedAt, customerPhone,
+                    staffArrivedAt, incidentReportedAt, incidentNote, incidentExpectedArrivalAt,
+                    incidentCustomerResponse, incidentCustomerRespondedAt, workStartedAt, delayMinutes,
+                    delayDiscountPercent, delayDiscountAmount, feedbackRating, feedbackTopics, feedbackTopicCodes,
+                    customerDelayReportedAt, arrivalVerifiedAt, arrivalVerificationRecordedAt, arrivalVerifiedBy,
+                    arrivalVerificationSource, arrivalVerificationNote, null, null, null, null, cancellable);
+        }
         public BookingCard(Long id, Long customerId, Long staffId, String customerName, String staffName,
                 OffsetDateTime start, OffsetDateTime end, String status, BigDecimal amount,
                 String paymentStatus, String method, String feedbackContent, String adminReply, String feedbackStatus,
@@ -131,6 +154,7 @@ public final class PortalViews {
         public boolean isCancellable() { return cancellable; }
     }
     public record EvidenceCard(Long id, String uploadedAt) { }
+    public record CancellationCard(Long bookingId, String reasonCode, String reasonNote, OffsetDateTime cancelledAt) { }
     public record FeedbackCard(Long id, Long bookingId, String customerName, Integer rating, List<String> topics,
             String content, String adminReply, String status, String bookingStatus, java.time.LocalDateTime bookingStart,
             BigDecimal bookingAmount, String staffName) {
@@ -229,7 +253,15 @@ public final class PortalViews {
         public String getStatusLabel() { return switch(status) { case "PAID" -> "Đã chi/hoàn"; case "SIMULATED" -> "Đã mô phỏng (không phát sinh tiền thật)"; case "APPROVED" -> "Đã duyệt, chờ thực hiện"; case "PROPOSED", "PENDING_APPROVAL" -> "Chờ duyệt"; case "REJECTED" -> "Không được duyệt"; case "CANCELLED" -> "Đã hủy"; default -> "Đang xử lý"; }; }
     }
     public record FinancialSummary(BigDecimal serviceRevenue, BigDecimal refundsAndReductions,
-            BigDecimal remediationAndCompensation, BigDecimal staffRecovery, BigDecimal net, BigDecimal simulated) { }
+            BigDecimal remediationAndCompensation, BigDecimal staffRecovery, BigDecimal net,
+            BigDecimal cashRevenue, BigDecimal onlineRevenue, BigDecimal simulatedAdjustments) {
+        public FinancialSummary(BigDecimal serviceRevenue, BigDecimal refundsAndReductions,
+                BigDecimal remediationAndCompensation, BigDecimal staffRecovery, BigDecimal net,
+                BigDecimal simulatedAdjustments) {
+            this(serviceRevenue, refundsAndReductions, remediationAndCompensation, staffRecovery, net,
+                    BigDecimal.ZERO, BigDecimal.ZERO, simulatedAdjustments);
+        }
+    }
     public record AdminAccountCard(Long userId, String name, String email, String phone, String status,
             String statusReason, LocalDateTime statusChangedAt) { }
     public record CustomerAccountCard(Long userId, String name, String email, String phone, boolean active,

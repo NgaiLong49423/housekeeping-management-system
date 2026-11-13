@@ -1,6 +1,5 @@
 package com.housekeeping.management.service;
 
-import com.housekeeping.management.enums.TravelStatus;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -8,12 +7,17 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.housekeeping.management.enums.StaffType;
+import com.housekeeping.management.enums.TravelStatus;
 import com.housekeeping.management.enums.UserRole;
 import com.housekeeping.management.enums.UserStatus;
+import com.housekeeping.management.dto.BookingDelayCompensation;
 import com.housekeeping.management.entity.Staff;
 import com.housekeeping.management.entity.User;
 import com.housekeeping.management.entity.House;
+import com.housekeeping.management.entity.Booking;
+import com.housekeeping.management.enums.BookingStatus;
 import com.housekeeping.management.repository.BookingPersistenceRepository;
+import com.housekeeping.management.repository.CancellationLogRepository;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,8 +31,9 @@ class AdminBookingManagementServiceTest {
     private final HouseService houses = mock(HouseService.class);
     private final CompanySettingsService companySettings = mock(CompanySettingsService.class);
     private final BookingDelayCompensationSettingsService compensationSettings = mock(BookingDelayCompensationSettingsService.class);
+    private final CancellationLogRepository cancellationLogs = mock(CancellationLogRepository.class);
     private final AdminBookingManagementService service = new com.housekeeping.management.service.impl.AdminBookingManagementServiceImpl(
-            bookings, staffManagement, authorization, reservations, houses, companySettings, compensationSettings);
+            bookings, staffManagement, authorization, reservations, houses, companySettings, compensationSettings, cancellationLogs);
 
     @BeforeEach
     void setup() {
@@ -36,7 +41,7 @@ class AdminBookingManagementServiceTest {
                 51L, 4L, 12L, 22L, LocalDateTime.of(2026, 11, 1, 10, 0), LocalDateTime.of(2026, 11, 1, 12, 0), "CONFIRMED", java.math.BigDecimal.TEN, java.math.BigDecimal.TEN);
         when(bookings.findBooking(51L)).thenReturn(Optional.of(confirmed));
         when(bookings.lockBooking(51L)).thenReturn(Optional.of(confirmed));
-        when(houses.isWithinServiceRadius(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
+        when(bookings.lockBookingWorkflow(51L)).thenReturn(Optional.of(workflow("CONFIRMED")));
     }
 
     @Test
@@ -51,13 +56,41 @@ class AdminBookingManagementServiceTest {
 
     @Test
     void adminCannotCancelAwaitingPaymentOrCompletedBooking() {
-        when(bookings.lockBooking(51L)).thenReturn(Optional.of(new BookingPersistenceRepository.BookingState(
-                51L, 4L, 12L, 22L, LocalDateTime.now(), LocalDateTime.now().plusHours(2), "AWAITING_PAYMENT", null, null)));
+        when(bookings.lockBookingWorkflow(51L)).thenReturn(Optional.of(workflow("AWAITING_PAYMENT")));
 
         assertThatThrownBy(() -> service.cancelConfirmedBooking(51L, 99L, "reason"))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("CONFIRMED");
         verify(bookings, never()).cancel(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void adminCanVerifyStaffHasNotArrivedAfterCustomerReport() {
+        LocalDateTime now = LocalDateTime.now(java.time.ZoneOffset.ofHours(7)).withNano(0);
+        Booking booking = new Booking();
+        booking.setBookingId(51L);
+        booking.setCustomerId(4L);
+        booking.setStaffId(12L);
+        booking.setStatus(BookingStatus.CONFIRMED);
+        booking.setStartTime(now.minusMinutes(10));
+        booking.setEndTime(now.plusHours(1));
+        booking.setCustomerDelayReportedAt(now.minusMinutes(5));
+        when(bookings.lockEntity(51L)).thenReturn(Optional.of(booking));
+        when(bookings.verifyStaffNotArrived(org.mockito.ArgumentMatchers.eq(51L), org.mockito.ArgumentMatchers.eq(99L),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("Đã gọi khách"))).thenReturn(1);
+
+        service.verifyStaffNotArrived(51L, 99L, "  Đã gọi khách  ");
+
+        verify(authorization).requireActiveAdmin(99L);
+        verify(bookings).verifyStaffNotArrived(org.mockito.ArgumentMatchers.eq(51L), org.mockito.ArgumentMatchers.eq(99L),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("Đã gọi khách"));
+    }
+
+    private BookingPersistenceRepository.BookingWorkflowState workflow(String status) {
+        return new BookingPersistenceRepository.BookingWorkflowState(51L, 4L, 12L,
+                LocalDateTime.of(2026, 11, 1, 10, 0), LocalDateTime.of(2026, 11, 1, 12, 0), status,
+                new java.math.BigDecimal("150000"), null, null, null, null, null, null, null, null,
+                java.math.BigDecimal.ZERO, java.math.BigDecimal.ZERO);
     }
 
     @Test
@@ -71,7 +104,9 @@ class AdminBookingManagementServiceTest {
                 start.plusMinutes(10), null, null, null, null, null);
         when(bookings.lockBookingWorkflow(51L)).thenReturn(Optional.of(workflow));
         when(compensationSettings.get()).thenReturn(java.util.List.of(
-                new com.housekeeping.management.dto.BookingDelayCompensation.Tier(1, 15, 5)));
+                new BookingDelayCompensation.Tier(1, 15, 5),
+                new BookingDelayCompensation.Tier(16, 30, 10),
+                new BookingDelayCompensation.Tier(31, null, 20)));
         when(bookings.verifyDisputedArrival(org.mockito.ArgumentMatchers.eq(51L), org.mockito.ArgumentMatchers.eq(99L),
                 org.mockito.ArgumentMatchers.eq(actualArrival), org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.eq("Đã đối chiếu"), org.mockito.ArgumentMatchers.anyInt(),
@@ -82,9 +117,9 @@ class AdminBookingManagementServiceTest {
         verify(authorization).requireActiveAdmin(99L);
         verify(bookings).verifyDisputedArrival(org.mockito.ArgumentMatchers.eq(51L), org.mockito.ArgumentMatchers.eq(99L),
                 org.mockito.ArgumentMatchers.eq(actualArrival), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.eq("Đã đối chiếu"), org.mockito.ArgumentMatchers.eq(15),
-                org.mockito.ArgumentMatchers.eq(new java.math.BigDecimal("5")),
-                org.mockito.ArgumentMatchers.eq(new java.math.BigDecimal("7500.00")));
+                org.mockito.ArgumentMatchers.eq("Đã đối chiếu"), org.mockito.ArgumentMatchers.eq(20),
+                org.mockito.ArgumentMatchers.eq(new java.math.BigDecimal("10")),
+                org.mockito.ArgumentMatchers.eq(new java.math.BigDecimal("15000.00")));
     }
 
     @Test
@@ -99,7 +134,7 @@ class AdminBookingManagementServiceTest {
         when(reservations.assessTravel(org.mockito.ArgumentMatchers.eq(13L),org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.eq(51L))).thenReturn(new BookingReservationService.TravelAssessment(
-                        TravelStatus.OVERLAP,"Nhân viên thay thế đã có booking trùng giờ.",
+                TravelStatus.OVERLAP,"Nhân viên thay thế đã có booking trùng giờ.",
                         null,null,0,0,0,52L));
 
         assertThatThrownBy(() -> service.reassignConfirmedBooking(51L, 99L, 13L))
@@ -129,7 +164,7 @@ class AdminBookingManagementServiceTest {
         when(reservations.assessTravel(org.mockito.ArgumentMatchers.eq(13L),org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.eq(51L))).thenReturn(new BookingReservationService.TravelAssessment(
-                        TravelStatus.FEASIBLE,"",null,null,0,0,0,null));
+                TravelStatus.FEASIBLE,"",null,null,0,0,0,null));
         when(bookings.assignStaff(51L, 12L, 13L)).thenReturn(1);
 
         service.reassignConfirmedBooking(51L, 99L, 13L);

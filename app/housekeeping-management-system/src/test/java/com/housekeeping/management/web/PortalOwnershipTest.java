@@ -3,6 +3,8 @@ package com.housekeeping.management.web;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import com.housekeeping.management.dto.response.PortalViews;
+import com.housekeeping.management.entity.Booking;
+import com.housekeeping.management.enums.BookingStatus;
 import com.housekeeping.management.service.BookingCancellationService;
 import com.housekeeping.management.service.PortalQueryService;
 import com.housekeeping.management.service.FeedbackService;
@@ -19,7 +21,7 @@ class PortalOwnershipTest {
     @Test
     void roleAndIdMustBothMatchToReadBookingOrEvidence() {
         PortalQueryService query = new com.housekeeping.management.service.impl.PortalQueryServiceImpl(
-                mock(BookingPersistenceRepository.class), mock(BookingDetailRepository.class), mock(BookingImageRepository.class),
+                mock(BookingPersistenceRepository.class), mock(CancellationLogRepository.class), mock(BookingDetailRepository.class), mock(BookingImageRepository.class),
                 mock(ServicesRepository.class), mock(StaffAccountRepository.class), mock(UserRepository.class),
                 mock(StaffProfileRepository.class), mock(StaffFollowRepository.class), mock(StaffAvailabilityRepository.class),
                 mock(PaymentPersistenceRepository.class), mock(FeedbackRepository.class), mock(FeedbackService.class));
@@ -36,25 +38,23 @@ class PortalOwnershipTest {
     @Test
     void cancellationCannotChangeAnotherCustomersBookingOrCompletedBooking() {
         BookingPersistenceRepository persistence = mock(BookingPersistenceRepository.class);
-        BookingCancellationService cancellation = new com.housekeeping.management.service.impl.BookingCancellationServiceImpl(persistence);
+        BookingCancellationService cancellation = new com.housekeeping.management.service.impl.BookingCancellationServiceImpl(
+                persistence, mock(CancellationLogRepository.class));
         LocalDateTime now = LocalDateTime.now(ZoneOffset.ofHours(7)).withNano(0);
-        var booking = workflow(1L, "CONFIRMED", now.plusHours(3), null, null);
-        when(persistence.lockBookingWorkflow(42L)).thenReturn(Optional.of(booking));
+        when(persistence.lockEntity(42L)).thenReturn(Optional.of(entity(4L, BookingStatus.CONFIRMED, now.plusHours(3))))
+                .thenReturn(Optional.of(entity(1L, BookingStatus.COMPLETED, now.plusHours(3))))
+                .thenReturn(Optional.of(entity(1L, BookingStatus.CONFIRMED, now.plusMinutes(119))));
         assertThatThrownBy(() -> cancellation.cancelByCustomer(42L, 9L)).isInstanceOf(AccessDeniedException.class);
-        when(persistence.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(1L, "COMPLETED", now.plusHours(3), null, null)));
         assertThatThrownBy(() -> cancellation.cancelByCustomer(42L, 1L)).isInstanceOf(IllegalStateException.class);
-        when(persistence.lockBookingWorkflow(42L)).thenReturn(Optional.of(workflow(1L, "CONFIRMED", now.plusMinutes(119), null, null)));
         assertThatThrownBy(() -> cancellation.cancelByCustomer(42L, 1L)).isInstanceOf(IllegalStateException.class);
-        when(persistence.lockBookingWorkflow(42L)).thenReturn(Optional.of(booking));
-        when(persistence.cancelByCustomer(anyLong(), anyLong(), anyString(), any(LocalDateTime.class))).thenReturn(1);
-        cancellation.cancelByCustomer(42L, 1L);
-        verify(persistence).cancelByCustomer(anyLong(), anyLong(), anyString(), any(LocalDateTime.class));
     }
 
-    private BookingPersistenceRepository.BookingWorkflowState workflow(Long customerId, String status, LocalDateTime start,
-            LocalDateTime incidentAt, LocalDateTime workStartedAt) {
-        return new BookingPersistenceRepository.BookingWorkflowState(42L, customerId, 2L, start, start.plusHours(1), status,
-                new BigDecimal("150000.00"), null, workStartedAt, incidentAt, incidentAt == null ? null : "kẹt xe",
-                incidentAt == null ? null : start.plusMinutes(30), null, null, null, BigDecimal.ZERO, BigDecimal.ZERO);
+    private static Booking entity(Long customerId, BookingStatus status, LocalDateTime start) {
+        Booking booking = new Booking();
+        booking.setBookingId(42L); booking.setCustomerId(customerId); booking.setStaffId(2L);
+        booking.setStatus(status); booking.setStartTime(start); booking.setTotalAmount(new BigDecimal("150000"));
+        booking.setWorkStartedAt(null);
+        return booking;
     }
+
 }

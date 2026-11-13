@@ -39,29 +39,30 @@ public class VietmapClient {
     public List<Suggestion> autocomplete(String query) {
         requireKey();
         try {
-            if (client == null) return fallbackSuggestions(query);
+            if (client == null) throw new IllegalStateException("Chưa cấu hình kết nối VietMap.");
             List<Map<String, Object>> json = client.get().uri(uri -> uri.path("/api/autocomplete/v4")
                     .queryParam("apikey", properties.apiKey()).queryParam("text", query).build())
                     .retrieve().body(new org.springframework.core.ParameterizedTypeReference<>() { });
-            if (json == null) return fallbackSuggestions(query);
+            if (json == null) throw new IllegalStateException("VietMap không trả về danh sách địa chỉ.");
             java.util.ArrayList<Suggestion> results = new java.util.ArrayList<>();
             json.forEach(row -> {
                 String id = text(row.get("ref_id"));
                 String display = text(row.get("display"));
                 if (id != null && display != null) results.add(new Suggestion(id, display));
             });
-            return results.isEmpty() ? fallbackSuggestions(query) : List.copyOf(results);
+            return List.copyOf(results);
         } catch (RestClientException e) {
-            return fallbackSuggestions(query);
+            throw new IllegalStateException("VietMap tạm thời không thể tìm địa chỉ. Hãy thử lại sau.", e);
         }
     }
 
     public Place place(String refId) {
         requireKey();
+        if (refId == null || refId.isBlank()) {
+            throw new IllegalArgumentException("Hãy chọn một kết quả địa chỉ VietMap.");
+        }
         try {
-            if (client == null || (refId != null && refId.startsWith("ref-demo-"))) {
-                return fallbackPlace(refId);
-            }
+            if (client == null) throw new IllegalStateException("Chưa cấu hình kết nối VietMap.");
             Map<String, Object> json = client.get().uri(uri -> uri.path("/api/place/v4").queryParam("apikey", properties.apiKey())
                     .queryParam("refid", refId).build()).retrieve().body(new org.springframework.core.ParameterizedTypeReference<>() { });
             if (json == null || json.get("lat") == null || json.get("lng") == null) throw new IllegalArgumentException("Địa chỉ VietMap không có tọa độ hợp lệ.");
@@ -76,8 +77,19 @@ public class VietmapClient {
             return new Place(display, text(json.get("address")), text(json.get("city")), text(json.get("district")), text(json.get("ward")),
                     latitude, longitude);
         } catch (RestClientException e) {
-            return fallbackPlace(refId);
+            throw new IllegalStateException("Không thể xác minh địa chỉ với VietMap. Hãy chọn lại kết quả địa chỉ.", e);
         }
+    }
+
+    public Place geocodeAddress(String address) {
+        if (address == null || address.isBlank() || address.trim().length() < 3 || address.length() > 500) {
+            throw new IllegalArgumentException("Địa chỉ cần ít nhất 3 ký tự và tối đa 500 ký tự để xác định tuyến.");
+        }
+        List<Suggestion> suggestions = autocomplete(address.trim());
+        if (suggestions.isEmpty()) {
+            throw new IllegalArgumentException("VietMap chưa xác định được địa chỉ này. Hãy bổ sung số nhà, đường hoặc phường/xã.");
+        }
+        return place(suggestions.getFirst().refId());
     }
 
     public int motorcycleMinutes(BigDecimal fromLat, BigDecimal fromLng, BigDecimal toLat, BigDecimal toLng) {
@@ -93,9 +105,7 @@ public class VietmapClient {
             LocalDateTime plannedDeparture) {
         requireKey();
         try {
-            if (client == null) {
-                return new MotorcycleRoute(new BigDecimal("5000"), 15);
-            }
+            if (client == null) throw new IllegalStateException("Chưa cấu hình kết nối VietMap.");
             Map<String, Object> json = client.get().uri(uri -> uri.path("/api/route/v4").queryParam("apikey", properties.apiKey())
                     .queryParam("point", fromLat + "," + fromLng, toLat + "," + toLng)
                     .queryParam("vehicle", "motorcycle")
@@ -114,7 +124,7 @@ public class VietmapClient {
             return new MotorcycleRoute(BigDecimal.valueOf(distanceNumber.doubleValue()),
                     Math.toIntExact((timeNumber.longValue() + 59_999) / 60_000));
         } catch (RestClientException e) {
-            return new MotorcycleRoute(new BigDecimal("5000"), 15);
+            throw new IllegalStateException("Không thể xác minh tuyến đường với VietMap. Hãy thử lại sau.", e);
         }
     }
 
@@ -128,60 +138,6 @@ public class VietmapClient {
             eta=timeAwareEta;
         }
         return eta;
-    }
-
-    private static final List<Suggestion> DEMO_SUGGESTIONS = List.of(
-        new Suggestion("ref-demo-vinhomes", "Bs16 VinHome Grand Park, Phường Long Bình, TP. Thủ Đức, TP. Hồ Chí Minh"),
-        new Suggestion("ref-demo-hcm-q1", "135 Đường Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh"),
-        new Suggestion("ref-demo-hcm-binhthanh", "208 Đường Nguyễn Hữu Cảnh, Phường 22, Quận Bình Thạnh, TP. Hồ Chí Minh"),
-        new Suggestion("ref-demo-binhdinh-quynhon", "01 Đường Ngô Mây, Phường Ngô Mây, TP. Quy Nhơn, Tỉnh Bình Định"),
-        new Suggestion("ref-demo-binhdinh-annhon", "Đường Quang Trung, Phường Bình Định, Thị xã An Nhơn, Tỉnh Bình Định"),
-        new Suggestion("ref-demo-binhdinh-tuyphuoc", "Thị trấn Diêu Trì, Huyện Tuy Phước, Tỉnh Bình Định"),
-        new Suggestion("ref-demo-hanoi-hoankiem", "01 Phố Đinh Tiên Hoàng, Phường Hàng Bạc, Quận Hoàn Kiếm, TP. Hà Nội"),
-        new Suggestion("ref-demo-hanoi-caugiay", "144 Đường Xuân Thủy, Phường Dịch Vọng Hậu, Quận Cầu Giấy, TP. Hà Nội"),
-        new Suggestion("ref-demo-danang-haichau", "155 Đường Bạch Đằng, Phường Hải Châu 1, Quận Hải Châu, TP. Đà Nẵng")
-    );
-
-    private List<Suggestion> fallbackSuggestions(String query) {
-        if (query == null || query.isBlank()) return DEMO_SUGGESTIONS;
-        String q = query.trim().toLowerCase();
-        List<Suggestion> filtered = new java.util.ArrayList<>();
-        for (Suggestion s : DEMO_SUGGESTIONS) {
-            if (s.display().toLowerCase().contains(q)) {
-                filtered.add(s);
-            }
-        }
-        if (filtered.isEmpty()) {
-            filtered.add(new Suggestion("ref-demo-custom-hcm-" + Math.abs(query.trim().hashCode()), query.trim() + ", TP. Hồ Chí Minh"));
-            filtered.add(new Suggestion("ref-demo-custom-bd-" + Math.abs(query.trim().hashCode()), query.trim() + ", Tỉnh Bình Định"));
-        }
-        return List.copyOf(filtered);
-    }
-
-    private Place fallbackPlace(String refId) {
-        if (refId != null && refId.contains("binhdinh")) {
-            return new Place("01 Đường Ngô Mây, Phường Ngô Mây, TP. Quy Nhơn, Tỉnh Bình Định", "01 Đường Ngô Mây", "Tỉnh Bình Định", "TP. Quy Nhơn", "Phường Ngô Mây",
-                    new BigDecimal("13.7820000"), new BigDecimal("109.2197000"));
-        }
-        if (refId != null && refId.contains("hanoi")) {
-            return new Place("01 Phố Đinh Tiên Hoàng, Phường Hàng Bạc, Quận Hoàn Kiếm, TP. Hà Nội", "01 Phố Đinh Tiên Hoàng", "TP. Hà Nội", "Quận Hoàn Kiếm", "Phường Hàng Bạc",
-                    new BigDecimal("21.0285000"), new BigDecimal("105.8542000"));
-        }
-        if (refId != null && refId.contains("danang")) {
-            return new Place("155 Đường Bạch Đằng, Phường Hải Châu 1, Quận Hải Châu, TP. Đà Nẵng", "155 Đường Bạch Đằng", "TP. Đà Nẵng", "Quận Hải Châu", "Phường Hải Châu 1",
-                    new BigDecimal("16.0544000"), new BigDecimal("108.2022000"));
-        }
-        if (refId != null && refId.contains("q1")) {
-            return new Place("135 Đường Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh", "135 Đường Nguyễn Huệ", "TP. Hồ Chí Minh", "Quận 1", "Phường Bến Nghé",
-                    new BigDecimal("10.7769000"), new BigDecimal("106.7009000"));
-        }
-        if (refId != null && refId.contains("binhthanh")) {
-            return new Place("208 Đường Nguyễn Hữu Cảnh, Phường 22, Quận Bình Thạnh, TP. Hồ Chí Minh", "208 Đường Nguyễn Hữu Cảnh", "TP. Hồ Chí Minh", "Quận Bình Thạnh", "Phường 22",
-                    new BigDecimal("10.7930000"), new BigDecimal("106.7210000"));
-        }
-        return new Place("Bs16 VinHome Grand Park, Phường Long Bình, TP. Thủ Đức, TP. Hồ Chí Minh",
-                "Bs16 VinHome Grand Park, Đường Nguyễn Xiển", "TP. Hồ Chí Minh", "TP. Thủ Đức", "Phường Long Bình",
-                new BigDecimal("10.8499000"), new BigDecimal("106.8402000"));
     }
 
     private void requireKey() { if (properties.apiKey() == null || properties.apiKey().isBlank()) throw new IllegalStateException("Chưa cấu hình VIETMAP_API_KEY ở máy chủ."); }
